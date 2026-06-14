@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
 const API = "https://api.vdarpp.com";
@@ -1311,8 +1311,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState(""); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState("");
   const [showAddChild, setShowAddChild] = useState(false); const [newChildName, setNewChildName] = useState(""); const [newChildBirthDate, setNewChildBirthDate] = useState("");
+  const [activeMemRef, setActiveMemRef] = useState(undefined);
   // Which person are we adding a memory for? undefined = general/user
-  const [activeMemRef, setActiveMemRef] = useState<string|undefined>(undefined);
 
   const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null);
   const authH = { "x-token": token };
@@ -1584,7 +1584,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
             <div onClick={()=>setShowAddChild(!showAddChild)} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
             {familyMembers.map((m,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:\"center\",fontWeight:700,fontSize:14,color:\"#fff\",flexShrink:0}}>{m.name[0]?.toUpperCase()}</div>
+                <div style={{width:36,height:36,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{m.name[0]?.toUpperCase()}</div>
                 <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{m.role}</div></div>
                 <button onClick={()=>{setActiveMemRef(m.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
                 <button onClick={()=>setFamilyMembers(familyMembers.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
