@@ -1297,12 +1297,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const [memories, setMemories] = useState<Memory[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"memories"))||"[]");}catch{return[];} });
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"family"))||"[]");}catch{return[];} });
-  const [milestoneChecks, setMilestoneChecks] = useState<boolean[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones"))||"[]");}catch{return[];} });
-  const [pregMilestoneChecks, setPregMilestoneChecks] = useState<boolean[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"pregmilestones"))||"[]");}catch{return[];} });
-  const [lastCheckedPregIdx, setLastCheckedPregIdx] = useState<number|null>(null);
-  const [lastCheckedIdx, setLastCheckedIdx] = useState<number|null>(null);
-  const [shopItems, setShopItems] = useState<string[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"shopitems"))||"[]");}catch{return[];} });
-  const [superItems, setSuperItems] = useState<string[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"superitems"))||"[]");}catch{return[];} });
+  const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones_map"))||"{}");}catch{return {};} });
+  const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
+  const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
+  const [shopItems, setShopItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"shopitems")); return s?JSON.parse(s):["Silicone teether","Travel crib","High contrast books","Floor gym"];}catch{return[];} });
+  const [superItems, setSuperItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"superitems")); return s?JSON.parse(s):["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];}catch{return[];} });
 
   const [tab, setTab] = useState<"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
   const [input, setInput] = useState("");
@@ -1343,8 +1342,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   useEffect(()=>{localStorage.setItem(sk(token,"threads"),JSON.stringify(threads));},[threads]);
   useEffect(()=>{localStorage.setItem(sk(token,"memories"),JSON.stringify(memories));},[memories]);
   useEffect(()=>{localStorage.setItem(sk(token,"family"),JSON.stringify(familyMembers));},[familyMembers]);
-  useEffect(()=>{localStorage.setItem(sk(token,"milestones"),JSON.stringify(milestoneChecks));},[milestoneChecks]);
-  useEffect(()=>{localStorage.setItem(sk(token,"pregmilestones"),JSON.stringify(pregMilestoneChecks));},[pregMilestoneChecks]);
+  useEffect(()=>{localStorage.setItem(sk(token,"milestones_map"),JSON.stringify(milestoneChecksMap));},[milestoneChecksMap]);
   useEffect(()=>{localStorage.setItem(sk(token,"shopitems"),JSON.stringify(shopItems));},[shopItems]);
   useEffect(()=>{localStorage.setItem(sk(token,"superitems"),JSON.stringify(superItems));},[superItems]);
 
@@ -1403,19 +1401,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     setMemInput("");
   };
 
-  const toggleMilestone = (idx: number) => {
-    const next=[...milestoneChecks]; next[idx]=!next[idx]; setMilestoneChecks(next);
-    if(next[idx]) setLastCheckedIdx(idx);
-    else if(lastCheckedIdx===idx) setLastCheckedIdx(null);
+  const toggleMilestone = (ref: string, idx: number) => {
+    const current = !!(milestoneChecksMap[ref]||[])[idx];
+    setMilestoneChecksMap(prev => { const arr=[...(prev[ref]||[])]; arr[idx]=!arr[idx]; return {...prev,[ref]:arr}; });
+    setLastCheckedMap(prev=>({...prev,[ref]:current?null:idx}));
   };
-  const checkedCount = milestoneChecks.filter(Boolean).length;
-
-  const togglePregMilestone = (idx: number) => {
-    const next=[...pregMilestoneChecks]; next[idx]=!next[idx]; setPregMilestoneChecks(next);
-    if(next[idx]) setLastCheckedPregIdx(idx);
-    else if(lastCheckedPregIdx===idx) setLastCheckedPregIdx(null);
-  };
-  const pregCheckedCount = pregMilestoneChecks.filter(Boolean).length;
+  const getChecksForRef = (ref: string): boolean[] => milestoneChecksMap[ref]||[];
 
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
@@ -1433,9 +1424,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   };
 
   const buildShoppingList = () => {
-    const dP=["Silicone teether","Travel crib","High contrast books","Floor gym"];
-    const dS=["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];
-    return `🛍️ Shopping:\n${[...dP,...shopItems].map(i=>`• ${i}`).join("\n")}\n\n🛒 Supermarket:\n${[...dS,...superItems].map(i=>`• ${i}`).join("\n")}`;
+    return `🛍️ Shopping:\n${shopItems.map(i=>`• ${i}`).join("\n")}\n\n🛒 Supermarket:\n${superItems.map(i=>`• ${i}`).join("\n")}`;
   };
 
   const dir=L.d as "ltr"|"rtl";
@@ -1571,6 +1560,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{child.name[0]?.toUpperCase()}</div>
                 <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{age}</div></div>
                 <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
+                <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+coral,borderRadius:7,color:coral,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
               </div>);
             })}
             {showAddChild&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
@@ -1654,81 +1644,94 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         </div>}
 
         {/* ── MILESTONES ── */}
-        {tab==="milestones"&&(<>
-          {pregnancyActive?(
-          <>
-          <div style={card}>
-            <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
-            <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
-          </div>
-          <div style={card}>
-            <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
-            <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
-            {pregMilestoneList.map((m,i)=>(
-              <div key={i}>
-                <div onClick={()=>togglePregMilestone(i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:`1px solid ${gl}`,cursor:"pointer"}}>
-                  <div style={{width:22,height:22,borderRadius:"50%",background:pregMilestoneChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:pregMilestoneChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:pregMilestoneChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{pregMilestoneChecks[i]?"✓":"○"}</div>
-                  <div style={{fontSize:13,fontWeight:500,color:pregMilestoneChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
-                </div>
-                {pregMilestoneChecks[i]&&lastCheckedPregIdx===i&&(
-                  <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:`1px solid ${teal}`,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
-                    {getPregnancyMilestoneMsg(i, pregMilestoneList.length, lang)}
+        {tab==="milestones"&&(()=>{
+          const msRefs: {label:string,value:string}[] = [];
+          if(pregnancyActive) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
+          getAllChildren(profile).forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
+          const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value;
+          const isPreg = effectiveRef==="pregnancy";
+          const currentChild = isPreg?null:getAllChildren(profile).find(ch=>ch.name===effectiveRef);
+          const currentChecks = getChecksForRef(effectiveRef||"");
+          const currentLastIdx = lastCheckedMap[effectiveRef||""]??null;
+          const currentMilestoneList = isPreg?pregMilestoneList:(currentChild?getMilestones(ageMonthsFromBirthDate(currentChild.birthDate)??parseAgeMonths(profile.childAge),lang):milestoneList);
+          const currentDisplayAge = currentChild?formatChildAge(currentChild.birthDate,lang):displayAge;
+          const currentChildName = currentChild?.name||primaryChildName;
+          const currentCheckedCount = currentChecks.filter(Boolean).length;
+          return (<>
+            {msRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+              {msRefs.map((r,i)=>(
+                <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
+              ))}
+            </div>}
+            {isPreg&&pregnancyActive&&(<>
+            <div style={card}>
+              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
+              <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
+            </div>
+            <div style={card}>
+              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
+              <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
+              {currentMilestoneList.map((m,i)=>(
+                <div key={i}>
+                  <div onClick={()=>toggleMilestone("pregnancy",i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:currentChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {pregCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:`1.5px solid ${teal}`,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
-            🎉 {t("week_label",lang)} {pregWeek} — {pregCheckedCount}/{pregMilestoneList.length} {t("pregnancymilestones_title",lang)}
-          </div>}
-          <div style={card}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-              <div>
-                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  {currentChecks[i]&&currentLastIdx===i&&(
+                    <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:"1px solid "+teal,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
+                      {getPregnancyMilestoneMsg(i,currentMilestoneList.length,lang)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
+              🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}
+            </div>}
+            <div style={card}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+                <div>
+                  <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
+                  <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                </div>
               </div>
             </div>
-          </div>
-          </>
-          ):null}
-          {allChildren.length>0?(<>
-          <div style={card}>
-            <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {primaryChildName} · {displayAge}</div>
-            <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("tickall",lang)}</div>
-            {milestoneList.map((m,i)=>(
-              <div key={i}>
-                <div onClick={()=>toggleMilestone(i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:`1px solid ${gl}`,cursor:"pointer"}}>
-                  <div style={{width:22,height:22,borderRadius:"50%",background:milestoneChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:milestoneChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:milestoneChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{milestoneChecks[i]?"✓":"○"}</div>
-                  <div style={{fontSize:13,fontWeight:500,color:milestoneChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
-                </div>
-                {milestoneChecks[i]&&lastCheckedIdx===i&&(
-                  <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:`1px solid ${teal}`,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
-                    {getMilestoneMsg(i, milestoneList.length, lang)}
+            </>)}
+            {currentChild&&(<>
+            <div style={card}>
+              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
+              <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("tickall",lang)}</div>
+              {currentMilestoneList.map((m,i)=>(
+                <div key={i}>
+                  <div onClick={()=>toggleMilestone(effectiveRef!,i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:currentChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {checkedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:`1.5px solid ${teal}`,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
-            🎉 {primaryChildName} — {checkedCount}/{milestoneList.length} milestones!
-          </div>}
-          <div style={card}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-              <div>
-                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                <button onClick={()=>prefillChat(lang === "el" ? `Ποια είναι τα επόμενα milestones για παιδί ${displayAge};` : lang === "ar" ? `ما هي الإنجازات التطورية القادمة لطفل بعمر ${displayAge}؟` : lang === "zh" ? `${displayAge}宝宝接下来的发育里程碑是什么？` : lang === "es" ? `¿Cuáles son los próximos hitos del desarrollo para un bebé de ${displayAge}?` : lang === "fr" ? `Quelles sont les prochaines étapes du développement pour un bébé de ${displayAge}?` : lang === "de" ? `Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von ${displayAge}?` : lang === "ru" ? `Каковы следующие вехи развития для ребёнка в возрасте ${displayAge}?` : lang === "tr" ? `${displayAge} yaşındaki bebek için sıradaki gelişim aşamaları neler?` : lang === "hi" ? `${displayAge} के बच्चे के लिए अगले विकास के मील के पत्थर क्या हैं?` : lang === "ja" ? `${displayAge}の赤ちゃんの次の発達マイルストーンは何ですか？` : `What are the next developmental milestones for a baby aged ${displayAge}?`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  {currentChecks[i]&&currentLastIdx===i&&(
+                    <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:"1px solid "+teal,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
+                      {getMilestoneMsg(i,currentMilestoneList.length,lang)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
+              🎉 {currentChildName} — {currentCheckedCount}/{currentMilestoneList.length} milestones!
+            </div>}
+            <div style={card}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+                <div>
+                  <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
+                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="hi"?currentDisplayAge+" के बच्चे के लिए अगले विकास के मील के पत्थर क्या हैं?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                </div>
               </div>
             </div>
-          </div>
-          </>):(!pregnancyActive?(
-          <div style={card}>
-            <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nochildyet",lang)}</div>
-          </div>
-          ):null)}
-        </>)}
-
+            </>)}
+            {!effectiveRef&&<div style={card}><div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nochildyet",lang)}</div></div>}
+          </>);
+        })()}
         {/* ── SHOPPING ── */}
         {tab==="shopping"&&<div style={card}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping · {displayAge}</div>
@@ -1738,21 +1741,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           </div>
 
           {shopTab==="p"&&(<>
-            {[
-              {ico:"🦷",name:"Silicone teether",desc:"Great for teething",badge:"4+ mo",bc:"#F5C5A3"},
-              {ico:"🛏️",name:"Travel crib",desc:"Lightweight, easy setup",badge:"✓ Trend",bc:"#E8F7F4"},
-              {ico:"📚",name:"High contrast books",desc:"Develops vision",badge:"0–6 mo",bc:"#F5C5A3"},
-              {ico:"🎵",name:"Floor gym",desc:"Sensory stimulation",badge:"⭐ Top",bc:"#FFF3E0"},
-            ].map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${gl}`}}>
-                <div style={{width:36,height:36,borderRadius:8,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{item.ico}</div>
-                <div style={{flex:1}}><div style={{fontSize:12.5,fontWeight:600,color:"#2B2420"}}>{item.name}</div><div style={{fontSize:11,color:"#7A7068"}}>{item.desc}</div></div>
-                <span style={{fontSize:10,fontWeight:700,borderRadius:6,padding:"2px 6px",background:item.bc,color:navy,whiteSpace:"nowrap" as any,flexShrink:0,marginRight:8}}>{item.badge}</span>
-                <button onClick={()=>{}} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:16,padding:2}}>×</button>
-              </div>
-            ))}
             {shopItems.map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderTop:`1px solid ${gl}`}}>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid "+gl}}>
                 <div style={{width:36,height:36,borderRadius:8,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>📦</div>
                 <div style={{fontSize:12.5,fontWeight:600,color:"#2B2420",flex:1}}>{item}</div>
                 <button onClick={()=>setShopItems(shopItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
@@ -1765,21 +1755,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           </>)}
 
           {shopTab==="s"&&(<>
-            {[
-              {ico:"🥛",name:"Infant Formula Stage 2",desc:"800g · Aptamil",price:"€18.90"},
-              {ico:"🧴",name:"Baby Shampoo",desc:"400ml · Johnson's Baby",price:"€4.50"},
-              {ico:"🩺",name:"Nappies No3",desc:"52pcs · Pampers",price:"€14.99"},
-              {ico:"🧸",name:"Baby Wipes",desc:"3×72pcs · WaterWipes",price:"€9.99"},
-            ].map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:`1px solid ${gl}`}}>
-                <div style={{width:34,height:34,borderRadius:7,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{item.ico}</div>
-                <div style={{flex:1}}><div style={{fontSize:12.5,fontWeight:600,color:"#2B2420"}}>{item.name}</div><div style={{fontSize:11,color:"#7A7068"}}>{item.desc}</div></div>
-                <div style={{fontSize:13,fontWeight:700,color:navy,flexShrink:0,marginRight:6}}>{item.price}</div>
-                <button onClick={()=>{}} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:16,padding:2}}>×</button>
-              </div>
-            ))}
             {superItems.map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderTop:`1px solid ${gl}`}}>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:"1px solid "+gl}}>
                 <div style={{width:34,height:34,borderRadius:7,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🛒</div>
                 <div style={{fontSize:12.5,fontWeight:600,color:"#2B2420",flex:1}}>{item}</div>
                 <button onClick={()=>setSuperItems(superItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
