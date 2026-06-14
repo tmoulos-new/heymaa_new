@@ -10,6 +10,7 @@ interface Message { role: "user" | "assistant"; content: string; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
 interface FamilyMember { name: string; role: string; color: string; email?: string; phone?: string; }
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
+interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
 const LANGS = [
   {c:"el",f:"🇬🇷",n:"Ελληνικά",d:"ltr",s:"ΕΛ"},{c:"en",f:"🇬🇧",n:"English",d:"ltr",s:"EN"},
@@ -1172,8 +1173,40 @@ const TR: Record<string,Record<string,string>> = {
   memberphone:{el:"Κινητό τηλέφωνο (προαιρετικό)",en:"Phone number (optional)",ar:"رقم الهاتف (اختياري)",es:"Teléfono (opcional)",fr:"Téléphone (facultatif)",de:"Telefonnummer (optional)",pt:"Telefone (opcional)",it:"Telefono (opzionale)",ru:"Телефон (необязательно)",tr:"Telefon numarası (isteğe bağlı)",hi:"फ़ोन नंबर (वैकल्पिक)",ur:"فون نمبر (اختیاری)",zh:"电话号码（选填）",ja:"電話番号（任意）",nl:"Telefoonnummer (optioneel)",pl:"Numer telefonu (opcjonalnie)",ro:"Număr de telefon (opțional)",bn:"ফোন নম্বর (ঐচ্ছিক)",id:"Nomor telepon (opsional)",sw:"Nambari ya simu (si lazima)",fil:"Numero ng telepono (opsyonal)",mr:"फोन नंबर (पर्यायी)",te:"ఫోన్ నంబర్ (ఐచ్ఛికం)"},
   nochildyet:{el:"Δεν έχεις προσθέσει ακόμα παιδί. Πρόσθεσέ το από την καρτέλα Οικογένεια για να δεις τα ορόσημά του.",en:"You haven't added a child yet. Add one from the Family tab to see their milestones.",ar:"لم تضيفي طفلاً بعد. أضيفيه من تبويب العائلة لعرض إنجازاته التطورية.",es:"Aún no has añadido un hijo/a. Añádelo en la pestaña Familia para ver sus hitos.",fr:"Vous n'avez pas encore ajouté d'enfant. Ajoutez-le dans l'onglet Famille pour voir ses étapes.",de:"Du hast noch kein Kind hinzugefügt. Füge es im Tab Familie hinzu, um die Meilensteine zu sehen.",pt:"Ainda não adicionaste um filho/a. Adiciona-o no separador Família para ver os marcos.",it:"Non hai ancora aggiunto un bambino. Aggiungilo nella scheda Famiglia per vedere le tappe.",ru:"Вы ещё не добавили ребёнка. Добавьте его на вкладке Семья, чтобы увидеть этапы развития.",tr:"Henüz çocuk eklemediniz. Gelişim aşamalarını görmek için Aile sekmesinden ekleyin.",hi:"आपने अभी तक बच्चा नहीं जोड़ा है। मील के पत्थर देखने के लिए परिवार टैब से जोड़ें।",ur:"آپ نے ابھی تک بچہ شامل نہیں کیا۔ سنگ میل دیکھنے کے لیے فیملی ٹیب سے شامل کریں۔",zh:"您还没有添加孩子。请在家庭标签中添加以查看发育里程碑。",ja:"まだお子さんが登録されていません。家族タブから追加するとマイルストーンが表示されます。",nl:"Je hebt nog geen kind toegevoegd. Voeg het toe via het tabblad Familie om mijlpalen te zien.",pl:"Nie dodałaś jeszcze dziecka. Dodaj je w zakładce Rodzina, aby zobaczyć kamienie milowe.",ro:"Nu ai adăugat încă un copil. Adaugă-l din fila Familie pentru a vedea reperele.",bn:"আপনি এখনও কোনো শিশু যুক্ত করেননি। মাইলফলক দেখতে পরিবার ট্যাব থেকে যুক্ত করুন।",id:"Anda belum menambahkan anak. Tambahkan dari tab Keluarga untuk melihat tonggak perkembangannya.",sw:"Bado hujamuongeza mtoto. Mwongeze kwenye kichupo cha Familia kuona hatua zake za maendeleo.",fil:"Wala ka pang naidagdag na anak. Idagdag sa tab ng Pamilya para makita ang mga milestone.",mr:"तुम्ही अजून मूल जोडलेले नाही. टप्पे पाहण्यासाठी कुटुंब टॅबमधून जोडा.",te:"మీరు ఇంకా పిల్లలను జోడించలేదు. మైలురాళ్లను చూడటానికి ఫ్యామిలీ టాబ్ నుండి జోడించండి."},
 
+  docs_title:{el:"Αρχείο Εγγράφων",en:"Document Archive",ar:"أرشيف المستندات",zh:"文件档案",es:"Archivo de Documentos",fr:"Archive de Documents",de:"Dokumentenarchiv",pt:"Arquivo de Documentos",it:"Archivio Documenti",ru:"Архив Документов",tr:"Belge Arşivi",hi:"दस्तावेज़ संग्रह",ur:"دستاویز آرکائیو",ja:"書類アーカイブ",nl:"Documentenarchief",pl:"Archiwum Dokumentów",ro:"Arhivă Documente",bn:"ডকুমেন্ট আর্কাইভ",id:"Arsip Dokumen",sw:"Kumbukumbu ya Hati",fil:"Archibo ng Dokumento",mr:"दस्तऐवज संग्रह",te:"పత్రాల సంగ్రహం"},
+  docs_hint:{el:"Κράτα εδώ σημείωση για τα έγγραφα που έχεις — ποιον αφορά, τι είναι, πότε. Δεν χρειάζεται να ανεβάσεις αρχεία — απλώς κράτα μια λίστα για να ξέρεις τι έχεις.",en:"Note your documents here — who they concern, what they are, when. No need to upload files — just a list so you always know what you have.",ar:"سجّلي مستنداتك هنا — من تخص، ماذا تعني، ومتى. لا داعي لرفع ملفات — فقط قائمة سريعة.",zh:"在此记录您的文件——涉及谁、是什么、何时。无需上传文件——只需快速列表。",es:"Anota aquí tus documentos — a quién conciernen, qué son, cuándo. Sin subir archivos — solo una lista rápida.",fr:"Notez ici vos documents — qui ils concernent, ce qu'ils sont, quand. Sans téléchargement — juste une liste rapide.",de:"Notiere hier deine Dokumente — wen sie betreffen, was sie sind, wann. Kein Upload — nur eine schnelle Liste.",pt:"Regista os teus documentos aqui — a quem dizem respeito, o que são, quando. Sem uploads — só uma lista rápida.",it:"Annota qui i tuoi documenti — chi riguardano, cosa sono, quando. Senza caricare file — solo un elenco.",ru:"Записывайте свои документы здесь — кого касаются, что это, когда. Без загрузок — просто быстрый список.",tr:"Belgelerini burada not et — kimi ilgilendiriyor, ne, ne zaman. Dosya yüklemene gerek yok — sadece hızlı bir liste.",hi:"यहाँ अपने दस्तावेज़ नोट करें — किससे संबंधित, क्या है, कब। अपलोड की ज़रूरत नहीं — बस एक सूची।",ur:"یہاں اپنی دستاویزات نوٹ کریں — کس سے متعلق، کیا ہے، کب۔ اپلوڈ کی ضرورت نہیں — بس ایک فہرست۔",ja:"ここに書類をメモしましょう — 誰に関係するか、何か、いつか。アップロード不要 — 何があるかわかるリストだけ。",nl:"Noteer hier je documenten — wie ze betreffen, wat ze zijn, wanneer. Geen uploads — alleen een snelle lijst.",pl:"Notuj tu swoje dokumenty — kogo dotyczą, co to jest, kiedy. Bez przesyłania — tylko szybka lista.",ro:"Notează-ți documentele aici — pe cine privesc, ce sunt, când. Fără încărcări — doar o listă rapidă.",bn:"এখানে আপনার নথি নোট করুন — কার সংক্রান্ত, কী, কখন। আপলোড দরকার নেই — শুধু একটি তালিকা।",id:"Catat dokumenmu di sini — siapa yang terkait, apa, kapan. Tidak perlu upload — cukup daftar cepat.",sw:"Andika hati zako hapa — zinamhusu nani, ni nini, lini. Hakuna haja ya kupakia — orodha tu ya haraka.",fil:"Itala ang iyong mga dokumento dito — sino ang may kaugnayan, ano, kailan. Hindi kailangang mag-upload — listahan lang.",mr:"इथे तुमचे दस्तऐवज नोंदवा — कुणाचे, काय, केव्हा। अपलोडची गरज नाही — फक्त एक यादी.",te:"ఇక్కడ మీ పత్రాలను నమోదు చేయండి — ఎవరికి సంబంధించినది, ఏమిటి, ఎప్పుడు. అప్‌లోడ్ అవసరం లేదు — కేవలం ఒక జాబితా."},
+  docs_empty:{el:"Δεν υπάρχουν καταχωρίσεις ακόμα.",en:"No entries yet.",ar:"لا توجد إدخالات بعد.",zh:"暂无条目。",es:"Aún no hay entradas.",fr:"Aucune entrée pour l'instant.",de:"Noch keine Einträge.",pt:"Ainda sem entradas.",it:"Ancora nessun inserimento.",ru:"Записей пока нет.",tr:"Henüz giriş yok.",hi:"अभी कोई एंट्री नहीं।",ur:"ابھی کوئی اندراج نہیں۔",ja:"まだエントリがありません。",nl:"Nog geen invoer.",pl:"Brak wpisów.",ro:"Nicio înregistrare încă.",bn:"এখনো কোনো এন্ট্রি নেই।",id:"Belum ada entri.",sw:"Bado hakuna maingizo.",fil:"Wala pang mga entry.",mr:"अजून कोणतीही नोंद नाही.",te:"ఇంకా ఎంట్రీలు లేవు."},
+  docs_add_title_ph:{el:"Τίτλος εγγράφου...",en:"Document title...",ar:"عنوان المستند...",zh:"文件标题...",es:"Título del documento...",fr:"Titre du document...",de:"Dokumenttitel...",pt:"Título do documento...",it:"Titolo documento...",ru:"Название документа...",tr:"Belge başlığı...",hi:"दस्तावेज़ शीर्षक...",ur:"دستاویز کا عنوان...",ja:"書類タイトル...",nl:"Documenttitel...",pl:"Tytuł dokumentu...",ro:"Titlul documentului...",bn:"নথির শিরোনাম...",id:"Judul dokumen...",sw:"Kichwa cha hati...",fil:"Pamagat ng dokumento...",mr:"दस्तऐवज शीर्षक...",te:"పత్రం శీర్షిక..."},
+  docs_add_date_ph:{el:"Ημερομηνία (π.χ. Ιαν 2025)",en:"Date (e.g. Jan 2025)",ar:"التاريخ",zh:"日期",es:"Fecha",fr:"Date",de:"Datum",pt:"Data",it:"Data",ru:"Дата",tr:"Tarih",hi:"तारीख",ur:"تاریخ",ja:"日付",nl:"Datum",pl:"Data",ro:"Dată",bn:"তারিখ",id:"Tanggal",sw:"Tarehe",fil:"Petsa",mr:"तारीख",te:"తేదీ"},
+  docs_add_cat_ph:{el:"Κατηγορία (π.χ. Εξετάσεις αίματος)",en:"Category (e.g. Blood tests)",ar:"الفئة (مثل: فحص الدم)",zh:"类别（如：血液检查）",es:"Categoría (ej. Análisis de sangre)",fr:"Catégorie (ex. Analyses de sang)",de:"Kategorie (z.B. Blutuntersuchung)",pt:"Categoria (ex. Análises ao sangue)",it:"Categoria (es. Analisi del sangue)",ru:"Категория (напр. Анализ крови)",tr:"Kategori (örn. Kan tahlili)",hi:"श्रेणी (जैसे रक्त परीक्षण)",ur:"زمرہ (مثلاً خون کی جانچ)",ja:"カテゴリ（例：血液検査）",nl:"Categorie (bijv. Bloedonderzoek)",pl:"Kategoria (np. Badania krwi)",ro:"Categorie (ex. Analize de sânge)",bn:"বিভাগ (যেমন রক্ত পরীক্ষা)",id:"Kategori (mis. Tes darah)",sw:"Aina (mf. Vipimo vya damu)",fil:"Kategorya (hal. Pagsusuri ng dugo)",mr:"श्रेणी (उदा. रक्त तपासणी)",te:"వర్గం (ఉదా. రక్త పరీక్షలు)"},
+  add_to_products:{el:"＋ Στα Προϊόντα",en:"＋ To Products",ar:"＋ للمنتجات",zh:"＋ 加入商品",es:"＋ A Productos",fr:"＋ Aux Produits",de:"＋ Zu Produkten",pt:"＋ Para Produtos",it:"＋ Ai Prodotti",ru:"＋ В Товары",tr:"＋ Ürünlere",hi:"＋ उत्पादों में",ur:"＋ مصنوعات میں",ja:"＋ 商品へ",nl:"＋ Naar Producten",pl:"＋ Do Produktów",ro:"＋ La Produse",bn:"＋ পণ্যে যোগ",id:"＋ Ke Produk",sw:"＋ Kwenye Bidhaa",fil:"＋ Sa Produkto",mr:"＋ उत्पादनात",te:"＋ ఉత్పత్తులకు"},
+  add_to_super:{el:"＋ Στο Σούπερ",en:"＋ To Supermarket",ar:"＋ للسوبرماركت",zh:"＋ 加入超市",es:"＋ Al Supermercado",fr:"＋ Au Supermarché",de:"＋ Zum Supermarkt",pt:"＋ Para Supermercado",it:"＋ Al Supermercato",ru:"＋ В Супермаркет",tr:"＋ Süpermarkete",hi:"＋ सुपरमार्केट में",ur:"＋ سپر مارکیٹ میں",ja:"＋ スーパーへ",nl:"＋ Naar Supermarkt",pl:"＋ Do Supermarketu",ro:"＋ La Supermarket",bn:"＋ সুপারমার্কেটে",id:"＋ Ke Supermarket",sw:"＋ Madukani",fil:"＋ Sa Supermarket",mr:"＋ सुपरमार्केटमध्ये",te:"＋ సూపర్‌మార్కెట్‌కు"},
 };
 
+function detectLang(text: string): string {
+  if(/[\u0600-\u06FF]/.test(text)) return /[\u067E\u0679\u0688\u0691\u06CC\u06BA]/.test(text)?"ur":"ar";
+  if(/[\u3040-\u30FF]/.test(text)) return "ja";
+  if(/[\u4E00-\u9FFF]/.test(text)) return "zh";
+  if(/[\u0980-\u09FF]/.test(text)) return "bn";
+  if(/[\u0C00-\u0C7F]/.test(text)) return "te";
+  if(/[\u0900-\u097F]/.test(text)) return "hi";
+  if(/[\u0400-\u04FF]/.test(text)) return "ru";
+  if(/[\u0370-\u03FF\u1F00-\u1FFF]/.test(text)) return "el";
+  if(/\b(the |and |you |your |baby|week|month)\b/i.test(text)) return "en";
+  if(/\b(vous|votre|b\u00e9b\u00e9|semaine)\b/i.test(text)) return "fr";
+  if(/\b(dein|deine|Woche|Baby)\b/.test(text)) return "de";
+  if(/\b(beb\u00e9|ni\u00f1o|semana)\b/i.test(text)) return "es";
+  if(/\b(tuo|tua|bambino|settimana)\b/i.test(text)) return "it";
+  if(/\b(jouw|baby|maand)\b/i.test(text)) return "nl";
+  if(/\b(teu|beb\u00e9|semana)\b/i.test(text)) return "pt";
+  if(/\b(copilul|bebe|s\u00e4pt\u00e4m\u00e2n)\b/i.test(text)) return "ro";
+  if(/\b(twoje|dziecko|tydzie)\b/i.test(text)) return "pl";
+  if(/\b(senin|bebek|hafta)\b/i.test(text)) return "tr";
+  if(/\b(mtoto|wiki|mwezi)\b/i.test(text)) return "sw";
+  if(/\b(sanggol|linggo|buwan)\b/i.test(text)) return "fil";
+  if(/\b(bayi|minggu|bulan)\b/i.test(text)) return "id";
+  return "";
+}
 function t(key: string, lang: string): string { return TR[key]?.[lang] || TR[key]?.["el"] || TR[key]?.["en"] || key; }
 function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0]; }
 function sk(token: string, suffix: string) { return `hm_${suffix}_${token}`; }
@@ -1300,6 +1333,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones_map"))||"{}");}catch{return {};} });
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
+  const [docs, setDocs] = useState<DocEntry[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"docs"))||"[]");}catch{return[];} });
+  const [activeDocRef, setActiveDocRef] = useState<string>("");
+  const [docTitle, setDocTitle] = useState("");
+  const [docDate, setDocDate] = useState("");
+  const [docCategory, setDocCategory] = useState("");
   const [shopItems, setShopItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"shopitems")); return s?JSON.parse(s):["Silicone teether","Travel crib","High contrast books","Floor gym"];}catch{return[];} });
   const [superItems, setSuperItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"superitems")); return s?JSON.parse(s):["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];}catch{return[];} });
 
@@ -1307,7 +1345,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [input, setInput] = useState("");
   const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
-  const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState(""); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState("");
   const [showAddChild, setShowAddChild] = useState(false); const [newChildName, setNewChildName] = useState(""); const [newChildBirthDate, setNewChildBirthDate] = useState("");
   const [activeMemRef, setActiveMemRef] = useState(undefined);
@@ -1343,6 +1381,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   useEffect(()=>{localStorage.setItem(sk(token,"memories"),JSON.stringify(memories));},[memories]);
   useEffect(()=>{localStorage.setItem(sk(token,"family"),JSON.stringify(familyMembers));},[familyMembers]);
   useEffect(()=>{localStorage.setItem(sk(token,"milestones_map"),JSON.stringify(milestoneChecksMap));},[milestoneChecksMap]);
+  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
+  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
   useEffect(()=>{localStorage.setItem(sk(token,"shopitems"),JSON.stringify(shopItems));},[shopItems]);
   useEffect(()=>{localStorage.setItem(sk(token,"superitems"),JSON.stringify(superItems));},[superItems]);
 
@@ -1352,7 +1392,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     const next = [...messages, userMsg]; setMessages(next); setInput(""); setLoading(true);
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply}]); }
+    const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
+    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply}]); }
     catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
     finally { setLoading(false); }
   };
@@ -1380,7 +1421,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const speak = async (text: string, idx: number) => {
     if (ttsRemaining <= 0) return;
     setPlayingIndex(idx);
-    try { const res = await axios.post(`${API}/tts`,{text,lang},{headers:authH}); const audio = new Audio(`data:audio/mp3;base64,${res.data.audio}`); audio.onended=()=>setPlayingIndex(null); audio.play(); setTtsUsed(u=>u+1); }
+    try { const ttsLang = detectLang(text)||lang; const res = await axios.post(`${API}/tts`,{text,lang:ttsLang},{headers:authH}); const audio = new Audio(`data:audio/mp3;base64,${res.data.audio}`); audio.onended=()=>setPlayingIndex(null); audio.play(); setTtsUsed(u=>u+1); }
     catch { setPlayingIndex(null); }
   };
 
@@ -1435,7 +1476,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     {id:"memories" as const,icon:"🤍",label:t("memories",lang)},
     {id:"milestones" as const,icon:"🏆",label:t("milestones",lang)},
     {id:"shopping" as const,icon:"🛍️",label:t("shopping",lang)},
-    {id:"offers" as const,icon:"🔔",label:t("offers",lang)},
   ];
 
   return (
@@ -1646,7 +1686,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         {/* ── MILESTONES ── */}
         {tab==="milestones"&&(()=>{
           const msRefs: {label:string,value:string}[] = [];
-          if(pregnancyActive) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
+          if(profile.dueDate) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
           getAllChildren(profile).forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
           const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value;
           const isPreg = effectiveRef==="pregnancy";
@@ -1663,7 +1703,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
               ))}
             </div>}
-            {isPreg&&pregnancyActive&&(<>
+            {isPreg&&profile.dueDate&&(<>
             <div style={card}>
               <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
               <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
@@ -1730,6 +1770,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
             </div>
             </>)}
             {!effectiveRef&&<div style={card}><div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nochildyet",lang)}</div></div>}
+            {/* ── DOCUMENTS ── */}
+            <div style={{marginTop:8,background:"#fff",borderRadius:14,padding:16,border:".5px solid rgba(43,58,103,.08)"}}>
+              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
+              <div style={{fontSize:11.5,color:"#7A7068",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
+              {(()=>{
+                const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="hi"?"सामान्य":lang==="ja"?"一般":"General"),value:""}];
+                if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
+                getAllChildren(profile).forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
+                familyMembers.forEach(fm=>docRefs.push({label:"👤 "+fm.name,value:fm.name}));
+                const effDocRef = activeDocRef;
+                const filteredDocs = docs.filter(d=>d.ref===effDocRef);
+                return (<>
+                  {docRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap" as any,marginBottom:12}}>
+                    {docRefs.map((r,i)=>(<button key={i} onClick={()=>setActiveDocRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effDocRef===r.value?navy:gl,color:effDocRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>))}
+                  </div>}
+                  {filteredDocs.length===0?<div style={{fontSize:12.5,color:"#7A7068",textAlign:"center",padding:"12px 0"}}>{t("docs_empty",lang)}</div>:filteredDocs.map((d,i)=>{
+                    const origIdx=docs.indexOf(d);
+                    return(<div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl}}>
+                      <span style={{fontSize:20,flexShrink:0}}>📄</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:navy}}>{d.title}</div>
+                        {d.category&&<div style={{fontSize:11,color:teal,marginTop:1}}>{d.category}</div>}
+                        {d.date&&<div style={{fontSize:10.5,color:"#C8BFB8",marginTop:1}}>{d.date}</div>}
+                        <div style={{fontSize:10,color:"#C8BFB8",marginTop:1}}>{d.addedDate}</div>
+                      </div>
+                      <button onClick={()=>setDocs(docs.filter((_,j)=>j!==origIdx))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4,flexShrink:0}}>×</button>
+                    </div>);
+                  })}
+                  <div style={{borderTop:"1px solid "+gl,paddingTop:10,marginTop:10,display:"flex",flexDirection:"column" as any,gap:7}}>
+                    <input value={docTitle} onChange={e=>setDocTitle(e.target.value)} placeholder={t("docs_add_title_ph",lang)} style={{width:"100%",padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none",boxSizing:"border-box" as any}}/>
+                    <div style={{display:"flex",gap:7}}>
+                      <input value={docDate} onChange={e=>setDocDate(e.target.value)} placeholder={t("docs_add_date_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
+                      <input value={docCategory} onChange={e=>setDocCategory(e.target.value)} placeholder={t("docs_add_cat_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
+                    </div>
+                    <button onClick={()=>{if(!docTitle.trim())return; setDocs([{title:docTitle.trim(),date:docDate.trim(),category:docCategory.trim(),ref:effDocRef,addedDate:new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"})},...docs]); setDocTitle(""); setDocDate(""); setDocCategory("");}} style={{padding:"9px 14px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>＋</button>
+                  </div>
+                </>);
+              })()}
+            </div>
           </>);
         })()}
         {/* ── SHOPPING ── */}
@@ -1738,8 +1817,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
             <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
             <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>
+            <button onClick={()=>setShopTab("o")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="o"?navy:"#fff",color:shopTab==="o"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif",position:"relative" as any}}>🔔 {t("offers",lang)}{offers.length>0&&shopTab!=="o"&&<span style={{position:"absolute",top:4,right:4,width:7,height:7,borderRadius:"50%",background:coral}}/>}</button>
           </div>
-
           {shopTab==="p"&&(<>
             {shopItems.map((item,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid "+gl}}>
@@ -1748,12 +1827,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 <button onClick={()=>setShopItems(shopItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
             ))}
-            <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`}}>
+            <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:"1px solid "+gl}}>
               <input value={shopInput} onChange={e=>setShopInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&shopInput.trim()){setShopItems([...shopItems,shopInput.trim()]);setShopInput("");}}} placeholder={t("additem",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
               <button onClick={()=>{if(shopInput.trim()){setShopItems([...shopItems,shopInput.trim()]);setShopInput("");}}} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>＋</button>
             </div>
+            <div style={{background:navy,borderRadius:10,padding:"10px 12px",marginTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as any,gap:6}}>
+              <span style={{fontSize:11,color:"rgba(255,255,255,.75)",fontWeight:500}}>{t("sendlist",lang)}</span>
+              <div style={{display:"flex",gap:5}}>
+                <button onClick={()=>window.open("https://wa.me/?text="+encodeURIComponent("🛍️ "+t("products",lang)+":\n"+shopItems.map(i=>"• "+i).join("\n")),"_blank")} style={{background:"#25D366",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>WhatsApp</button>
+                <button onClick={()=>window.open("viber://forward?text="+encodeURIComponent("🛍️ "+t("products",lang)+":\n"+shopItems.map(i=>"• "+i).join("\n")),"_blank")} style={{background:"#7360F2",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Viber</button>
+                <button onClick={()=>window.open("mailto:?subject="+t("products",lang)+"&body="+encodeURIComponent("🛍️ "+t("products",lang)+":\n"+shopItems.map(i=>"• "+i).join("\n")))} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Email</button>
+                <button onClick={()=>navigator.share?navigator.share({text:"🛍️ "+t("products",lang)+":\n"+shopItems.map(i=>"• "+i).join("\n")}):window.open("sms:?body="+encodeURIComponent("🛍️ "+t("products",lang)+":\n"+shopItems.map(i=>"• "+i).join("\n")))} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>SMS</button>
+              </div>
+            </div>
           </>)}
-
           {shopTab==="s"&&(<>
             {superItems.map((item,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:"1px solid "+gl}}>
@@ -1762,40 +1849,38 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 <button onClick={()=>setSuperItems(superItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
             ))}
-            <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`}}>
+            <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:"1px solid "+gl}}>
               <input value={superInput} onChange={e=>setSuperInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&superInput.trim()){setSuperItems([...superItems,superInput.trim()]);setSuperInput("");}}} placeholder={t("addtolist",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
               <button onClick={()=>{if(superInput.trim()){setSuperItems([...superItems,superInput.trim()]);setSuperInput("");}}} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer"}}>＋</button>
             </div>
             <div style={{background:navy,borderRadius:10,padding:"10px 12px",marginTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap" as any,gap:6}}>
               <span style={{fontSize:11,color:"rgba(255,255,255,.75)",fontWeight:500}}>{t("sendlist",lang)}</span>
               <div style={{display:"flex",gap:5}}>
-                <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(buildShoppingList())}`,"_blank")} style={{background:"#25D366",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>WhatsApp</button>
-                <button onClick={()=>window.open(`viber://forward?text=${encodeURIComponent(buildShoppingList())}`,"_blank")} style={{background:"#7360F2",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Viber</button>
-                <button onClick={()=>window.open(`mailto:?subject=Shopping List&body=${encodeURIComponent(buildShoppingList())}`)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Email</button>
-                <button onClick={()=>navigator.share?navigator.share({text:buildShoppingList()}):window.open(`sms:?body=${encodeURIComponent(buildShoppingList())}`)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>SMS</button>
+                <button onClick={()=>window.open("https://wa.me/?text="+encodeURIComponent(buildShoppingList()),"_blank")} style={{background:"#25D366",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>WhatsApp</button>
+                <button onClick={()=>window.open("viber://forward?text="+encodeURIComponent(buildShoppingList()),"_blank")} style={{background:"#7360F2",border:"none",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Viber</button>
+                <button onClick={()=>window.open("mailto:?subject=Shopping List&body="+encodeURIComponent(buildShoppingList()))} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Email</button>
+                <button onClick={()=>navigator.share?navigator.share({text:buildShoppingList()}):window.open("sms:?body="+encodeURIComponent(buildShoppingList()))} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,color:"#fff",fontSize:10.5,fontWeight:600,padding:"4px 7px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>SMS</button>
               </div>
             </div>
           </>)}
+          {shopTab==="o"&&<div>
+            <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("offers_sub",lang)}</div>
+            {offersLoading&&<div style={{textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("loading",lang)}</div>}
+            {!offersLoading&&offers.length===0&&<div style={{textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("offers_empty",lang)}</div>}
+            {offers.map((o:any)=>(
+              <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
+                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{o.badge.toUpperCase()}</div>}
+                <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
+                <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap" as any}}>
+                  {o.link&&<a href={o.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",fontSize:11,fontWeight:600,color:teal,textDecoration:"none",border:"1px solid "+teal,borderRadius:8,padding:"5px 12px"}}>{t("learnmore",lang)} →</a>}
+                  <button onClick={()=>setShopItems(prev=>[...prev,o.title])} style={{fontSize:11,fontWeight:600,color:navy,background:"#fff",border:"1px solid "+gl,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{t("add_to_products",lang)}</button>
+                  <button onClick={()=>setSuperItems(prev=>[...prev,o.title])} style={{fontSize:11,fontWeight:600,color:navy,background:"#fff",border:"1px solid "+gl,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{t("add_to_super",lang)}</button>
+                </div>
+              </div>
+            ))}
+          </div>}
         </div>}
-
-        {/* ── OFFERS / NEWS ── */}
-        {tab==="offers"&&<div>
-          <div style={{...card,marginBottom:12}}>
-            <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>🔔 {t("offers",lang)}</div>
-            <div style={{fontSize:12,color:"#7A7068"}}>{t("offers_sub",lang)}</div>
-          </div>
-          {offersLoading&&<div style={{...card,textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("loading",lang)}</div>}
-          {!offersLoading&&offers.length===0&&<div style={{...card,textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("offers_empty",lang)}</div>}
-          {offers.map((o:any)=>(
-            <div key={o.id} style={{...card,marginBottom:10}}>
-              {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{o.badge.toUpperCase()}</div>}
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
-              <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:o.link?8:0}}>{o.body}</div>
-              {o.link&&<a href={o.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",fontSize:11,fontWeight:600,color:teal,textDecoration:"none",border:`1px solid ${teal}`,borderRadius:8,padding:"5px 12px"}}>{t("learnmore",lang)} →</a>}
-            </div>
-          ))}
-        </div>}
-
       </div>{/* end body */}
 
       {/* CHAT INPUT */}
@@ -1809,7 +1894,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
       <div style={{display:"flex",background:"#fff",borderTop:"1px solid rgba(43,58,103,.1)",flexShrink:0}}>
         {tabs.map(tb=>(
           <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,display:"flex",flexDirection:"column" as any,alignItems:"center",padding:"9px 4px 7px",cursor:"pointer",border:"none",background:"none",borderTop:tab===tb.id?`2px solid ${navy}`:"2px solid transparent",fontFamily:"'DM Sans',sans-serif"}}>
-            <span style={{fontSize:20,opacity:tab===tb.id?1:0.3}}>{tb.icon}</span>
+            <span style={{fontSize:20,opacity:tab===tb.id?1:0.3,position:"relative" as any}}>{tb.icon}{tb.id==="shopping"&&offers.length>0&&tab!=="shopping"&&<span style={{position:"absolute",top:-1,right:-2,width:7,height:7,borderRadius:"50%",background:coral,border:"1.5px solid #fff"}}/>}</span>
             <span style={{fontSize:9,color:tab===tb.id?navy:"rgba(43,58,103,.3)",marginTop:2,fontWeight:tab===tb.id?600:400}}>{tb.label}</span>
           </button>
         ))}
