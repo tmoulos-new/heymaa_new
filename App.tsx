@@ -1181,10 +1181,12 @@ const TR: Record<string,Record<string,string>> = {
   docs_add_cat_ph:{el:"Κατηγορία (π.χ. Εξετάσεις αίματος)",en:"Category (e.g. Blood tests)",ar:"الفئة (مثل: فحص الدم)",zh:"类别（如：血液检查）",es:"Categoría (ej. Análisis de sangre)",fr:"Catégorie (ex. Analyses de sang)",de:"Kategorie (z.B. Blutuntersuchung)",pt:"Categoria (ex. Análises ao sangue)",it:"Categoria (es. Analisi del sangue)",ru:"Категория (напр. Анализ крови)",tr:"Kategori (örn. Kan tahlili)",hi:"श्रेणी (जैसे रक्त परीक्षण)",ur:"زمرہ (مثلاً خون کی جانچ)",ja:"カテゴリ（例：血液検査）",nl:"Categorie (bijv. Bloedonderzoek)",pl:"Kategoria (np. Badania krwi)",ro:"Categorie (ex. Analize de sânge)",bn:"বিভাগ (যেমন রক্ত পরীক্ষা)",id:"Kategori (mis. Tes darah)",sw:"Aina (mf. Vipimo vya damu)",fil:"Kategorya (hal. Pagsusuri ng dugo)",mr:"श्रेणी (उदा. रक्त तपासणी)",te:"వర్గం (ఉదా. రక్త పరీక్షలు)"},
   add_to_products:{el:"＋ Στα Προϊόντα",en:"＋ To Products",ar:"＋ للمنتجات",zh:"＋ 加入商品",es:"＋ A Productos",fr:"＋ Aux Produits",de:"＋ Zu Produkten",pt:"＋ Para Produtos",it:"＋ Ai Prodotti",ru:"＋ В Товары",tr:"＋ Ürünlere",hi:"＋ उत्पादों में",ur:"＋ مصنوعات میں",ja:"＋ 商品へ",nl:"＋ Naar Producten",pl:"＋ Do Produktów",ro:"＋ La Produse",bn:"＋ পণ্যে যোগ",id:"＋ Ke Produk",sw:"＋ Kwenye Bidhaa",fil:"＋ Sa Produkto",mr:"＋ उत्पादनात",te:"＋ ఉత్పత్తులకు"},
   add_to_super:{el:"＋ Στο Σούπερ",en:"＋ To Supermarket",ar:"＋ للسوبرماركت",zh:"＋ 加入超市",es:"＋ Al Supermercado",fr:"＋ Au Supermarché",de:"＋ Zum Supermarkt",pt:"＋ Para Supermercado",it:"＋ Al Supermercato",ru:"＋ В Супермаркет",tr:"＋ Süpermarkete",hi:"＋ सुपरमार्केट में",ur:"＋ سپر مارکیٹ میں",ja:"＋ スーパーへ",nl:"＋ Naar Supermarkt",pl:"＋ Do Supermarketu",ro:"＋ La Supermarket",bn:"＋ সুপারমার্কেটে",id:"＋ Ke Supermarket",sw:"＋ Madukani",fil:"＋ Sa Supermarket",mr:"＋ सुपरमार्केटमध्ये",te:"＋ సూపర్‌మార్కెట్‌కు"},
+  lang_mismatch:{el:"Γράφεις σε άλλη γλώσσα. Η φωνητική ανάγνωση χρησιμοποιεί τη γλώσσα της σημαίας ({flag}). Άλλαξε τη σημαία πάνω δεξιά για ανάγνωση σε αυτή τη γλώσσα.",en:"You're typing in another language. Voice playback uses your selected language ({flag}). Change the flag top-right to listen in this language.",ar:"أنتِ تكتبين بلغة أخرى. تستخدم القراءة الصوتية لغتك المختارة ({flag}). غيّري العلم في الأعلى للاستماع بهذه اللغة.",zh:"您正在用另一种语言输入。语音朗读使用您所选的语言（{flag}）。更改右上角的旗帜以用此语言收听。",es:"Estás escribiendo en otro idioma. La lectura de voz usa tu idioma seleccionado ({flag}). Cambia la bandera arriba a la derecha para escuchar en este idioma.",fr:"Vous écrivez dans une autre langue. La lecture vocale utilise votre langue sélectionnée ({flag}). Changez le drapeau en haut à droite pour écouter dans cette langue.",de:"Du schreibst in einer anderen Sprache. Die Sprachausgabe verwendet deine gewählte Sprache ({flag}). Ändere die Flagge oben rechts, um in dieser Sprache zu hören.",pt:"Estás a escrever noutro idioma. A leitura por voz usa o teu idioma selecionado ({flag}). Muda a bandeira no canto superior direito para ouvir neste idioma.",it:"Stai scrivendo in un'altra lingua. La lettura vocale usa la lingua selezionata ({flag}). Cambia la bandiera in alto a destra per ascoltare in questa lingua.",ru:"Вы пишете на другом языке. Озвучивание использует выбранный вами язык ({flag}). Измените флаг вверху справа, чтобы слушать на этом языке.",tr:"Başka bir dilde yazıyorsun. Sesli okuma seçtiğin dili kullanır ({flag}). Bu dilde dinlemek için sağ üstteki bayrağı değiştir.",hi:"आप दूसरी भाषा में लिख रही हैं। आवाज़ आपकी चुनी हुई भाषा ({flag}) का उपयोग करती है। इस भाषा में सुनने के लिए ऊपर दाईं ओर का झंडा बदलें।",ur:"آپ دوسری زبان میں لکھ رہی ہیں۔ آواز آپ کی منتخب زبان ({flag}) استعمال کرتی ہے۔ اس زبان میں سننے کے لیے اوپر دائیں طرف کا جھنڈا تبدیل کریں۔",ja:"別の言語で入力しています。音声読み上げは選択中の言語（{flag}）を使用します。この言語で聞くには右上の旗を変更してください。",nl:"Je typt in een andere taal. Spraakweergave gebruikt je geselecteerde taal ({flag}). Wijzig de vlag rechtsboven om in deze taal te luisteren.",pl:"Piszesz w innym języku. Odczyt głosowy używa wybranego języka ({flag}). Zmień flagę w prawym górnym rogu, aby słuchać w tym języku.",ro:"Scrii în altă limbă. Redarea vocală folosește limba selectată ({flag}). Schimbă steagul din dreapta sus pentru a asculta în această limbă.",bn:"আপনি অন্য ভাষায় লিখছেন। ভয়েস প্লেব্যাক আপনার নির্বাচিত ভাষা ({flag}) ব্যবহার করে। এই ভাষায় শুনতে উপরে ডানদিকের পতাকা পরিবর্তন করুন।",id:"Anda mengetik dalam bahasa lain. Pemutaran suara menggunakan bahasa pilihan Anda ({flag}). Ubah bendera di kanan atas untuk mendengarkan dalam bahasa ini.",sw:"Unaandika kwa lugha nyingine. Usomaji wa sauti hutumia lugha uliyochagua ({flag}). Badilisha bendera juu kulia kusikiliza kwa lugha hii.",fil:"Nagta-type ka sa ibang wika. Ginagamit ng voice playback ang napili mong wika ({flag}). Palitan ang watawat sa kanang itaas para makinig sa wikang ito.",mr:"तुम्ही दुसऱ्या भाषेत लिहित आहात. आवाज वाचन तुमची निवडलेली भाषा ({flag}) वापरते. या भाषेत ऐकण्यासाठी वरच्या उजव्या बाजूचा ध्वज बदला.",te:"మీరు మరో భాషలో టైప్ చేస్తున్నారు. వాయిస్ ప్లేబ్యాక్ మీరు ఎంచుకున్న భాష ({flag})ని ఉపయోగిస్తుంది. ఈ భాషలో వినడానికి కుడి ఎగువన ఉన్న జెండాను మార్చండి."},
 };
 
 function detectLang(text: string): string {
-  if(/[\u0600-\u06FF]/.test(text)) return /[\u067E\u0679\u0688\u0691\u06CC\u06BA]/.test(text)?"ur":"ar";
+  // Script-based only — reliable, used for INPUT HINT, never for TTS
+  if(/[\u0600-\u06FF]/.test(text)) return /[\u067E\u0679\u0688\u0691]/.test(text)?"ur":"ar";
   if(/[\u3040-\u30FF]/.test(text)) return "ja";
   if(/[\u4E00-\u9FFF]/.test(text)) return "zh";
   if(/[\u0980-\u09FF]/.test(text)) return "bn";
@@ -1192,20 +1194,7 @@ function detectLang(text: string): string {
   if(/[\u0900-\u097F]/.test(text)) return "hi";
   if(/[\u0400-\u04FF]/.test(text)) return "ru";
   if(/[\u0370-\u03FF\u1F00-\u1FFF]/.test(text)) return "el";
-  if(/\b(the |and |you |your |baby|week|month)\b/i.test(text)) return "en";
-  if(/\b(vous|votre|b\u00e9b\u00e9|semaine)\b/i.test(text)) return "fr";
-  if(/\b(dein|deine|Woche|Baby)\b/.test(text)) return "de";
-  if(/\b(beb\u00e9|ni\u00f1o|semana)\b/i.test(text)) return "es";
-  if(/\b(tuo|tua|bambino|settimana)\b/i.test(text)) return "it";
-  if(/\b(jouw|baby|maand)\b/i.test(text)) return "nl";
-  if(/\b(teu|beb\u00e9|semana)\b/i.test(text)) return "pt";
-  if(/\b(copilul|bebe|s\u00e4pt\u00e4m\u00e2n)\b/i.test(text)) return "ro";
-  if(/\b(twoje|dziecko|tydzie)\b/i.test(text)) return "pl";
-  if(/\b(senin|bebek|hafta)\b/i.test(text)) return "tr";
-  if(/\b(mtoto|wiki|mwezi)\b/i.test(text)) return "sw";
-  if(/\b(sanggol|linggo|buwan)\b/i.test(text)) return "fil";
-  if(/\b(bayi|minggu|bulan)\b/i.test(text)) return "id";
-  return "";
+  return ""; // Latin script — cannot reliably distinguish, no hint shown
 }
 function t(key: string, lang: string): string { return TR[key]?.[lang] || TR[key]?.["el"] || TR[key]?.["en"] || key; }
 function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0]; }
@@ -1351,7 +1340,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [activeMemRef, setActiveMemRef] = useState(undefined);
   // Which person are we adding a memory for? undefined = general/user
 
-  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
   const authH = { "x-token": token };
   const allChildren = getAllChildren(profile);
   const primaryChild = allChildren[0];
@@ -1393,7 +1382,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply}]); }
+    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply}]); }
     catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
     finally { setLoading(false); }
   };
@@ -1418,11 +1407,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   useEffect(()=>{localStorage.setItem(sk(token,"ttsused"),String(ttsUsed));},[ttsUsed]);
   const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsed);
 
+  const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
+  const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
   const speak = async (text: string, idx: number) => {
-    if (ttsRemaining <= 0) return;
+    if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
+    if(playingIndex===idx){setPlayingIndex(null);return;}
+    if(ttsRemaining<=0)return;
     setPlayingIndex(idx);
-    try { const ttsLang = detectLang(text)||lang; const res = await axios.post(`${API}/tts`,{text,lang:ttsLang},{headers:authH}); const audio = new Audio(`data:audio/mp3;base64,${res.data.audio}`); audio.onended=()=>setPlayingIndex(null); audio.play(); setTtsUsed(u=>u+1); }
-    catch { setPlayingIndex(null); }
+    try { const ttsLang=lang; const clean=stripMd(text); const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:authH}); const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`); audioRef.current=audio; audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;}; audio.play(); setTtsUsed(u=>u+1); }
+    catch{setPlayingIndex(null);}
   };
 
   const startRec = () => {
@@ -1574,7 +1567,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 {msg.role==="assistant"?(<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
                   <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                   <div><div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
-                  <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?t("playing",lang):t("listen",lang)}</button></div>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}><button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button></div></div>
                 </div>):(<div style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,margin:"8px 0 8px 40px",lineHeight:1.5}}>{msg.content}</div>)}
               </div>
             ))}
@@ -1883,6 +1876,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         </div>}
       </div>{/* end body */}
 
+      {/* LANG MISMATCH HINT */}
+      {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
       {tab==="chat"&&<div style={{display:"flex",gap:8,padding:"10px 16px",background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)",flexShrink:0}}>
         <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage(input)} placeholder={t("typehere",lang)} disabled={loading} style={{flex:1,padding:"9px 13px",borderRadius:999,border:"1.5px solid rgba(43,58,103,.15)",fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none"}}/>
