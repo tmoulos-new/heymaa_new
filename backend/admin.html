@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeyMaa Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F5F0EB;color:#2B3A67;padding:16px;max-width:720px;margin:0 auto}
+h1{font-size:22px;margin-bottom:4px}.sub{font-size:13px;color:#7A7068;margin-bottom:20px}
+.card{background:#fff;border-radius:14px;padding:18px;margin-bottom:16px;border:.5px solid rgba(43,58,103,.1)}
+.card h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.gate{max-width:380px;margin:60px auto;text-align:center}
+input,textarea,select{width:100%;padding:11px 13px;border:1.5px solid #DDD7D0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:10px;outline:none}
+textarea{min-height:70px;resize:vertical}
+button{background:#2B3A67;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{background:#E07B54;padding:6px 12px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:120px}
+.prov{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:9px;background:#F8F5F2;margin-bottom:8px}
+.prov .nm{font-weight:600;font-size:14px}.prov .st{font-size:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.green{background:#2D9E6B}.red{background:#E07B54}.gray{background:#C8BFB8}
+.offer{padding:12px;border-radius:10px;background:#F8F5F2;margin-bottom:8px}
+.offer .t{font-weight:600;font-size:14px;margin-bottom:3px}.offer .b{font-size:12.5px;color:#7A7068;line-height:1.4;margin-bottom:6px}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;margin-right:6px}
+.meta{font-size:11px;color:#C8BFB8}
+.links a{display:inline-block;font-size:12px;color:#4ABEAA;text-decoration:none;border:1px solid #4ABEAA;border-radius:8px;padding:6px 12px;margin:4px 4px 0 0}
+.usage{display:flex;gap:14px;flex-wrap:wrap}.usage>div{flex:1;min-width:90px;text-align:center;padding:10px;background:#F8F5F2;border-radius:9px}
+.usage .n{font-size:20px;font-weight:700}.usage .l{font-size:11px;color:#7A7068;margin-top:2px}
+.msg{font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px}
+.msg.ok{background:rgba(45,158,107,.12);color:#2D9E6B}.msg.err{background:rgba(224,123,84,.12);color:#E07B54}
+</style>
+</head>
+<body>
+<div id="gate" class="gate">
+  <h1>Hey<span style="color:#4ABEAA">Maa</span> Admin</h1>
+  <p class="sub">Enter admin secret to continue</p>
+  <input id="secret" type="password" placeholder="Admin secret" onkeydown="if(event.key==='Enter')login()">
+  <button onclick="login()" style="width:100%">Enter →</button>
+  <div id="gateErr" class="msg err" style="display:none;margin-top:10px"></div>
+</div>
+
+<div id="panel" style="display:none">
+  <h1>Hey<span style="color:#4ABEAA">Maa</span> Admin</h1>
+  <p class="sub">Provider status · usage · offers</p>
+
+  <div class="card">
+    <h2>🩺 Provider Status <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadHealth()">↻ Refresh</button></h2>
+    <div id="health"><div class="prov"><span class="nm">Checking…</span></div></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Usage (estimate)</h2>
+    <div class="usage" id="usage"><div><div class="n">…</div></div></div>
+    <p class="meta" id="usageNote" style="margin-top:10px"></p>
+  </div>
+
+  <div class="card">
+    <h2>💳 Top up credits</h2>
+    <div class="links">
+      <a href="https://console.anthropic.com/settings/billing" target="_blank">Anthropic → Billing</a>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>
+      <a href="https://console.groq.com/settings/billing" target="_blank">Groq → Billing</a>
+    </div>
+    <p class="meta" style="margin-top:8px">Live balances aren't exposed via API — use these links to check & top up.</p>
+  </div>
+
+  <div class="card">
+    <h2>➕ New Offer / News</h2>
+    <div id="offerMsg"></div>
+    <input id="oTitle" placeholder="Title">
+    <textarea id="oBody" placeholder="Message body"></textarea>
+    <div class="row">
+      <select id="oBadge"><option value="">No badge</option><option value="news">news</option><option value="promo">promo</option><option value="sponsored">sponsored</option></select>
+      <input id="oLang" placeholder="Lang (all / el / en…)" value="all">
+    </div>
+    <input id="oLink" placeholder="Link (optional)">
+    <input id="oExpires" type="date" title="Expiry date (optional)">
+    <button onclick="createOffer()" style="width:100%">Publish offer →</button>
+  </div>
+
+  <div class="card">
+    <h2>📋 Active Offers <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadOffers()">↻</button></h2>
+    <div id="offers">Loading…</div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 New Promotion <span style="font-size:11px;font-weight:400;color:#7A7068">(targeted · consent users only)</span></h2>
+    <div id="promoMsg"></div>
+    <input id="pTitle" placeholder="Title *">
+    <textarea id="pBody" placeholder="Message body *"></textarea>
+    <input id="pLink" placeholder="Link (optional)">
+    <input id="pExpires" type="date" title="Expiry date">
+    <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">📍 GEO (blank = all)</p>
+    <div class="row">
+      <input id="pCountries" placeholder="Countries e.g. GR,CY,DE">
+      <input id="pCities" placeholder="Cities (comma-sep)">
+      <input id="pZips" placeholder="ZIP codes (comma-sep)">
+    </div>
+    <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">👶 DEMOGRAPHIC (blank = all)</p>
+    <div class="row">
+      <input id="pChildMin" type="number" placeholder="Child count min" min="0">
+      <input id="pChildMax" type="number" placeholder="Child count max" min="0">
+      <input id="pAgeMin" type="number" placeholder="Child age min (mo)" min="0">
+      <input id="pAgeMax" type="number" placeholder="Child age max (mo)" min="0">
+    </div>
+    <div style="margin-bottom:10px;display:flex;gap:16px;font-size:13px">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pPregnant" style="width:auto;margin:0"> 🤰 Pregnant only</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pNotPregnant" style="width:auto;margin:0"> 👶 Non-pregnant only</label>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="sec" onclick="previewPromotion()">👁 Preview match count</button>
+      <button onclick="createPromotion()">Publish →</button>
+    </div>
+    <div id="previewResult" style="display:none;padding:10px;background:#F8F5F2;border-radius:9px;font-size:13px;text-align:center"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Active Promotions <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadPromotions()">↻</button></h2>
+    <div id="promotions">Loading…</div>
+  </div></div>
+
+<script>
+const API = "https://api.vdarpp.com";
+let SEC = "";
+const $ = id => document.getElementById(id);
+
+function login(){
+  SEC = $("secret").value.trim();
+  if(!SEC) return;
+  fetch(API+"/admin/health",{headers:{"x-admin-secret":SEC}})
+    .then(r=>{if(r.status===403)throw new Error("Wrong secret");return r.json();})
+    .then(()=>{ $("gate").style.display="none"; $("panel").style.display="block"; sessionStorage.setItem("hm_admin",SEC); loadAll(); })
+    .catch(e=>{ $("gateErr").style.display="block"; $("gateErr").textContent=e.message; });
+}
+
+function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); }
+
+function loadHealth(){
+  $("health").innerHTML='<div class="prov"><span class="nm">Pinging providers…</span></div>';
+  fetch(API+"/admin/health",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
+    let h="";
+    for(const p of ["groq","gemini","claude"]){
+      const s=d[p]||{ok:false,msg:"?"};
+      const cls=s.ok?"green":"red";
+      h+=`<div class="prov"><span class="nm"><span class="dot ${cls}"></span>${p.charAt(0).toUpperCase()+p.slice(1)}</span><span class="st">${s.msg}</span></div>`;
+    }
+    $("health").innerHTML=h;
+  }).catch(()=>$("health").innerHTML='<div class="msg err">Failed to load</div>');
+}
+
+function loadUsage(){
+  fetch(API+"/admin/usage",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
+    const c=d.calls||{};
+    $("usage").innerHTML=
+      `<div><div class="n">${c.groq||0}</div><div class="l">Groq calls</div></div>`+
+      `<div><div class="n">${c.gemini||0}</div><div class="l">Gemini calls</div></div>`+
+      `<div><div class="n">${c.claude||0}</div><div class="l">Claude calls</div></div>`+
+      `<div><div class="n">$${(d.estimated_cost_usd||0).toFixed(2)}</div><div class="l">Est. cost</div></div>`;
+    $("usageNote").textContent=`Since ${d.since_days||0} days ago. Estimate only — Claude ≈ $0.0025/call, Groq & Gemini free tier. Resets on server restart.`;
+  }).catch(()=>{});
+}
+
+function loadOffers(){
+  $("offers").innerHTML="Loading…";
+  fetch(API+"/admin/offers",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
+    const o=d.offers||[];
+    if(!o.length){ $("offers").innerHTML='<p class="meta">No active offers.</p>'; return; }
+    const colors={news:"#4ABEAA",promo:"#E07B54",sponsored:"#7C5CBF"};
+    $("offers").innerHTML=o.map(x=>{
+      const bd=x.badge?`<span class="badge" style="background:${colors[x.badge]||'#999'}">${x.badge}</span>`:"";
+      const exp=x.expires_at?` · expires ${x.expires_at}`:"";
+      return `<div class="offer"><div class="t">${bd}${esc(x.title)}</div><div class="b">${esc(x.body||"")}</div><div class="meta">${x.lang||'all'}${exp}</div><div style="margin-top:8px"><button class="del" onclick="delOffer('${x.id}')">Delete</button></div></div>`;
+    }).join("");
+  }).catch(()=>$("offers").innerHTML='<div class="msg err">Failed to load</div>');
+}
+
+function createOffer(){
+  const body={title:$("oTitle").value.trim(),body:$("oBody").value.trim(),badge:$("oBadge").value||null,lang:$("oLang").value.trim()||"all",link:$("oLink").value.trim()||null,expires_at:$("oExpires").value||null};
+  if(!body.title||!body.body){ showMsg("Title and body required","err"); return; }
+  fetch(API+"/admin/offers",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){ showMsg("Offer published ✓","ok"); $("oTitle").value="";$("oBody").value="";$("oLink").value="";$("oExpires").value="";$("oBadge").value="";loadOffers(); }
+      else showMsg(d.detail||"Failed","err");
+    }).catch(()=>showMsg("Network error","err"));
+}
+
+function delOffer(id){
+  if(!confirm("Delete this offer?"))return;
+  fetch(API+"/admin/offers/"+id,{method:"DELETE",headers:{"x-admin-secret":SEC}})
+    .then(r=>r.json()).then(()=>loadOffers()).catch(()=>{});
+}
+
+function showMsg(t,c){ $("offerMsg").innerHTML=`<div class="msg ${c}">${t}</div>`; setTimeout(()=>$("offerMsg").innerHTML="",4000); }
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+function getPromoData(){
+  const split=s=>s?s.split(",").map(x=>x.trim()).filter(Boolean):null;
+  const pPreg=document.getElementById("pPregnant").checked;
+  const pNotPreg=document.getElementById("pNotPregnant").checked;
+  const target_pregnancy=pPreg&&!pNotPreg?true:(!pPreg&&pNotPreg?false:null);
+  return{
+    title:$("pTitle").value.trim(),body:$("pBody").value.trim(),
+    link:$("pLink").value.trim()||null,expires_at:$("pExpires").value||null,
+    target_countries:split($("pCountries").value.toUpperCase()),
+    target_cities:split($("pCities").value),
+    target_zips:split($("pZips").value),
+    child_count_min:$("pChildMin").value!==""?parseInt($("pChildMin").value):null,
+    child_count_max:$("pChildMax").value!==""?parseInt($("pChildMax").value):null,
+    target_pregnancy,
+    child_age_min_months:$("pAgeMin").value!==""?parseInt($("pAgeMin").value):null,
+    child_age_max_months:$("pAgeMax").value!==""?parseInt($("pAgeMax").value):null,
+  };
+}
+function previewPromotion(){
+  const body=getPromoData();
+  $("previewResult").style.display="block";
+  $("previewResult").textContent="Checking…";
+  fetch(API+"/admin/promotions/preview",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d=>{
+      $("previewResult").textContent=d.error?"Error: "+d.error:"✅ "+d.count+" users match (of "+d.total+" with consent)";
+    }).catch(()=>$("previewResult").textContent="Network error");
+}
+function createPromotion(){
+  const body=getPromoData();
+  if(!body.title||!body.body){showPromoMsg("Title and body required","err");return;}
+  fetch(API+"/admin/promotions",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){
+        showPromoMsg("Promotion published ✓","ok");
+        ["pTitle","pBody","pLink","pExpires","pCountries","pCities","pZips","pChildMin","pChildMax","pAgeMin","pAgeMax"].forEach(id=>$(id).value="");
+        ["pPregnant","pNotPregnant"].forEach(id=>document.getElementById(id).checked=false);
+        $("previewResult").style.display="none";loadPromotions();
+      }else showPromoMsg(d.detail||"Failed","err");
+    }).catch(()=>showPromoMsg("Network error","err"));
+}
+function loadPromotions(){
+  $("promotions").innerHTML="Loading…";
+  fetch(API+"/admin/promotions",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
+    const list=d.promotions||[];
+    if(!list.length){$("promotions").innerHTML='<p class="meta">No active promotions.</p>';return;}
+    $("promotions").innerHTML=list.map(x=>{
+      const geo=[];
+      if(x.target_countries&&x.target_countries.length)geo.push("🌍 "+x.target_countries.join(", "));
+      if(x.target_cities&&x.target_cities.length)geo.push("🏙 "+x.target_cities.join(", "));
+      if(x.target_zips&&x.target_zips.length)geo.push("📮 "+x.target_zips.join(", "));
+      const demo=[];
+      if(x.child_count_min!=null||x.child_count_max!=null)demo.push("👶 "+(x.child_count_min!=null?x.child_count_min:0)+"–"+(x.child_count_max!=null?x.child_count_max:"∞"));
+      if(x.target_pregnancy===true)demo.push("🤰 pregnant");
+      if(x.target_pregnancy===false)demo.push("🚫🤰 non-pregnant");
+      if(x.child_age_min_months!=null||x.child_age_max_months!=null)demo.push("🗓 "+(x.child_age_min_months!=null?x.child_age_min_months:0)+"–"+(x.child_age_max_months!=null?x.child_age_max_months:"∞")+"mo");
+      const chips=[...geo,...demo].map(t=>'<span style="font-size:11px;background:#E8E4F0;color:#7C5CBF;padding:2px 8px;border-radius:999px;margin:2px 2px 0 0;display:inline-block">'+t+'</span>').join("");
+      const exp=x.expires_at?" · expires "+x.expires_at:"";
+      return '<div class="offer"><div class="t"><span class="badge" style="background:#7C5CBF">sponsored</span>'+esc(x.title)+'</div><div class="b">'+esc(x.body)+'</div><div style="margin:6px 0">'+(chips||'<span style="font-size:11px;color:#C8BFB8">All consenting users</span>')+'</div><div class="meta">'+exp+'</div><div style="margin-top:8px"><button class="del" onclick="delPromotion('+x.id+')">Delete</button></div></div>';
+    }).join("");
+  }).catch(()=>$("promotions").innerHTML='<div class="msg err">Failed to load</div>');
+}
+function delPromotion(id){
+  if(!confirm("Delete this promotion?"))return;
+  fetch(API+"/admin/promotions/"+id,{method:"DELETE",headers:{"x-admin-secret":SEC}})
+    .then(r=>r.json()).then(()=>loadPromotions()).catch(()=>{});
+}
+function showPromoMsg(t,c){$("promoMsg").innerHTML='<div class="msg '+c+'">'+t+'</div>';setTimeout(()=>$("promoMsg").innerHTML="",4000);}
+// Auto-login if secret in session
+const saved=sessionStorage.getItem("hm_admin");
+if(saved){ SEC=saved; $("gate").style.display="none"; $("panel").style.display="block"; loadAll(); }
+</script>
+</body>
+</html>

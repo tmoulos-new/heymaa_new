@@ -3,6 +3,7 @@ import io
 import base64
 import asyncio
 from fastapi import FastAPI, HTTPException, Header
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -155,9 +156,9 @@ app.add_middleware(
 
 SYSTEM_PROMPT = """You are HeyMaa, an AI companion app for pregnant women and new mothers.
 
-LANGUAGE RULE: Respond in the SAME language as the user's CURRENT message, even if it differs from earlier messages in the conversation. If the user switches language mid-conversation, switch with them. Only if you genuinely cannot produce a reliable response in the requested language should you say so briefly and suggest the person change their app language setting (in their profile/settings) for fully consistent responses, then still attempt to answer as best you can in that language.
+LANGUAGE RULE: Respond in the SAME language as the user's CURRENT message. If the user switches language mid-conversation, switch immediately. Write as a NATIVE speaker of that language — use natural idioms, expressions, and sentence structures that a native speaker would use, not word-for-word translations from English. Dates must follow the local format and language (e.g. "14 Ιουνίου 2026" in Greek, "14 juin 2026" in French, "14 de junio de 2026" in Spanish, "2026年6月14日" in Chinese/Japanese, "١٤ يونيو ٢٠٢٦" in Arabic). Numbers, units and medical terms should also follow local conventions. Never produce text that reads like a translation — write directly in the target language with full fluency and warmth. CRITICAL: Use ONLY ONE language in your entire response — the user's language. NEVER insert words from other languages (no English, German, French, Chinese words mixed in). Every single word must be in the same language. If you don't know a specific term in the target language, describe it in that language rather than borrowing a foreign word.
 
-TONE: Professional, warm, and supportive — like a knowledgeable, caring resource, not a close personal friend. Natural conversation, no bullet points or lists unless the user asks for a structured list. Give complete answers — don't artificially cut a response short; if the topic needs more explanation, provide it in full.
+TONE: Professional, warm, and supportive — like a knowledgeable, caring resource, not a close personal friend. Natural conversation flowing as prose. Never use bullet points, numbered lists, bold text (**), asterisks (*), markdown headers (#), or any formatting symbols in your response — write in clean natural prose only. Give complete answers — never artificially cut a response short.
 
 PERSON: Always address the user in second person SINGULAR (εσύ/σε/σου in Greek, tu/te in Spanish/French/Portuguese/Italian, du in German, etc.). Never use plural forms (εσείς/σας, vous, Sie, usted formal plural) unless the user explicitly uses them first.
 
@@ -174,17 +175,39 @@ MEDICAL: For any medical concern, warmly suggest seeing a pediatrician or doctor
 
 If relevant background knowledge is provided below, use it naturally to inform your answer without quoting it directly or mentioning "the knowledge base" or "context"."""
 
-def build_system_prompt(rag_context, family_context="", memories_context=""):
+def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context=""):
     prompt = SYSTEM_PROMPT
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
     if memories_context:
         prompt += f"\n\n--- Recent memories this user has saved (use naturally if relevant, never list them all at once) ---\n{memories_context}"
+    if docs_context:
+        prompt += f"\n\n--- Document archive (act as librarian: you know what documents exist and for whom, but NEVER read or comment on their content. Only mention their existence when naturally relevant) ---\n{docs_context}"
+    if promotion_context:
+        prompt += "\n\n--- Sponsored content (mention ONLY if it naturally fits the current conversation topic, in at most one brief sentence translated into the user language, ALWAYS followed by the word sponsored in parentheses) ---\n" + promotion_context
     if rag_context:
         prompt += f"\n\n--- Background knowledge (use naturally, don't cite) ---\n{rag_context}"
     return prompt
 
 COMPLEX_KEYWORDS = ["diagnosis","symptoms","emergency","medication","fever","hospital","allergy","depression","anxiety"]
+
+# Languages routed to Gemini first (better multilingual quality)
+GEMINI_FIRST_LANGS = {"ar","zh","ja","hi","ur","bn","mr","te","fil","sw"}
+# Languages routed to Claude first (complex script + nuance)
+CLAUDE_FIRST_LANGS = set()  # reserved for future
+
+import re as _re
+def detect_msg_lang(message: str, profile_lang: str = "") -> str:
+    if _re.search(r'[\u0600-\u06FF]', message):
+        return "ur" if _re.search(r'[\u067E\u0679\u0688\u0691]', message) else "ar"
+    if _re.search(r'[\u3040-\u30FF]', message): return "ja"
+    if _re.search(r'[\u4E00-\u9FFF]', message): return "zh"
+    if _re.search(r'[\u0980-\u09FF]', message): return "bn"
+    if _re.search(r'[\u0C00-\u0C7F]', message): return "te"
+    if _re.search(r'[\u0900-\u097F]', message): return profile_lang if profile_lang in ("hi","mr") else "hi"
+    if _re.search(r'[\u0400-\u04FF]', message): return "ru"
+    if _re.search(r'[\u0370-\u03FF\u1F00-\u1FFF]', message): return "el"
+    return profile_lang or "en"
 
 def is_complex(message):
     return any(kw in message.lower() for kw in COMPLEX_KEYWORDS) or len(message) > 300
@@ -215,14 +238,14 @@ async def call_groq(message, history, system_prompt):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=messages,
-        max_tokens=500,
+        max_tokens=800,
     )
     return response.choices[0].message.content
 
 async def call_gemini(message, history, system_prompt):
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=system_prompt)
+    model = genai.GenerativeModel(model_name="gemini-flash-latest", system_instruction=system_prompt)
     chat_history = [{"role": "user" if h["role"]=="user" else "model", "parts": [h["content"]]} for h in history]
     chat = model.start_chat(history=chat_history)
     return chat.send_message(message).text
@@ -234,7 +257,7 @@ async def call_claude(message, history, system_prompt):
     messages.append({"role": "user", "content": message})
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=500,
+        max_tokens=800,
         messages=messages
     )
     return response.content[0].text
@@ -252,6 +275,12 @@ class MemoryContext(BaseModel):
     date: Optional[str] = None
     ref: Optional[str] = None  # child name | "pregnancy" | family member name | None
 
+class DocContext(BaseModel):
+    title: str
+    category: Optional[str] = None
+    date: Optional[str] = None
+    ref: Optional[str] = None  # child name | "pregnancy" | family member name | "" (general)
+
 class ProfileContext(BaseModel):
     childName: Optional[str] = None
     childAge: Optional[str] = None
@@ -259,12 +288,14 @@ class ProfileContext(BaseModel):
     dueDate: Optional[str] = None
     children: Optional[list[ChildContext]] = None
     pregnancyStatus: Optional[str] = None  # "active" | "awaiting_update" | "completed"
+    lang: Optional[str] = None
 
 class ChatRequest(BaseModel):
     message: str
     history: list = []
     profile: Optional[ProfileContext] = None
     recentMemories: Optional[list[MemoryContext]] = None
+    recentDocs: Optional[list[DocContext]] = None
 
 class TTSRequest(BaseModel):
     text: str
@@ -278,12 +309,97 @@ class AdminOfferCreate(BaseModel):
     link: Optional[str] = None
     expires_at: Optional[str] = None  # ISO date string
 
+class ProfileSyncRequest(BaseModel):
+    country: Optional[str] = None
+    city: Optional[str] = None
+    zip: Optional[str] = None
+    child_count: Optional[int] = None
+    pregnancy_active: Optional[bool] = None
+    children_birthdates: Optional[list] = None
+    consent_marketing: Optional[bool] = None
+    consent_date: Optional[str] = None
+
+class PromotionCreate(BaseModel):
+    title: str
+    body: str
+    badge: Optional[str] = "sponsored"
+    link: Optional[str] = None
+    target_countries: Optional[list] = None
+    target_cities: Optional[list] = None
+    target_zips: Optional[list] = None
+    child_count_min: Optional[int] = None
+    child_count_max: Optional[int] = None
+    target_pregnancy: Optional[bool] = None
+    child_age_min_months: Optional[int] = None
+    child_age_max_months: Optional[int] = None
+    expires_at: Optional[str] = None
+
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 def verify_admin(x_admin_secret: Optional[str]):
     if not ADMIN_SECRET or x_admin_secret != ADMIN_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+def match_promotion(token: str):
+    """Return first matching active promotion for user, or None if no match/no consent."""
+    if not sb:
+        return None
+    try:
+        from datetime import date
+        prof_res = sb.table("profiles").select("*").eq("token", token).execute()
+        if not prof_res.data:
+            return None
+        prof = prof_res.data[0]
+        if not prof.get("consent_marketing"):
+            return None
+        promo_res = sb.table("promotions").select("*").eq("active", True).order("created_at", desc=True).execute()
+        today = date.today()
+        user_country = prof.get("country") or ""
+        user_city = (prof.get("city") or "").lower()
+        user_zip = prof.get("zip") or ""
+        user_child_count = prof.get("child_count") or 0
+        user_pregnancy = bool(prof.get("pregnancy_active"))
+        raw_dates = prof.get("children_birthdates") or []
+        child_ages = []
+        for bd in raw_dates:
+            try:
+                birth = date.fromisoformat(bd)
+                m = (today.year - birth.year) * 12 + (today.month - birth.month)
+                if today.day < birth.day:
+                    m -= 1
+                child_ages.append(max(0, m))
+            except Exception:
+                pass
+        for p in (promo_res.data or []):
+            if p.get("expires_at"):
+                try:
+                    if date.fromisoformat(p["expires_at"]) < today:
+                        continue
+                except Exception:
+                    pass
+            if p.get("target_countries") and user_country not in p["target_countries"]:
+                continue
+            if p.get("target_cities") and user_city not in [x.lower() for x in p["target_cities"]]:
+                continue
+            if p.get("target_zips") and user_zip not in p["target_zips"]:
+                continue
+            if p.get("child_count_min") is not None and user_child_count < p["child_count_min"]:
+                continue
+            if p.get("child_count_max") is not None and user_child_count > p["child_count_max"]:
+                continue
+            if p.get("target_pregnancy") is not None and user_pregnancy != p["target_pregnancy"]:
+                continue
+            age_min = p.get("child_age_min_months")
+            age_max = p.get("child_age_max_months")
+            if age_min is not None or age_max is not None:
+                lo = age_min if age_min is not None else 0
+                hi = age_max if age_max is not None else 9999
+                if not any(lo <= a <= hi for a in child_ages):
+                    continue
+            return p
+    except Exception:
+        return None
+    return None
 # ── Routes ────────────────────────────────────────────────────
 @app.get("/")
 def root():
@@ -299,6 +415,26 @@ def redeem_invite(req: InviteRequest):
 async def auth_status(x_token: Optional[str] = Header(None)):
     verify_token(x_token)
     return {"ok": True, "subscription_active": check_subscription(x_token)}
+
+@app.post("/profile/sync")
+async def sync_profile(req: ProfileSyncRequest, x_token: Optional[str] = Header(None)):
+    verify_token(x_token)
+    if not sb:
+        return {"ok": False, "error": "Database not configured"}
+    try:
+        data: dict = {"token": x_token}
+        if req.country is not None: data["country"] = req.country
+        if req.city is not None: data["city"] = req.city
+        if req.zip is not None: data["zip"] = req.zip
+        if req.child_count is not None: data["child_count"] = req.child_count
+        if req.pregnancy_active is not None: data["pregnancy_active"] = req.pregnancy_active
+        if req.children_birthdates is not None: data["children_birthdates"] = req.children_birthdates
+        if req.consent_marketing is not None: data["consent_marketing"] = req.consent_marketing
+        if req.consent_date is not None: data["consent_date"] = req.consent_date
+        sb.table("profiles").upsert(data).execute()
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.post("/chat")
 async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
@@ -320,15 +456,42 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             parts.append(f"- {m.date or ''}{who}: {m.text}")
         memories_context = "\n".join(parts)
 
-    system_prompt = build_system_prompt(rag_context, family_context, memories_context)
+    docs_context = ""
+    if req.recentDocs:
+        doc_parts = [
+            f"- {d.title} ({d.category or 'document'}, {d.date or 'no date'}) — for: {d.ref or 'general'}"
+            for d in req.recentDocs[:30]
+        ]
+        docs_context = "\n".join(doc_parts)
+    promotion = match_promotion(x_token)
+    promo_ctx = ""
+    if promotion:
+        promo_ctx = str(promotion.get("title","")) + ": " + str(promotion.get("body",""))
+        if promotion.get("link"):
+            promo_ctx += " -- " + str(promotion["link"])
+    system_prompt = build_system_prompt(rag_context, family_context, memories_context, docs_context, promo_ctx)
 
     reply = ""
     errors = []
     provider = ""
-    if not complex_query and GROQ_API_KEY:
+
+    # Groq (Llama) handles English well but mixes languages badly in others.
+    # Route only English to Groq; everything else goes to Gemini first (cleaner multilingual output).
+    user_lang = (req.profile.lang if req.profile and req.profile.lang else "en")
+    groq_ok = user_lang == "en"
+
+    if groq_ok and not complex_query and GROQ_API_KEY:
+        # English: Groq (fast, good quality)
         try:
             reply = await call_groq(req.message, req.history, system_prompt)
             provider = "groq"
+        except Exception as e:
+            errors.append(str(e))
+    if not reply and not groq_ok and ANTHROPIC_API_KEY:
+        # Non-English: Claude Haiku first (never mixes languages, excellent multilingual)
+        try:
+            reply = await call_claude(req.message, req.history, system_prompt)
+            provider = "claude"
         except Exception as e:
             errors.append(str(e))
     if not reply and GEMINI_API_KEY:
@@ -337,14 +500,23 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             provider = "gemini"
         except Exception as e:
             errors.append(str(e))
-    if not reply and ANTHROPIC_API_KEY:
+    if not reply and groq_ok and ANTHROPIC_API_KEY:
         try:
             reply = await call_claude(req.message, req.history, system_prompt)
             provider = "claude"
         except Exception as e:
             errors.append(str(e))
+    # Last resort: if Gemini/Claude both failed for a non-English lang, try Groq anyway
+    if not reply and not groq_ok and GROQ_API_KEY:
+        try:
+            reply = await call_groq(req.message, req.history, system_prompt)
+            provider = "groq"
+        except Exception as e:
+            errors.append(str(e))
     if not reply:
         raise HTTPException(status_code=500, detail=str(errors))
+    if provider in USAGE_LOG:
+        USAGE_LOG[provider] += 1
     return {
         "reply": reply,
         "provider": provider,
@@ -448,3 +620,215 @@ def health():
         "gemini": bool(GEMINI_API_KEY),
         "claude": bool(ANTHROPIC_API_KEY)
     }
+
+
+# ── Admin Panel ──────────────────────────────────────────────
+import time as _time
+USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
+
+# Rough cost estimates per request (avg ~600 input + 400 output tokens)
+COST_PER_CALL = {"groq": 0.0, "gemini": 0.0, "claude": 0.0025}
+
+@app.get("/admin")
+def admin_page():
+    import os as _os
+    path = _os.path.join(_os.path.dirname(__file__), "admin.html")
+    return FileResponse(path, media_type="text/html")
+
+@app.get("/admin/health")
+async def admin_health(x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    status = {}
+    # Groq
+    try:
+        if GROQ_API_KEY:
+            await call_groq("ping", [], "Reply with one word.")
+            status["groq"] = {"ok": True, "msg": "online"}
+        else:
+            status["groq"] = {"ok": False, "msg": "no key"}
+    except Exception as e:
+        status["groq"] = {"ok": False, "msg": str(e)[:120]}
+    # Gemini
+    try:
+        if GEMINI_API_KEY:
+            await call_gemini("ping", [], "Reply with one word.")
+            status["gemini"] = {"ok": True, "msg": "online"}
+        else:
+            status["gemini"] = {"ok": False, "msg": "no key"}
+    except Exception as e:
+        msg = str(e)
+        if "quota" in msg.lower() or "429" in msg:
+            status["gemini"] = {"ok": False, "msg": "quota exceeded"}
+        else:
+            status["gemini"] = {"ok": False, "msg": msg[:120]}
+    # Claude
+    try:
+        if ANTHROPIC_API_KEY:
+            await call_claude("ping", [], "Reply with one word.")
+            status["claude"] = {"ok": True, "msg": "online"}
+        else:
+            status["claude"] = {"ok": False, "msg": "no key"}
+    except Exception as e:
+        msg = str(e)
+        if "credit balance" in msg.lower():
+            status["claude"] = {"ok": False, "msg": "out of credits"}
+        else:
+            status["claude"] = {"ok": False, "msg": msg[:120]}
+    return status
+
+@app.get("/admin/usage")
+async def admin_usage(x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq","gemini","claude"))
+    days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
+    return {
+        "calls": {"groq": USAGE_LOG["groq"], "gemini": USAGE_LOG["gemini"], "claude": USAGE_LOG["claude"]},
+        "estimated_cost_usd": round(est_cost, 4),
+        "since_days": round(days, 1),
+    }
+
+@app.get("/admin/offers")
+async def admin_list_offers(x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        return {"offers": []}
+    try:
+        result = sb.table("admin_messages").select("*").eq("active", True).order("id", desc=True).execute()
+        return {"offers": result.data or []}
+    except Exception as e:
+        return {"offers": [], "error": str(e)}
+
+@app.post("/admin/promotions")
+async def create_promotion(req: PromotionCreate, x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        data = {
+            "title": req.title, "body": req.body, "badge": req.badge or "sponsored",
+            "link": req.link, "target_countries": req.target_countries,
+            "target_cities": req.target_cities, "target_zips": req.target_zips,
+            "child_count_min": req.child_count_min, "child_count_max": req.child_count_max,
+            "target_pregnancy": req.target_pregnancy,
+            "child_age_min_months": req.child_age_min_months,
+            "child_age_max_months": req.child_age_max_months,
+            "expires_at": req.expires_at, "active": True,
+        }
+        result = sb.table("promotions").insert(data).execute()
+        return {"ok": True, "promotion": result.data[0] if result.data else None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/admin/promotions")
+async def list_promotions(x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        return {"promotions": []}
+    try:
+        result = sb.table("promotions").select("*").eq("active", True).order("created_at", desc=True).execute()
+        return {"promotions": result.data or []}
+    except Exception as e:
+        return {"promotions": [], "error": str(e)}
+
+@app.post("/admin/promotions/preview")
+async def preview_promotion(req: PromotionCreate, x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        return {"count": 0, "total": 0, "error": "Database not configured"}
+    try:
+        from datetime import date
+        result = sb.table("profiles").select("*").eq("consent_marketing", True).execute()
+        profiles = result.data or []
+        today = date.today()
+        count = 0
+        for prof in profiles:
+            user_country = prof.get("country") or ""
+            user_city = (prof.get("city") or "").lower()
+            user_zip = prof.get("zip") or ""
+            user_child_count = prof.get("child_count") or 0
+            user_pregnancy = bool(prof.get("pregnancy_active"))
+            raw_dates = prof.get("children_birthdates") or []
+            child_ages = []
+            for bd in raw_dates:
+                try:
+                    birth = date.fromisoformat(bd)
+                    m = (today.year - birth.year) * 12 + (today.month - birth.month)
+                    if today.day < birth.day:
+                        m -= 1
+                    child_ages.append(max(0, m))
+                except Exception:
+                    pass
+            if req.target_countries and user_country not in req.target_countries:
+                continue
+            if req.target_cities and user_city not in [x.lower() for x in req.target_cities]:
+                continue
+            if req.target_zips and user_zip not in req.target_zips:
+                continue
+            if req.child_count_min is not None and user_child_count < req.child_count_min:
+                continue
+            if req.child_count_max is not None and user_child_count > req.child_count_max:
+                continue
+            if req.target_pregnancy is not None and user_pregnancy != req.target_pregnancy:
+                continue
+            age_min = req.child_age_min_months
+            age_max = req.child_age_max_months
+            if age_min is not None or age_max is not None:
+                lo = age_min if age_min is not None else 0
+                hi = age_max if age_max is not None else 9999
+                if not any(lo <= a <= hi for a in child_ages):
+                    continue
+            count += 1
+        return {"count": count, "total": len(profiles)}
+    except Exception as e:
+        return {"count": 0, "total": 0, "error": str(e)}
+
+@app.delete("/admin/promotions/{promotion_id}")
+async def delete_promotion(promotion_id: int, x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        sb.table("promotions").update({"active": False}).eq("id", promotion_id).execute()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/admin/promotions/audience")
+async def audience_data(x_admin_secret: Optional[str] = Header(None)):
+    verify_admin(x_admin_secret)
+    if not sb:
+        return {"countries":[],"cities":[],"zips":[],"child_counts":[],"child_ages_months":[],"pregnant_count":0,"non_pregnant_count":0,"total_consenting":0}
+    try:
+        from datetime import date
+        result = sb.table("profiles").select("country,city,zip,child_count,children_birthdates,pregnancy_active").eq("consent_marketing", True).execute()
+        profiles = result.data or []
+        countries = sorted(set(p["country"] for p in profiles if p.get("country")))
+        cities = sorted(set(p["city"].strip() for p in profiles if p.get("city") and p["city"].strip()))
+        zips = sorted(set(p["zip"].strip() for p in profiles if p.get("zip") and p["zip"].strip()))
+        child_counts = sorted(set(p["child_count"] for p in profiles if p.get("child_count") is not None))
+        today = date.today()
+        all_ages = set()
+        for p in profiles:
+            for bd in (p.get("children_birthdates") or []):
+                try:
+                    birth = date.fromisoformat(bd)
+                    m = (today.year - birth.year) * 12 + (today.month - birth.month)
+                    if today.day < birth.day:
+                        m -= 1
+                    all_ages.add(max(0, m))
+                except Exception:
+                    pass
+        pregnant_count = sum(1 for p in profiles if p.get("pregnancy_active"))
+        return {
+            "countries": countries,
+            "cities": cities,
+            "zips": zips,
+            "child_counts": child_counts,
+            "child_ages_months": sorted(all_ages),
+            "pregnant_count": pregnant_count,
+            "non_pregnant_count": len(profiles) - pregnant_count,
+            "total_consenting": len(profiles),
+        }
+    except Exception as e:
+        return {"countries":[],"cities":[],"zips":[],"child_counts":[],"child_ages_months":[],"error":str(e)}
