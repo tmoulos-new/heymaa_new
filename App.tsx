@@ -1,11 +1,32 @@
-﻿import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
 const API = "https://api.vdarpp.com";
 const TOKEN_KEY = "hm_token";
 
+async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
+  try {
+    const ch: ChildEntity[] = profile.children ||
+      (profile.childBirthDate ? [{name: profile.childName||"", birthDate: profile.childBirthDate||""}] : []);
+    const bds = ch.map((c: ChildEntity) => c.birthDate).filter((d: string) => d.length > 0);
+    const pregnant = !!(profile.dueDate && profile.pregnancyStatus !== "completed");
+    await fetch(`${API}/profile/sync`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "x-token": token},
+      body: JSON.stringify({
+        country: profile.country || null,
+        child_count: ch.length,
+        pregnancy_active: pregnant,
+        children_birthdates: bds,
+        consent_marketing: !!profile.consentMarketing,
+        consent_date: profile.consentDate || null,
+      }),
+    });
+  } catch(_) {}
+}
+
 interface ChildEntity { name: string; birthDate: string; }
-interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; }
+interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; }
 interface Message { role: "user" | "assistant"; content: string; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
 interface FamilyMember { name: string; role: string; color: string; email?: string; phone?: string; }
@@ -25,6 +46,24 @@ const LANGS = [
   {c:"id",f:"🇮🇩",n:"Indonesia",d:"ltr",s:"ID"},{c:"sw",f:"🇰🇪",n:"Kiswahili",d:"ltr",s:"SW"},
   {c:"fil",f:"🇵🇭",n:"Filipino",d:"ltr",s:"FIL"},{c:"mr",f:"🇮🇳",n:"मराठी",d:"ltr",s:"MR"},
   {c:"te",f:"🇮🇳",n:"తెలుగు",d:"ltr",s:"TE"},
+];
+
+const COUNTRIES = [
+  {code:"GR",name:"Greece"},{code:"CY",name:"Cyprus"},
+  {code:"GB",name:"United Kingdom"},{code:"US",name:"United States"},{code:"AU",name:"Australia"},{code:"CA",name:"Canada"},{code:"IE",name:"Ireland"},
+  {code:"SA",name:"Saudi Arabia"},{code:"AE",name:"UAE"},{code:"EG",name:"Egypt"},{code:"JO",name:"Jordan"},{code:"LB",name:"Lebanon"},{code:"MA",name:"Morocco"},
+  {code:"CN",name:"China"},{code:"TW",name:"Taiwan"},{code:"HK",name:"Hong Kong"},
+  {code:"ES",name:"Spain"},{code:"MX",name:"Mexico"},{code:"AR",name:"Argentina"},
+  {code:"FR",name:"France"},{code:"BE",name:"Belgium"},
+  {code:"RO",name:"Romania"},{code:"MD",name:"Moldova"},
+  {code:"PL",name:"Poland"},{code:"TR",name:"Turkey"},{code:"IN",name:"India"},{code:"PK",name:"Pakistan"},{code:"JP",name:"Japan"},
+  {code:"RU",name:"Russia"},{code:"UA",name:"Ukraine"},
+  {code:"DE",name:"Germany"},{code:"AT",name:"Austria"},{code:"CH",name:"Switzerland"},
+  {code:"BR",name:"Brazil"},{code:"PT",name:"Portugal"},{code:"IT",name:"Italy"},{code:"NL",name:"Netherlands"},
+  {code:"BD",name:"Bangladesh"},{code:"ID",name:"Indonesia"},
+  {code:"KE",name:"Kenya"},{code:"TZ",name:"Tanzania"},{code:"UG",name:"Uganda"},{code:"PH",name:"Philippines"},
+  {code:"NZ",name:"New Zealand"},{code:"ZA",name:"South Africa"},{code:"NG",name:"Nigeria"},{code:"GH",name:"Ghana"},
+  {code:"OTHER",name:"Other"},
 ];
 
 function ageMonthsFromBirthDate(birthDateStr?: string): number | null {
@@ -1128,6 +1167,9 @@ const TR: Record<string,Record<string,string>> = {
   back:{el:"← Πίσω",en:"← Back",ar:"→ رجوع",es:"← Atrás",fr:"← Retour",de:"← Zurück",pt:"← Voltar",it:"← Indietro",ru:"← Назад",tr:"← Geri",hi:"← वापस",ur:"← پیچھے",zh:"← 返回",ja:"← 戻る",nl:"← Terug",pl:"← Wstecz",ro:"← Înapoi",bn:"← ফিরে",id:"← Kembali",sw:"← Rudi",fil:"← 뒤로",mr:"← मागे",te:"← వెనక్కి"},
   ready:{el:"Είσαι έτοιμη!",en:"You're all set!",ar:"أنت جاهزة!",es:"¡Ya estás lista!",fr:"Vous êtes prête!",de:"Du bist bereit!",pt:"Estás pronta!",it:"Sei pronta!",ru:"Вы готовы!",tr:"Hazırsın!",hi:"आप तैयार हैं!",ur:"آپ تیار ہیں!",zh:"你准备好了！",ja:"準備完了！",nl:"Je bent er klaar voor!",pl:"Jesteś gotowa!",ro:"Ești gata!",bn:"আপনি প্রস্তুত!",id:"Kamu siap!",sw:"Uko tayari!",fil:"준비됐어요!",mr:"तुम्ही तयार आहात!",te:"మీరు సిద్ధంగా ఉన్నారు!"},
   readysub:{el:"Ο λογαριασμός σου στήθηκε.",en:"Your account is ready.",ar:"حسابك جاهز.",es:"Cuenta lista.",fr:"Compte prêt.",de:"Konto bereit.",pt:"Conta pronta.",it:"Account pronto.",ru:"Аккаунт готов.",tr:"Hesabın hazır.",hi:"खाता तैयार है।",ur:"اکاؤنٹ تیار ہے۔",zh:"账户已准备好。",ja:"準備完了。",nl:"Account klaar.",pl:"Konto gotowe.",ro:"Cont gata.",bn:"অ্যাকাউন্ট প্রস্তুত।",id:"Akun siap.",sw:"Akaunti iko tayari.",fil:"계정 준비됐어요.",mr:"Акаунт готовий.",te:"ఖాతా సిద్ధంగా ఉంది."},
+  country_label:{el:"Χώρα",en:"Country",ar:"البلد",zh:"国家",es:"País",fr:"Pays",ro:"Țara",pl:"Kraj",tr:"Ülke",hi:"देश",ur:"ملک",ja:"国",ru:"Страна",de:"Land",pt:"País",it:"Paese",nl:"Land",bn:"দেশ",id:"Negara",sw:"Nchi",fil:"Bansa",mr:"देश",te:"దేశం"},
+  country_ph:{el:"Επίλεξε χώρα...",en:"Select your country...",ar:"اختر بلدك...",zh:"选择国家...",es:"Selecciona tu país...",fr:"Sélectionnez votre pays...",ro:"Selectează țara...",pl:"Wybierz kraj...",tr:"Ülkeni seç...",hi:"देश चुनें...",ur:"ملک منتخب کریں...",ja:"国を選択...",ru:"Выберите страну...",de:"Land wählen...",pt:"Seleciona o teu país...",it:"Seleziona il tuo paese...",nl:"Selecteer land...",bn:"দেশ নির্বাচন করুন...",id:"Pilih negara...",sw:"Chagua nchi...",fil:"Pumili ng bansa...",mr:"देश निवडा...",te:"దేశం ఎంచుకోండి..."},
+  consent_gdpr:{el:"Συναινώ σε εξατομικευμένες προσφορές από την Care Direct (GDPR)",en:"I agree to receive personalised offers from Care Direct (GDPR)",ar:"أوافق على العروض المخصصة من Care Direct (GDPR)",zh:"同意接收Care Direct个性化优惠 (GDPR)",es:"Acepto recibir ofertas personalizadas de Care Direct (GDPR)",fr:"Accepter les offres personnalisées Care Direct (RGPD)",ro:"Accept oferte personalizate de la Care Direct (GDPR)",pl:"Zgadzam się na oferty spersonalizowane od Care Direct (RODO)",tr:"Care Direct kişisel teklifler onayı (GDPR)",hi:"Care Direct से व्यक्तिगत ऑफ़र पाने की सहमति (GDPR)",ur:"Care Direct سے ذاتی آفرز قبول کرتا/کرتی ہوں (GDPR)",ja:"Care Directからのパーソナライズ特典に同意 (GDPR)",ru:"Согласен/а на предложения Care Direct (GDPR)",de:"Personalisierte Angebote von Care Direct zustimmen (DSGVO)",pt:"Aceito ofertas personalizadas da Care Direct (RGPD)",it:"Acconsento alle offerte di Care Direct (GDPR)",nl:"Akkoord met aanbiedingen van Care Direct (AVG)",bn:"Care Direct থেকে অফার পেতে সম্মতি (GDPR)",id:"Setuju menerima penawaran dari Care Direct (GDPR)",sw:"Nakubali ofa kutoka Care Direct (GDPR)",fil:"Sumasang-ayon sa alok mula sa Care Direct (GDPR)",mr:"Care Direct कडून ऑफर मिळवण्यास संमती (GDPR)",te:"Care Direct నుండి ఆఫర్‌లకు అంగీకరిస్తున్నాను (GDPR)"},
   enterbtn:{el:"Μπες στην εφαρμογή →",en:"Enter the app →",ar:"← ادخل التطبيق",es:"Entrar →",fr:"Entrer →",de:"App öffnen →",pt:"Entrar →",it:"Entra →",ru:"Войти →",tr:"Gir →",hi:"प्रवेश करें →",ur:"داخل ہوں →",zh:"进入 →",ja:"入る →",nl:"Ga naar de app →",pl:"Wejdź →",ro:"Intră →",bn:"প্রবেশ করুন →",id:"Masuk →",sw:"Ingia →",fil:"앱으로 →",mr:"Увійти →",te:"ప్రవేశించు →"},
   greeting:{el:"Καλημέρα,",en:"Good morning,",ar:"صباح الخير،",es:"Buenos días,",fr:"Bonjour,",de:"Guten Morgen,",pt:"Bom dia,",it:"Buongiorno,",ru:"Доброе утро,",tr:"Günaydın,",hi:"शुभ प्रभात,",ur:"صبح بخیر،",zh:"早上好，",ja:"おはようございます、",nl:"Goedemorgen,",pl:"Dzień dobry,",ro:"Bună dimineața,",bn:"শুভ সকাল,",id:"Selamat pagi,",sw:"Habari,",fil:"좋은 아침이에요,",mr:"शुभ सकाळ,",te:"శుభోదయం,"},
   chat:{el:"Συνομιλία",en:"Chat",ar:"المحادثة",es:"Chat",fr:"Discussion",de:"Chat",pt:"Chat",it:"Chat",ru:"Чат",tr:"Sohbet",hi:"चैट",ur:"چیٹ",zh:"聊天",ja:"チャット",nl:"Chat",pl:"Czat",ro:"Chat",bn:"চ্যাট",id:"Obrolan",sw:"Mazungumzo",fil:"채팅",mr:"संवाद",te:"చాట్"},
@@ -1257,9 +1299,9 @@ function SubscriptionExpired({ lang, onLogout }: { lang: string; onLogout: () =>
 
 
 function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => void }) {
-  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childAge, setChildAge] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState("");
+  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childAge, setChildAge] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
   const L = getLang(lang);
-  const save = () => { localStorage.setItem("hm_pre_lang", lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":(childAge||""),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang,dueDate:isPregnant?dueDate:undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); onDone(p); };
+  const save = () => { localStorage.setItem("hm_pre_lang", lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":(childAge||""),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
   const s: React.CSSProperties = {minHeight:"100vh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
@@ -1298,8 +1340,8 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button onClick={()=>setStep(0)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(l.c)} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
-        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(l.c)} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
+        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
   );
