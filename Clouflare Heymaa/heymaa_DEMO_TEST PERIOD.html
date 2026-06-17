@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeyMaa</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--navy:#2B3A67;--coral:#E07B54;--peach:#F5C5A3;--teal:#4ABEAA;--cream:#F5F0EB;--mist:#EEF0F7;--purple:#7C5CBF;--green:#2D9E6B;}
+@keyframes scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+@keyframes wave{0%,100%{transform:scaleX(1);}45%{transform:scaleX(1.04) skewX(-2deg);}70%{transform:scaleX(0.97) skewX(1deg);}}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);}
+.flag{display:inline-flex;border-radius:3px;overflow:hidden;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.18);}
+.flag svg{width:100%;height:100%;display:block;}
+.navbar{background:var(--navy);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.nb-logo{display:flex;align-items:center;gap:8px;text-decoration:none;}.nb-logo img{height:32px;width:32px;object-fit:contain;}.nb-logo-text{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:#fff;}.nb-logo-text span{color:var(--peach);}
+
+.nb-right{display:flex;align-items:center;gap:10px;}
+.lang-trigger{display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.1);cursor:pointer;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;transition:background .2s;}
+.lang-trigger:hover{background:rgba(255,255,255,0.18);}
+.lang-trigger .flag{animation:wave 4s ease-in-out infinite;}
+.nb-cta{padding:7px 18px;border-radius:999px;background:var(--coral);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+.nb-cta:hover{opacity:.88;}
+.lang-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(20,30,60,0.65);align-items:flex-start;justify-content:center;padding-top:68px;}
+.lang-overlay.open{display:flex;animation:fadeUp .2s ease;}
+.lang-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:540px;max-height:80vh;overflow-y:auto;margin:0 16px;}
+.lang-box-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.lang-box-title{font-family:'Fraunces',serif;font-size:18px;color:var(--navy);}
+.lang-close{background:var(--mist);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;color:rgba(43,58,103,0.5);display:flex;align-items:center;justify-content:center;}
+.flag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.flag-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px 10px;border-radius:10px;border:2px solid transparent;cursor:pointer;transition:all .2s;background:var(--mist);}
+.flag-item:hover{background:#fff;border-color:rgba(43,58,103,0.2);}
+.flag-item.active{background:#fff;border-color:var(--navy);}
+.flag-item .flag{animation:wave 3s ease-in-out infinite;}
+.flag-item.active .flag{animation:wave 1.8s ease-in-out infinite;}
+.flag-lname{font-size:11px;font-weight:500;color:var(--navy);text-align:center;line-height:1.3;}
+.flag-lvoice{font-size:9px;color:rgba(43,58,103,0.4);text-align:center;}
+.active-pip{width:6px;height:6px;border-radius:50%;background:var(--coral);display:none;}
+.flag-item.active .active-pip{display:block;}
+.hero{text-align:center;padding:72px 24px 56px;max-width:780px;margin:0 auto;}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;background:rgba(43,58,103,0.08);font-size:12px;color:var(--navy);font-weight:500;margin-bottom:18px;}
+.hero-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s infinite;}
+.hero h1{font-family:'Fraunces',serif;font-size:clamp(26px,4.5vw,42px);font-weight:600;color:var(--navy);line-height:1.15;margin-bottom:14px;}
+.hero h1 em{font-style:italic;color:var(--coral);}
+.hero-sub{font-size:clamp(14px,2vw,16px);color:rgba(43,58,103,0.65);line-height:1.7;max-width:580px;margin:0 auto 28px;}
+.hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;}
+.btn-primary{padding:13px 28px;border-radius:999px;background:var(--navy);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+.btn-primary:hover{opacity:.88;}
+.btn-ghost{padding:12px 26px;border-radius:999px;background:transparent;color:var(--navy);border:1.5px solid rgba(43,58,103,0.22);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
+.btn-ghost:hover{border-color:var(--navy);}
+.hero-pills{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+.hero-pill{display:flex;align-items:center;gap:5px;font-size:12px;color:rgba(43,58,103,0.5);}
+.hero-pill i{font-size:13px;color:var(--teal);}
+.lang-strip{background:var(--navy);overflow:hidden;height:38px;display:flex;align-items:center;}
+.lang-strip-track{display:flex;white-space:nowrap;animation:scroll 22s linear infinite;}
+.strip-item{display:inline-flex;align-items:center;gap:8px;padding:0 20px;color:rgba(255,255,255,0.55);font-size:12px;border-right:1px solid rgba(255,255,255,0.1);height:38px;}
+.section{padding:52px 24px;max-width:860px;margin:0 auto;}
+.sec-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(43,58,103,0.38);margin-bottom:6px;}
+.sec-title{font-family:'Fraunces',serif;font-size:clamp(20px,3vw,28px);color:var(--navy);margin-bottom:8px;line-height:1.2;}
+.sec-sub{font-size:14px;color:rgba(43,58,103,0.6);line-height:1.65;margin-bottom:24px;}
+.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+.how-card{background:#fff;border-radius:14px;padding:20px;border:.5px solid rgba(43,58,103,0.08);}
+.how-num{width:36px;height:36px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:12px;}
+.how-title{font-size:14px;font-weight:500;color:var(--navy);margin-bottom:5px;}
+.how-body{font-size:13px;color:rgba(43,58,103,0.6);line-height:1.6;}
+.feat-wrap{background:#fff;border-radius:20px;padding:40px 28px;}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
+.feat-card{background:var(--mist);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;}
+.feat-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.feat-title{font-size:13px;font-weight:500;color:var(--navy);margin-bottom:3px;}
+.feat-body{font-size:12px;color:rgba(43,58,103,0.6);line-height:1.55;}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+.plan{background:#fff;border-radius:14px;padding:18px;border:1.5px solid rgba(43,58,103,0.1);position:relative;transition:transform .2s;}
+.plan:hover{transform:translateY(-3px);}
+.plan.current{border-color:var(--green);border-width:2px;}
+.plan.popular{border-color:var(--purple);border-width:2px;}
+.plan.best{border-color:var(--coral);border-width:2px;}
+.plan-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:3px 12px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap;color:#fff;}
+.plan-ico{font-size:22px;text-align:center;margin-bottom:8px;}
+.plan-name{font-size:12px;color:rgba(43,58,103,0.5);text-align:center;margin-bottom:4px;}
+.plan-price{font-family:'Fraunces',serif;font-size:26px;color:var(--navy);text-align:center;line-height:1;}
+.plan-period{font-size:11px;color:rgba(43,58,103,0.4);text-align:center;margin-bottom:4px;}
+.plan-save{font-size:10px;color:var(--coral);font-weight:500;text-align:center;min-height:14px;}
+.plan-feats{list-style:none;margin:12px 0;display:flex;flex-direction:column;gap:5px;}
+.plan-feats li{font-size:11px;color:rgba(43,58,103,0.65);display:flex;align-items:center;gap:5px;}
+.plan-feats li i{font-size:11px;color:var(--green);}
+.plan-btn{width:100%;border:none;border-radius:8px;padding:10px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;margin-top:4px;}
+.btn-dark{background:var(--navy);color:#fff;}
+.btn-purple{background:var(--purple);color:#fff;}
+.btn-coral{background:var(--coral);color:#fff;}
+.btn-ghost-p{background:rgba(43,58,103,0.07);color:var(--navy);}
+.safety-wrap{background:var(--navy);border-radius:20px;padding:44px 32px;}
+.safety-wrap .sec-label{color:rgba(255,255,255,0.35);}
+.safety-wrap .sec-title{color:#fff;}
+.safety-wrap .sec-sub{color:rgba(255,255,255,0.55);}
+.safety-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+.safety-card{border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);transition:background .2s;}
+.safety-card:hover{background:rgba(255,255,255,0.1);}
+.safety-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.safety-card-title{font-size:14px;font-weight:500;color:#fff;line-height:1.3;}
+.safety-card-body{font-size:12px;color:rgba(255,255,255,0.55);line-height:1.6;}
+.faq-item{background:#fff;border-radius:12px;border:.5px solid rgba(43,58,103,0.08);overflow:hidden;margin-bottom:8px;}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--navy);gap:10px;transition:background .15s;}
+.faq-q:hover{background:var(--mist);}
+.faq-q i{font-size:16px;color:rgba(43,58,103,0.3);transition:transform .2s;flex-shrink:0;}
+.faq-q.open i{transform:rotate(180deg);}
+.faq-a{display:none;padding:0 16px 14px;font-size:12px;color:rgba(43,58,103,0.65);line-height:1.7;}
+.faq-a.open{display:block;}
+.cta-wrap{background:var(--navy);padding:64px 24px;text-align:center;}
+.cta-wrap h2{font-family:'Fraunces',serif;font-size:clamp(22px,4vw,32px);color:#fff;margin-bottom:10px;}
+.cta-wrap p{font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:26px;line-height:1.7;}
+.footer{background:#1a2545;padding:22px;text-align:center;}
+.footer-logo{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:4px;}.footer-logo img{height:26px;width:26px;object-fit:contain;opacity:0.7;}.footer-logo-text{font-family:'Fraunces',serif;font-size:17px;color:rgba(255,255,255,0.6);}
+.footer-logo-text span{color:var(--peach);}
+.footer-copy{font-size:11px;color:rgba(255,255,255,0.25);}
+[dir="rtl"] .hero,[dir="rtl"] .section{text-align:right;}
+[dir="rtl"] .hero-pills,[dir="rtl"] .hero-btns{flex-direction:row-reverse;}
+
+/* ═══════════════ DEMO / ONBOARDING ═══════════════ */
+.demo-trigger{padding:7px 16px;border-radius:999px;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.35);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;margin-right:6px;}
+.demo-trigger:hover{background:rgba(255,255,255,0.25);}
+
+/* Full-screen overlay for onboarding + app */
+.demo-overlay{display:none;position:fixed;inset:0;z-index:300;background:var(--cream);flex-direction:column;overflow:hidden;}
+.demo-overlay.open{display:flex;}
+
+/* ── Onboarding ── */
+.ob-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;max-width:480px;margin:0 auto;width:100%;}
+.ob-progress{display:flex;gap:6px;margin-bottom:32px;}
+.ob-dot{width:32px;height:4px;border-radius:2px;background:rgba(43,58,103,0.15);transition:background .3s;}
+.ob-dot.done{background:var(--teal);}
+.ob-dot.active{background:var(--navy);}
+.ob-icon{font-size:52px;margin-bottom:16px;text-align:center;}
+.ob-title{font-family:'Fraunces',serif;font-size:24px;color:var(--navy);text-align:center;margin-bottom:8px;line-height:1.2;}
+.ob-sub{font-size:14px;color:rgba(43,58,103,0.6);text-align:center;margin-bottom:28px;line-height:1.65;}
+.ob-input{width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(43,58,103,0.18);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--navy);background:#fff;outline:none;transition:border .2s;margin-bottom:10px;}
+.ob-input:focus{border-color:var(--teal);}
+.ob-select{width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(43,58,103,0.18);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--navy);background:#fff;outline:none;appearance:none;margin-bottom:10px;cursor:pointer;}
+.ob-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-bottom:10px;}
+.ob-chip{padding:11px 14px;border-radius:10px;border:1.5px solid rgba(43,58,103,0.15);background:#fff;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--navy);cursor:pointer;text-align:center;transition:all .2s;}
+.ob-chip:hover,.ob-chip.sel{background:var(--navy);color:#fff;border-color:var(--navy);}
+.ob-btn{width:100%;padding:14px;border-radius:12px;background:var(--navy);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;margin-top:8px;transition:opacity .2s;}
+.ob-btn:hover{opacity:.88;}
+.ob-btn-teal{background:var(--teal);}
+.ob-back{background:none;border:none;color:rgba(43,58,103,0.4);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;margin-top:10px;padding:6px;}
+.ob-skip{background:none;border:none;color:rgba(43,58,103,0.35);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;position:absolute;top:18px;right:20px;}
+
+/* ── App Shell ── */
+.app-shell{flex:1;display:none;flex-direction:column;background:var(--cream);max-width:420px;margin:0 auto;width:100%;position:relative;}
+.app-shell.open{display:flex;}
+.app-navbar{background:var(--navy);padding:14px 18px 12px;display:flex;align-items:center;justify-content:space-between;}
+.app-greeting{color:#fff;font-family:'Fraunces',serif;font-size:16px;}
+.app-greeting span{color:var(--peach);}
+.app-avatar{width:34px;height:34px;border-radius:50%;background:var(--coral);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:14px;font-weight:600;}
+.app-body{flex:1;overflow-y:auto;padding:16px;}
+.app-tabs{display:flex;background:#fff;border-top:1px solid rgba(43,58,103,0.1);position:sticky;bottom:0;}
+.app-tab{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 4px 7px;cursor:pointer;border:none;background:none;transition:color .2s;font-family:'DM Sans',sans-serif;}
+.app-tab i{font-size:20px;color:rgba(43,58,103,0.3);transition:color .2s;}
+.app-tab span{font-size:9px;color:rgba(43,58,103,0.3);margin-top:2px;transition:color .2s;}
+.app-tab.active i,.app-tab.active span{color:var(--navy);}
+.app-tab.active{border-top:2px solid var(--navy);}
+
+/* Tab content cards */
+.tab-panel{display:none;animation:fadeUp .25s ease;}
+.tab-panel.active{display:block;}
+.app-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;border:.5px solid rgba(43,58,103,0.08);}
+.app-card-title{font-size:13px;font-weight:500;color:var(--navy);margin-bottom:6px;}
+.app-card-body{font-size:12px;color:rgba(43,58,103,0.6);line-height:1.6;}
+.memory-item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:.5px solid rgba(43,58,103,0.06);}
+.memory-item:last-child{border:none;}
+.memory-emoji{font-size:24px;flex-shrink:0;}
+.memory-text{font-size:12px;color:var(--navy);line-height:1.5;}
+.memory-date{font-size:10px;color:rgba(43,58,103,0.35);margin-top:2px;}
+.milestone-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid rgba(43,58,103,0.06);}
+.milestone-row:last-child{border:none;}
+.milestone-check{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;}
+.milestone-done{background:rgba(45,158,107,0.12);color:var(--green);}
+.milestone-todo{background:rgba(43,58,103,0.06);color:rgba(43,58,103,0.3);}
+.milestone-label{font-size:12px;color:var(--navy);}
+.shop-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:.5px solid rgba(43,58,103,0.06);}
+.shop-item:last-child{border:none;}
+.shop-emoji{font-size:28px;flex-shrink:0;}
+.shop-info{flex:1;}
+.shop-name{font-size:12px;font-weight:500;color:var(--navy);}
+.shop-note{font-size:11px;color:rgba(43,58,103,0.5);}
+.shop-badge{font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(74,190,170,0.12);color:var(--teal);font-weight:500;}
+.ai-bubble-wrap{display:flex;gap:8px;margin-bottom:12px;}
+.ai-bubble-avatar{width:28px;height:28px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid rgba(43,58,103,0.1);}.ai-bubble-avatar img{width:26px;height:26px;object-fit:contain;}
+.ai-bubble{background:#fff;border-radius:0 12px 12px 12px;padding:10px 13px;font-size:12px;color:var(--navy);line-height:1.6;border:.5px solid rgba(43,58,103,0.1);max-width:85%;}
+.user-bubble{background:var(--navy);border-radius:12px 0 12px 12px;padding:10px 13px;font-size:12px;color:#fff;margin-left:auto;max-width:80%;margin-bottom:12px;}
+.chat-input-row{display:flex;gap:8px;padding:10px 16px;background:#fff;border-top:.5px solid rgba(43,58,103,0.08);}
+.chat-input{flex:1;padding:9px 13px;border-radius:999px;border:1.5px solid rgba(43,58,103,0.15);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;}
+.chat-send{width:36px;height:36px;border-radius:50%;background:var(--navy);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* Demo banner */
+.demo-banner{background:rgba(224,123,84,0.12);border-bottom:1px solid rgba(224,123,84,0.25);padding:6px 16px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--coral);font-weight:500;}
+.demo-banner button{background:none;border:none;color:var(--coral);cursor:pointer;font-size:11px;font-weight:600;text-decoration:underline;}
+
+/* DEMO FULLSCREEN */
+#landing-page{display:block}
+#demo-fullscreen{display:none;position:fixed;inset:0;z-index:9999;background:#BDB6AF}
+/* DEMO CLOSE BTN */
+.demo-close-btn{position:fixed;top:12px;right:12px;z-index:10000;background:#E07B54;color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;transition:all .2s;display:none;align-items:center;gap:5px;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.demo-close-btn.visible{display:flex}
+.demo-close-btn:hover{background:#C96A43}
+
+/* DEMO APP STYLES */
+:root{--navy:#2B3A67;--coral:#E07B54;--peach:#F5C5A3;--teal:#4ABEAA;--cream:#F5F0EB;--gl:#F0EBE6;--gm:#C8BFB8;--gd:#7A7068;--txt:#2B2420;--fh:'Fraunces',Georgia,serif;--fb:'DM Sans',sans-serif;--r:14px;--sh:0 2px 14px rgba(43,58,103,.10)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#BDB6AF;font-family:var(--fb);color:var(--txt);overflow:hidden}
+.outer{width:100%;height:100vh;display:flex;align-items:center;justify-content:center;padding:12px}
+.phone{width:100%;max-width:390px;height:100%;max-height:820px;border-radius:38px;overflow:hidden;display:flex;flex-direction:column;background:var(--cream);box-shadow:0 28px 72px rgba(43,58,103,.32),0 0 0 1px rgba(255,255,255,.22)}
+/* BANNER */
+.banner{height:32px;background:#FFF9F3;border-bottom:1.5px solid var(--peach);display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex-shrink:0}
+.bl{font-size:11px;font-weight:500;color:var(--navy);display:flex;align-items:center;gap:5px}
+.bd{background:var(--coral);color:#fff;border-radius:4px;font-size:9px;font-weight:700;padding:2px 5px}
+/* HEADER */
+.hdr{height:54px;background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 14px;flex-shrink:0}
+.hg{font-family:var(--fh);font-size:16px;color:#fff;display:flex;align-items:center;gap:6px}
+.hg span{color:var(--coral)}
+.hr{display:flex;align-items:center;gap:8px}
+.lbtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28);border-radius:7px;color:#fff;font-family:var(--fb);font-size:11px;font-weight:500;padding:4px 8px;cursor:pointer;display:flex;align-items:center;gap:3px}
+.av{width:32px;height:32px;border-radius:50%;background:var(--coral);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0}
+/* SCREENS */
+.sa{flex:1;overflow:hidden;position:relative}
+.sc{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:16px;display:none;visibility:hidden;z-index:0;-webkit-overflow-scrolling:touch}
+.sc::-webkit-scrollbar{display:none}
+.sc.active{display:block;visibility:visible;z-index:1;animation:si .22s ease}
+@keyframes si{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sc.ob{flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 24px}
+.sc.ob.active{display:flex;visibility:visible;z-index:1}
+/* ONBOARDING */
+.oe{font-size:62px;margin-bottom:14px;animation:fl 3s ease-in-out infinite}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.ot{font-family:var(--fh);font-size:23px;color:var(--navy);font-weight:700;margin-bottom:8px;line-height:1.2}
+.os{font-size:13.5px;color:var(--gd);line-height:1.6;margin-bottom:24px;max-width:300px}
+.oi{width:100%;padding:13px 15px;border:1.5px solid #DDD7D0;border-radius:12px;font-family:var(--fb);font-size:15px;color:var(--txt);background:#fff;outline:none;margin-bottom:10px;transition:border-color .2s}
+.oi:focus{border-color:var(--navy)}
+.obtn{width:100%;padding:14px;border:none;border-radius:12px;font-family:var(--fb);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:8px}
+.obtn.np{background:var(--navy);color:#fff}
+.obtn.tp{background:var(--teal);color:#fff}
+.obk{background:none;border:none;font-family:var(--fb);font-size:13px;color:var(--gd);cursor:pointer;padding:4px}
+/* SUCCESS */
+.suc{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px}
+.sue{font-size:70px;margin-bottom:16px;animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+/* TABBAR */
+.tb{height:64px;background:#fff;border-top:1px solid #E6E0D8;display:flex;align-items:stretch;flex-shrink:0}
+.ti{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:4px 2px;border-top:2.5px solid transparent;transition:all .18s}
+.ti.a{border-top-color:var(--navy)}
+.ti .ic{font-size:19px;line-height:1;color:var(--gd)}
+.ti .lb{font-size:9px;color:var(--gd);font-weight:400;white-space:nowrap}
+.ti.a .ic,.ti.a .lb{color:var(--navy)}
+.ti.a .lb{font-weight:600}
+/* NAV */
+.nb{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 10px;background:#fff;border-top:1px solid #EBE5DE;flex-shrink:0;gap:10px}
+.nbtn{flex:1;padding:9px 0;border:none;border-radius:10px;font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:5px}
+.nbtn.pv{background:var(--gl);color:var(--navy)}
+.nbtn.nx{background:var(--navy);color:#fff}
+.nbtn:disabled{opacity:.32;cursor:not-allowed}
+.ndots{display:flex;gap:3px;flex-shrink:0;flex-wrap:wrap;max-width:100px;justify-content:center}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--gm);transition:all .22s;flex-shrink:0}
+.dot.a{background:var(--navy);width:13px;border-radius:3px}
+/* CARDS */
+.card{background:#fff;border-radius:var(--r);padding:14px;margin-bottom:11px;box-shadow:var(--sh)}
+.ct{font-family:var(--fh);font-size:15px;color:var(--navy);margin-bottom:11px;font-weight:600}
+/* PROFILE HERO */
+.ph{background:var(--navy);border-radius:var(--r);padding:14px;margin-bottom:11px;display:flex;align-items:center;gap:11px;box-shadow:var(--sh)}
+.phav{width:48px;height:48px;border-radius:50%;background:var(--coral);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;color:#fff;flex-shrink:0}
+.phnm{font-family:var(--fh);font-size:17px;color:#fff;font-weight:600}
+.phsb{font-size:11px;color:var(--peach);margin-top:2px}
+/* AI */
+.aib{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.aif{width:32px;height:32px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.ait{background:var(--gl);border-radius:0 11px 11px 11px;padding:10px 12px;font-size:12.5px;line-height:1.5;flex:1}
+.um{background:var(--navy);color:#fff;border-radius:11px 11px 0 11px;padding:10px 13px;font-size:12.5px;margin:8px 0 8px 40px;line-height:1.5}
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.sb{background:var(--gl);border-radius:10px;padding:11px 6px;text-align:center}
+.sn{font-family:var(--fh);font-size:22px;color:var(--navy);font-weight:700;line-height:1}
+.sl{font-size:10px;color:var(--gd);margin-top:2px}
+/* PREGNANCY */
+.pw{text-align:center;margin-bottom:12px}
+.pn{font-family:var(--fh);font-size:50px;color:var(--coral);font-weight:700;line-height:1}
+.pwl{font-size:12px;color:var(--gd);margin-top:2px}
+.pf{font-size:52px;display:block;text-align:center;margin-bottom:6px}
+.psz{text-align:center;font-size:13px;color:var(--navy);font-weight:600;margin-bottom:12px}
+.pt{background:var(--gl);border-radius:9px;padding:10px 12px;font-size:12px;color:var(--txt);line-height:1.5;margin-bottom:7px;display:flex;align-items:flex-start;gap:6px}
+.pti{flex-shrink:0;font-size:15px}
+/* FAMILY */
+.fm{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:9px;background:var(--gl);margin-bottom:6px;cursor:pointer}
+.fav{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
+.fn{font-weight:600;font-size:13px;color:var(--navy)}
+.fr{font-size:11px;color:var(--gd);margin-top:1px}
+.af{border:2px dashed var(--gm);border-radius:9px;padding:14px;text-align:center;cursor:pointer;color:var(--gd);font-size:13px}
+/* MEMORIES */
+.mi{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-bottom:1px solid var(--gl)}
+.mi:last-child{border-bottom:none}
+.me{font-size:20px;flex-shrink:0;line-height:1.3}
+.mt{font-size:12.5px;color:var(--txt);line-height:1.45;font-weight:500}
+.ms{font-size:10px;color:var(--gm);margin-top:2px}
+/* MILESTONES */
+.msi{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--gl)}
+.msi:last-child{border-bottom:none}
+.mc{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;font-weight:700}
+.mc.d{background:var(--teal);color:#fff}
+.mc.p{background:var(--gl);color:var(--gm);border:2px solid var(--gm)}
+.mst{font-size:13px;font-weight:500}
+.mst.d{color:var(--txt)}
+.mst.p{color:var(--gd)}
+.nm{background:rgba(74,190,170,.10);border:1.5px solid var(--teal);border-radius:9px;padding:10px 12px;font-size:12px;color:var(--teal);font-weight:600;margin-top:3px;display:flex;align-items:center;gap:6px}
+/* SHOP TABS */
+.stabs{display:flex;margin-bottom:12px;border-radius:9px;overflow:hidden;border:1.5px solid #E6E0D8}
+.stab{flex:1;padding:8px 3px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;background:#fff;color:var(--gd);border:none;font-family:var(--fb);transition:all .15s}
+.stab.a{background:var(--navy);color:#fff}
+/* PRODUCTS */
+.shi{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gl)}
+.shi:last-child{border-bottom:none}
+.sic{width:36px;height:36px;border-radius:8px;background:var(--gl);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.snm{font-size:12.5px;font-weight:600;color:var(--txt)}
+.sds{font-size:11px;color:var(--gd);margin-top:1px}
+.sbg{margin-left:auto;font-size:10px;font-weight:700;border-radius:6px;padding:2px 6px;white-space:nowrap;flex-shrink:0}
+.sbg.ag{background:var(--peach);color:var(--navy)}
+.sbg.tr{background:#E8F7F4;color:var(--teal)}
+.sbg.tp{background:#FFF3E0;color:var(--coral)}
+/* ADD ITEM */
+.air{display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--gl)}
+.aii{flex:1;padding:8px 11px;border:1.5px solid #DDD7D0;border-radius:9px;font-family:var(--fb);font-size:12.5px;color:var(--txt);background:#fff;outline:none}
+.aii:focus{border-color:var(--navy)}
+.aib2{padding:8px 13px;background:var(--navy);color:#fff;border:none;border-radius:9px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer}
+/* SUPERMARKET */
+.smi{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--gl)}
+.smi:last-child{border-bottom:none}
+.sic2{width:34px;height:34px;border-radius:7px;background:var(--gl);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.smn{font-size:12.5px;font-weight:600;color:var(--txt)}
+.smd{font-size:11px;color:var(--gd);margin-top:1px}
+.smp{margin-left:auto;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0}
+.ssb{background:var(--navy);border-radius:10px;padding:10px 12px;margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.ssl{font-size:11px;color:rgba(255,255,255,.75);font-weight:500}
+.ssbs{display:flex;gap:5px}
+.ssbtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:10.5px;font-weight:600;padding:4px 7px;cursor:pointer;font-family:var(--fb)}
+/* OFFERS */
+.oc{border-radius:11px;padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px}
+.oc.o{background:linear-gradient(135deg,#FFF8F0,#FFE8D6)}
+.oc.c{background:linear-gradient(135deg,#EAF8F5,#D0F2EB)}
+.oc.n{background:linear-gradient(135deg,#F0F4FF,#DDE6FF)}
+.oi2{font-size:24px;flex-shrink:0}
+.otl{font-size:12.5px;font-weight:700;color:var(--navy)}
+.ods{font-size:11px;color:var(--gd);margin-top:2px;line-height:1.4}
+.obdg{margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;color:#fff}
+.obdg.r{background:var(--coral)}
+.obdg.g{background:var(--teal)}
+.obdg.b{background:#5B7FE8}
+/* VOICE */
+.vc{width:90px;height:90px;border-radius:50%;background:var(--navy);margin:14px auto;display:flex;align-items:center;justify-content:center;font-size:36px;animation:vp 2s ease-in-out infinite}
+@keyframes vp{0%,100%{box-shadow:0 0 0 0 rgba(43,58,103,.28)}50%{box-shadow:0 0 0 16px rgba(43,58,103,0)}}
+.vw{display:flex;align-items:center;justify-content:center;gap:4px;height:34px;margin:0 auto 12px}
+.wb{width:4px;border-radius:2px;background:var(--coral);animation:wv 1s ease-in-out infinite}
+.wb:nth-child(1){height:12px;animation-delay:0s}
+.wb:nth-child(2){height:22px;animation-delay:.1s}
+.wb:nth-child(3){height:32px;animation-delay:.2s}
+.wb:nth-child(4){height:18px;animation-delay:.3s}
+.wb:nth-child(5){height:26px;animation-delay:.4s}
+.wb:nth-child(6){height:16px;animation-delay:.5s}
+.wb:nth-child(7){height:30px;animation-delay:.6s}
+@keyframes wv{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.5)}}
+.cl{font-size:12px;color:var(--gd);font-weight:500;display:flex;align-items:center;gap:5px;margin-bottom:8px}
+/* DOCS */
+.di{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gl);border-radius:9px;margin-bottom:6px}
+.dn{font-size:12.5px;font-weight:600;color:var(--navy)}
+.dd{font-size:11px;color:var(--gd);margin-top:1px}
+.dlk{margin-left:auto;font-size:13px;color:var(--gm)}
+.dnt{background:#FFF8F0;border:1.5px solid var(--peach);border-radius:9px;padding:10px 12px;font-size:11.5px;color:var(--gd);line-height:1.55;margin-top:5px;display:flex;gap:7px;align-items:flex-start}
+/* PLANS */
+.plc{border-radius:14px;padding:14px;margin-bottom:9px;border:2px solid #E6E0D8;background:#FDFAF8;cursor:pointer;position:relative;margin-top:14px}
+.plc.pp{background:linear-gradient(135deg,var(--navy),#3D5288);border-color:var(--coral)}
+.plc.pa{background:linear-gradient(135deg,#1A2845,var(--navy));border-color:var(--teal)}
+.ptb{position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;color:#fff}
+.ptb.cu{background:var(--teal)}
+.ptb.po{background:var(--coral)}
+.ptb.bv{background:#F59E0B}
+.pll{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
+.pll.lt{color:var(--gd)}
+.pll.dk{color:rgba(255,255,255,.6)}
+.ppb{font-family:var(--fh);font-size:28px;font-weight:700;line-height:1}
+.ppb.lt{color:var(--navy)}
+.ppb.dk{color:#fff}
+.pper{font-size:12px;margin-bottom:8px}
+.pper.lt{color:var(--gd)}
+.pper.dk{color:rgba(255,255,255,.7)}
+.psv{font-size:11px;font-weight:700;color:var(--coral);margin-bottom:6px}
+.pfs{display:flex;flex-direction:column;gap:4px}
+.pfr{font-size:11.5px;display:flex;align-items:center;gap:5px}
+.pfr.lt{color:var(--txt)}
+.pfr.dk{color:rgba(255,255,255,.85)}
+.pfr::before{content:"✓";font-weight:700;font-size:11px;flex-shrink:0}
+.pfr.lt::before{color:var(--teal)}
+.pfr.dk::before{color:var(--peach)}
+.pct{width:100%;margin-top:10px;padding:9px;border:none;border-radius:9px;font-family:var(--fb);font-size:13px;font-weight:700;cursor:pointer}
+.pct.lt{background:var(--navy);color:#fff}
+.pct.dk{background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.35)}
+.pct.ac{background:var(--gl);color:var(--gd);cursor:default}
+/* RTL */
+[dir=rtl] .ait{border-radius:11px 0 11px 11px}
+[dir=rtl] .um{border-radius:11px 11px 11px 0;margin:8px 40px 8px 0}
+[dir=rtl] .aib{flex-direction:row-reverse}
+[dir=rtl] .ph{flex-direction:row-reverse}
+[dir=rtl] .fm{flex-direction:row-reverse}
+[dir=rtl] .msi{flex-direction:row-reverse}
+[dir=rtl] .shi{flex-direction:row-reverse}
+[dir=rtl] .sbg{margin-left:0;margin-right:auto}
+[dir=rtl] .smi{flex-direction:row-reverse}
+[dir=rtl] .smp{margin-left:0;margin-right:auto}
+[dir=rtl] .oc{flex-direction:row-reverse}
+[dir=rtl] .obdg{margin-left:0;margin-right:auto}
+[dir=rtl] .di{flex-direction:row-reverse}
+[dir=rtl] .dlk{margin-left:0;margin-right:auto}
+/* LANG MODAL */
+.lov{position:fixed;inset:0;background:rgba(43,58,103,.5);z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .22s}
+.lov.open{opacity:1;pointer-events:all}
+.lmd{background:#fff;border-radius:18px 18px 0 0;padding:16px 0 24px;width:100%;max-height:68%;overflow-y:auto;transform:translateY(30px);transition:transform .28s cubic-bezier(.34,1.26,.64,1)}
+.lov.open .lmd{transform:translateY(0)}
+.lmt{font-family:var(--fh);font-size:16px;color:var(--navy);font-weight:600;text-align:center;padding:0 16px 12px;border-bottom:1px solid var(--gl);margin-bottom:4px}
+.lo{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:8px;cursor:pointer;transition:background .12s;margin:0 8px}
+.lo:hover,.lo.sel{background:var(--gl)}
+.lfl{font-size:19px}
+.lnt{font-size:13.5px;font-weight:500;flex:1}
+.lnv{font-size:11.5px;color:var(--gd)}
+.lck{color:var(--teal);font-weight:700;font-size:14px}
+/* TOAST */
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:9px 18px;border-radius:20px;font-size:12.5px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:420px){.phone{border-radius:0;max-height:100vh}.outer{padding:0}}
+</style>
+</head>
+<body>
+<div class="outer"><div class="phone" id="app">
+<!-- BANNER -->
+<div class="banner">
+  <span class="bl"><span class="bd">DEMO</span> <span id="btxt">Demo Mode</span></span>
+  <button class="lbtn" onclick="openLang()">🌐 <span id="hld">ΕΛ</span></button>
+</div>
+<!-- HEADER -->
+<div class="hdr" id="apphdr">
+  <div class="hg" id="hgreet">Καλημέρα, <span>Mary</span> 👋</div>
+  <div class="hr"><div class="av">M</div></div>
+</div>
+<!-- SCREENS -->
+<div class="sa">
+<!-- S1: ONBOARDING WELCOME -->
+<div class="sc ob active" id="sc1">
+  <span class="oe">👋</span>
+  <div class="ot" id="s1t">Καλώς ήρθες στη HeyMaa!</div>
+  <div class="os" id="s1s">Ας στήσουμε τον λογαριασμό σου σε 2 λεπτά.</div>
+  <input class="oi" id="s1n" placeholder="Mary" value="Mary"/>
+  <button class="obtn np" id="s1btn" onclick="nav(1)">Ξεκινάμε →</button>
+</div>
+<!-- S2: ONBOARDING PROFILE -->
+<div class="sc ob" id="sc2">
+  <span class="oe">👶</span>
+  <div class="ot" id="s2t">Ας ενημερώσουμε το προφίλ σου</div>
+  <div class="os" id="s2s">Πες μας για το παιδί ή την εγκυμοσύνη σου.</div>
+  <input class="oi" id="s2c" placeholder="Sofia" value="Sofia"/>
+  <input class="oi" id="s2a" placeholder="4 μήνες" value="4 μήνες" style="margin-top:0"/>
+  <button class="obtn np" id="s2btn" onclick="nav(1)">Συνέχεια →</button>
+  <button class="obk" id="s2bk" onclick="nav(-1)">← Back</button>
+</div>
+<!-- S3: PROFILE -->
+<div class="sc" id="sc3">
+  <div class="ph"><div class="phav">M</div><div><div class="phnm">Mary</div><div class="phsb" id="s3ps">Premium · 14-day trial</div></div></div>
+  <div class="card"><div class="aib"><div class="aif">🐾</div><div class="ait" id="s3ai">Γεια σου Mary, χαίρομαι που βρίσκεσαι εδώ.</div></div></div>
+  <div class="card">
+    <div class="ct" id="s3st">Στατιστικά</div>
+    <div class="sg">
+      <div class="sb"><div class="sn">12</div><div class="sl" id="s3sm">Αναμνήσεις</div></div>
+      <div class="sb"><div class="sn">5</div><div class="sl">Milestones</div></div>
+      <div class="sb"><div class="sn">3</div><div class="sl" id="s3sf">Οικογένεια</div></div>
+    </div>
+  </div>
+</div>
+<!-- S4: PREGNANCY -->
+<div class="sc" id="sc4">
+  <div class="card">
+    <div class="ct" id="s4t">🤰 Εγκυμοσύνη — Εβδομάδα</div>
+    <div class="pw"><div class="pn">20</div><div class="pwl" id="s4wl">Εβδομάδα εγκυμοσύνης</div></div>
+    <span class="pf">🍑</span>
+    <div class="psz" id="s4sz">Το μωρό σου έχει μέγεθος ροδάκινου · ~16cm</div>
+  </div>
+  <div class="card">
+    <div class="pt"><span class="pti">💡</span><span id="s4tp1">Αυτή την εβδομάδα μπορείς να νιώσεις τις πρώτες κινήσεις — συγχαρητήρια!</span></div>
+    <div class="pt"><span class="pti">🥗</span><span id="s4tp2">Συνέχισε φυλλικό οξύ και σίδηρο. Πρόσθεσε περισσότερη πρωτεΐνη.</span></div>
+    <div class="pt"><span class="pti">📅</span><span id="s4tp3">Θυμήσου: ραντεβού για morphology scan αυτήν την εβδομάδα.</span></div>
+  </div>
+  <div class="card"><div class="aib"><div class="aif">🐾</div><div class="ait" id="s4ai">Πώς αισθάνεσαι; Θέλεις να καταγράψω τα συμπτώματά σου;</div></div></div>
+</div>
+<!-- S5: FAMILY -->
+<div class="sc" id="sc5">
+  <div class="card">
+    <div class="ct" id="s5t">Η Οικογένειά μου</div>
+    <div class="fm"><div class="fav" style="background:var(--coral)">S</div><div><div class="fn">Sofia</div><div class="fr" id="s5r1">4 μηνών · Κορίτσι</div></div></div>
+    <div class="fm"><div class="fav" style="background:var(--teal)">Ν</div><div><div class="fn" id="s5n2">Νίκος</div><div class="fr" id="s5r2">Σύντροφος · Κοινή πρόσβαση</div></div></div>
+    <div class="fm"><div class="fav" style="background:#9B6FA0">Ε</div><div><div class="fn" id="s5n3">Ελένη</div><div class="fr" id="s5r3">Γιαγιά · Ανάγνωση μόνο</div></div></div>
+    <div class="af" id="s5af">＋ Πρόσθεσε μέλος οικογένειας</div>
+  </div>
+  <div class="card"><div class="ct" id="s5sh">Κοινή χρήση</div><div class="aib"><div class="aif">🐾</div><div class="ait" id="s5ai">Ο Νίκος μπορεί να δει αναμνήσεις και milestones της Sofia σε πραγματικό χρόνο.</div></div></div>
+</div>
+<!-- S6: MEMORIES -->
+<div class="sc" id="sc6">
+  <div class="card">
+    <div class="ct" id="s6t">Πρόσφατες Αναμνήσεις</div>
+    <div class="mi"><div class="me">😊</div><div><div class="mt" id="s6m1">Πρώτο χαμόγελο της Sofia! Κοιτούσε τα φώτα και ξαφνικά χαμογέλασε.</div><div class="ms" id="s6t1">2 ώρες πριν</div></div></div>
+    <div class="mi"><div class="me">🍼</div><div><div class="mt" id="s6m2">Σήμερα έπιε 150ml χωρίς διακοπή. Καλή ημέρα!</div><div class="ms" id="s6t2">Χθες, 14:30</div></div></div>
+    <div class="mi"><div class="me">😎</div><div><div class="mt" id="s6m3">Κοιμήθηκε 5 ώρες συνεχόμενα! Ρεκόρ.</div><div class="ms" id="s6t3">2 ημέρες πριν</div></div></div>
+    <div class="mi"><div class="me">🛁</div><div><div class="mt" id="s6m4">Πρώτο μπάνιο — δεν έκλαψε καθόλου!</div><div class="ms" id="s6t4">5 ημέρες πριν</div></div></div>
+  </div>
+</div>
+<!-- S7: VOICE -->
+<div class="sc" id="sc7">
+  <div class="card" style="text-align:center;padding:16px 14px">
+    <div class="ct" id="s7t" style="text-align:center">Μίλα με τη Maa 🎤</div>
+    <div class="vc">🐾</div>
+    <div class="vw"><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div></div>
+    <div style="font-size:12.5px;color:var(--gd);margin-bottom:2px" id="s7ls">Ακούω...</div>
+  </div>
+  <div class="card">
+    <div class="cl">💬 <span id="s7cl">Συνομιλία με τη Maa</span></div>
+    <div class="aib"><div class="aif">🐾</div><div class="ait" id="s7aq">Θέλεις να καταγράψω κάτι που συνέβη σήμερα;</div></div>
+    <div class="um" id="s7um">Η Sofia χαμογέλασε για πρώτη φορά! 😊</div>
+    <div class="aib"><div class="aif">🐾</div><div class="ait" id="s7ar">Τι υπέροχη στιγμή! Θα το αποθηκεύσω ως «Πρώτο χαμόγελο». Θέλεις να προσθέσεις φωτογραφία;</div></div>
+  </div>
+</div>
+<!-- S8: MILESTONES -->
+<div class="sc" id="sc8">
+  <div class="card">
+    <div class="ct" id="s8t">Milestones Sofia · 4 μήνες</div>
+    <div class="msi"><div class="mc d">✓</div><div class="mst d" id="s8m1">Ανασηκώνει το κεφάλι</div></div>
+    <div class="msi"><div class="mc d">✓</div><div class="mst d" id="s8m2">Ακολουθεί αντικείμενα με τα μάτια</div></div>
+    <div class="msi"><div class="mc d">✓</div><div class="mst d" id="s8m3">Πρώτο χαμόγελο</div></div>
+    <div class="msi"><div class="mc d">✓</div><div class="mst d" id="s8m4">Αναγνωρίζει φωνές</div></div>
+    <div class="msi"><div class="mc p">○</div><div class="mst p" id="s8m5">Γέλιο</div></div>
+    <div class="msi"><div class="mc p">○</div><div class="mst p" id="s8m6">Στηρίζει το κεφάλι σταθερά</div></div>
+    <div class="msi"><div class="mc p">○</div><div class="mst p" id="s8m7">Αρπάζει αντικείμενα</div></div>
+  </div>
+  <div class="nm">⏩ <span id="s8nx">Επόμενο: Γέλιο στους 4–5 μήνες</span></div>
+  <div class="card" style="margin-top:10px"><div class="aib"><div class="aif">🐾</div><div class="ait" id="s8ai">Η Sofia τα πηγαίνει πολύ καλά! Θέλεις συμβουλές για το επόμενο milestone;</div></div></div>
+</div>
+<!-- S9: SHOPPING -->
+<div class="sc" id="sc9">
+  <div class="card">
+    <div class="ct" id="s9t">Shopping · 4 μήνες</div>
+    <div class="stabs">
+      <button class="stab a" onclick="shopT('p',this)">🛍️ <span id="s9t1">Προϊόντα</span></button>
+      <button class="stab" onclick="shopT('s',this)">🛒 <span id="s9t2">Σούπερ Μάρκετ</span></button>
+    </div>
+    <div id="spP">
+      <div class="shi"><div class="sic">🦷</div><div><div class="snm" id="s9p1">Κουδουνίστρες σιλικόνης</div><div class="sds" id="s9d1">Κατάλληλες για οδοντοφυΐα</div></div><span class="sbg ag" id="s9b1">4+ μήνες</span></div>
+      <div class="shi"><div class="sic">🛏️</div><div><div class="snm" id="s9p2">Φορητή λίκνα ταξιδιού</div><div class="sds" id="s9d2">Ελαφριά, χωρίς συναρμολόγηση</div></div><span class="sbg tr" id="s9b2">✓ Trend</span></div>
+      <div class="shi"><div class="sic">📚</div><div><div class="snm" id="s9p3">Βιβλία υψηλής αντίθεσης</div><div class="sds" id="s9d3">Αναπτύσσουν την όραση</div></div><span class="sbg ag" id="s9b3">0–6 μήνες</span></div>
+      <div class="shi"><div class="sic">🎵</div><div><div class="snm" id="s9p4">Μουσικό γυμναστήριο δαπέδου</div><div class="sds" id="s9d4">Διεγείρει αισθήσεις</div></div><span class="sbg tp" id="s9b4">⭐ Top pick</span></div>
+      <div id="pex"></div>
+      <div class="air"><input class="aii" id="pai" placeholder="Πρόσθεσε προϊόν..."/><button class="aib2" onclick="addI('p')">＋</button></div>
+    </div>
+    <div id="spS" style="display:none">
+      <div class="smi"><div class="sic2">🥛</div><div><div class="smn" id="s9s1">Βρεφικό Γάλα Stage 2</div><div class="smd">800g · Aptamil</div></div><div class="smp">€18.90</div></div>
+      <div class="smi"><div class="sic2">🧴</div><div><div class="smn" id="s9s2">Βρεφικό Σαμπουάν</div><div class="smd">400ml · Johnson's Baby</div></div><div class="smp">€4.50</div></div>
+      <div class="smi"><div class="sic2">🩺</div><div><div class="smn" id="s9s3">Βρεφικές Πάνες No3</div><div class="smd">52τμχ · Pampers</div></div><div class="smp">€14.99</div></div>
+      <div class="smi"><div class="sic2">🧸</div><div><div class="smn" id="s9s4">Βρεφικές Μαντηλέτες</div><div class="smd">3x72τμχ · WaterWipes</div></div><div class="smp">€9.99</div></div>
+      <div id="sex"></div>
+      <div class="air"><input class="aii" id="sai" placeholder="Πρόσθεσε στη λίστα..."/><button class="aib2" onclick="addI('s')">＋</button></div>
+      <div class="ssb">
+        <span class="ssl" id="s9sl">Αποστολή λίστας:</span>
+        <div class="ssbs">
+          <button class="ssbtn" onclick="sndL('WhatsApp')">WhatsApp</button>
+          <button class="ssbtn" onclick="sndL('Viber')">Viber</button>
+          <button class="ssbtn" onclick="sndL('Email')">Email</button>
+          <button class="ssbtn" onclick="sndL('SMS')">SMS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- S10: OFFERS -->
+<div class="sc" id="sc10">
+  <div class="card">
+    <div class="ct" id="s10t">Προσφορές &amp; Κουπόνια</div>
+    <div class="stabs">
+      <button class="stab a" onclick="offT('o',this)"><span id="s10t1">Προσφορές</span></button>
+      <button class="stab" onclick="offT('c',this)"><span id="s10t2">Κουπόνια</span></button>
+      <button class="stab" onclick="offT('n',this)"><span id="s10t3">Νέα</span></button>
+    </div>
+    <div id="opO">
+      <div class="oc o"><div class="oi2">🛍️</div><div><div class="otl" id="s10o1">Pampers -25%</div><div class="ods" id="s10od1">Σε όλες τις πάνες No3 &amp; No4. Έως 30/06.</div></div><span class="obdg r">-25%</span></div>
+      <div class="oc o"><div class="oi2">🧴</div><div><div class="otl" id="s10o2">Johnson's Baby 2+1</div><div class="ods" id="s10od2">Αγορά 2, δώρο 1 βρεφικό λοσιόν.</div></div><span class="obdg r">2+1</span></div>
+      <div class="oc o"><div class="oi2">🍼</div><div><div class="otl" id="s10o3">Aptamil -15%</div><div class="ods" id="s10od3">Βρεφικό γάλα Stage 1 &amp; 2. Αυτή την εβδομάδα.</div></div><span class="obdg r">-15%</span></div>
+    </div>
+    <div id="opC" style="display:none">
+      <div class="oc c"><div class="oi2">🎟️</div><div><div class="otl" id="s10c1">Κουπόνι €5 — Sklavenitis</div><div class="ods" id="s10cd1">Κωδικός: HEYMAA5 · Αγορά άνω €30.</div></div><span class="obdg g">€5 off</span></div>
+      <div class="oc c"><div class="oi2">🎟️</div><div><div class="otl" id="s10c2">10% — Mothercare Online</div><div class="ods" id="s10cd2">Κωδικός: MAA10 · Πρώτη παραγγελία.</div></div><span class="obdg g">10% off</span></div>
+      <div class="oc c"><div class="oi2">🎟️</div><div><div class="otl" id="s10c3">Δωρεάν αποστολή — e-bebegros</div><div class="ods" id="s10cd3">Κωδικός: FREESHIP · Έως 15/07.</div></div><span class="obdg g">Free</span></div>
+    </div>
+    <div id="opN" style="display:none">
+      <div class="oc n"><div class="oi2">✨</div><div><div class="otl" id="s10n1">Chicco Smart2Go — Νέο!</div><div class="ods" id="s10nd1">Αναπτυξιακό 3-σε-1. 4–12 μηνών.</div></div><span class="obdg b">Νέο</span></div>
+      <div class="oc n"><div class="oi2">✨</div><div><div class="otl" id="s10n2">HIPP Βιολογικές Κρέμες</div><div class="ods" id="s10nd2">Νέα σειρά για βρέφη 4+ μηνών.</div></div><span class="obdg b">Νέο</span></div>
+      <div class="oc n"><div class="oi2">✨</div><div><div class="otl" id="s10n3">BabyBjörn Balance Soft</div><div class="ods" id="s10nd3">Νέο κούνια 3D mesh. Ιούλιος.</div></div><span class="obdg b">Coming</span></div>
+    </div>
+  </div>
+</div>
+<!-- S11: USEFUL DOCS -->
+<div class="sc" id="sc11">
+  <div class="card">
+    <div class="ct" id="s11t">📋 Χρήσιμα Έγγραφα</div>
+    <div class="di"><div style="font-size:20px">🩺</div><div><div class="dn" id="s11d1">Μορφολογικός Υπέρηχος</div><div class="dd">15/03/2026</div></div><div class="dlk">🔒</div></div>
+    <div class="di"><div style="font-size:20px">💉</div><div><div class="dn" id="s11d2">Εμβόλιο Hep-B · 1η δόση</div><div class="dd">20/02/2026</div></div><div class="dlk">🔒</div></div>
+    <div class="di"><div style="font-size:20px">📄</div><div><div class="dn" id="s11d3">Αιματολογικές Εξετάσεις</div><div class="dd">10/01/2026</div></div><div class="dlk">🔒</div></div>
+    <div class="dnt"><span>📌</span><span id="s11nt">Τα σημαντικά έγγραφα καλό θα είναι να τα έχεις αποθηκευμένα και διαθέσιμα ανά πάσα στιγμή. Η HeyMaa τα αποθηκεύει με πλήρη κρυπτογράφηση. Η HeyMaa δεν τα διαβάζει ποτέ — μόνο εσύ έχεις πρόσβαση. Καλό θα ήταν να διατηρείς φυσικά αντίγραφα.</span></div>
+  </div>
+  <div class="card">
+    <div class="ct" id="s11t2">🔔 Επόμενα Ραντεβού</div>
+    <div class="msi"><div class="mc d">📅</div><div class="mst d" id="s11a1">Παιδίατρος · 15 Ιουλίου 2026</div></div>
+    <div class="msi"><div class="mc p">📅</div><div class="mst p" id="s11a2">Εμβόλιο Pentaxim · Αύγουστος 2026</div></div>
+  </div>
+</div>
+<!-- S12: PLANS -->
+<div class="sc" id="sc12">
+  <div class="card">
+    <div class="ct" id="s12t">Απλά &amp; διαφανή πακέτα</div>
+    <div class="plc" style="margin-top:14px">
+      <div class="ptb cu" id="s12b1">Τρέχον</div>
+      <div class="pll lt" id="s12l1">ΔΩΡΕΑΝ ΔΟΚΙΜΗ</div>
+      <div class="ppb lt" id="s12free">Δωρεάν</div>
+      <div class="pper lt" id="s12p1">14 ημέρες</div>
+      <div class="pfs"><div class="pfr lt" id="s12f1a">Απεριόριστο Chat</div><div class="pfr lt" id="s12f1b">Φωνητικά με όρια χρήσης</div><div class="pfr lt" id="s12f1c">Πλήρης Μνήμη</div></div>
+      <button class="pct ac" id="s12cta1">Ενεργό</button>
+    </div>
+    <div class="plc" style="margin-top:6px">
+      <div class="pll lt" id="s12l2">STARTER</div>
+      <div class="ppb lt">€19</div>
+      <div class="pper lt" id="s12per2">/μήνα</div>
+      <div class="pfs"><div class="pfr lt" id="s12f2a">Απεριόριστο Chat</div><div class="pfr lt" id="s12f2b">200 Φωνητικά</div><div class="pfr lt" id="s12f2c">Βασική Μνήμη</div></div>
+      <button class="pct lt" id="s12cta2">Επιλογή Πακέτου</button>
+    </div>
+    <div class="plc pp">
+      <div class="ptb po" id="s12b3">Δημοφιλές</div>
+      <div class="pll dk" id="s12l3">PREMIUM</div>
+      <div class="ppb dk">€39</div>
+      <div class="pper dk" id="s12per3">/μήνα</div>
+      <div class="pfs"><div class="pfr dk" id="s12f3a">Απεριόριστο Chat</div><div class="pfr dk" id="s12f3b">500 Φωνητικά</div><div class="pfr dk" id="s12f3c">Πλήρης Μνήμη</div><div class="pfr dk" id="s12f3d">Εβδ. Υποστήριξη</div></div>
+      <button class="pct dk" id="s12cta3">Επιλογή Πακέτου</button>
+    </div>
+    <div class="plc pa">
+      <div class="ptb bv" id="s12b4">Καλύτερη Αξία</div>
+      <div class="pll dk" id="s12l4">ΕΤΗΣΙΟ PREMIUM</div>
+      <div class="ppb dk">€199</div>
+      <div class="pper dk" id="s12per4">/έτος</div>
+      <div class="psv" id="s12save">Εξοικονόμηση 57%</div>
+      <div class="pfs"><div class="pfr dk" id="s12f4a">Όλα του Premium</div><div class="pfr dk" id="s12f4b">Ετήσιο Scrapbook</div><div class="pfr dk" id="s12f4c">Προτεραιότητα Υποστήριξης</div></div>
+      <button class="pct dk" id="s12cta4">Επιλογή Πακέτου</button>
+    </div>
+  </div>
+</div>
+<!-- S13: SUCCESS -->
+<div class="sc ob" id="sc13">
+  <div class="suc">
+    <span class="sue">🎉</span>
+    <div class="ot" id="s13t">Είσαι έτοιμη, Mary!</div>
+    <div class="os" id="s13s">Ο λογαριασμός σου στήθηκε. Ανακάλυψε την εφαρμογή.</div>
+    <button class="obtn tp" id="s13btn" onclick="showToast('🐾 Opening HeyMaa...')">Μπες στην εφαρμογή →</button>
+    <button class="obk" id="s13bk" onclick="nav(-1)">← Back</button>
+  </div>
+</div>
+</div><!-- /sa -->
+<!-- TAB BAR -->
+<div class="tb" id="tbar">
+  <div class="ti a" id="tb-p" onclick="gTab('profile')"><div class="ic">👤</div><div class="lb" id="tlp">Προφίλ</div></div>
+  <div class="ti" id="tb-f" onclick="gTab('family')"><div class="ic">👨‍👩‍👧</div><div class="lb" id="tlf">Οικογένεια</div></div>
+  <div class="ti" id="tb-m" onclick="gTab('memories')"><div class="ic">🤍</div><div class="lb" id="tlm">Αναμνήσεις</div></div>
+  <div class="ti" id="tb-ms" onclick="gTab('milestones')"><div class="ic">🏆</div><div class="lb" id="tlms">Milestones</div></div>
+  <div class="ti" id="tb-sh" onclick="gTab('shopping')"><div class="ic">🛍️</div><div class="lb" id="tlsh">Shopping</div></div>
+</div>
+<!-- NAV BAR -->
+<div class="nb">
+  <button class="nbtn pv" id="btnP" onclick="nav(-1)" disabled>← <span id="nbp">Προηγούμενο</span></button>
+  <div class="ndots" id="ndots"></div>
+  <button class="nbtn nx" id="btnN" onclick="nav(1)"><span id="nbn">Επόμενο</span> →</button>
+</div>
+</div></div><!-- /phone /outer -->
+<!-- LANG MODAL -->
+<div class="lov" id="lov" onclick="cLov(event)">
+  <div class="lmd"><div class="lmt">🌐 Select Language</div><div id="llist"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const LG=[
+  {c:"el",f:"🇬🇷",n:"Ελληνικά",nv:"AthinaNeural",d:"ltr",s:"ΕΛ"},
+  {c:"en",f:"🇬🇧",n:"English",nv:"JennyNeural",d:"ltr",s:"EN"},
+  {c:"ar",f:"🇸🇦",n:"العربية",nv:"ZariyahNeural",d:"rtl",s:"AR"},
+  {c:"zh",f:"🇨🇳",n:"中文",nv:"XiaoxiaoNeural",d:"ltr",s:"ZH"},
+  {c:"es",f:"🇪🇸",n:"Español",nv:"ElviraNeural",d:"ltr",s:"ES"},
+  {c:"fr",f:"🇫🇷",n:"Français",nv:"DeniseNeural",d:"ltr",s:"FR"},
+  {c:"ro",f:"🇷🇴",n:"Română",nv:"AlinaNeural",d:"ltr",s:"RO"},
+  {c:"pl",f:"🇵🇱",n:"Polski",nv:"ZofiaNeural",d:"ltr",s:"PL"},
+  {c:"tr",f:"🇹🇷",n:"Türkçe",nv:"EmelNeural",d:"ltr",s:"TR"},
+  {c:"hi",f:"🇮🇳",n:"हिन्दी",nv:"SwaraNeural",d:"ltr",s:"HI"},
+  {c:"ur",f:"🇵🇰",n:"اردو",nv:"UzmaNeural",d:"rtl",s:"UR"},
+  {c:"ja",f:"🇯🇵",n:"日本語",nv:"NanamiNeural",d:"ltr",s:"JA"},
+  {c:"ru",f:"🇷🇺",n:"Русский",nv:"SvetlanaNeural",d:"ltr",s:"RU"},
+  {c:"de",f:"🇩🇪",n:"Deutsch",nv:"KatjaNeural",d:"ltr",s:"DE"},
+  {c:"pt",f:"🇧🇷",n:"Português",nv:"FranciscaNeural",d:"ltr",s:"PT"},
+  {c:"it",f:"🇮🇹",n:"Italiano",nv:"ElsaNeural",d:"ltr",s:"IT"},
+  {c:"nl",f:"🇳🇱",n:"Nederlands",nv:"ColetteNeural",d:"ltr",s:"NL"},
+  {c:"bn",f:"🇧🇩",n:"বাংলা",nv:"NabanitaNeural",d:"ltr",s:"BN"},
+  {c:"id",f:"🇮🇩",n:"Indonesia",nv:"GadisNeural",d:"ltr",s:"ID"},
+  {c:"sw",f:"🇰🇪",n:"Kiswahili",nv:"ZuriNeural",d:"ltr",s:"SW"},
+  {c:"fil",f:"🇵🇭",n:"Filipino",nv:"BlessicaNeural",d:"ltr",s:"FIL"},
+  {c:"mr",f:"🇮🇳",n:"मराठी",nv:"AarohiNeural",d:"ltr",s:"MR"},
+  {c:"te",f:"🇮🇳",n:"తెలుగు",nv:"ShrutiNeural",d:"ltr",s:"TE"},
+];
+const T={
+  bn:{el:"Demo Mode",en:"Demo Mode",ar:"وضع العرض",ur:"ڈیمو موڈ",hi:"डेमो मोड",es:"Modo Demo",pt:"Modo Demo",fr:"Mode Démo",de:"Demo-Modus",it:"Modalità Demo",ru:"Демо-режим",tr:"Demo Modu",id:"Mode Demo",bn:"ডেমো মোড",sw:"Hali ya Maonyesho",zh:"演示模式",ja:"デモモード",nl:"Demomodus",pl:"Tryb Demo",ro:"Mod Demo",fil:"데모 모드",mr:"Демо-режим",te:"Chế độ Demo"},
+  gr:{el:"Καλημέρα,",en:"Good morning,",ar:"صباح الخير،",ur:"صبح بخیر،",hi:"शुभ प्रभात,",es:"Buenos días,",pt:"Bom dia,",fr:"Bonjour,",de:"Guten Morgen,",it:"Buongiorno,",ru:"Доброе утро,",tr:"Günaydın,",id:"Selamat pagi,",bn:"শুভ সকাল,",sw:"Habari za asubuhi,",zh:"早上好，",ja:"おはようございます、",nl:"Goedemorgen,",pl:"Dzień dobry,",ro:"Bună dimineața,",fil:"좋은 아침이에요,",mr:"Доброго ранку,",te:"Chào buổi sáng,"},
+  pv:{el:"Προηγούμενο",en:"Previous",ar:"السابق",ur:"پچھلا",hi:"पिछला",es:"Anterior",pt:"Anterior",fr:"Précédent",de:"Zurück",it:"Precedente",ru:"Назад",tr:"Önceki",id:"Sebelumnya",bn:"পূর্ববর্তী",sw:"Iliyopita",zh:"上一步",ja:"前へ",nl:"Vorige",pl:"Poprzedni",ro:"Anterior",fil:"이전",mr:"Назад",te:"Trước"},
+  nx:{el:"Επόμενο",en:"Next",ar:"التالي",ur:"اگلا",hi:"अगला",es:"Siguiente",pt:"Próximo",fr:"Suivant",de:"Weiter",it:"Avanti",ru:"Далее",tr:"Sonraki",id:"Berikutnya",bn:"পরবর্তী",sw:"Ifuatayo",zh:"下一步",ja:"次へ",nl:"Volgende",pl:"Następny",ro:"Următor",fil:"다음",mr:"Далі",te:"Tiếp"},
+  tlp:{el:"Προφίλ",en:"Profile",ar:"الملف",ur:"پروفائل",hi:"प्रोफ़ाइल",es:"Perfil",pt:"Perfil",fr:"Profil",de:"Profil",it:"Profilo",ru:"Профиль",tr:"Profil",id:"Profil",bn:"প্রোফাইল",sw:"Profaili",zh:"档案",ja:"プロフィール",nl:"Profiel",pl:"Profil",ro:"Profil",fil:"프로필",mr:"Профіль",te:"Hồ sơ"},
+  tlf:{el:"Οικογένεια",en:"Family",ar:"العائلة",ur:"خاندان",hi:"परिवार",es:"Familia",pt:"Família",fr:"Famille",de:"Familie",it:"Famiglia",ru:"Семья",tr:"Aile",id:"Keluarga",bn:"পরিবার",sw:"Familia",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",fil:"가족",mr:"Родина",te:"Gia đình"},
+  tlm:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",ur:"یادیں",hi:"यादें",es:"Recuerdos",pt:"Memórias",fr:"Souvenirs",de:"Erinnerungen",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",id:"Kenangan",bn:"স্মৃতি",sw:"Kumbukumbu",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",fil:"추억",mr:"Спогади",te:"Ký ức"},
+  tlms:{el:"Milestones",en:"Milestones",ar:"الإنجازات",ur:"سنگ میل",hi:"माइलस्टोन",es:"Hitos",pt:"Marcos",fr:"Étapes",de:"Meilensteine",it:"Tappe",ru:"Вехи",tr:"Dönüm Noktaları",id:"Tonggak",bn:"মাইলফলক",sw:"Hatua",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Kamienie Milowe",ro:"Etape",fil:"이정표",mr:"Віхи",te:"Cột mốc"},
+  tlsh:{el:"Shopping",en:"Shopping",ar:"التسوق",ur:"شاپنگ",hi:"शॉपिंग",es:"Compras",pt:"Compras",fr:"Achats",de:"Einkaufen",it:"Shopping",ru:"Покупки",tr:"Alışveriş",id:"Belanja",bn:"কেনাকাটা",sw:"Ununuzi",zh:"购物",ja:"ショッピング",nl:"Winkelen",pl:"Zakupy",ro:"Cumpărături",fil:"쇼핑",mr:"Покупки",te:"Mua sắm"},
+  s1t:{el:"Καλώς ήρθες στη HeyMaa!",en:"Welcome to HeyMaa!",ar:"مرحباً بك في HeyMaa!",ur:"HeyMaa میں خوش آمدید!",hi:"HeyMaa में स्वागत है!",es:"¡Bienvenida a HeyMaa!",pt:"Bem-vinda ao HeyMaa!",fr:"Bienvenue sur HeyMaa!",de:"Willkommen bei HeyMaa!",it:"Benvenuta su HeyMaa!",ru:"Добро пожаловать в HeyMaa!",tr:"HeyMaa'ya Hoş Geldiniz!",id:"Selamat Datang di HeyMaa!",bn:"HeyMaa-তে স্বাগতম!",sw:"Karibu HeyMaa!",zh:"欢迎使用HeyMaa！",ja:"HeyMaaへようこそ！",nl:"Welkom bij HeyMaa!",pl:"Witaj w HeyMaa!",ro:"Bun venit la HeyMaa!",fil:"HeyMaa에 오신 걸 환영해요!",mr:"Ласкаво просимо до HeyMaa!",te:"Chào mừng đến HeyMaa!"},
+  s1s:{el:"Ας στήσουμε τον λογαριασμό σου σε 2 λεπτά.",en:"Let's set up your account in 2 minutes.",ar:"لنقم بإعداد حسابك في دقيقتين.",ur:"آئیں 2 منٹ میں آپ کا اکاؤنٹ ترتیب دیتے ہیں۔",hi:"2 मिनट में खाता सेट करते हैं।",es:"Configuremos tu cuenta en 2 minutos.",pt:"Vamos configurar a tua conta em 2 minutos.",fr:"Configurons votre compte en 2 minutes.",de:"Lass uns dein Konto in 2 Minuten einrichten.",it:"Configuriamo il tuo account in 2 minuti.",ru:"Настроим ваш аккаунт за 2 минуты.",tr:"Hesabını 2 dakikada ayarlayalım.",id:"Ayo siapkan akun Anda dalam 2 menit.",bn:"২ মিনিটে অ্যাকাউন্ট সেটআপ করি।",sw:"Hebu tuanzishe akaunti yako kwa dakika 2.",zh:"让我们在2分钟内设置您的账户。",ja:"2分でアカウントを設定しましょう。",nl:"Laten we je account in 2 minuten instellen.",pl:"Skonfigurujmy Twoje konto w 2 minuty.",ro:"Hai să configurăm contul tău în 2 minute.",fil:"2분 안에 계정을 설정해 봐요.",mr:"Налаштуємо ваш акаунт за 2 хвилини.",te:"Hãy thiết lập tài khoản trong 2 phút."},
+  s1btn:{el:"Ξεκινάμε →",en:"Let's go →",ar:"هيا نبدأ ←",ur:"چلیں شروع کریں →",hi:"चलते हैं →",es:"Empezamos →",pt:"Vamos lá →",fr:"C'est parti →",de:"Los geht's →",it:"Iniziamo →",ru:"Начнём →",tr:"Başlayalım →",id:"Ayo mulai →",bn:"শুরু করি →",sw:"Tuanze →",zh:"开始 →",ja:"はじめましょう →",nl:"Laten we gaan →",pl:"Zaczynamy →",ro:"Să începem →",fil:"시작해요 →",mr:"Починаємо →",te:"Bắt đầu thôi →"},
+  s2t:{el:"Ας ενημερώσουμε το προφίλ σου",en:"Let's update your profile",ar:"لنحدّث ملفك الشخصي",ur:"آئیں آپ کا پروفائل اپ ڈیٹ کریں",hi:"आपका प्रोफ़ाइल अपडेट करते हैं",es:"Actualicemos tu perfil",pt:"Vamos atualizar o teu perfil",fr:"Mettons à jour votre profil",de:"Lass uns dein Profil aktualisieren",it:"Aggiorniamo il tuo profilo",ru:"Обновим ваш профиль",tr:"Profilini güncelleyelim",id:"Mari perbarui profil Anda",bn:"প্রোফাইল আপডেট করি",sw:"Hebu tusasishe wasifu wako",zh:"让我们更新您的个人资料",ja:"プロフィールを更新しましょう",nl:"Laten we je profiel bijwerken",pl:"Zaktualizujmy Twój profil",ro:"Să actualizăm profilul tău",fil:"프로필을 업데이트해 봐요",mr:"Оновимо ваш профіль",te:"Hãy cập nhật hồ sơ của bạn"},
+  s2s:{el:"Πες μας για το παιδί ή την εγκυμοσύνη σου.",en:"Tell us about your child or pregnancy.",ar:"أخبرينا عن طفلك أو حملك.",ur:"اپنے بچے یا حمل کے بارے میں بتائیں۔",hi:"बच्चे या गर्भावस्था के बारे में बताएं।",es:"Cuéntanos sobre tu hijo o embarazo.",pt:"Fala-nos sobre o teu filho ou gravidez.",fr:"Parlez-nous de votre enfant ou grossesse.",de:"Erzähl uns von deinem Kind oder Schwangerschaft.",it:"Parlaci del tuo bambino o gravidanza.",ru:"Расскажите о вашем ребёнке или беременности.",tr:"Çocuğun veya hamileliğin hakkında anlat.",id:"Ceritakan tentang anak atau kehamilan Anda.",bn:"শিশু বা গর্ভাবস্থা সম্পর্কে বলুন।",sw:"Tuambie kuhusu mtoto wako au ujauzito.",zh:"告诉我们您的孩子或怀孕情况。",ja:"お子さんまたは妊娠について教えてください。",nl:"Vertel ons over je kind of zwangerschap.",pl:"Opowiedz nam o swoim dziecku lub ciąży.",ro:"Spune-ne despre copilul tău sau sarcină.",fil:"아이나 임신에 대해 알려주세요.",mr:"Розкажіть про вашу дитину або вагітність.",te:"Cho chúng tôi biết về con bạn hoặc thai kỳ."},
+  s2a:{el:"4 μήνες",en:"4 months",ar:"4 أشهر",ur:"4 ماہ",hi:"4 महीने",es:"4 meses",pt:"4 meses",fr:"4 mois",de:"4 Monate",it:"4 mesi",ru:"4 месяца",tr:"4 ay",id:"4 bulan",bn:"৪ মাস",sw:"Miezi 4",zh:"4个月",ja:"4ヶ月",ro:"4 luni",pl:"4 miesiące",nl:"4 maanden",fil:"4 buwan",mr:"4 महिने",te:"4 నెలలు"},
+  s2btn:{el:"Συνέχεια →",en:"Continue →",ar:"متابعة ←",ur:"جاری رکھیں →",hi:"जारी रखें →",es:"Continuar →",pt:"Continuar →",fr:"Continuer →",de:"Weiter →",it:"Continua →",ru:"Продолжить →",tr:"Devam et →",id:"Lanjutkan →",bn:"চালিয়ে যান →",sw:"Endelea →",zh:"继续 →",ja:"続ける →",nl:"Doorgaan →",pl:"Dalej →",ro:"Continuă →",fil:"계속 →",mr:"Продовжити →",te:"Tiếp tục →"},
+  s2bk:{el:"← Back",en:"← Back",ar:"→ رجوع",ur:"← پیچھے",hi:"← वापस",es:"← Atrás",pt:"← Voltar",fr:"← Retour",de:"← Zurück",it:"← Indietro",ru:"← Назад",tr:"← Geri",id:"← Kembali",bn:"← ফিরে যান",sw:"← Rudi",zh:"← 返回",ja:"← 戻る",nl:"← Terug",pl:"← Wstecz",ro:"← Înapoi",fil:"← 뒤로",mr:"← Назад",te:"← Quay lại"},
+  s3ps:{el:"Premium · 14-day trial",en:"Premium · 14-day trial",ar:"بريميوم · تجربة 14 يوم",ur:"پریمیم · 14 دن کا ٹرائل",hi:"Premium · 14 दिन की परीक्षण",es:"Premium · prueba 14 días",pt:"Premium · teste 14 dias",fr:"Premium · essai 14 jours",de:"Premium · 14-Tage-Test",it:"Premium · prova 14 giorni",ru:"Премиум · 14 дней пробно",tr:"Premium · 14 günlük deneme",id:"Premium · uji coba 14 hari",bn:"প্রিমিয়াম · ১৪ দিনের ট্রায়াল",sw:"Premium · jaribio la siku 14",zh:"Premium · 14天试用",ja:"プレミアム · 14日間試用",nl:"Premium · 14-daagse proef",pl:"Premium · 14-dniowy okres próbny",ro:"Premium · probă 14 zile",fil:"프리미엄 · 14일 체험",mr:"Преміум · 14-денна пробна",te:"Premium · dùng thử 14 ngày"},
+  s3ai:{el:"Γεια σου Mary, χαίρομαι που βρίσκεσαι εδώ.",en:"Hi Mary, I'm glad you're here.",ar:"مرحباً ماري، يسعدني وجودك هنا.",ur:"ہائے مریم، مجھے خوشی ہے کہ آپ یہاں ہیں۔",hi:"नमस्ते Mary, खुशी है कि आप यहाँ हैं।",es:"Hola Mary, me alegra que estés aquí.",pt:"Olá Mary, fico feliz que estejas aqui.",fr:"Bonjour Mary, je suis content que tu sois là.",de:"Hallo Mary, schön, dass du hier bist.",it:"Ciao Mary, sono felice che tu sia qui.",ru:"Привет, Мэри, рад что ты здесь.",tr:"Merhaba Mary, burada olduğuna sevindim.",id:"Halo Mary, senang kamu ada di sini.",bn:"হ্যালো মেরি, আপনি এখানে আছেন বলে আনন্দিত।",sw:"Habari Mary, nafurahi uko hapa.",zh:"你好Mary，很高兴你在这里。",ja:"こんにちはMary、ここに来てくれて嬉しいです。",nl:"Hallo Mary, ik ben blij dat je er bent.",pl:"Cześć Mary, cieszę się, że tu jesteś.",ro:"Bună Mary, mă bucur că ești aici.",fil:"안녕하세요 Mary, 반가워요.",mr:"Привіт Mary, радий що ти тут.",te:"Xin chào Mary, vui khi bạn ở đây."},
+  s3st:{el:"Στατιστικά",en:"Statistics",ar:"الإحصاءات",ur:"اعداد و شمار",hi:"आँकड़े",es:"Estadísticas",pt:"Estatísticas",fr:"Statistiques",de:"Statistiken",it:"Statistiche",ru:"Статистика",tr:"İstatistikler",id:"Statistik",bn:"পরিসংখ্যান",sw:"Takwimu",zh:"统计",ja:"統計",nl:"Statistieken",pl:"Statystyki",ro:"Statistici",fil:"통계",mr:"Статистика",te:"Thống kê"},
+  s3sm:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",ur:"یادیں",hi:"यादें",es:"Recuerdos",pt:"Memórias",fr:"Souvenirs",de:"Erinnerungen",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",id:"Kenangan",bn:"স্মৃতি",sw:"Kumbukumbu",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",fil:"추억",mr:"Спогади",te:"Ký ức"},
+  s3sf:{el:"Οικογένεια",en:"Family",ar:"العائلة",ur:"خاندان",hi:"परिवार",es:"Familia",pt:"Família",fr:"Famille",de:"Familie",it:"Famiglia",ru:"Семья",tr:"Aile",id:"Keluarga",bn:"পরিবার",sw:"Familia",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",fil:"가족",mr:"Родина",te:"Gia đình"},
+  s4t:{el:"🤰 Εγκυμοσύνη — Εβδομάδα",en:"🤰 Pregnancy — Week",ar:"🤰 الحمل — الأسبوع",ur:"🤰 حمل — ہفتہ",hi:"🤰 गर्भावस्था — सप्ताह",es:"🤰 Embarazo — Semana",pt:"🤰 Gravidez — Semana",fr:"🤰 Grossesse — Semaine",de:"🤰 Schwangerschaft — Woche",it:"🤰 Gravidanza — Settimana",ru:"🤰 Беременность — Неделя",tr:"🤰 Gebelik — Hafta",id:"🤰 Kehamilan — Minggu",bn:"🤰 গর্ভাবস্থা — সপ্তাহ",sw:"🤰 Ujauzito — Wiki",zh:"🤰 孕期 — 第",ja:"🤰 妊娠 — 週",nl:"🤰 Zwangerschap — Week",pl:"🤰 Ciąża — Tydzień",ro:"🤰 Sarcină — Săptămâna",fil:"🤰 임신 — 주",mr:"🤰 Вагітність — Тиждень",te:"🤰 Thai kỳ — Tuần"},
+  s4wl:{el:"Εβδομάδα εγκυμοσύνης",en:"Week of pregnancy",ar:"أسبوع الحمل",ur:"حمل کا ہفتہ",hi:"गर्भावस्था का सप्ताह",es:"Semana de embarazo",pt:"Semana de gravidez",fr:"Semaine de grossesse",de:"Schwangerschaftswoche",it:"Settimana di gravidanza",ru:"Неделя беременности",tr:"Gebelik haftası",id:"Minggu kehamilan",bn:"গর্ভাবস্থার সপ্তাহ",sw:"Wiki ya ujauzito",zh:"妊娠周",ja:"妊娠週数",nl:"Week zwangerschap",pl:"Tydzień ciąży",ro:"Săptămâna de sarcină",fil:"임신 주수",mr:"Тиждень вагітності",te:"Tuần thai kỳ"},
+  s4sz:{el:"Το μωρό σου έχει μέγεθος ροδάκινου · ~16cm",en:"Your baby is the size of a peach · ~16cm",ar:"طفلك بحجم خوخة · ~16سم",ur:"آپ کا بچہ آڑو کے سائز کا · ~16cm",hi:"शिशु आड़ू के आकार का · ~16cm",es:"Tu bebé es del tamaño de un melocotón · ~16cm",pt:"O teu bebé é do tamanho de um pêssego · ~16cm",fr:"Votre bébé a la taille d'une pêche · ~16cm",de:"Dein Baby ist so groß wie ein Pfirsich · ~16cm",it:"Il tuo bambino è grande come una pesca · ~16cm",ru:"Ваш малыш размером с персик · ~16см",tr:"Bebeğiniz şeftali büyüklüğünde · ~16cm",id:"Bayi Anda sebesar buah persik · ~16cm",bn:"আপনার শিশু পিচ ফলের আকারের · ~16cm",sw:"Mtoto wako ana ukubwa wa tofaa · ~16cm",zh:"宝宝有桃子那么大 · ~16厘米",ja:"赤ちゃんは桃くらいの大きさ · ~16cm",nl:"Je baby is zo groot als een perzik · ~16cm",pl:"Twoje dziecko ma wielkość brzoskwini · ~16cm",ro:"Bebelușul tău are mărimea unui piersic · ~16cm",fil:"아기가 복숭아 크기예요 · ~16cm",mr:"Ваш малюк розміром з персик · ~16см",te:"Em bé của bạn to bằng quả đào · ~16cm"},
+  s4tp1:{el:"Αυτή την εβδομάδα μπορείς να νιώσεις τις πρώτες κινήσεις — συγχαρητήρια!",en:"This week you may feel the first movements — congratulations!",ar:"هذا الأسبوع قد تشعرين بأول حركات — تهانينا!",ur:"اس ہفتے پہلی حرکتیں محسوس ہو سکتی ہیں — مبارک ہو!",hi:"इस सप्ताह पहली हलचल महसूस हो सकती है — बधाई!",es:"Esta semana puedes sentir los primeros movimientos — ¡felicidades!",pt:"Esta semana podes sentir os primeiros movimentos — parabéns!",fr:"Cette semaine vous pourriez sentir les premiers mouvements — félicitations!",de:"Diese Woche könntest du die ersten Bewegungen spüren — herzlichen Glückwunsch!",it:"Questa settimana potresti sentire i primi movimenti — congratulazioni!",ru:"На этой неделе можно почувствовать первые движения — поздравляем!",tr:"Bu hafta ilk hareketleri hissedebilirsin — tebrikler!",id:"Minggu ini kamu mungkin merasakan gerakan pertama — selamat!",bn:"এই সপ্তাহে প্রথম নড়াচড়া অনুভব করতে পারেন — অভিনন্দন!",sw:"Wiki hii unaweza kuhisi mwendo wa kwanza — hongera!",zh:"本周你可能会感受到第一次胎动——恭喜！",ja:"今週、初めての胎動を感じるかもしれません — おめでとう！",nl:"Deze week kun je de eerste bewegingen voelen — gefeliciteerd!",pl:"W tym tygodniu możesz poczuć pierwsze ruchy — gratulacje!",ro:"Această săptămână poți simți primele mișcări — felicitări!",fil:"이번 주에 첫 태동을 느낄 수 있어요 — 축하해요!",mr:"Цього тижня можна відчути перші рухи — вітаємо!",te:"Tuần này bạn có thể cảm nhận chuyển động đầu tiên — chúc mừng!"},
+  s4tp2:{el:"Συνέχισε φυλλικό οξύ και σίδηρο. Πρόσθεσε περισσότερη πρωτεΐνη.",en:"Continue folic acid & iron. Add more protein.",ar:"استمري في حمض الفوليك والحديد. أضيفي البروتين.",ur:"فولک ایسڈ اور آئرن جاری رکھیں۔ زیادہ پروٹین لیں۔",hi:"फोलिक एसिड और आयरन जारी रखें। अधिक प्रोटीन लें।",es:"Continúa con ácido fólico y hierro. Más proteínas.",pt:"Continua com ácido fólico e ferro. Mais proteína.",fr:"Continuez l'acide folique et le fer. Plus de protéines.",de:"Folsäure & Eisen weiter nehmen. Mehr Protein.",it:"Continua con acido folico e ferro. Più proteine.",ru:"Продолжайте фолиевую кислоту и железо. Больше белка.",tr:"Folik asit ve demir almaya devam et. Daha fazla protein.",id:"Lanjutkan asam folat & zat besi. Tambahkan protein.",bn:"ফোলিক অ্যাসিড ও আয়রন চালিয়ে যান। বেশি প্রোটিন নিন।",sw:"Endelea na asidi ya foliki na chuma. Ongeza proteni.",zh:"继续服用叶酸和铁。多摄入蛋白质。",ja:"葉酸と鉄分を続けて。タンパク質を増やしましょう。",nl:"Ga door met foliumzuur & ijzer. Meer eiwitten.",pl:"Kontynuuj kwas foliowy i żelazo. Dodaj więcej białka.",ro:"Continuați acidul folic și fierul. Mai multe proteine.",fil:"엽산과 철분 계속 드세요. 단백질을 늘리세요.",mr:"Продовжуйте фолієву кислоту та залізо. Більше білка.",te:"Tiếp tục axit folic & sắt. Thêm nhiều protein."},
+  s4tp3:{el:"Θυμήσου: ραντεβού για morphology scan αυτήν την εβδομάδα.",en:"Remember: morphology scan appointment this week.",ar:"تذكري: موعد المسح المورفولوجي هذا الأسبوع.",ur:"یاد رکھیں: اس ہفتے مورفولوجی اسکین۔",hi:"याद रखें: इस सप्ताह morphology scan।",es:"Recuerda: cita para morfología esta semana.",pt:"Lembra: morfologia esta semana.",fr:"N'oubliez pas: morphologie cette semaine.",de:"Denke daran: Morphologie-Scan diese Woche.",it:"Ricorda: morfologia questa settimana.",ru:"Не забудьте: морфологическое УЗИ на этой неделе.",tr:"Unutma: bu hafta morfologi taraması.",id:"Ingat: morfologi scan minggu ini.",bn:"মনে রাখুন: এই সপ্তাহে মরফোলজি স্ক্যান।",sw:"Kumbuka: uchunguzi wa mofolojia wiki hii.",zh:"记住：本周形态学超声检查。",ja:"今週の形態学的スキャン予約を忘れずに。",nl:"Vergeet niet: morfologie-scan deze week.",pl:"Pamiętaj: badanie morfologiczne w tym tygodniu.",ro:"Amintește-ți: morfologie săptămâna aceasta.",fil:"이번 주 형태학 스캔 예약 잊지 마세요.",mr:"Пам'ятайте: морфологічне УЗД цього тижня.",te:"Nhớ: siêu âm hình thái học tuần này."},
+  s4ai:{el:"Πώς αισθάνεσαι; Θέλεις να καταγράψω τα συμπτώματά σου;",en:"How are you feeling? Want me to log your symptoms?",ar:"كيف تشعرين؟ هل تريدين تسجيل أعراضك؟",ur:"آپ کیسا محسوس کر رہی ہیں؟ علامات ریکارڈ کروں؟",hi:"आप कैसा महसूस कर रही हैं? लक्षण दर्ज करूँ?",es:"¿Cómo te sientes? ¿Registro tus síntomas?",pt:"Como te sentes? Queres que registe os sintomas?",fr:"Comment vous sentez-vous? J'enregistre vos symptômes?",de:"Wie fühlst du dich? Soll ich Symptome aufzeichnen?",it:"Come ti senti? Vuoi che registri i sintomi?",ru:"Как вы себя чувствуете? Записать симптомы?",tr:"Nasıl hissediyorsun? Belirtilerini kaydetmemi ister misin?",id:"Bagaimana perasaanmu? Ingin aku catat gejalamu?",bn:"কেমন অনুভব করছেন? লক্ষণ রেকর্ড করব?",sw:"Unajisikiaje? Unataka nirekodi dalili zako?",zh:"你感觉怎么样？要我记录症状吗？",ja:"体調はいかがですか？症状を記録しますか？",nl:"Hoe voel je je? Wil je dat ik je symptomen bijhoud?",pl:"Jak się czujesz? Chcesz, żebym zapisała objawy?",ro:"Cum te simți? Vrei să înregistrez simptomele?",fil:"어떠세요? 증상을 기록할까요?",mr:"Як ти почуваєшся? Записати симптоми?",te:"Bạn cảm thấy thế nào? Muốn tôi ghi lại triệu chứng?"},
+  s5t:{el:"Η Οικογένειά μου",en:"My Family",ar:"عائلتي",ur:"میرا خاندان",hi:"मेरा परिवार",es:"Mi Familia",pt:"Minha Família",fr:"Ma Famille",de:"Meine Familie",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",id:"Keluargaku",bn:"আমার পরিবার",sw:"Familia Yangu",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",fil:"나의 가족",mr:"Моя Родина",te:"Gia đình tôi"},
+  s5r1:{el:"4 μηνών · Κορίτσι",en:"4 months · Girl",ar:"4 أشهر · بنت",ur:"4 ماہ · لڑکی",hi:"4 महीने · लड़की",es:"4 meses · Niña",pt:"4 meses · Menina",fr:"4 mois · Fille",de:"4 Monate · Mädchen",it:"4 mesi · Bambina",ru:"4 месяца · Девочка",tr:"4 aylık · Kız",id:"4 bulan · Perempuan",bn:"৪ মাস · মেয়ে",sw:"Miezi 4 · Msichana",zh:"4个月 · 女孩",ja:"4ヶ月 · 女の子",nl:"4 maanden · Meisje",pl:"4 miesiące · Dziewczynka",ro:"4 luni · Fetiță",fil:"4개월 · 여자아이",mr:"4 місяці · Дівчинка",te:"4 tháng · Bé gái"},
+  s5n2:{el:"Νίκος",en:"Nick",ar:"نيكوس",ur:"نیکوس",hi:"नीकोस",es:"Nikos",pt:"Nikos",fr:"Nikos",de:"Nikos",it:"Nikos",ru:"Никос",tr:"Nikos",id:"Nikos",bn:"নিকোস",sw:"Nikos",zh:"尼科斯",ja:"ニコス",nl:"Nikos",pl:"Nikos",ro:"Nikos",fil:"니코스",mr:"Нікос",te:"Nikos"},
+  s5r2:{el:"Σύντροφος · Κοινή πρόσβαση",en:"Partner · Shared access",ar:"الشريك · وصول مشترك",ur:"ساتھی · مشترکہ رسائی",hi:"साथी · साझा पहुँच",es:"Pareja · Acceso compartido",pt:"Parceiro · Acesso partilhado",fr:"Partenaire · Accès partagé",de:"Partner · Gemeinsamer Zugang",it:"Partner · Accesso condiviso",ru:"Партнёр · Общий доступ",tr:"Partner · Paylaşımlı erişim",id:"Pasangan · Akses bersama",bn:"সঙ্গী · ভাগ করা অ্যাক্সেস",sw:"Mwenzako · Ufikiaji wa pamoja",zh:"伴侣 · 共享访问",ja:"パートナー · 共有アクセス",nl:"Partner · Gedeelde toegang",pl:"Partner · Wspólny dostęp",ro:"Partener · Acces partajat",fil:"파트너 · 공유 접근",mr:"Партнер · Спільний доступ",te:"Bạn đời · Truy cập chia sẻ"},
+  s5n3:{el:"Ελένη",en:"Helen",ar:"إيليني",ur:"ایلینی",hi:"एलेनी",es:"Elena",pt:"Helena",fr:"Hélène",de:"Helena",it:"Elena",ru:"Елена",tr:"Helena",id:"Helena",bn:"হেলেনা",sw:"Helena",zh:"海伦",ja:"ヘレナ",nl:"Helena",pl:"Helena",ro:"Elena",fil:"헬레나",mr:"Олена",te:"Helena"},
+  s5r3:{el:"Γιαγιά · Ανάγνωση μόνο",en:"Grandmother · Read only",ar:"الجدة · قراءة فقط",ur:"دادی · صرف پڑھنا",hi:"दादी · केवल पढ़ें",es:"Abuela · Solo lectura",pt:"Avó · Só leitura",fr:"Grand-mère · Lecture seule",de:"Oma · Nur lesen",it:"Nonna · Solo lettura",ru:"Бабушка · Только чтение",tr:"Büyükanne · Yalnızca okuma",id:"Nenek · Hanya baca",bn:"দাদি · শুধু পড়ুন",sw:"Bibi · Soma tu",zh:"奶奶 · 只读",ja:"おばあちゃん · 読み取り専用",nl:"Oma · Alleen lezen",pl:"Babcia · Tylko odczyt",ro:"Bunică · Numai citire",fil:"할머니 · 읽기 전용",mr:"Бабуся · Лише читання",te:"Bà · Chỉ đọc"},
+  s5af:{el:"＋ Πρόσθεσε μέλος",en:"＋ Add a family member",ar:"＋ إضافة فرد",ur:"＋ رکن شامل کریں",hi:"＋ सदस्य जोड़ें",es:"＋ Agregar miembro",pt:"＋ Adicionar membro",fr:"＋ Ajouter un membre",de:"＋ Mitglied hinzufügen",it:"＋ Aggiungi membro",ru:"＋ Добавить члена",tr:"＋ Üye ekle",id:"＋ Tambah anggota",bn:"＋ সদস্য যোগ করুন",sw:"＋ Ongeza mwanafamilia",zh:"＋ 添加成员",ja:"＋ 家族を追加",nl:"＋ Lid toevoegen",pl:"＋ Dodaj członka",ro:"＋ Adaugă un membru",fil:"＋ 가족 추가",mr:"＋ Додати члена",te:"＋ Thêm thành viên"},
+  s5sh:{el:"Κοινή χρήση",en:"Sharing",ar:"المشاركة",ur:"شیئرنگ",hi:"साझाकरण",es:"Compartir",pt:"Partilha",fr:"Partage",de:"Teilen",it:"Condivisione",ru:"Общий доступ",tr:"Paylaşım",id:"Berbagi",bn:"শেয়ারিং",sw:"Kushiriki",zh:"共享",ja:"共有",nl:"Delen",pl:"Udostępnianie",ro:"Partajare",fil:"공유",mr:"Спільний доступ",te:"Chia sẻ"},
+  s5ai:{el:"Ο Νίκος μπορεί να δει αναμνήσεις και milestones της Sofia σε πραγματικό χρόνο.",en:"Nick can see Sofia's memories and milestones in real time.",ar:"يمكن لنيكوس رؤية ذكريات وإنجازات صوفيا في الوقت الفعلي.",ur:"نیکوس صوفیا کی یادیں ریئل ٹائم میں دیکھ سکتے ہیں۔",hi:"Nick Sofia की यादें रियल टाइम में देख सकते हैं।",es:"Nikos puede ver los recuerdos e hitos de Sofia en tiempo real.",pt:"O Nikos pode ver as memórias e marcos da Sofia em tempo real.",fr:"Nikos peut voir les souvenirs et étapes de Sofia en temps réel.",de:"Nikos kann Sofias Erinnerungen und Meilensteine in Echtzeit sehen.",it:"Nikos può vedere i ricordi e le tappe di Sofia in tempo reale.",ru:"Никос видит воспоминания и вехи Софии в реальном времени.",tr:"Nikos, Sofia'nın anılarını gerçek zamanlı görebilir.",id:"Nikos dapat melihat kenangan Sofia secara real time.",bn:"নিকোস সোফিয়ার স্মৃতি রিয়েল টাইমে দেখতে পাবেন।",sw:"Nikos anaweza kuona kumbukumbu za Sofia wakati halisi.",zh:"尼科斯可以实时查看Sofia的回忆和里程碑。",ja:"ニコスはSofiaの思い出をリアルタイムで見られます。",nl:"Nikos kan de herinneringen van Sofia in real time zien.",pl:"Nikos może w czasie rzeczywistym widzieć wspomnienia Sofii.",ro:"Nikos poate vedea amintirile Sofiei în timp real.",fil:"니코스가 Sofia의 추억을 실시간으로 볼 수 있어요.",mr:"Нікос бачить спогади Софії в реальному часі.",te:"Nick có thể xem ký ức của Sofia theo thời gian thực."},
+  s6t:{el:"Πρόσφατες Αναμνήσεις",en:"Recent Memories",ar:"الذكريات الأخيرة",ur:"حالیہ یادیں",hi:"हाल की यादें",es:"Recuerdos Recientes",pt:"Memórias Recentes",fr:"Souvenirs Récents",de:"Neueste Erinnerungen",it:"Ricordi Recenti",ru:"Недавние воспоминания",tr:"Son Anılar",id:"Kenangan Terkini",bn:"সাম্প্রতিক স্মৃতি",sw:"Kumbukumbu za Hivi Karibuni",zh:"最近的回忆",ja:"最近の思い出",nl:"Recente Herinneringen",pl:"Ostatnie Wspomnienia",ro:"Amintiri Recente",fil:"최근 추억",mr:"Нещодавні Спогади",te:"Ký ức gần đây"},
+  s6m1:{el:"Πρώτο χαμόγελο! Κοιτούσε τα φώτα και ξαφνικά χαμογέλασε.",en:"First smile! She was looking at the lights and suddenly smiled.",ar:"أول ابتسامة! كانت تنظر إلى الأضواء وفجأة ابتسمت.",ur:"پہلی مسکراہٹ! روشنیاں دیکھ کر اچانک مسکرائی۔",hi:"पहली मुस्कान! रोशनी देखकर अचानक मुस्कुराई।",es:"¡Primera sonrisa! Miraba las luces y de repente sonrió.",pt:"Primeiro sorriso! Olhava para as luzes e de repente sorriu.",fr:"Premier sourire! Elle regardait les lumières et soudainement sourit.",de:"Erstes Lächeln! Sie sah Lichter an und lächelte plötzlich.",it:"Primo sorriso! Guardava le luci e improvvisamente sorrise.",ru:"Первая улыбка! Смотрела на огни и вдруг улыбнулась.",tr:"İlk gülümseme! Işıklara bakıyordu ve birden güldü.",id:"Senyum pertama! Melihat lampu dan tiba-tiba tersenyum.",bn:"প্রথম হাসি! আলো দেখে হঠাৎ হাসল।",sw:"Tabasamu la kwanza! Aliangalia taa na ghafla alitabasamu.",zh:"第一次微笑！看着灯光突然笑了。",ja:"初めての微笑み！電気を見て突然微笑んだ。",nl:"Eerste glimlach! Ze keek naar de lichten en glimlachte plotseling.",pl:"Pierwszy uśmiech! Patrzyła na światła i nagle się uśmiechnęła.",ro:"Primul zâmbet! Se uita la lumini și brusc a zâmbit.",fil:"첫 번째 미소! 불빛을 보다 갑자기 웃었어요.",mr:"Перша усмішка! Дивилась на вогні і раптом посміхнулась.",te:"Nụ cười đầu tiên! Nhìn đèn rồi đột nhiên mỉm cười."},
+  s6t1:{el:"2 ώρες πριν",en:"2 hours ago",ar:"منذ ساعتين",ur:"2 گھنٹے پہلے",hi:"2 घंटे पहले",es:"Hace 2 horas",pt:"Há 2 horas",fr:"Il y a 2 heures",de:"Vor 2 Stunden",it:"2 ore fa",ru:"2 часа назад",tr:"2 saat önce",id:"2 jam lalu",bn:"২ ঘণ্টা আগে",sw:"Masaa 2 iliyopita",zh:"2小时前",ja:"2時間前",nl:"2 uur geleden",pl:"2 godziny temu",ro:"Acum 2 ore",fil:"2시간 전",mr:"2 години тому",te:"2 giờ trước"},
+  s6m2:{el:"Σήμερα έπιε 150ml χωρίς διακοπή. Καλή ημέρα!",en:"She drank 150ml without stopping today. Great day!",ar:"شربت 150 مل بدون توقف. يوم رائع!",ur:"آج 150ml بغیر رکے پیا۔ شاندار دن!",hi:"आज बिना रुके 150ml पिया। शानदार दिन!",es:"¡Bebió 150ml sin parar hoy. Gran día!",pt:"Bebeu 150ml sem parar hoje. Ótimo dia!",fr:"Elle a bu 150ml sans s'arrêter. Belle journée!",de:"Hat heute 150ml ohne Pause getrunken. Toller Tag!",it:"Ha bevuto 150ml senza fermarsi. Bella giornata!",ru:"Сегодня выпила 150мл без остановки. Отличный день!",tr:"Bugün durmadan 150ml içti. Harika gün!",id:"Minum 150ml tanpa berhenti. Hari luar biasa!",bn:"আজ না থেমে 150ml পান করল। দারুণ দিন!",sw:"Alikunywa 150ml bila kusimama. Siku nzuri!",zh:"今天连续喝了150ml，太棒了！",ja:"今日は止まらずに150ml飲んだ。素晴らしい！",nl:"Dronk 150ml zonder te stoppen. Geweldige dag!",pl:"Wypiła 150ml bez przerwy. Świetny dzień!",ro:"A băut 150ml fără oprire. Zi minunată!",fil:"오늘 150ml 안 멈추고 마셨어요. 좋은 날!",mr:"Сьогодні випила 150мл без зупинки. Чудовий день!",te:"Uống 150ml không dừng hôm nay. Ngày tuyệt vời!"},
+  s6t2:{el:"Χθες, 14:30",en:"Yesterday, 14:30",ar:"أمس، 14:30",ur:"کل، 14:30",hi:"कल, 14:30",es:"Ayer, 14:30",pt:"Ontem, 14h30",fr:"Hier, 14h30",de:"Gestern, 14:30",it:"Ieri, 14:30",ru:"Вчера, 14:30",tr:"Dün, 14:30",id:"Kemarin, 14.30",bn:"গতকাল, 14:30",sw:"Jana, 14:30",zh:"昨天 14:30",ja:"昨日 14:30",nl:"Gisteren 14:30",pl:"Wczoraj 14:30",ro:"Ieri 14:30",fil:"어제 14:30",mr:"Вчора 14:30",te:"Hôm qua 14:30"},
+  s6m3:{el:"Κοιμήθηκε 5 ώρες συνεχόμενα! Ρεκόρ.",en:"Slept 5 consecutive hours! A record.",ar:"نامت 5 ساعات متواصلة! رقم قياسي.",ur:"مسلسل 5 گھنٹے سوئی! ریکارڈ۔",hi:"लगातार 5 घंटे सोई! रिकॉर्ड।",es:"¡Durmió 5 horas seguidas! Un récord.",pt:"Dormiu 5 horas seguidas! Um recorde.",fr:"A dormi 5 heures de suite! Un record.",de:"5 Stunden am Stück geschlafen! Ein Rekord.",it:"Ha dormito 5 ore di fila! Un record.",ru:"Спала 5 часов подряд! Рекорд.",tr:"5 saat uyudu! Rekord.",id:"Tidur 5 jam berturut-turut! Rekor.",bn:"একটানা 5 ঘণ্টা ঘুমাল! রেকর্ড।",sw:"Alilala masaa 5 mfululizo! Rekodi.",zh:"连续睡了5小时！新纪录。",ja:"5時間連続で寝た！記録。",nl:"5 uur achter elkaar geslapen! Een record.",pl:"Spała 5 godzin z rzędu! Rekord.",ro:"A dormit 5 ore consecutiv! Un record.",fil:"5시간 연속 잤어요! 기록이에요.",mr:"Спала 5 годин поспіль! Рекорд.",te:"Ngủ 5 tiếng liên tục! Kỷ lục."},
+  s6t3:{el:"2 ημέρες πριν",en:"2 days ago",ar:"منذ يومين",ur:"2 دن پہلے",hi:"2 दिन पहले",es:"Hace 2 días",pt:"Há 2 dias",fr:"Il y a 2 jours",de:"Vor 2 Tagen",it:"2 giorni fa",ru:"2 дня назад",tr:"2 gün önce",id:"2 hari lalu",bn:"২ দিন আগে",sw:"Siku 2 zilizopita",zh:"2天前",ja:"2日前",nl:"2 dagen geleden",pl:"2 dni temu",ro:"Acum 2 zile",fil:"2일 전",mr:"2 дні тому",te:"2 ngày trước"},
+  s6m4:{el:"Πρώτο μπάνιο — δεν έκλαψε καθόλου!",en:"First bath — didn't cry at all!",ar:"أول حمام — لم تبك أبداً!",ur:"پہلا غسل — بالکل نہیں روئی!",hi:"पहला स्नान — बिल्कुल नहीं रोई!",es:"¡Primer baño — no lloró nada!",pt:"Primeiro banho — não chorou nada!",fr:"Premier bain — n'a pas pleuré du tout!",de:"Erstes Bad — hat nicht geweint!",it:"Primo bagno — non ha pianto per niente!",ru:"Первая ванна — совсем не плакала!",tr:"İlk banyo — hiç ağlamadı!",id:"Mandi pertama — tidak menangis sama sekali!",bn:"প্রথম স্নান — একটুও কাঁদেনি!",sw:"Bafu ya kwanza — hakuomboleza hata kidogo!",zh:"第一次洗澡——根本没哭！",ja:"初めてのお風呂 — 全く泣かなかった！",nl:"Eerste bad — huilde helemaal niet!",pl:"Pierwsza kąpiel — w ogóle nie płakała!",ro:"Prima baie — nu a plâns deloc!",fil:"첫 번째 목욕 — 전혀 안 울었어요!",mr:"Перша ванна — зовсім не плакала!",te:"Tắm lần đầu — không khóc tý nào!"},
+  s6t4:{el:"5 ημέρες πριν",en:"5 days ago",ar:"منذ 5 أيام",ur:"5 دن پہلے",hi:"5 दिन पहले",es:"Hace 5 días",pt:"Há 5 dias",fr:"Il y a 5 jours",de:"Vor 5 Tagen",it:"5 giorni fa",ru:"5 дней назад",tr:"5 gün önce",id:"5 hari lalu",bn:"৫ দিন আগে",sw:"Siku 5 zilizopita",zh:"5天前",ja:"5日前",nl:"5 dagen geleden",pl:"5 dni temu",ro:"Acum 5 zile",fil:"5일 전",mr:"5 днів тому",te:"5 ngày trước"},
+  s7t:{el:"Μίλα με τη Maa 🎤",en:"Talk to Maa 🎤",ar:"تحدثي مع ماا 🎤",ur:"Maa سے بات کریں 🎤",hi:"Maa से बात करें 🎤",es:"Habla con Maa 🎤",pt:"Fala com a Maa 🎤",fr:"Parler à Maa 🎤",de:"Mit Maa sprechen 🎤",it:"Parla con Maa 🎤",ru:"Поговорить с Маа 🎤",tr:"Maa ile konuş 🎤",id:"Bicara dengan Maa 🎤",bn:"Maa-এর সাথে কথা বলুন 🎤",sw:"Zungumza na Maa 🎤",zh:"与Maa对话 🎤",ja:"Maaと話す 🎤",nl:"Praat met Maa 🎤",pl:"Rozmawiaj z Maa 🎤",ro:"Vorbește cu Maa 🎤",fil:"Maa와 대화 🎤",mr:"Поговоріть з Маа 🎤",te:"Nói chuyện với Maa 🎤"},
+  s7ls:{el:"Ακούω...",en:"Listening...",ar:"أستمع...",ur:"سن رہی ہوں...",hi:"सुन रही हूँ...",es:"Escuchando...",pt:"A ouvir...",fr:"J'écoute...",de:"Ich höre...",it:"In ascolto...",ru:"Слушаю...",tr:"Dinliyorum...",id:"Mendengarkan...",bn:"শুনছি...",sw:"Sikiliza...",zh:"正在听...",ja:"聞いています...",nl:"Luisteren...",pl:"Słucham...",ro:"Ascult...",fil:"듣고 있어요...",mr:"Слухаю...",te:"Đang nghe..."},
+  s7cl:{el:"Συνομιλία με τη Maa",en:"Chat with Maa",ar:"محادثة مع ماا",ur:"Maa کے ساتھ چیٹ",hi:"Maa के साथ चैट",es:"Chat con Maa",pt:"Chat com Maa",fr:"Chat avec Maa",de:"Chat mit Maa",it:"Chat con Maa",ru:"Чат с Маа",tr:"Maa ile sohbet",id:"Obrolan dengan Maa",bn:"Maa-এর সাথে চ্যাট",sw:"Mazungumzo na Maa",zh:"与Maa聊天",ja:"Maaとチャット",nl:"Chat met Maa",pl:"Czat z Maa",ro:"Chat cu Maa",fil:"Maa와 채팅",mr:"Чат з Маа",te:"Trò chuyện với Maa"},
+  s7aq:{el:"Θέλεις να καταγράψω κάτι που συνέβη σήμερα;",en:"Want me to record something that happened today?",ar:"هل تريدين أن أسجل شيئاً حدث اليوم؟",ur:"کیا آج کی کوئی بات ریکارڈ کروں؟",hi:"आज जो हुआ वह दर्ज करूँ?",es:"¿Registro algo de hoy?",pt:"Quer que registe algo de hoje?",fr:"Voulez-vous que j'enregistre quelque chose d'aujourd'hui?",de:"Soll ich etwas von heute aufzeichnen?",it:"Vuoi che registri qualcosa di oggi?",ru:"Записать что-то, что произошло сегодня?",tr:"Bugün olan bir şeyi kaydetmemi ister misin?",id:"Ingin aku mencatat sesuatu hari ini?",bn:"আজ যা হয়েছে রেকর্ড করব?",sw:"Unataka nirekodi kitu kilichotokea leo?",zh:"要记录今天发生的事吗？",ja:"今日のことを記録しますか？",nl:"Wil je dat ik iets van vandaag opneem?",pl:"Chcesz, żebym zapisała coś z dzisiaj?",ro:"Vrei să înregistrez ceva din azi?",fil:"오늘 있었던 일 기록할까요?",mr:"Записати щось із сьогодні?",te:"Muốn tôi ghi lại điều gì hôm nay không?"},
+  s7um:{el:"Η Sofia χαμογέλασε για πρώτη φορά! 😊",en:"Sofia smiled for the first time! 😊",ar:"ابتسمت صوفيا لأول مرة! 😊",ur:"صوفیا نے پہلی بار مسکراہٹ دی! 😊",hi:"Sofia ने पहली बार मुस्कुराई! 😊",es:"¡Sofia sonrió por primera vez! 😊",pt:"A Sofia sorriu pela primeira vez! 😊",fr:"Sofia a souri pour la première fois! 😊",de:"Sofia hat zum ersten Mal gelächelt! 😊",it:"Sofia ha sorriso per la prima volta! 😊",ru:"София улыбнулась впервые! 😊",tr:"Sofia ilk kez güldü! 😊",id:"Sofia tersenyum untuk pertama kali! 😊",bn:"সোফিয়া প্রথমবার হাসল! 😊",sw:"Sofia alitabasamu kwa mara ya kwanza! 😊",zh:"Sofia第一次微笑了！😊",ja:"Sofiaが初めて微笑みました！😊",nl:"Sofia glimlachte voor de eerste keer! 😊",pl:"Sofia uśmiechnęła się po raz pierwszy! 😊",ro:"Sofia a zâmbit pentru prima dată! 😊",fil:"Sofia가 처음으로 미소 지었어요! 😊",mr:"Софія посміхнулась вперше! 😊",te:"Sofia mỉm cười lần đầu tiên! 😊"},
+  s7ar:{el:"Τι υπέροχη στιγμή! Θα το αποθηκεύσω ως «Πρώτο χαμόγελο». Θέλεις να προσθέσεις φωτογραφία;",en:"What a wonderful moment! I'll save it as 'First smile'. Add a photo?",ar:"يا له من لحظة رائعة! سأحفظها كـ «أول ابتسامة». إضافة صورة؟",ur:"کیا شاندار لمحہ! محفوظ کروں گی۔ تصویر شامل کریں؟",hi:"क्या अद्भुत पल! «पहली मुस्कान» सहेजूँगी। फ़ोटो जोड़ें?",es:"¡Qué momento! Lo guardaré como «Primera sonrisa». ¿Añadir foto?",pt:"Que momento! Guardarei como «Primeiro sorriso». Adicionar foto?",fr:"Quel moment! Je l'enregistrerai comme «Premier sourire». Ajouter une photo?",de:"Was für ein Moment! Speichere als «Erstes Lächeln». Foto hinzufügen?",it:"Che momento! Lo salverò come «Primo sorriso». Vuoi aggiungere una foto?",ru:"Какой момент! Сохраню как «Первая улыбка». Добавить фото?",tr:"Ne harika bir an! 'İlk gülümseme' olarak kaydedeceğim. Fotoğraf eklemek ister misin?",id:"Momen luar biasa! Akan kusimpan sebagai «Senyum pertama». Tambahkan foto?",bn:"কী অসাধারণ মুহূর্ত! «প্রথম হাসি» সংরক্ষণ করব। ছবি যোগ করবেন?",sw:"Wakati wa ajabu! Nitahifadhi kama «Tabasamu la kwanza». Ongeza picha?",zh:"多么美妙的时刻！将保存为「第一次微笑」。要添加照片吗？",ja:"なんと素晴らしい！「初めての微笑み」として保存します。写真を追加しますか？",nl:"Wat een prachtig moment! Sla op als «Eerste glimlach». Foto toevoegen?",pl:"Co za moment! Zapiszę jako «Pierwszy uśmiech». Dodać zdjęcie?",ro:"Ce moment! Îl voi salva ca «Primul zâmbet». Adaugi o fotografie?",fil:"정말 멋진 순간이에요! 저장할게요. 사진 추가할까요?",mr:"Який чудовий момент! Збережу як «Перша усмішка». Хочеш додати фото?",te:"Khoảnh khắc tuyệt vời! Sẽ lưu là «Nụ cười đầu tiên». Muốn thêm ảnh không?"},
+  s8t:{el:"Milestones Sofia · 4 μήνες",en:"Sofia's Milestones · 4 months",ar:"إنجازات صوفيا · 4 أشهر",ur:"صوفیا کے سنگ میل · 4 ماہ",hi:"Sofia के माइलस्टोन · 4 महीने",es:"Hitos de Sofia · 4 meses",pt:"Marcos da Sofia · 4 meses",fr:"Étapes de Sofia · 4 mois",de:"Sofias Meilensteine · 4 Monate",it:"Tappe di Sofia · 4 mesi",ru:"Вехи Софии · 4 месяца",tr:"Sofia'nın Dönüm Noktaları · 4 ay",id:"Tonggak Sofia · 4 bulan",bn:"সোফিয়ার মাইলফলক · ৪ মাস",sw:"Hatua za Sofia · Miezi 4",zh:"Sofia的里程碑 · 4个月",ja:"Sofiaのマイルストーン · 4ヶ月",nl:"Sofia's Mijlpalen · 4 maanden",pl:"Kamienie Milowe Sofii · 4 miesiące",ro:"Etapele Sofiei · 4 luni",fil:"Sofia의 이정표 · 4개월",mr:"Віхи Софії · 4 місяці",te:"Cột mốc của Sofia · 4 tháng"},
+  s8m1:{el:"Ανασηκώνει το κεφάλι",en:"Lifts head",ar:"ترفع رأسها",ur:"سر اٹھاتی ہے",hi:"सिर उठाती है",es:"Levanta la cabeza",pt:"Levanta a cabeça",fr:"Lève la tête",de:"Hebt den Kopf",it:"Solleva la testa",ru:"Поднимает голову",tr:"Başını kaldırıyor",id:"Mengangkat kepala",bn:"মাথা তোলে",sw:"Anainua kichwa",zh:"抬头",ja:"頭を持ち上げる",nl:"Tilt hoofd op",pl:"Unosi głowę",ro:"Ridică capul",fil:"고개 들기",mr:"Піднімає голову",te:"Ngẩng đầu"},
+  s8m2:{el:"Ακολουθεί αντικείμενα με τα μάτια",en:"Tracks objects with eyes",ar:"تتابع الأشياء بعينيها",ur:"آنکھوں سے چیزیں ٹریک کرتی ہے",hi:"आँखों से वस्तुएँ ट्रैक करती है",es:"Sigue objetos con los ojos",pt:"Segue objetos com os olhos",fr:"Suit les objets des yeux",de:"Verfolgt Objekte mit Augen",it:"Segue oggetti con gli occhi",ru:"Следит за предметами глазами",tr:"Gözleriyle nesneleri takip ediyor",id:"Mengikuti objek dengan mata",bn:"চোখ দিয়ে বস্তু অনুসরণ করে",sw:"Anafuatilia vitu kwa macho",zh:"用眼睛追踪物体",ja:"目で物を追う",nl:"Volgt objecten met ogen",pl:"Śledzi obiekty oczami",ro:"Urmărește obiectele cu ochii",fil:"눈으로 물체 따라가기",mr:"Стежить за предметами очима",te:"Theo dõi đồ vật bằng mắt"},
+  s8m3:{el:"Πρώτο χαμόγελο",en:"First smile",ar:"أول ابتسامة",ur:"پہلی مسکراہٹ",hi:"पहली मुस्कान",es:"Primera sonrisa",pt:"Primeiro sorriso",fr:"Premier sourire",de:"Erstes Lächeln",it:"Primo sorriso",ru:"Первая улыбка",tr:"İlk gülümseme",id:"Senyum pertama",bn:"প্রথম হাসি",sw:"Tabasamu la kwanza",zh:"第一次微笑",ja:"初めての微笑み",nl:"Eerste glimlach",pl:"Pierwszy uśmiech",ro:"Primul zâmbet",fil:"첫 번째 미소",mr:"Перша усмішка",te:"Nụ cười đầu tiên"},
+  s8m4:{el:"Αναγνωρίζει φωνές",en:"Recognises voices",ar:"تتعرف على الأصوات",ur:"آوازیں پہچانتی ہے",hi:"आवाज़ें पहचानती है",es:"Reconoce voces",pt:"Reconhece vozes",fr:"Reconnaît les voix",de:"Erkennt Stimmen",it:"Riconosce le voci",ru:"Узнаёт голоса",tr:"Sesleri tanıyor",id:"Mengenali suara",bn:"কণ্ঠস্বর চেনে",sw:"Anatambua sauti",zh:"识别声音",ja:"声を認識する",nl:"Herkent stemmen",pl:"Rozpoznaje głosy",ro:"Recunoaște vocile",fil:"목소리 인식",mr:"Розпізнає голоси",te:"Nhận ra giọng nói"},
+  s8m5:{el:"Γέλιο",en:"Laughing",ar:"الضحك",ur:"قہقہہ",hi:"हँसना",es:"Risa",pt:"Gargalhada",fr:"Rires",de:"Lachen",it:"Risate",ru:"Смех",tr:"Kahkaha",id:"Tawa",bn:"হাসি",sw:"Kicheko",zh:"笑声",ja:"笑い声",nl:"Lachen",pl:"Śmiech",ro:"Râs",fil:"웃음",mr:"Сміх",te:"Cười lớn"},
+  s8m6:{el:"Στηρίζει το κεφάλι σταθερά",en:"Holds head steady",ar:"تثبت رأسها",ur:"سر مستحکم رکھتی ہے",hi:"सिर स्थिर रखती है",es:"Sostiene la cabeza",pt:"Segura a cabeça",fr:"Tient la tête",de:"Hält Kopf stabil",it:"Tiene la testa ferma",ru:"Держит голову",tr:"Başını sabit tutuyor",id:"Menahan kepala",bn:"মাথা স্থির রাখে",sw:"Anashikilia kichwa",zh:"保持头部稳定",ja:"頭を安定させる",nl:"Houdt hoofd stabiel",pl:"Trzyma głowę stabilnie",ro:"Ține capul stabil",fil:"고개 안정적으로 유지",mr:"Тримає голову стійко",te:"Giữ đầu ổn định"},
+  s8m7:{el:"Αρπάζει αντικείμενα",en:"Grasps objects",ar:"تمسك الأشياء",ur:"چیزیں پکڑتی ہے",hi:"चीज़ें पकड़ती है",es:"Agarra objetos",pt:"Agarra objetos",fr:"Attrape des objets",de:"Greift Objekte",it:"Afferra gli oggetti",ru:"Хватает предметы",tr:"Nesneleri tutuyor",id:"Meraih benda",bn:"বস্তু ধরে",sw:"Anashika vitu",zh:"抓握物体",ja:"物を掴む",nl:"Pakt objecten",pl:"Chwyta przedmioty",ro:"Apucă obiecte",fil:"물체 잡기",mr:"Бере предмети",te:"Cầm nắm đồ vật"},
+  s8nx:{el:"Επόμενο: Γέλιο στους 4–5 μήνες",en:"Next: Laughter expected at 4–5 months",ar:"التالي: الضحك متوقع عند 4–5 أشهر",ur:"اگلا: 4–5 ماہ میں قہقہہ متوقع",hi:"अगला: 4–5 महीनों में हँसी",es:"Siguiente: Risa esperada a los 4–5 meses",pt:"Seguinte: Gargalhada aos 4–5 meses",fr:"Suivant: Rires attendus à 4–5 mois",de:"Nächstes: Lachen bei 4–5 Monaten",it:"Prossimo: Risate a 4–5 mesi",ru:"Следующее: Смех в 4–5 месяцев",tr:"Sonraki: 4–5 ayda kahkaha",id:"Berikutnya: Tawa pada 4–5 bulan",bn:"পরবর্তী: 4–5 মাসে হাসির প্রত্যাশা",sw:"Kinachofuata: Kicheko miezi 4–5",zh:"下一步：4–5个月时大笑",ja:"次：4〜5ヶ月で笑い声",nl:"Volgende: Lachen bij 4–5 maanden",pl:"Następne: Śmiech w 4–5 miesięcy",ro:"Următor: Râs la 4–5 luni",fil:"다음: 4–5개월에 웃음 예상",mr:"Наступне: Сміх в 4–5 місяців",te:"Tiếp theo: Cười lớn lúc 4–5 tháng"},
+  s8ai:{el:"Η Sofia τα πηγαίνει πολύ καλά! Θέλεις συμβουλές για το επόμενο milestone;",en:"Sofia is doing great! Want tips for the next milestone?",ar:"صوفيا تؤدي أداءً رائعاً! هل تريدين نصائح؟",ur:"صوفیا بہت اچھا کر رہی ہے! مشورے چاہیے؟",hi:"Sofia बहुत अच्छा कर रही है! अगले milestone के लिए टिप्स?",es:"¡Sofia lo está haciendo muy bien! ¿Consejos para el próximo hito?",pt:"A Sofia está indo muito bem! Dicas para o próximo marco?",fr:"Sofia s'en sort très bien! Conseils pour la prochaine étape?",de:"Sofia macht das großartig! Tipps für den nächsten Meilenstein?",it:"Sofia sta andando benissimo! Consigli per la prossima tappa?",ru:"София молодец! Советы для следующей вехи?",tr:"Sofia çok iyi gidiyor! Sonraki dönüm noktası için ipuçları?",id:"Sofia melakukan dengan baik! Tips untuk tonggak berikutnya?",bn:"সোফিয়া খুব ভালো করছে! টিপস চাই?",sw:"Sofia anafanya vizuri sana! Vidokezo?",zh:"Sofia做得很好！想要建议吗？",ja:"Sofiaは素晴らしい！次のヒントが欲しいですか？",nl:"Sofia doet het geweldig! Tips voor de volgende mijlpaal?",pl:"Sofia radzi sobie świetnie! Wskazówki na następny kamień milowy?",ro:"Sofia se descurcă grozav! Sfaturi pentru etapa următoare?",fil:"Sofia가 정말 잘 하고 있어요! 다음 이정표 팁 원해요?",mr:"Софія чудово справляється! Поради для наступної віхи?",te:"Sofia làm rất tốt! Muốn mẹo cho cột mốc tiếp theo không?"},
+  s9t:{el:"Shopping · 4 μήνες",en:"Shopping · 4 months",ar:"التسوق · 4 أشهر",ur:"شاپنگ · 4 ماہ",hi:"Shopping · 4 महीने",es:"Compras · 4 meses",pt:"Compras · 4 meses",fr:"Achats · 4 mois",de:"Einkaufen · 4 Monate",it:"Shopping · 4 mesi",ru:"Покупки · 4 месяца",tr:"Alışveriş · 4 ay",id:"Belanja · 4 bulan",bn:"কেনাকাটা · ৪ মাস",sw:"Ununuzi · Miezi 4",zh:"购物 · 4个月",ja:"ショッピング · 4ヶ月",nl:"Winkelen · 4 maanden",pl:"Zakupy · 4 miesiące",ro:"Cumpărături · 4 luni",fil:"쇼핑 · 4개월",mr:"Покупки · 4 місяці",te:"Mua sắm · 4 tháng"},
+  s9t1:{el:"Προϊόντα",en:"Products",ar:"المنتجات",ur:"مصنوعات",hi:"उत्पाद",es:"Productos",pt:"Produtos",fr:"Produits",de:"Produkte",it:"Prodotti",ru:"Продукты",tr:"Ürünler",id:"Produk",bn:"পণ্য",sw:"Bidhaa",zh:"产品",ja:"製品",nl:"Producten",pl:"Produkty",ro:"Produse",fil:"제품",mr:"Продукти",te:"Sản phẩm"},
+  s9t2:{el:"Σούπερ Μάρκετ",en:"Supermarket",ar:"السوبر ماركت",ur:"سوپر مارکیٹ",hi:"सुपरमार्केट",es:"Supermercado",pt:"Supermercado",fr:"Supermarché",de:"Supermarkt",it:"Supermercato",ru:"Супермаркет",tr:"Süpermarket",id:"Supermarket",bn:"সুপারমার্কেট",sw:"Duka Kuu",zh:"超市",ja:"スーパー",nl:"Supermarkt",pl:"Supermarket",ro:"Supermarket",fil:"슈퍼마켓",mr:"Супермаркет",te:"Siêu thị"},
+  s9p1:{el:"Κουδουνίστρες σιλικόνης",en:"Silicone teethers",ar:"حلقات مضغ السيليكون",ur:"سلیکون ٹیدر",hi:"सिलिकॉन टीथर",es:"Mordedores de silicona",pt:"Mordedores de silicone",fr:"Anneaux de dentition",de:"Silikon-Beißringe",it:"Anelli dentizione silicone",ru:"Силиконовые прорезыватели",tr:"Silikon diş kaşıyıcı",id:"Teether silikon",bn:"সিলিকন টিথার",sw:"Vikakamuo vya silicone",zh:"硅胶磨牙玩具",ja:"シリコン歯固め",nl:"Siliconen bijtringen",pl:"Gryzaki silikonowe",ro:"Jucării de dentiție silicon",fil:"실리콘 치발기",mr:"Силіконові прорізувачі",te:"Vòng gặm nướu silicon"},
+  s9d1:{el:"Κατάλληλες για οδοντοφυΐα",en:"Suitable for teething",ar:"مناسبة للتسنين",ur:"دانت نکلنے کے لیے موزوں",hi:"दाँत निकलने के लिए उपयुक्त",es:"Adecuados para la dentición",pt:"Adequados para a dentição",fr:"Adaptés à la dentition",de:"Geeignet für das Zahnen",it:"Adatti alla dentizione",ru:"Для прорезывания зубов",tr:"Diş çıkarma için uygun",id:"Cocok untuk tumbuh gigi",bn:"দাঁত ওঠার জন্য উপযুক্ত",sw:"Zinazofaa kwa meno yanayotoka",zh:"适合长牙期",ja:"歯が生える時期に適している",nl:"Geschikt voor tandjes",pl:"Odpowiednie do ząbkowania",ro:"Potrivite pentru dentiție",fil:"이가 날 때 적합",mr:"Для прорізування зубів",te:"Phù hợp giai đoạn mọc răng"},
+  s9b1:{el:"4+ μήνες",en:"4+ months",ar:"+4 أشهر",ur:"+4 ماہ",hi:"4+ महीने",es:"4+ meses",pt:"4+ meses",fr:"4+ mois",de:"4+ Monate",it:"4+ mesi",ru:"4+ месяцев",tr:"4+ ay",id:"4+ bulan",bn:"৪+ মাস",sw:"Miezi 4+",zh:"4个月+",ja:"4ヶ月以上",nl:"4+ maanden",pl:"4+ miesięcy",ro:"4+ luni",fil:"4개월+",mr:"4+ місяців",te:"4+ tháng"},
+  s9p2:{el:"Φορητή λίκνα ταξιδιού",en:"Portable travel bassinet",ar:"سرير سفر محمول",ur:"پورٹیبل ٹریول باسینیٹ",hi:"पोर्टेबल ट्रैवल बेसिनेट",es:"Moisés de viaje portátil",pt:"Berço de viagem portátil",fr:"Couffin de voyage portable",de:"Tragbares Reise-Bettchen",it:"Culla da viaggio portatile",ru:"Переносная дорожная люлька",tr:"Taşınabilir seyahat beşiği",id:"Boks bayi portabel",bn:"পোর্টেবল ট্রাভেল বেসিনেট",sw:"Kitanda cha safari",zh:"便携式旅行提篮",ja:"携帯旅行用ベッド",nl:"Draagbaar reisbedje",pl:"Przenośne łóżeczko podróżne",ro:"Coș de voiaj portabil",fil:"휴대용 여행 바구니",mr:"Переносне дорожнє ліжечко",te:"Nôi du lịch di động"},
+  s9d2:{el:"Ελαφριά, χωρίς συναρμολόγηση",en:"Lightweight, no assembly",ar:"خفيف، لا يحتاج تجميعاً",ur:"ہلکا، اسمبلی نہیں",hi:"हल्का, असेंबली नहीं",es:"Ligero, sin montaje",pt:"Leve, sem montagem",fr:"Léger, sans montage",de:"Leicht, kein Aufbau",it:"Leggera, senza montaggio",ru:"Лёгкая, без сборки",tr:"Hafif, montaj yok",id:"Ringan, tanpa perakitan",bn:"হালকা, অ্যাসেম্বলি নেই",sw:"Kinyesi, hakuna mkusanyiko",zh:"轻巧，无需组装",ja:"軽量、組み立て不要",nl:"Licht, geen montage",pl:"Lekkie, bez montażu",ro:"Ușor, fără asamblare",fil:"가볍고 조립 불필요",mr:"Легке, без збірки",te:"Nhẹ, không cần lắp ráp"},
+  s9b2:{el:"✓ Trend",en:"✓ Trend",ar:"✓ رائج",ur:"✓ ٹرینڈ",hi:"✓ Trend",es:"✓ Tendencia",pt:"✓ Tendência",fr:"✓ Tendance",de:"✓ Trend",it:"✓ Trend",ru:"✓ Тренд",tr:"✓ Trend",id:"✓ Tren",bn:"✓ ট্রেন্ড",sw:"✓ Mtindo",zh:"✓ 流行",ja:"✓ トレンド",nl:"✓ Trend",pl:"✓ Trend",ro:"✓ Tendință",fil:"✓ 트렌드",mr:"✓ Тренд",te:"✓ Xu hướng"},
+  s9p3:{el:"Βιβλία υψηλής αντίθεσης",en:"High contrast books",ar:"كتب عالية التباين",ur:"ہائی کنٹراسٹ کتابیں",hi:"हाई कंट्रास्ट किताबें",es:"Libros de alto contraste",pt:"Livros de alto contraste",fr:"Livres à fort contraste",de:"Hochkontrastbücher",it:"Libri ad alto contrasto",ru:"Книги с высоким контрастом",tr:"Yüksek kontrastlı kitaplar",id:"Buku kontras tinggi",bn:"উচ্চ কনট্রাস্ট বই",sw:"Vitabu vya utofauti mkubwa",zh:"高对比度书籍",ja:"ハイコントラスト絵本",nl:"Hoog-contrast boeken",pl:"Książki wysokiego kontrastu",ro:"Cărți cu contrast ridicat",fil:"고대비 책",mr:"Книги з високим контрастом",te:"Sách tương phản cao"},
+  s9d3:{el:"Αναπτύσσουν την όραση",en:"Develop vision",ar:"تطور البصر",ur:"بصارت کی نشوونما",hi:"दृष्टि विकसित करती हैं",es:"Desarrollan la visión",pt:"Desenvolvem a visão",fr:"Développent la vision",de:"Entwickeln die Sehkraft",it:"Sviluppano la vista",ru:"Развивают зрение",tr:"Görüşü geliştirir",id:"Mengembangkan penglihatan",bn:"দৃষ্টিশক্তি বিকাশ করে",sw:"Vinakuza maono",zh:"促进视觉发育",ja:"視覚を育てる",nl:"Ontwikkelen het zicht",pl:"Rozwijają wzrok",ro:"Dezvoltă vederea",fil:"시력 발달",mr:"Розвивають зір",te:"Phát triển thị giác"},
+  s9b3:{el:"0–6 μήνες",en:"0–6 months",ar:"0–6 أشهر",ur:"0–6 ماہ",hi:"0–6 महीने",es:"0–6 meses",pt:"0–6 meses",fr:"0–6 mois",de:"0–6 Monate",it:"0–6 mesi",ru:"0–6 месяцев",tr:"0–6 ay",id:"0–6 bulan",bn:"০–৬ মাস",sw:"Miezi 0–6",zh:"0–6个月",ja:"0〜6ヶ月",nl:"0–6 maanden",pl:"0–6 miesięcy",ro:"0–6 luni",fil:"0–6개월",mr:"0–6 місяців",te:"0–6 tháng"},
+  s9p4:{el:"Μουσικό γυμναστήριο δαπέδου",en:"Musical floor play gym",ar:"صالة ألعاب موسيقية أرضية",ur:"موسیقی فلور پلے جم",hi:"म्यूज़िकल फ़्लोर प्ले जिम",es:"Gimnasio musical de suelo",pt:"Ginásio musical de chão",fr:"Tapis d'éveil musical",de:"Musikalische Spielmatte",it:"Palestrina musicale",ru:"Музыкальный коврик для игр",tr:"Müzikli zemin oyun matı",id:"Gym lantai musikal",bn:"মিউজিক্যাল প্লে জিম",sw:"Uwanja wa muziki wa sakafu",zh:"音乐健身脚踏垫",ja:"音楽付きフロアプレイジム",nl:"Muzikale speelmat",pl:"Muzyczna mata do zabawy",ro:"Covoraș muzical de joacă",fil:"음악 바닥 놀이기구",mr:"Музичний килимок",te:"Thảm chơi âm nhạc"},
+  s9d4:{el:"Διεγείρει αισθήσεις",en:"Stimulates the senses",ar:"تحفز الحواس",ur:"حواس کو تحریک دیتا ہے",hi:"इंद्रियों को उत्तेजित करता है",es:"Estimula los sentidos",pt:"Estimula os sentidos",fr:"Stimule les sens",de:"Stimuliert die Sinne",it:"Stimola i sensi",ru:"Стимулирует органы чувств",tr:"Duyuları uyarır",id:"Merangsang indera",bn:"ইন্দ্রিয় উদ্দীপিত করে",sw:"Huchochea hisi",zh:"刺激感官",ja:"感覚を刺激する",nl:"Stimuleert de zintuigen",pl:"Stymuluje zmysły",ro:"Stimulează simțurile",fil:"감각 자극",mr:"Стимулює органи чуттів",te:"Kích thích giác quan"},
+  s9b4:{el:"⭐ Top pick",en:"⭐ Top pick",ar:"⭐ الأفضل",ur:"⭐ بہترین انتخاب",hi:"⭐ टॉप पिक",es:"⭐ Top",pt:"⭐ Top",fr:"⭐ Top choix",de:"⭐ Top-Wahl",it:"⭐ Top",ru:"⭐ Топ выбор",tr:"⭐ En iyi",id:"⭐ Pilihan utama",bn:"⭐ শীর্ষ পছন্দ",sw:"⭐ Chaguo bora",zh:"⭐ 首选",ja:"⭐ トップピック",nl:"⭐ Topkeuze",pl:"⭐ Top wybór",ro:"⭐ Top alegere",fil:"⭐ 최고 선택",mr:"⭐ Топ вибір",te:"⭐ Lựa chọn hàng đầu"},
+  s9s1:{el:"Βρεφικό Γάλα Stage 2",en:"Baby Formula Stage 2",ar:"حليب أطفال المرحلة 2",ur:"بیبی فارمولا اسٹیج 2",hi:"बेबी फ़ॉर्मूला स्टेज 2",es:"Leche de fórmula Fase 2",pt:"Fórmula Infantil Fase 2",fr:"Lait infantile Stade 2",de:"Säuglingsnahrung Stufe 2",it:"Latte in formula Fase 2",ru:"Смесь Ступень 2",tr:"Bebek Maması Aşama 2",id:"Susu Formula Tahap 2",bn:"বেবি ফর্মুলা স্টেজ ২",sw:"Maziwa ya Watoto Hatua 2",zh:"婴儿配方奶粉阶段2",ja:"粉ミルク ステップ2",nl:"Babymelk Fase 2",pl:"Mleko modyfikowane Etap 2",ro:"Lapte praf Etapa 2",fil:"분유 스테이지 2",mr:"Суміш Ступінь 2",te:"Sữa công thức giai đoạn 2"},
+  s9s2:{el:"Βρεφικό Σαμπουάν",en:"Baby Shampoo",ar:"شامبو الأطفال",ur:"بیبی شیمپو",hi:"बेबी शैम्पू",es:"Champú bebé",pt:"Champô bebé",fr:"Shampooing bébé",de:"Babyshampoo",it:"Shampoo bambino",ru:"Детский шампунь",tr:"Bebek şampuanı",id:"Sampo bayi",bn:"বেবি শ্যাম্পু",sw:"Shampoo ya mtoto",zh:"婴儿洗发水",ja:"ベビーシャンプー",nl:"Babyshampoo",pl:"Szampon dla niemowląt",ro:"Șampon bebe",fil:"베이비 샴푸",mr:"Дитячий шампунь",te:"Dầu gội trẻ em"},
+  s9s3:{el:"Βρεφικές Πάνες No3",en:"Baby Diapers Size 3",ar:"حفاضات مقاس 3",ur:"بیبی ڈائپرز سائز 3",hi:"बेबी डायपर साइज 3",es:"Pañales bebé Talla 3",pt:"Fraldas bebé Tam. 3",fr:"Couches bébé Taille 3",de:"Windeln Gr. 3",it:"Pannolini Tg 3",ru:"Подгузники Размер 3",tr:"Bebek bezi No.3",id:"Popok bayi Ukuran 3",bn:"বেবি ডায়াপার সাইজ ৩",sw:"Nepi za mtoto No 3",zh:"婴儿纸尿裤 3号",ja:"おむつ サイズ3",nl:"Babyluiers Maat 3",pl:"Pieluchy Rozmiar 3",ro:"Scutece Nr 3",fil:"기저귀 3호",mr:"Підгузки Розмір 3",te:"Tã bé Cỡ 3"},
+  s9s4:{el:"Βρεφικές Μαντηλέτες",en:"Baby Wipes",ar:"مناديل الأطفال",ur:"بیبی وائپس",hi:"बेबी वाइप्स",es:"Toallitas bebé",pt:"Toalhitas bebé",fr:"Lingettes bébé",de:"Babytücher",it:"Salviette bambino",ru:"Детские салфетки",tr:"Bebek mendilleri",id:"Tisu bayi",bn:"বেবি ওয়াইপস",sw:"Karatasi za mtoto",zh:"婴儿湿巾",ja:"ベビーおしりふき",nl:"Babydoekjes",pl:"Chusteczki niemowlęce",ro:"Șervețele bebe",fil:"베이비 물티슈",mr:"Дитячі серветки",te:"Khăn ướt trẻ em"},
+  s9sl:{el:"Αποστολή λίστας:",en:"Send list:",ar:"إرسال القائمة:",ur:"فہرست بھیجیں:",hi:"सूची भेजें:",es:"Enviar lista:",pt:"Enviar lista:",fr:"Envoyer la liste:",de:"Liste senden:",it:"Invia lista:",ru:"Отправить список:",tr:"Listeyi gönder:",id:"Kirim daftar:",bn:"তালিকা পাঠান:",sw:"Tuma orodha:",zh:"发送清单:",ja:"リストを送る:",nl:"Lijst sturen:",pl:"Wyślij listę:",ro:"Trimite lista:",fil:"목록 보내기:",mr:"Надіслати список:",te:"Gửi danh sách:"},
+  pai:{el:"Πρόσθεσε προϊόν...",en:"Add a product...",ar:"أضف منتجاً...",ur:"مصنوع شامل کریں...",hi:"उत्पाद जोड़ें...",es:"Añadir producto...",pt:"Adicionar produto...",fr:"Ajouter un produit...",de:"Produkt hinzufügen...",it:"Aggiungi prodotto...",ru:"Добавить продукт...",tr:"Ürün ekle...",id:"Tambahkan produk...",bn:"পণ্য যোগ করুন...",sw:"Ongeza bidhaa...",zh:"添加产品...",ja:"製品を追加...",nl:"Product toevoegen...",pl:"Dodaj produkt...",ro:"Adaugă produs...",fil:"제품 추가...",mr:"Додати продукт...",te:"Thêm sản phẩm..."},
+  sai:{el:"Πρόσθεσε στη λίστα...",en:"Add to list...",ar:"أضف إلى القائمة...",ur:"فہرست میں شامل کریں...",hi:"सूची में जोड़ें...",es:"Añadir a la lista...",pt:"Adicionar à lista...",fr:"Ajouter à la liste...",de:"Zur Liste hinzufügen...",it:"Aggiungi alla lista...",ru:"Добавить в список...",tr:"Listeye ekle...",id:"Tambahkan ke daftar...",bn:"তালিকায় যোগ করুন...",sw:"Ongeza kwenye orodha...",zh:"添加到清单...",ja:"リストに追加...",nl:"Toevoegen aan lijst...",pl:"Dodaj do listy...",ro:"Adaugă la listă...",fil:"목록에 추가...",mr:"Додати до списку...",te:"Thêm vào danh sách..."},
+  s10t:{el:"Προσφορές & Κουπόνια",en:"Offers & Coupons",ar:"العروض والكوبونات",ur:"آفرز اور کوپنز",hi:"ऑफर और कूपन",es:"Ofertas y Cupones",pt:"Ofertas e Cupões",fr:"Offres et Coupons",de:"Angebote & Gutscheine",it:"Offerte e Coupon",ru:"Акции и купоны",tr:"Teklifler ve Kuponlar",id:"Penawaran & Kupon",bn:"অফার ও কুপন",sw:"Ofa na Vocha",zh:"优惠与券",ja:"オファーとクーポン",nl:"Aanbiedingen & Kortingen",pl:"Oferty i Kupony",ro:"Oferte și Cupoane",fil:"할인 및 쿠폰",mr:"Акції та купони",te:"Ưu đãi và Phiếu giảm giá"},
+  s10t1:{el:"Προσφορές",en:"Offers",ar:"العروض",ur:"آفرز",hi:"ऑफर",es:"Ofertas",pt:"Ofertas",fr:"Offres",de:"Angebote",it:"Offerte",ru:"Акции",tr:"Teklifler",id:"Penawaran",bn:"অফার",sw:"Ofa",zh:"优惠",ja:"オファー",nl:"Aanbiedingen",pl:"Oferty",ro:"Oferte",fil:"할인",mr:"Акції",te:"Ưu đãi"},
+  s10t2:{el:"Κουπόνια",en:"Coupons",ar:"كوبونات",ur:"کوپنز",hi:"कूपन",es:"Cupones",pt:"Cupões",fr:"Coupons",de:"Gutscheine",it:"Coupon",ru:"Купоны",tr:"Kuponlar",id:"Kupon",bn:"কুপন",sw:"Vocha",zh:"券",ja:"クーポン",nl:"Kortingen",pl:"Kupony",ro:"Cupoane",fil:"쿠폰",mr:"Купони",te:"Phiếu"},
+  s10t3:{el:"Νέα",en:"New",ar:"جديد",ur:"نیا",hi:"नया",es:"Nuevo",pt:"Novo",fr:"Nouveau",de:"Neu",it:"Nuovo",ru:"Новинки",tr:"Yeni",id:"Baru",bn:"নতুন",sw:"Mpya",zh:"新品",ja:"新着",nl:"Nieuw",pl:"Nowe",ro:"Nou",fil:"신규",mr:"Нове",te:"Mới"},
+  s10od1:{el:"Σε όλες τις πάνες No3 & No4. Έως 30/06.",en:"On all diapers No3 & No4. Until 30/06.",ar:"على الحفاضات رقم 3 و4. حتى 30/06.",ur:"No3 & No4 پر۔ 30/06 تک۔",hi:"No3 & No4 पर। 30/06 तक।",es:"En pañales No3 y No4. Hasta 30/06.",pt:"Fraldas No3 e No4. Até 30/06.",fr:"Couches No3 & No4. Jusqu'au 30/06.",de:"Windeln Nr.3 & Nr.4. Bis 30.06.",it:"Pannolini No3 & No4. Fino al 30/06.",ru:"Подгузники №3 и №4. До 30.06.",tr:"No3 & No4 bezlerde. 30/06'ya kadar.",id:"Popok No3 & No4. Hingga 30/06.",bn:"No3 & No4 ডায়াপারে। 30/06 পর্যন্ত।",sw:"Nepi No3 & No4. Hadi 30/06.",zh:"3号和4号纸尿裤。截止30/06。",ja:"No3&No4おむつ。6/30まで。",ro:"Scutece No3 & No4. Până la 30/06.",pl:"Pieluchy No3 & No4. Do 30/06.",nl:"Luiers No3 & No4. Tot 30/06.",fil:"Diaper No3 & No4. Hanggang 30/06.",mr:"No3 & No4 डायपर. 30/06 पर्यंत.",te:"No3 & No4 డైపర్లు. 30/06 వరకు."},
+  s10od2:{el:"Αγορά 2, δώρο 1 βρεφικό λοσιόν.",en:"Buy 2, get 1 baby lotion free.",ar:"اشتري 2، احصل على لوشن مجاناً.",ur:"2 خریدیں، 1 لوشن مفت۔",hi:"2 खरीदें, 1 लोशन मुफ़्त।",es:"Compra 2, llévate 1 loción gratis.",pt:"Compra 2, leva 1 loção grátis.",fr:"Achetez 2, obtenez 1 lotion gratuite.",de:"Kaufe 2, erhalte 1 Lotion gratis.",it:"Compra 2, ricevi 1 lozione gratis.",ru:"Купи 2, получи 1 лосьон.",tr:"2 al, 1 losyon hediye.",id:"Beli 2, gratis 1 losion.",bn:"2 কিনুন, 1 লোশন বিনামূল্যে।",sw:"Nunua 2, pata lotion 1 bure.",zh:"买2送1润肤露。",ja:"2つ買うと1つ無料。",ro:"Cumperi 2, primești 1 loțiune.",pl:"Kup 2, dostaniesz 1 balsam.",nl:"Koop 2, krijg 1 lotion gratis.",fil:"Bumili ng 2, libre 1 lotion.",mr:"2 घ्या, 1 लोशन मोफत.",te:"2 కొనండి, 1 లోషన్ ఉచితం."},
+  s10od3:{el:"Βρεφικό γάλα Stage 1 & 2. Αυτή την εβδομάδα.",en:"Baby formula Stage 1 & 2. This week.",ar:"حليب أطفال المرحلة 1 و2. هذا الأسبوع.",ur:"فارمولا اسٹیج 1 و 2۔ اس ہفتے۔",hi:"फ़ॉर्मूला स्टेज 1 & 2। इस सप्ताह।",es:"Fórmula Fase 1 y 2. Esta semana.",pt:"Fórmula Fase 1 e 2. Esta semana.",fr:"Lait Stade 1 & 2. Cette semaine.",de:"Säuglingsnahrung Stufe 1 & 2. Diese Woche.",it:"Formula Fase 1 & 2. Questa settimana.",ru:"Смесь Ступень 1 & 2. На этой неделе.",tr:"Bebek Maması 1 & 2. Bu hafta.",id:"Formula Tahap 1 & 2. Minggu ini.",bn:"ফর্মুলা স্টেজ 1 & 2। এই সপ্তাহে।",sw:"Formula Hatua 1 & 2. Wiki hii.",zh:"配方奶粉1段和2段。本周。",ja:"ミルク1段&2段。今週。",ro:"Formula Etapa 1 & 2. Această săptămână.",pl:"Mleko Etap 1 & 2. Ten tydzień.",nl:"Babymelk Fase 1 & 2. Deze week.",fil:"Formula Stage 1 & 2. Ngayong linggo.",mr:"फर्मुला स्टेज 1 & 2. या आठवड्यात.",te:"ఫార్ములా స్టేజ్ 1 & 2. ఈ వారం."},
+  s10cd1:{el:"Κωδικός: HEYMAA5 · Αγορά άνω €30.",en:"Code: HEYMAA5 · Over €30.",ar:"الرمز: HEYMAA5 · فوق 30€.",ur:"کوڈ: HEYMAA5 · €30 سے زیادہ۔",hi:"कोड: HEYMAA5 · €30 से अधिक।",es:"Código: HEYMAA5 · Más de €30.",pt:"Código: HEYMAA5 · Acima de €30.",fr:"Code: HEYMAA5 · Plus de €30.",de:"Code: HEYMAA5 · Über €30.",it:"Codice: HEYMAA5 · Oltre €30.",ru:"Код: HEYMAA5 · Свыше €30.",tr:"Kod: HEYMAA5 · €30 üzeri.",id:"Kode: HEYMAA5 · Di atas €30.",bn:"কোড: HEYMAA5 · €30 এর বেশি।",sw:"Nambari: HEYMAA5 · Zaidi ya €30.",zh:"代码: HEYMAA5 · €30以上。",ja:"コード: HEYMAA5 · €30以上。",ro:"Cod: HEYMAA5 · Peste €30.",pl:"Kod: HEYMAA5 · Powyżej €30.",nl:"Code: HEYMAA5 · Boven €30.",fil:"Code: HEYMAA5 · Higit sa €30.",mr:"कोड: HEYMAA5 · €30 पेक्षा जास्त.",te:"కోడ్: HEYMAA5 · €30 పైన."},
+  s10cd2:{el:"Κωδικός: MAA10 · Πρώτη παραγγελία.",en:"Code: MAA10 · First order.",ar:"الرمز: MAA10 · الطلب الأول.",ur:"کوڈ: MAA10 · پہلا آرڈر۔",hi:"कोड: MAA10 · पहला ऑर्डर।",es:"Código: MAA10 · Primer pedido.",pt:"Código: MAA10 · Primeira encomenda.",fr:"Code: MAA10 · Première commande.",de:"Code: MAA10 · Erste Bestellung.",it:"Codice: MAA10 · Primo ordine.",ru:"Код: MAA10 · Первый заказ.",tr:"Kod: MAA10 · İlk sipariş.",id:"Kode: MAA10 · Pesanan pertama.",bn:"কোড: MAA10 · প্রথম অর্ডার।",sw:"Nambari: MAA10 · Agizo la kwanza.",zh:"代码: MAA10 · 首次订单。",ja:"コード: MAA10 · 初回注文。",ro:"Cod: MAA10 · Prima comandă.",pl:"Kod: MAA10 · Pierwsze zamówienie.",nl:"Code: MAA10 · Eerste bestelling.",fil:"Code: MAA10 · Unang order.",mr:"कोड: MAA10 · पहिली ऑर्डर.",te:"కోడ్: MAA10 · మొదటి ఆర్డర్."},
+  s10cd3:{el:"Κωδικός: FREESHIP · Έως 15/07.",en:"Code: FREESHIP · Until 15/07.",ar:"الرمز: FREESHIP · حتى 15/07.",ur:"کوڈ: FREESHIP · 15/07 تک۔",hi:"कोड: FREESHIP · 15/07 तक।",es:"Código: FREESHIP · Hasta 15/07.",pt:"Código: FREESHIP · Até 15/07.",fr:"Code: FREESHIP · Jusqu'au 15/07.",de:"Code: FREESHIP · Bis 15.07.",it:"Codice: FREESHIP · Fino al 15/07.",ru:"Код: FREESHIP · До 15.07.",tr:"Kod: FREESHIP · 15/07'ye kadar.",id:"Kode: FREESHIP · Hingga 15/07.",bn:"কোড: FREESHIP · 15/07 পর্যন্ত।",sw:"Nambari: FREESHIP · Hadi 15/07.",zh:"代码: FREESHIP · 15/07前。",ja:"コード: FREESHIP · 7/15まで。",ro:"Cod: FREESHIP · Până la 15/07.",pl:"Kod: FREESHIP · Do 15/07.",nl:"Code: FREESHIP · Tot 15/07.",fil:"Code: FREESHIP · Hanggang 15/07.",mr:"कोड: FREESHIP · 15/07 पर्यंत.",te:"కోడ్: FREESHIP · 15/07 వరకు."},
+  s10nd1:{el:"Αναπτυξιακό 3-σε-1. 4–12 μηνών.",en:"Developmental 3-in-1. 4–12 months.",ar:"لعبة 3-في-1. 4–12 أشهر.",ur:"3-in-1 کھلونا۔ 4–12 ماہ۔",hi:"3-in-1 खिलौना। 4–12 महीने।",es:"Juguete 3-en-1. 4–12 meses.",pt:"Brinquedo 3-em-1. 4–12 meses.",fr:"Jouet 3-en-1. 4–12 mois.",de:"3-in-1 Spielzeug. 4–12 Monate.",it:"Gioco 3-in-1. 4–12 mesi.",ru:"Игрушка 3-в-1. 4–12 месяцев.",tr:"3'ü 1 arada. 4–12 ay.",id:"Mainan 3-in-1. 4–12 bulan.",bn:"3-in-1 খেলনা। 4–12 মাস।",sw:"Toy 3-in-1. Miezi 4–12.",zh:"3合1玩具。4–12个月。",ja:"3-in-1。4〜12ヶ月。",ro:"Jucărie 3-în-1. 4–12 luni.",pl:"Zabawka 3-w-1. 4–12 miesięcy.",nl:"Speelgoed 3-in-1. 4–12 maanden.",fil:"Laruan 3-in-1. 4–12 buwan.",mr:"3-in-1 खेळणी. 4–12 महिने.",te:"3-in-1. 4–12 నెలలు."},
+  s10nd2:{el:"Νέα σειρά για βρέφη 4+ μηνών.",en:"New range for babies 4+ months.",ar:"مجموعة جديدة للرضع 4+ أشهر.",ur:"4+ ماہ کے بچوں کی نئی سیریز۔",hi:"4+ महीने के बच्चों की नई सीरीज़।",es:"Nueva gama bebés 4+ meses.",pt:"Nova linha bebés 4+ meses.",fr:"Nouvelle gamme bébés 4+ mois.",de:"Neue Serie Babys 4+ Monate.",it:"Nuova linea 4+ mesi.",ru:"Новая серия 4+ месяцев.",tr:"Yeni seri 4+ aylık.",id:"Seri baru 4+ bulan.",bn:"নতুন সিরিজ 4+ মাস।",sw:"Mfululizo mpya 4+ miezi.",zh:"4个月以上新系列。",ja:"4ヶ月以上新シリーズ。",ro:"Serie nouă 4+ luni.",pl:"Nowa seria 4+ miesięcy.",nl:"Nieuwe serie 4+ maanden.",fil:"Bagong linya 4+ buwan.",mr:"नवीन मालिका 4+ महिने.",te:"కొత్త సిరీస్ 4+ నెలలు."},
+  s10nd3:{el:"Νέο κούνια 3D mesh. Ιούλιος.",en:"New 3D mesh swing. July.",ar:"أرجوحة 3D جديدة. يوليو.",ur:"نئی 3D mesh جھولا۔ جولائی۔",hi:"नया 3D mesh झूला। जुलाई।",es:"Nueva hamaca 3D. Julio.",pt:"Nova rede 3D. Julho.",fr:"Nouveau transat 3D. Juillet.",de:"Neue 3D-Wiege. Juli.",it:"Nuova altalena 3D. Luglio.",ru:"Новая качалка 3D. Июль.",tr:"Yeni 3D salıncak. Temmuz.",id:"Ayunan 3D baru. Juli.",bn:"নতুন 3D দোলনা। জুলাই।",sw:"Kiti kipya 3D. Julai.",zh:"新款3D摇椅。七月。",ja:"新3Dスウィング。7月。",ro:"Nou leagăn 3D. Iulie.",pl:"Nowa huśtawka 3D. Lipiec.",nl:"Nieuwe 3D schommel. Juli.",fil:"Bagong 3D swing. Hulyo.",mr:"नवीन 3D झोपाळा. जुलै.",te:"కొత్త 3D ఊయల. జులై."},
+  s12free:{el:"Δωρεάν",en:"Free",ar:"مجاناً",ur:"مفت",hi:"नि:शुल्क",es:"Gratis",pt:"Grátis",fr:"Gratuit",de:"Kostenlos",it:"Gratis",ru:"Бесплатно",tr:"Ücretsiz",id:"Gratis",bn:"বিনামূল্যে",sw:"Bila malipo",zh:"免费",ja:"無料",ro:"Gratuit",pl:"Bezpłatnie",nl:"Gratis",fil:"Libre",mr:"मोफत",te:"ఉచితం"},
+  s11t:{el:"📋 Χρήσιμα Έγγραφα",en:"📋 Useful Documents",ar:"📋 المستندات المفيدة",ur:"📋 مفید دستاویزات",hi:"📋 उपयोगी दस्तावेज़",es:"📋 Documentos Útiles",pt:"📋 Documentos Úteis",fr:"📋 Documents Utiles",de:"📋 Nützliche Dokumente",it:"📋 Documenti Utili",ru:"📋 Полезные документы",tr:"📋 Faydalı Belgeler",id:"📋 Dokumen Berguna",bn:"📋 দরকারী নথি",sw:"📋 Nyaraka Muhimu",zh:"📋 有用文件",ja:"📋 便利な書類",nl:"📋 Nuttige Documenten",pl:"📋 Przydatne Dokumenty",ro:"📋 Documente Utile",fil:"📋 유용한 문서",mr:"📋 Корисні Документи",te:"📋 Tài liệu hữu ích"},
+  s11d1:{el:"Μορφολογικός Υπέρηχος",en:"Morphology Ultrasound",ar:"الموجات فوق الصوتية المورفولوجية",ur:"مورفولوجی الٹراساؤنڈ",hi:"मॉर्फोलॉजी अल्ट्रासाउंड",es:"Ecografía morfológica",pt:"Ecografia morfológica",fr:"Échographie morphologique",de:"Morphologie-Ultraschall",it:"Ecografia morfologica",ru:"Морфологическое УЗИ",tr:"Morfoloji Ultrason",id:"USG Morfologi",bn:"মরফোলজি আল্ট্রাসাউন্ড",sw:"Ultrasound ya Mofolojia",zh:"形态学超声",ja:"形態学的超音波",nl:"Morfologie-echo",pl:"USG morfologiczne",ro:"Ecografie morfologică",fil:"형태학 초음파",mr:"Морфологічне УЗД",te:"Siêu âm hình thái học"},
+  s11d2:{el:"Εμβόλιο Hep-B · 1η δόση",en:"Hep-B Vaccine · 1st dose",ar:"لقاح الهيباتيتيس B · الجرعة الأولى",ur:"ہیپ-بی ویکسین · پہلی خوراک",hi:"Hep-B टीका · पहली खुराक",es:"Vacuna Hep-B · 1ª dosis",pt:"Vacina Hep-B · 1ª dose",fr:"Vaccin Hep-B · 1ère dose",de:"Hep-B Impfung · 1. Dosis",it:"Vaccino Hep-B · 1ª dose",ru:"Вакцина Геп-В · 1 доза",tr:"Hep-B Aşısı · 1. doz",id:"Vaksin Hep-B · Dosis 1",bn:"হেপ-বি ভ্যাকসিন · ১ম ডোজ",sw:"Chanjo ya Hep-B · Dozi ya 1",zh:"乙肝疫苗 · 第1剂",ja:"B型肝炎ワクチン · 1回目",nl:"Hep-B Vaccin · 1e dosis",pl:"Szczepionka Hep-B · 1 dawka",ro:"Vaccin Hep-B · Doza 1",fil:"B형 간염 백신 · 1차",mr:"Вакцина Геп-В · 1 доза",te:"Vắc xin Hep-B · Liều 1"},
+  s11d3:{el:"Αιματολογικές Εξετάσεις",en:"Blood Tests",ar:"اختبارات الدم",ur:"خون کے ٹیسٹ",hi:"रक्त परीक्षण",es:"Análisis de sangre",pt:"Análises de sangue",fr:"Analyses de sang",de:"Blutuntersuchungen",it:"Esami del sangue",ru:"Анализы крови",tr:"Kan testleri",id:"Tes darah",bn:"রক্ত পরীক্ষা",sw:"Vipimo vya damu",zh:"血液检测",ja:"血液検査",nl:"Bloedonderzoek",pl:"Badania krwi",ro:"Analize de sânge",fil:"혈액 검사",mr:"Аналізи крові",te:"Xét nghiệm máu"},
+  s11nt:{el:"Τα σημαντικά έγγραφα καλό θα είναι να τα έχεις αποθηκευμένα και διαθέσιμα ανά πάσα στιγμή. Η HeyMaa τα αποθηκεύει με πλήρη κρυπτογράφηση. Η HeyMaa δεν τα διαβάζει ποτέ — μόνο εσύ έχεις πρόσβαση. Καλό θα ήταν να διατηρείς φυσικά αντίγραφα.",en:"Important documents should be stored and available at all times. HeyMaa stores them with full encryption. HeyMaa never reads them — only you have access. It's a good idea to keep physical copies.",ar:"من الجيد تخزين الوثائق المهمة وإتاحتها في جميع الأوقات. تخزنها HeyMaa بتشفير كامل. لا تقرأها HeyMaa أبداً — أنتِ فقط من لديها وصول. يُستحسن الاحتفاظ بنسخ ورقية.",ur:"اہم دستاویزات کو ہر وقت محفوظ رکھنا اچھا ہے۔ HeyMaa انہیں مکمل انکرپشن کے ساتھ محفوظ کرتی ہے۔ HeyMaa انہیں کبھی نہیں پڑھتی — صرف آپ کو رسائی ہے۔ جسمانی کاپیاں رکھنا بھی اچھا رہے گا۔",hi:"महत्वपूर्ण दस्तावेज़ हमेशा संग्रहीत रखना अच्छा है। HeyMaa उन्हें पूर्ण एन्क्रिप्शन के साथ संग्रहीत करती है। HeyMaa उन्हें कभी नहीं पढ़ती — केवल आपकी पहुँच है। भौतिक प्रतियाँ रखना भी अच्छा विचार है।",es:"Es bueno tener los documentos importantes almacenados y disponibles. HeyMaa los almacena con cifrado total. HeyMaa nunca los lee — solo tú tienes acceso. Es buena idea mantener copias físicas.",pt:"É bom ter os documentos importantes armazenados e disponíveis. A HeyMaa armazena-os com encriptação total. A HeyMaa nunca os lê — só tu tens acesso. É boa ideia manter cópias físicas.",fr:"Il est conseillé de stocker les documents importants. HeyMaa les stocke avec un chiffrement complet. HeyMaa ne les lit jamais — vous seule y avez accès. Il est conseillé de conserver des copies papier.",de:"Es ist gut, wichtige Dokumente jederzeit verfügbar zu haben. HeyMaa speichert sie vollverschlüsselt. HeyMaa liest sie nie — nur du hast Zugriff. Empfehle physische Kopien aufzubewahren.",it:"È utile avere i documenti importanti disponibili. HeyMaa li archivia con crittografia completa. HeyMaa non li legge mai — solo tu hai accesso. Si consiglia di conservare copie fisiche.",ru:"Важные документы хорошо бы иметь доступными. HeyMaa хранит их с полным шифрованием. HeyMaa никогда их не читает — доступ есть только у вас. Рекомендуется хранить физические копии.",tr:"Önemli belgelerin her zaman erişilebilir olması iyi olur. HeyMaa bunları tam şifrelemeyle saklar. HeyMaa onları asla okumaz — yalnızca sen erişebilirsin. Fiziksel kopyalar bulundurmak da iyi bir fikirdir.",id:"Sebaiknya dokumen penting tersedia setiap saat. HeyMaa menyimpannya dengan enkripsi penuh. HeyMaa tidak pernah membacanya — hanya kamu yang punya akses. Ada baiknya menyimpan salinan fisik.",bn:"গুরুত্বপূর্ণ নথিগুলি সব সময় উপলব্ধ রাখা ভালো। HeyMaa সম্পূর্ণ এনক্রিপশনে সংরক্ষণ করে। HeyMaa কখনো পড়ে না — শুধু আপনার অ্যাক্সেস। ভৌত কপি রাখাও ভালো।",sw:"Ni vizuri kuwa na nyaraka muhimu zinapatikana wakati wote. HeyMaa huzihifadhi kwa usimbaji fiche kamili. HeyMaa hazisomi kamwe — wewe tu una ufikio. Ni vizuri pia kuhifadhi nakala za karatasi.",zh:"重要文件最好随时可访问。HeyMaa以完整加密存储。HeyMaa从不读取——只有您有权限。建议保留纸质副本。",ja:"重要な書類はいつでもアクセス可能にしておくといいでしょう。HeyMaaは完全暗号化で保存します。HeyMaaは決して読みません — あなただけがアクセスできます。物理的なコピーも保管することをお勧めします。",nl:"Het is goed om belangrijke documenten altijd beschikbaar te hebben. HeyMaa slaat ze op met volledige versleuteling. HeyMaa leest ze nooit — alleen jij hebt toegang. Het is een goed idee om fysieke kopieën te bewaren.",pl:"Warto przechowywać ważne dokumenty i mieć dostęp w każdej chwili. HeyMaa przechowuje je z pełnym szyfrowaniem. HeyMaa nigdy ich nie czyta — tylko ty masz dostęp. Dobrze jest też przechowywać fizyczne kopie.",ro:"Este bine să ai documentele importante disponibile oricând. HeyMaa le stochează cu criptare completă. HeyMaa nu le citește niciodată — doar tu ai acces. Este o idee bună să păstrezi și copii fizice.",fil:"중요한 문서는 항상 접근할 수 있도록 하는 것이 좋아요. HeyMaa는 완전 암호화로 저장합니다. HeyMaa는 절대 읽지 않아요 — 오직 당신만 접근 가능해요. 실물 사본도 보관하는 것을 권장해요.",mr:"Важливі документи добре мати доступними у будь-який час. HeyMaa зберігає їх з повним шифруванням. HeyMaa ніколи їх не читає — тільки ви маєте доступ. Рекомендується також зберігати фізичні копії.",te:"Nên lưu trữ tài liệu quan trọng và có thể truy cập bất cứ lúc nào. HeyMaa lưu trữ chúng với mã hóa đầy đủ. HeyMaa không bao giờ đọc — chỉ bạn mới có quyền truy cập. Nên giữ bản sao vật lý."},
+  s11t2:{el:"🔔 Επόμενα Ραντεβού",en:"🔔 Upcoming Appointments",ar:"🔔 المواعيد القادمة",ur:"🔔 آنے والی ملاقاتیں",hi:"🔔 आगामी अपॉइंटमेंट",es:"🔔 Próximas Citas",pt:"🔔 Próximas Consultas",fr:"🔔 Prochains Rendez-vous",de:"🔔 Nächste Termine",it:"🔔 Prossimi Appuntamenti",ru:"🔔 Ближайшие приёмы",tr:"🔔 Yaklaşan Randevular",id:"🔔 Janji Mendatang",bn:"🔔 আসন্ন অ্যাপয়েন্টমেন্ট",sw:"🔔 Miadi Ijayo",zh:"🔔 即将预约",ja:"🔔 今後の予約",nl:"🔔 Komende Afspraken",pl:"🔔 Nadchodzące Wizyty",ro:"🔔 Programări Viitoare",fil:"🔔 예정된 예약",mr:"🔔 Наступні Записи",te:"🔔 Cuộc hẹn sắp tới"},
+  s11a1:{el:"Παιδίατρος · 15 Ιουλίου 2026",en:"Pediatrician · July 15, 2026",ar:"طبيب الأطفال · 15 يوليو 2026",ur:"بچوں کا ڈاکٹر · 15 جولائی 2026",hi:"बाल रोग विशेषज्ञ · 15 जुलाई 2026",es:"Pediatra · 15 julio 2026",pt:"Pediatra · 15 julho 2026",fr:"Pédiatre · 15 juillet 2026",de:"Kinderarzt · 15. Juli 2026",it:"Pediatra · 15 luglio 2026",ru:"Педиатр · 15 июля 2026",tr:"Çocuk doktoru · 15 Temmuz 2026",id:"Dokter anak · 15 Juli 2026",bn:"শিশু বিশেষজ্ঞ · ১৫ জুলাই ২০২৬",sw:"Daktari wa watoto · 15 Julai 2026",zh:"儿科医生 · 2026年7月15日",ja:"小児科 · 2026年7月15日",nl:"Kinderarts · 15 juli 2026",pl:"Pediatra · 15 lipca 2026",ro:"Pediatru · 15 iulie 2026",fil:"소아과 · 2026년 7월 15일",mr:"Педіатр · 15 липня 2026",te:"Bác sĩ nhi khoa · 15/7/2026"},
+  s11a2:{el:"Εμβόλιο Pentaxim · Αύγουστος 2026",en:"Pentaxim Vaccine · August 2026",ar:"لقاح بنتاكسيم · أغسطس 2026",ur:"پینٹاکسم ویکسین · اگست 2026",hi:"Pentaxim टीका · अगस्त 2026",es:"Vacuna Pentaxim · agosto 2026",pt:"Vacina Pentaxim · agosto 2026",fr:"Vaccin Pentaxim · août 2026",de:"Pentaxim Impfung · August 2026",it:"Vaccino Pentaxim · agosto 2026",ru:"Вакцина Pentaxim · август 2026",tr:"Pentaxim Aşısı · Ağustos 2026",id:"Vaksin Pentaxim · Agustus 2026",bn:"পেন্টাকসিম ভ্যাকসিন · আগস্ট ২০২৬",sw:"Chanjo ya Pentaxim · Agosti 2026",zh:"Pentaxim疫苗 · 2026年8月",ja:"Pentaxim ワクチン · 2026年8月",nl:"Pentaxim Vaccin · augustus 2026",pl:"Szczepionka Pentaxim · sierpień 2026",ro:"Vaccin Pentaxim · august 2026",fil:"Pentaxim 백신 · 2026년 8월",mr:"Вакцина Pentaxim · серпень 2026",te:"Vắc xin Pentaxim · tháng 8/2026"},
+  s12t:{el:"Απλά & διαφανή πακέτα",en:"Simple & transparent plans",ar:"خطط بسيطة وشفافة",ur:"آسان اور شفاف پلانز",hi:"सरल और पारदर्शी पैकेज",es:"Planes simples y transparentes",pt:"Planos simples e transparentes",fr:"Plans simples et transparents",de:"Einfache & transparente Pakete",it:"Piani semplici e trasparenti",ru:"Простые и прозрачные тарифы",tr:"Basit ve şeffaf paketler",id:"Paket sederhana & transparan",bn:"সরল ও স্বচ্ছ পরিকল্পনা",sw:"Mipango rahisi na wazi",zh:"简单透明的套餐",ja:"シンプルで透明なプラン",nl:"Eenvoudige & transparante plannen",pl:"Proste i przejrzyste pakiety",ro:"Planuri simple și transparente",fil:"간단하고 투명한 플랜",mr:"Прості та прозорі пакети",te:"Gói đơn giản & minh bạch"},
+  s12b1:{el:"Τρέχον",en:"Current",ar:"الحالي",ur:"موجودہ",hi:"वर्तमान",es:"Actual",pt:"Atual",fr:"Actuel",de:"Aktuell",it:"Attuale",ru:"Текущий",tr:"Mevcut",id:"Saat ini",bn:"বর্তমান",sw:"Sasa hivi",zh:"当前",ja:"現在",nl:"Huidig",pl:"Bieżący",ro:"Curent",fil:"현재",mr:"Поточний",te:"Hiện tại"},
+  s12l1:{el:"ΔΩΡΕΑΝ ΔΟΚΙΜΗ",en:"FREE TRIAL",ar:"تجربة مجانية",ur:"مفت ٹرائل",hi:"नि:शुल्क ट्रायल",es:"PRUEBA GRATIS",pt:"TESTE GRATUITO",fr:"ESSAI GRATUIT",de:"KOSTENLOSER TEST",it:"PROVA GRATUITA",ru:"ПРОБНЫЙ ПЕРИОД",tr:"ÜCRETSİZ DENEME",id:"PERCOBAAN GRATIS",bn:"বিনামূল্যে ট্রায়াল",sw:"JARIBIO LA BURE",zh:"免费试用",ja:"無料トライアル",nl:"GRATIS PROEF",pl:"BEZPŁATNY OKRES",ro:"TEST GRATUIT",fil:"무료 체험",mr:"БЕЗКОШТОВНА ПРОБНА",te:"DÙNG THỬ MIỄN PHÍ"},
+  s12p1:{el:"14 ημέρες",en:"14 days",ar:"14 يوماً",ur:"14 دن",hi:"14 दिन",es:"14 días",pt:"14 dias",fr:"14 jours",de:"14 Tage",it:"14 giorni",ru:"14 дней",tr:"14 gün",id:"14 hari",bn:"14 দিন",sw:"Siku 14",zh:"14天",ja:"14日間",nl:"14 dagen",pl:"14 dni",ro:"14 zile",fil:"14일",mr:"14 днів",te:"14 ngày"},
+  s12f1a:{el:"Απεριόριστο Chat",en:"Unlimited Chat",ar:"دردشة غير محدودة",ur:"لامحدود چیٹ",hi:"असीमित Chat",es:"Chat Ilimitado",pt:"Chat Ilimitado",fr:"Chat Illimité",de:"Unbegrenzter Chat",it:"Chat Illimitata",ru:"Безлимитный чат",tr:"Sınırsız Sohbet",id:"Chat Tak Terbatas",bn:"সীমাহীন চ্যাট",sw:"Mazungumzo Bila Kikomo",zh:"无限聊天",ja:"無制限チャット",nl:"Onbeperkt Chatten",pl:"Nieograniczony Chat",ro:"Chat Nelimitat",fil:"무제한 채팅",mr:"Безлімітний чат",te:"Chat Không giới hạn"},
+  s12f1b:{el:"Φωνητικά με όρια χρήσης",en:"Voice with usage limits",ar:"صوت مع حدود الاستخدام",ur:"آواز استعمال کی حدود کے ساتھ",hi:"उपयोग सीमा के साथ आवाज़",es:"Voz con límites de uso",pt:"Voz com limites de uso",fr:"Voix avec limites d'utilisation",de:"Sprache mit Nutzungslimits",it:"Voce con limiti di utilizzo",ru:"Голос с ограничениями",tr:"Kullanım limitli ses",id:"Suara dengan batas penggunaan",bn:"ব্যবহারের সীমা সহ ভয়েস",sw:"Sauti na mipaka ya matumizi",zh:"语音（有使用限制）",ja:"音声（使用制限あり）",nl:"Spraak met gebruikslimieten",pl:"Głos z limitami",ro:"Voce cu limite de utilizare",fil:"사용 한도 있는 음성",mr:"Голос з обмеженнями",te:"Giọng nói có giới hạn"},
+  s12f1c:{el:"Πλήρης Μνήμη",en:"Full Memory",ar:"ذاكرة كاملة",ur:"مکمل میموری",hi:"पूर्ण मेमोरी",es:"Memoria Completa",pt:"Memória Completa",fr:"Mémoire Complète",de:"Volles Gedächtnis",it:"Memoria Completa",ru:"Полная память",tr:"Tam Bellek",id:"Memori Penuh",bn:"সম্পূর্ণ মেমোরি",sw:"Kumbukumbu Kamili",zh:"完整记忆",ja:"フルメモリ",nl:"Volledig Geheugen",pl:"Pełna Pamięć",ro:"Memorie Completă",fil:"전체 메모리",mr:"Повна пам'ять",te:"Bộ nhớ đầy đủ"},
+  s12cta1:{el:"Ενεργό",en:"Active",ar:"نشط",ur:"فعال",hi:"सक्रिय",es:"Activo",pt:"Ativo",fr:"Actif",de:"Aktiv",it:"Attivo",ru:"Активен",tr:"Aktif",id:"Aktif",bn:"সক্রিয়",sw:"Inafanya kazi",zh:"已激活",ja:"アクティブ",nl:"Actief",pl:"Aktywny",ro:"Activ",fil:"활성",mr:"Активний",te:"Đang dùng"},
+  s12l2:{el:"STARTER",en:"STARTER",ar:"المبتدئ",ur:"اسٹارٹر",hi:"STARTER",es:"STARTER",pt:"STARTER",fr:"STARTER",de:"STARTER",it:"STARTER",ru:"БАЗОВЫЙ",tr:"BAŞLANGIÇ",id:"STARTER",bn:"স্টার্টার",sw:"STARTER",zh:"入门版",ja:"スターター",nl:"STARTER",pl:"STARTER",ro:"STARTER",fil:"스타터",mr:"СТАРТЕР",te:"STARTER"},
+  s12per2:{el:"/μήνα",en:"/month",ar:"/شهر",ur:"/ماہ",hi:"/माह",es:"/mes",pt:"/mês",fr:"/mois",de:"/Monat",it:"/mese",ru:"/месяц",tr:"/ay",id:"/bulan",bn:"/মাস",sw:"/mwezi",zh:"/月",ja:"/月",nl:"/maand",pl:"/miesiąc",ro:"/lună",fil:"/월",mr:"/місяць",te:"/tháng"},
+  s12f2a:{el:"Απεριόριστο Chat",en:"Unlimited Chat",ar:"دردشة غير محدودة",ur:"لامحدود چیٹ",hi:"असीमित Chat",es:"Chat Ilimitado",pt:"Chat Ilimitado",fr:"Chat Illimité",de:"Unbegrenzter Chat",it:"Chat Illimitata",ru:"Безлимитный чат",tr:"Sınırsız Sohbet",id:"Chat Tak Terbatas",bn:"সীমাহীন চ্যাট",sw:"Mazungumzo Bila Kikomo",zh:"无限聊天",ja:"無制限チャット",nl:"Onbeperkt Chatten",pl:"Nieograniczony Chat",ro:"Chat Nelimitat",fil:"무제한 채팅",mr:"Безлімітний чат",te:"Chat Không giới hạn"},
+  s12f2b:{el:"200 Φωνητικά",en:"200 Voice messages",ar:"200 رسالة صوتية",ur:"200 آواز پیغامات",hi:"200 आवाज़ संदेश",es:"200 mensajes de voz",pt:"200 mensagens de voz",fr:"200 messages vocaux",de:"200 Sprachnachrichten",it:"200 messaggi vocali",ru:"200 голосовых сообщений",tr:"200 Sesli mesaj",id:"200 pesan suara",bn:"200 ভয়েস বার্তা",sw:"Sauti 200",zh:"200条语音消息",ja:"200件音声メッセージ",nl:"200 Spraakberichten",pl:"200 wiadomości głosowych",ro:"200 mesaje vocale",fil:"200 음성 메시지",mr:"200 голосових повідомлень",te:"200 tin nhắn giọng nói"},
+  s12f2c:{el:"Βασική Μνήμη",en:"Basic Memory",ar:"ذاكرة أساسية",ur:"بنیادی میموری",hi:"बुनियादी मेमोरी",es:"Memoria Básica",pt:"Memória Básica",fr:"Mémoire Basique",de:"Grundlegendes Gedächtnis",it:"Memoria Base",ru:"Базовая память",tr:"Temel Bellek",id:"Memori Dasar",bn:"মৌলিক মেমোরি",sw:"Kumbukumbu ya Msingi",zh:"基础记忆",ja:"基本メモリ",nl:"Basisgeheugen",pl:"Podstawowa Pamięć",ro:"Memorie de Bază",fil:"기본 메모리",mr:"Базова пам'ять",te:"Bộ nhớ cơ bản"},
+  s12cta2:{el:"Επιλογή Πακέτου",en:"Choose Plan",ar:"اختر الخطة",ur:"پلان چنیں",hi:"प्लान चुनें",es:"Elegir Plan",pt:"Escolher Plano",fr:"Choisir le Plan",de:"Plan wählen",it:"Scegli Piano",ru:"Выбрать план",tr:"Paket Seç",id:"Pilih Paket",bn:"প্ল্যান বেছে নিন",sw:"Chagua Mpango",zh:"选择套餐",ja:"プランを選ぶ",nl:"Plan Kiezen",pl:"Wybierz Plan",ro:"Alege Planul",fil:"플랜 선택",mr:"Обрати план",te:"Chọn gói"},
+  s12b3:{el:"Δημοφιλές",en:"Popular",ar:"الأكثر شعبية",ur:"مقبول",hi:"लोकप्रिय",es:"Popular",pt:"Popular",fr:"Populaire",de:"Beliebt",it:"Popolare",ru:"Популярное",tr:"Popüler",id:"Populer",bn:"জনপ্রিয়",sw:"Maarufu",zh:"热门",ja:"人気",nl:"Populair",pl:"Popularne",ro:"Popular",fil:"인기",mr:"Популярне",te:"Phổ biến"},
+  s12l3:{el:"PREMIUM",en:"PREMIUM",ar:"بريميوم",ur:"پریمیم",hi:"PREMIUM",es:"PREMIUM",pt:"PREMIUM",fr:"PREMIUM",de:"PREMIUM",it:"PREMIUM",ru:"ПРЕМИУМ",tr:"PRİMYUM",id:"PREMIUM",bn:"প্রিমিয়াম",sw:"PREMIUM",zh:"高级版",ja:"プレミアム",nl:"PREMIUM",pl:"PREMIUM",ro:"PREMIUM",fil:"프리미엄",mr:"ПРЕМІУМ",te:"PREMIUM"},
+  s12per3:{el:"/μήνα",en:"/month",ar:"/شهر",ur:"/ماہ",hi:"/माह",es:"/mes",pt:"/mês",fr:"/mois",de:"/Monat",it:"/mese",ru:"/месяц",tr:"/ay",id:"/bulan",bn:"/মাস",sw:"/mwezi",zh:"/月",ja:"/月",nl:"/maand",pl:"/miesiąc",ro:"/lună",fil:"/월",mr:"/місяць",te:"/tháng"},
+  s12f3a:{el:"Απεριόριστο Chat",en:"Unlimited Chat",ar:"دردشة غير محدودة",ur:"لامحدود چیٹ",hi:"असीमित Chat",es:"Chat Ilimitado",pt:"Chat Ilimitado",fr:"Chat Illimité",de:"Unbegrenzter Chat",it:"Chat Illimitata",ru:"Безлимитный чат",tr:"Sınırsız Sohbet",id:"Chat Tak Terbatas",bn:"সীমাহীন চ্যাট",sw:"Mazungumzo Bila Kikomo",zh:"无限聊天",ja:"無制限チャット",nl:"Onbeperkt Chatten",pl:"Nieograniczony Chat",ro:"Chat Nelimitat",fil:"무제한 채팅",mr:"Безлімітний чат",te:"Chat Không giới hạn"},
+  s12f3b:{el:"500 Φωνητικά",en:"500 Voice messages",ar:"500 رسالة صوتية",ur:"500 آواز پیغامات",hi:"500 आवाज़ संदेश",es:"500 mensajes de voz",pt:"500 mensagens de voz",fr:"500 messages vocaux",de:"500 Sprachnachrichten",it:"500 messaggi vocali",ru:"500 голосовых сообщений",tr:"500 Sesli mesaj",id:"500 pesan suara",bn:"500 ভয়েস বার্তা",sw:"Sauti 500",zh:"500条语音消息",ja:"500件音声メッセージ",nl:"500 Spraakberichten",pl:"500 wiadomości głosowych",ro:"500 mesaje vocale",fil:"500 음성 메시지",mr:"500 голосових повідомлень",te:"500 tin nhắn giọng nói"},
+  s12f3c:{el:"Πλήρης Μνήμη",en:"Full Memory",ar:"ذاكρة كاملة",ur:"مکمل میموری",hi:"पूर्ण मेमोरी",es:"Memoria Completa",pt:"Memória Completa",fr:"Mémoire Complète",de:"Volles Gedächtnis",it:"Memoria Completa",ru:"Полная память",tr:"Tam Bellek",id:"Memori Penuh",bn:"সম্পূর্ণ মেমোরি",sw:"Kumbukumbu Kamili",zh:"完整记忆",ja:"フルメモリ",nl:"Volledig Geheugen",pl:"Pełna Pamięć",ro:"Memorie Completă",fil:"전체 메모리",mr:"Повна пам'ять",te:"Bộ nhớ đầy đủ"},
+  s12f3d:{el:"Εβδ. Υποστήριξη",en:"Weekly Support",ar:"دعم أسبوعي",ur:"ہفتہ وار سپورٹ",hi:"साप्ताहिक सहायता",es:"Soporte Semanal",pt:"Suporte Semanal",fr:"Support Hebdomadaire",de:"Wöchentlicher Support",it:"Supporto Settimanale",ru:"Еженедельная поддержка",tr:"Haftalık Destek",id:"Dukungan Mingguan",bn:"সাপ্তাহিক সহায়তা",sw:"Msaada wa Kila Wiki",zh:"每周支持",ja:"週次サポート",nl:"Wekelijkse Ondersteuning",pl:"Wsparcie Tygodniowe",ro:"Suport Săptămânal",fil:"주간 지원",mr:"Щотижнева підтримка",te:"Hỗ trợ hàng tuần"},
+  s12cta3:{el:"Επιλογή Πακέτου",en:"Choose Plan",ar:"اختر الخطة",ur:"پلان چنیں",hi:"प्लान चुनें",es:"Elegir Plan",pt:"Escolher Plano",fr:"Choisir le Plan",de:"Plan wählen",it:"Scegli Piano",ru:"Выбрать план",tr:"Paket Seç",id:"Pilih Paket",bn:"প্ল্যান বেছে নিন",sw:"Chagua Mpango",zh:"选择套餐",ja:"プランを選ぶ",nl:"Plan Kiezen",pl:"Wybierz Plan",ro:"Alege Planul",fil:"플랜 선택",mr:"Обрати план",te:"Chọn gói"},
+  s12b4:{el:"Καλύτερη Αξία",en:"Best Value",ar:"أفضل قيمة",ur:"بہترین قیمت",hi:"सर्वोत्तम मूल्य",es:"Mejor Valor",pt:"Melhor Valor",fr:"Meilleure Valeur",de:"Bester Wert",it:"Miglior Valore",ru:"Лучшая ценность",tr:"En İyi Değer",id:"Nilai Terbaik",bn:"সর্বোত্তম মূল্য",sw:"Thamani Bora",zh:"最佳性价比",ja:"最高コスパ",nl:"Beste Waarde",pl:"Najlepsza Wartość",ro:"Cea mai bună valoare",fil:"최고 가치",mr:"Найкраща цінність",te:"Giá trị tốt nhất"},
+  s12l4:{el:"ΕΤΗΣΙΟ PREMIUM",en:"ANNUAL PREMIUM",ar:"بريميوم سنوي",ur:"سالانہ پریمیم",hi:"ANNUAL PREMIUM",es:"PREMIUM ANUAL",pt:"PREMIUM ANUAL",fr:"PREMIUM ANNUEL",de:"JÄHRLICHES PREMIUM",it:"PREMIUM ANNUALE",ru:"ГОДОВОЙ ПРЕМИУМ",tr:"YILLIK PREMİUM",id:"PREMIUM TAHUNAN",bn:"বার্ষিক প্রিমিয়াম",sw:"PREMIUM YA MWAKA",zh:"年度高级版",ja:"年間プレミアム",nl:"JAARLIJKS PREMIUM",pl:"ROCZNY PREMIUM",ro:"PREMIUM ANUAL",fil:"연간 프리미엄",mr:"РІЧНИЙ ПРЕМІУМ",te:"PREMIUM HÀNG NĂM"},
+  s12per4:{el:"/έτος",en:"/year",ar:"/سنة",ur:"/سال",hi:"/वर्ष",es:"/año",pt:"/ano",fr:"/an",de:"/Jahr",it:"/anno",ru:"/год",tr:"/yıl",id:"/tahun",bn:"/বছর",sw:"/mwaka",zh:"/年",ja:"/年",nl:"/jaar",pl:"/rok",ro:"/an",fil:"/년",mr:"/рік",te:"/năm"},
+  s12save:{el:"Εξοικονόμηση 57%",en:"Save 57%",ar:"وفر 57%",ur:"57% بچت",hi:"57% बचत",es:"Ahorra 57%",pt:"Poupa 57%",fr:"Économisez 57%",de:"57% sparen",it:"Risparmia 57%",ru:"Экономия 57%",tr:"%57 tasarruf",id:"Hemat 57%",bn:"57% সাশ্রয়",sw:"Okoa 57%",zh:"节省57%",ja:"57%節約",nl:"Bespaar 57%",pl:"Oszczędź 57%",ro:"Economisești 57%",fil:"57% 절약",mr:"Економія 57%",te:"Tiết kiệm 57%"},
+  s12f4a:{el:"Όλα του Premium",en:"All Premium features",ar:"كل مزايا البريميوم",ur:"تمام پریمیم",hi:"सभी Premium",es:"Todo Premium",pt:"Todo Premium",fr:"Tout Premium",de:"Alles Premium",it:"Tutto Premium",ru:"Всё Premium",tr:"Tüm Premium",id:"Semua Premium",bn:"সব প্রিমিয়াম",sw:"Premium Zote",zh:"所有高级功能",ja:"プレミアム全機能",nl:"Alles Premium",pl:"Wszystkie Premium",ro:"Tot Premium",fil:"모든 프리미엄",mr:"Все Преміум",te:"Tất cả Premium"},
+  s12f4b:{el:"Ετήσιο Scrapbook",en:"Annual Scrapbook",ar:"ألبوم سنوي",ur:"سالانہ اسکریپ بک",hi:"वार्षिक Scrapbook",es:"Álbum Anual",pt:"Álbum Anual",fr:"Album Annuel",de:"Jährliches Scrapbook",it:"Album Annuale",ru:"Годовой Скрапбук",tr:"Yıllık Scrapbook",id:"Scrapbook Tahunan",bn:"বার্ষিক স্ক্র্যাপবুক",sw:"Scrapbook ya Mwaka",zh:"年度剪贴簿",ja:"年間スクラップブック",nl:"Jaarlijks Plakboek",pl:"Roczny Scrapbook",ro:"Album Anual",fil:"연간 스크랩북",mr:"Річний Скрапбук",te:"Album hàng năm"},
+  s12f4c:{el:"Προτεραιότητα Υποστήριξης",en:"Priority Support",ar:"دعم ذو أولوية",ur:"ترجیحی سپورٹ",hi:"प्राथमिकता सहायता",es:"Soporte Prioritario",pt:"Suporte Prioritário",fr:"Support Prioritaire",de:"Prioritäts-Support",it:"Supporto Prioritario",ru:"Приоритетная поддержка",tr:"Öncelikli Destek",id:"Dukungan Prioritas",bn:"অগ্রাধিকার সহায়তা",sw:"Msaada wa Kipaumbele",zh:"优先支持",ja:"優先サポート",nl:"Prioriteitsondersteuning",pl:"Wsparcie Priorytetowe",ro:"Suport Prioritar",fil:"우선 지원",mr:"Пріоритетна підтримка",te:"Hỗ trợ ưu tiên"},
+  s12cta4:{el:"Επιλογή Πακέτου",en:"Choose Plan",ar:"اختر الخطة",ur:"پلان چنیں",hi:"प्लान चुनें",es:"Elegir Plan",pt:"Escolher Plano",fr:"Choisir le Plan",de:"Plan wählen",it:"Scegli Piano",ru:"Выбрать план",tr:"Paket Seç",id:"Pilih Paket",bn:"প্ল্যান বেছে নিন",sw:"Chagua Mpango",zh:"选择套餐",ja:"プランを選ぶ",nl:"Plan Kiezen",pl:"Wybierz Plan",ro:"Alege Planul",fil:"플랜 선택",mr:"Обрати план",te:"Chọn gói"},
+  s13t:{el:"Είσαι έτοιμη, Mary!",en:"You're all set, Mary!",ar:"أنتِ مستعدة، ماري!",ur:"آپ تیار ہیں، مریم!",hi:"आप तैयार हैं, Mary!",es:"¡Estás lista, Mary!",pt:"Estás pronta, Mary!",fr:"Tu es prête, Mary!",de:"Du bist bereit, Mary!",it:"Sei pronta, Mary!",ru:"Вы готовы, Мэри!",tr:"Hazırsın, Mary!",id:"Kamu siap, Mary!",bn:"আপনি প্রস্তুত, Mary!",sw:"Uko tayari, Mary!",zh:"你准备好了，Mary！",ja:"準備完了、Mary！",nl:"Je bent er klaar voor, Mary!",pl:"Jesteś gotowa, Mary!",ro:"Ești gata, Mary!",fil:"준비됐어요, Mary!",mr:"Ви готові, Мері!",te:"Bạn đã sẵn sàng, Mary!"},
+  s13s:{el:"Ο λογαριασμός σου στήθηκε. Ανακάλυψε την εφαρμογή.",en:"Your account is set up. Explore the app.",ar:"تم إعداد حسابك. اكتشفي التطبيق.",ur:"آپ کا اکاؤنٹ ترتیب دیا گیا۔ ایپ کو دریافت کریں۔",hi:"आपका खाता सेट हो गया। एप्प एक्सप्लोर करें।",es:"Tu cuenta está configurada. Explora la app.",pt:"A tua conta foi configurada. Explora a app.",fr:"Votre compte est configuré. Explorez l'application.",de:"Dein Konto ist eingerichtet. Entdecke die App.",it:"Il tuo account è pronto. Esplora l'app.",ru:"Ваш аккаунт настроен. Исследуйте приложение.",tr:"Hesabın kuruldu. Uygulamayı keşfet.",id:"Akun Anda telah disiapkan. Jelajahi aplikasi.",bn:"আপনার অ্যাকাউন্ট সেটআপ হয়েছে। অ্যাপ আবিষ্কার করুন।",sw:"Akaunti yako imewekwa. Gundua programu.",zh:"您的账户已设置完毕。探索应用。",ja:"アカウントが設定されました。アプリを探索してください。",nl:"Je account is ingesteld. Verken de app.",pl:"Twoje konto jest skonfigurowane. Przeglądaj aplikację.",ro:"Contul tău este configurat. Explorează aplicația.",fil:"계정이 설정되었어요. 앱을 탐색해 보세요.",mr:"Ваш акаунт налаштований. Досліджуйте додаток.",te:"Tài khoản đã được thiết lập. Khám phá ứng dụng."},
+  s13btn:{el:"Μπες στην εφαρμογή →",en:"Enter the app →",ar:"← ادخلي التطبيق",ur:"ایپ میں داخل ہوں →",hi:"एप्प में जाएं →",es:"Entrar a la app →",pt:"Entrar na app →",fr:"Accéder à l'app →",de:"App öffnen →",it:"Entra nell'app →",ru:"Войти в приложение →",tr:"Uygulamaya gir →",id:"Masuk ke aplikasi →",bn:"অ্যাপে প্রবেশ করুন →",sw:"Ingia kwenye programu →",zh:"进入应用 →",ja:"アプリに入る →",nl:"App openen →",pl:"Wejdź do aplikacji →",ro:"Intră în aplicație →",fil:"앱으로 들어가기 →",mr:"Відкрити додаток →",te:"Vào ứng dụng →"},
+  s13bk:{el:"← Back",en:"← Back",ar:"→ رجوع",ur:"← پیچھے",hi:"← वापस",es:"← Atrás",pt:"← Voltar",fr:"← Retour",de:"← Zurück",it:"← Indietro",ru:"← Назад",tr:"← Geri",id:"← Kembali",bn:"← ফিরে যান",sw:"← Rudi",zh:"← 返回",ja:"← 戻る",nl:"← Terug",pl:"← Wstecz",ro:"← Înapoi",fil:"← 뒤로",mr:"← Назад",te:"← Quay lại"},
+};
+
+// STATE
+const TOTAL=13,OB=[1,2,13];
+let cur=1,lang="el";
+
+function nav(d){
+  const nx=cur+d;if(nx<1||nx>TOTAL)return;
+  document.getElementById("sc"+cur).classList.remove("active");
+  cur=nx;
+  const sc=document.getElementById("sc"+cur);
+  sc.classList.add("active");
+  if(OB.includes(cur)){sc.style.display="flex";}
+  updateUI();
+}
+
+function updateUI(){
+  document.getElementById("btnP").disabled=(cur===1);
+  document.getElementById("btnN").disabled=(cur===TOTAL);
+  const dd=document.getElementById("ndots");
+  dd.innerHTML=Array.from({length:TOTAL},(_,i)=>`<div class="dot${i+1===cur?" a":""}"></div>`).join("");
+  const isOb=OB.includes(cur);
+  document.getElementById("apphdr").style.display=isOb?"none":"flex";
+  document.getElementById("tbar").style.display=isOb?"none":"flex";
+  syncTab();
+}
+
+function syncTab(){
+  const m={3:"p",4:"p",5:"f",6:"m",7:"m",8:"ms",9:"sh",10:"sh",11:"p",12:"p"};
+  document.querySelectorAll(".ti").forEach(t=>t.classList.remove("a"));
+  const id="tb-"+(m[cur]||"p");
+  const el=document.getElementById(id);if(el)el.classList.add("a");
+}
+
+function gTab(n){
+  const m={profile:3,family:5,memories:6,milestones:8,shopping:9};
+  const t=m[n];if(!t)return;
+  document.getElementById("sc"+cur).classList.remove("active");
+  cur=t;document.getElementById("sc"+cur).classList.add("active");
+  updateUI();
+}
+
+function shopT(p,el){
+  document.querySelectorAll("#sc9 .stab").forEach(t=>t.classList.remove("a"));
+  el.classList.add("a");
+  document.getElementById("spP").style.display=p==="p"?"block":"none";
+  document.getElementById("spS").style.display=p==="s"?"block":"none";
+}
+
+function offT(p,el){
+  document.querySelectorAll("#sc10 .stab").forEach(t=>t.classList.remove("a"));
+  el.classList.add("a");
+  document.getElementById("opO").style.display=p==="o"?"block":"none";
+  document.getElementById("opC").style.display=p==="c"?"block":"none";
+  document.getElementById("opN").style.display=p==="n"?"block":"none";
+}
+
+function addI(type){
+  const inp=document.getElementById(type==="p"?"pai":"sai");
+  const v=inp.value.trim();if(!v)return;
+  const cont=document.getElementById(type==="p"?"pex":"sex");
+  const div=document.createElement("div");
+  if(type==="p"){div.className="shi";div.innerHTML=`<div class="sic">📦</div><div><div class="snm">${v}</div></div>`;}
+  else{div.className="smi";div.innerHTML=`<div class="sic2">🛒</div><div><div class="smn">${v}</div></div><div class="smp">—</div>`;}
+  cont.appendChild(div);inp.value="";
+}
+
+function sndL(ch){showToast("📤 Sending via "+ch+"...");}
+
+// LANGUAGE
+function openLang(){document.getElementById("lov").classList.add("open")}
+function cLov(e){if(e.target===document.getElementById("lov"))document.getElementById("lov").classList.remove("open")}
+
+function renderLL(){
+  document.getElementById("llist").innerHTML=LG.map(l=>`
+    <div class="lo${l.c===lang?" sel":""}" onclick="setLang('${l.c}')">
+      <span class="lfl">${l.f}</span><span class="lnt">${l.n}</span><span class="lnv">${l.nv}</span>
+      ${l.c===lang?'<span class="lck">✓</span>':''}
+    </div>`).join("");
+}
+
+function setLang(code){
+  lang=code;
+  const L=LG.find(l=>l.c===code);
+  document.documentElement.lang=code;
+  document.documentElement.dir=L.d;
+  document.getElementById("lov").classList.remove("open");
+  applyTR();renderLL();
+}
+
+function tr(k){const o=T[k];return o?(o[lang]||o["en"]||""):""}
+
+function applyTR(){
+  const L=LG.find(l=>l.c===lang);
+  document.getElementById("hld").textContent=L.s;
+  document.getElementById("btxt").textContent=tr("bn");
+  document.getElementById("hgreet").innerHTML=tr("gr")+` <span>Mary</span> 👋`;
+  document.getElementById("nbp").textContent=tr("pv");
+  document.getElementById("nbn").textContent=tr("nx");
+  ["tlp","tlf","tlm","tlms","tlsh"].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=tr(k)});
+  const s2ai=document.getElementById("s2a");if(s2ai){s2ai.value=tr("s2a");s2ai.placeholder=tr("s2a");}
+  ["s1t","s1s","s1btn","s2t","s2s","s2btn","s2bk",
+   "s3ps","s3ai","s3st","s3sm","s3sf",
+   "s4t","s4wl","s4sz","s4tp1","s4tp2","s4tp3","s4ai",
+   "s5t","s5r1","s5n2","s5r2","s5n3","s5r3","s5af","s5sh","s5ai",
+   "s6t","s6m1","s6t1","s6m2","s6t2","s6m3","s6t3","s6m4","s6t4",
+   "s7t","s7ls","s7cl","s7aq","s7um","s7ar",
+   "s8t","s8m1","s8m2","s8m3","s8m4","s8m5","s8m6","s8m7","s8nx","s8ai",
+   "s9t","s9t1","s9t2","s9p1","s9d1","s9b1","s9p2","s9d2","s9b2","s9p3","s9d3","s9b3","s9p4","s9d4","s9b4",
+   "s9s1","s9s2","s9s3","s9s4","s9sl",
+   "s10t","s10t1","s10t2","s10t3",
+   "s10od1","s10od2","s10od3","s10cd1","s10cd2","s10cd3","s10nd1","s10nd2","s10nd3",
+   "s11t","s11d1","s11d2","s11d3","s11nt","s11t2","s11a1","s11a2",
+   "s12t","s12b1","s12l1","s12free","s12p1","s12f1a","s12f1b","s12f1c","s12cta1",
+   "s12l2","s12per2","s12f2a","s12f2b","s12f2c","s12cta2",
+   "s12b3","s12l3","s12per3","s12f3a","s12f3b","s12f3c","s12f3d","s12cta3",
+   "s12b4","s12l4","s12per4","s12save","s12f4a","s12f4b","s12f4c","s12cta4",
+   "s13t","s13s","s13btn","s13bk"
+  ].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=tr(k)});
+  const pi=document.getElementById("pai");if(pi)pi.placeholder=tr("pai");
+  const si=document.getElementById("sai");if(si)si.placeholder=tr("sai");
+}
+
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2400);
+}
+
+// INIT
+updateUI();renderLL();applyTR();
+document.getElementById("s1n").addEventListener("keydown",e=>{if(e.key==="Enter")nav(1)});
+document.getElementById("s2c").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("s2a").focus()});
+document.getElementById("s2a").addEventListener("keydown",e=>{if(e.key==="Enter")nav(1)});
+document.getElementById("pai").addEventListener("keydown",e=>{if(e.key==="Enter")addI("p")});
+document.getElementById("sai").addEventListener("keydown",e=>{if(e.key==="Enter")addI("s")});
+</script>
+</body>
+</html>

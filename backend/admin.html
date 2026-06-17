@@ -44,6 +44,58 @@ button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{b
   <h1>Hey<span style="color:#4ABEAA">Maa</span> Admin</h1>
   <p class="sub">Provider status · usage · offers</p>
 
+
+  <div class="card" id="testerCard">
+    <h2>📨 Πρόσκληση Testers</h2>
+    <div id="testerMsg"></div>
+    <div class="row">
+      <input id="tFirstName" placeholder="Όνομα *">
+      <input id="tLastName" placeholder="Επώνυμο *">
+    </div>
+    <div class="row">
+      <input id="tEmail" type="email" placeholder="Email *">
+      <select id="tPlan">
+        <option value="starter">Starter</option>
+        <option value="premium">Premium</option>
+      </select>
+    </div>
+    <div class="row">
+      <select id="tCode"><option value="">-- Κωδικός Εισόδου --</option></select>
+      <select id="tLang">
+<option value="el">🇬🇷 Ελληνικά</option>
+<option value="en">🇬🇧 English</option>
+<option value="ar">🇸🇦 العربية</option>
+<option value="fr">🇫🇷 Français</option>
+<option value="de">🇩🇪 Deutsch</option>
+<option value="es">🇪🇸 Español</option>
+<option value="ro">🇷🇴 Română</option>
+<option value="tr">🇹🇷 Türkçe</option>
+<option value="ru">🇷🇺 Русский</option>
+<option value="uk">🇺🇦 Українська</option>
+<option value="pl">🇵🇱 Polski</option>
+<option value="cs">🇨🇿 Čeština</option>
+<option value="sk">🇸🇰 Slovenčina</option>
+<option value="hu">🇭🇺 Magyar</option>
+<option value="bg">🇧🇬 Български</option>
+<option value="hr">🇭🇷 Hrvatski</option>
+<option value="sr">🇷🇸 Srpski</option>
+<option value="sl">🇸🇮 Slovenščina</option>
+<option value="nl">🇳🇱 Nederlands</option>
+<option value="pt">🇵🇹 Português</option>
+<option value="it">🇮🇹 Italiano</option>
+<option value="he">🇮🇱 עברית</option>
+<option value="hi">🇮🇳 हिन्दी</option>
+      </select>
+    </div>
+    <button onclick="sendTesterInvite()" style="width:100%;margin-top:4px">📧 Αποστολή Πρόσκλησης →</button>
+    <div style="margin-top:16px;border-top:1px solid #F0EBE6;padding-top:14px">
+      <h2 style="margin-bottom:8px">🗑️ Διαγραφή Όλων των Testers</h2>
+      <p style="font-size:12px;color:#7A7068;margin-bottom:8px">Διαγράφει όλους τους χρήστες από τη βάση δεδομένων. Μη αναστρέψιμη ενέργεια.</p>
+      <button class="del" style="width:100%;padding:11px" onclick="deleteAllTesters()">⚠️ Διαγραφή Όλων των Χρηστών</button>
+      <div id="deleteAllMsg"></div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>🩺 Provider Status <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadHealth()">↻ Refresh</button></h2>
     <div id="health"><div class="prov"><span class="nm">Checking…</span></div></div>
@@ -85,6 +137,22 @@ button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{b
   </div>
 
   <div class="card">
+    <h2>🌱 Beta Profile Seed <span style="font-size:11px;font-weight:400;color:#7A7068">(Priority fix — enables promotion targeting)</span></h2>
+    <div id="seedMsg"></div>
+    <p style="font-size:12px;color:#7A7068;margin-bottom:10px">Seeds profiles for all 15 beta testers (HeyMaa_CD_Test_01–15) with <code style="background:#F0EBE6;padding:1px 5px;border-radius:4px">consent_marketing=true</code> so promotions reach them immediately.</p>
+    <div class="row" style="margin-bottom:8px">
+      <select id="seedCountry" style="margin-bottom:0"><option value="GR">🇬🇷 Greece (GR)</option><option value="CY">🇨🇾 Cyprus (CY)</option><option value="DE">🇩🇪 Germany (DE)</option><option value="GB">🇬🇧 United Kingdom (GB)</option><option value="US">🇺🇸 United States (US)</option></select>
+      <select id="seedPregnant" style="margin-bottom:0"><option value="true">🤰 Pregnant</option><option value="false">👶 Has children</option></select>
+      <select id="seedChildren" style="margin-bottom:0"><option value="0">0 children</option><option value="1">1 child</option><option value="2">2 children</option></select>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <input id="seedCity" placeholder="City (optional)" style="margin-bottom:0">
+      <input id="seedZip" placeholder="ZIP / Postal code (optional)" style="margin-bottom:0">
+    </div>
+    <button onclick="seedBetaProfiles()" style="width:100%;background:#2D9E6B">🌱 Seed all 15 beta profiles →</button>
+  </div>
+
+  <div class="card">
     <h2>🎯 New Promotion <span style="font-size:11px;font-weight:400;color:#7A7068">(targeted · consent users only)</span></h2>
     <div id="promoMsg"></div>
     <input id="pTitle" placeholder="Title *">
@@ -93,20 +161,20 @@ button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{b
     <input id="pExpires" type="date" title="Expiry date">
     <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">📍 GEO (blank = all)</p>
     <div class="row">
-      <input id="pCountries" placeholder="Countries e.g. GR,CY,DE">
-      <input id="pCities" placeholder="Cities (comma-sep)">
-      <input id="pZips" placeholder="ZIP codes (comma-sep)">
+      <select id="pCountries" onchange="schedulePreview()"><option value="">All countries</option></select>
+      <select id="pCities" onchange="schedulePreview()"><option value="">All cities</option></select>
+      <select id="pZips" onchange="schedulePreview()"><option value="">All ZIPs</option></select>
     </div>
     <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">👶 DEMOGRAPHIC (blank = all)</p>
     <div class="row">
-      <input id="pChildMin" type="number" placeholder="Child count min" min="0">
-      <input id="pChildMax" type="number" placeholder="Child count max" min="0">
-      <input id="pAgeMin" type="number" placeholder="Child age min (mo)" min="0">
-      <input id="pAgeMax" type="number" placeholder="Child age max (mo)" min="0">
+      <input id="pChildMin" type="number" placeholder="Child count min" min="0" oninput="schedulePreview()">
+      <input id="pChildMax" type="number" placeholder="Child count max" min="0" oninput="schedulePreview()">
+      <input id="pAgeMin" type="number" placeholder="Child age min (mo)" min="0" oninput="schedulePreview()">
+      <input id="pAgeMax" type="number" placeholder="Child age max (mo)" min="0" oninput="schedulePreview()">
     </div>
     <div style="margin-bottom:10px;display:flex;gap:16px;font-size:13px">
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pPregnant" style="width:auto;margin:0"> 🤰 Pregnant only</label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pNotPregnant" style="width:auto;margin:0"> 👶 Non-pregnant only</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pPregnant" style="width:auto;margin:0" onchange="schedulePreview()"> 🤰 Pregnant only</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pNotPregnant" style="width:auto;margin:0" onchange="schedulePreview()"> 👶 Non-pregnant only</label>
     </div>
     <div class="row" style="margin-bottom:8px">
       <button class="sec" onclick="previewPromotion()">👁 Preview match count</button>
@@ -118,7 +186,14 @@ button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{b
   <div class="card">
     <h2>🎯 Active Promotions <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadPromotions()">↻</button></h2>
     <div id="promotions">Loading…</div>
-  </div></div>
+  </div>
+
+  <div class="card">
+    <h2>👥 Users <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadUsers()">↻</button></h2>
+    <div id="usersMsg"></div>
+    <div id="usersList">Loading…</div>
+  </div>
+</div>
 
 <script>
 const API = "https://api.vdarpp.com";
@@ -195,16 +270,16 @@ function showMsg(t,c){ $("offerMsg").innerHTML=`<div class="msg ${c}">${t}</div>
 function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
 
 function getPromoData(){
-  const split=s=>s?s.split(",").map(x=>x.trim()).filter(Boolean):null;
+  const selVal=id=>{const v=$(id).value;return v?[v]:null;};
   const pPreg=document.getElementById("pPregnant").checked;
   const pNotPreg=document.getElementById("pNotPregnant").checked;
   const target_pregnancy=pPreg&&!pNotPreg?true:(!pPreg&&pNotPreg?false:null);
   return{
     title:$("pTitle").value.trim(),body:$("pBody").value.trim(),
     link:$("pLink").value.trim()||null,expires_at:$("pExpires").value||null,
-    target_countries:split($("pCountries").value.toUpperCase()),
-    target_cities:split($("pCities").value),
-    target_zips:split($("pZips").value),
+    target_countries:selVal("pCountries"),
+    target_cities:selVal("pCities"),
+    target_zips:selVal("pZips"),
     child_count_min:$("pChildMin").value!==""?parseInt($("pChildMin").value):null,
     child_count_max:$("pChildMax").value!==""?parseInt($("pChildMax").value):null,
     target_pregnancy,
@@ -261,9 +336,129 @@ function delPromotion(id){
     .then(r=>r.json()).then(()=>loadPromotions()).catch(()=>{});
 }
 function showPromoMsg(t,c){$("promoMsg").innerHTML='<div class="msg '+c+'">'+t+'</div>';setTimeout(()=>$("promoMsg").innerHTML="",4000);}
-// Auto-login if secret in session
+
+// ── loadAll ──────────────────────────────────────────────────
+function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); loadAudienceDropdowns(); loadUsers(); loadTesterCodes(); }
+
+// ── AH6: Dynamic dropdowns from live DB audience ──────────────
+function loadAudienceDropdowns(){
+  fetch(API+"/admin/promotions/audience",{headers:{"x-admin-secret":SEC}})
+    .then(r=>r.json()).then(d=>{
+      fillSelect("pCountries","All countries",d.countries||[]);
+      fillSelect("pCities","All cities",d.cities||[]);
+      fillSelect("pZips","All ZIPs",d.zips||[]);
+    }).catch(()=>{});
+}
+function fillSelect(id,placeholder,values){
+  const el=$(id);
+  el.innerHTML=`<option value="">${placeholder}</option>`+values.map(v=>`<option value="${v}">${v}</option>`).join("");
+}
+
+// ── Auto-preview (debounced 600ms) ───────────────────────────
+let _pvTimer=null;
+function schedulePreview(){
+  clearTimeout(_pvTimer);
+  _pvTimer=setTimeout(()=>{
+    const d=getPromoData();
+    const hasFilter=d.target_countries||d.target_cities||d.target_zips||
+      d.child_count_min!=null||d.child_count_max!=null||
+      d.child_age_min_months!=null||d.child_age_max_months!=null||
+      d.target_pregnancy!=null;
+    if(!hasFilter)return; // don't preview if no filters set
+    $("previewResult").style.display="block";
+    $("previewResult").textContent="Checking…";
+    fetch(API+"/admin/promotions/preview",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(d)})
+      .then(r=>r.json()).then(r=>{
+        $("previewResult").textContent=r.error?"Error: "+r.error:"👥 "+r.count+" match (of "+r.total+" consenting)";
+      }).catch(()=>$("previewResult").textContent="Preview failed");
+  },600);
+}
+
+// ── Beta profile seed (Priority 2 fix) ───────────────────────
+function seedBetaProfiles(){
+  if(!confirm("Seed profiles for all 15 beta testers? This will upsert their profiles with consent_marketing=true."))return;
+  const country=$("seedCountry").value;
+  const pregnancy_active=$("seedPregnant").value==="true";
+  const child_count=parseInt($("seedChildren").value);
+  $("seedMsg").innerHTML='<div class="msg ok">Seeding… please wait.</div>';
+  const city=document.getElementById("seedCity").value.trim()||null;
+  const zip=document.getElementById("seedZip").value.trim()||null;
+  fetch(API+"/admin/profiles/seed",{
+    method:"POST",
+    headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},
+    body:JSON.stringify({country,pregnancy_active,child_count,city,zip})
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){
+      $("seedMsg").innerHTML=`<div class="msg ok">✅ Seeded ${d.seeded} profiles successfully.</div>`;
+      loadAudienceDropdowns(); // refresh dropdowns with new data
+    } else {
+      $("seedMsg").innerHTML=`<div class="msg err">Error: ${d.detail||"Unknown error"}</div>`;
+    }
+  }).catch(()=>$("seedMsg").innerHTML='<div class="msg err">Network error</div>');
+}
+
+// ── Auto-login if secret in session ──────────────────────────
+function loadUsers(){
+  $("usersList").innerHTML="Loading\u2026";
+  fetch(API+"/admin/users",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
+    const list=d.users||[];
+    if(!list.length){$("usersList").innerHTML='<p class="meta">No users yet.</p>';return;}
+    $("usersList").innerHTML=list.map(u=>{
+      const since=u.created_at?new Date(u.created_at).toLocaleDateString():"?";
+      const last=u.last_login?new Date(u.last_login).toLocaleDateString():"never";
+      const trialEnd=u.trial_ends_at?new Date(u.trial_ends_at).toLocaleDateString():"";
+      const planBadge=u.plan==="premium"?"#7C5CBF":u.plan==="starter"?"#2B3A67":"#2D9E6B";
+      const statusInfo=u.subscription_status==="trial"&&trialEnd?"trial (ends "+trialEnd+")":u.subscription_status||"?";
+      return '<div class="offer"><div class="t"><span class="badge" style="background:'+planBadge+'">'+(u.plan||"trial")+'</span>'+esc(u.email)+'</div>'+
+        '<div class="b">'+(u.name?esc(u.name)+" \xb7 ":"")+statusInfo+' \xb7 joined '+since+' \xb7 last login '+last+'</div>'+
+        '<div style="margin-top:8px"><button class="del" onclick="delUser(\''+u.id+'\')">Delete</button></div></div>';
+    }).join("");
+  }).catch(()=>$("usersList").innerHTML='<div class="msg err">Failed to load</div>');
+}
+function delUser(id){
+  if(!confirm("Delete this user and their data? This cannot be undone."))return;
+  fetch(API+"/admin/users/"+id,{method:"DELETE",headers:{"x-admin-secret":SEC}})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){showUserMsg("User deleted \u2713","ok");loadUsers();}
+      else showUserMsg(d.detail||"Failed","err");
+    }).catch(()=>showUserMsg("Network error","err"));
+}
+function showUserMsg(t,c){$("usersMsg").innerHTML='<div class="msg '+c+'">'+(t)+'</div>';setTimeout(()=>$("usersMsg").innerHTML="",4000);}
+
+
+// ── Tester Invite ─────────────────────────────────────────────
+const TESTER_CODES = ["HeyMaa_Tester01","HeyMaa_Tester02","HeyMaa_Tester03","HeyMaa_Tester04","HeyMaa_Tester05","HeyMaa_Tester06","HeyMaa_Tester07","HeyMaa_Tester08","HeyMaa_Tester09","HeyMaa_Tester10","HeyMaa_Tester11","HeyMaa_Tester12","HeyMaa_Tester13","HeyMaa_Tester14","HeyMaa_Tester15","HeyMaa_Tester16","HeyMaa_Tester17","HeyMaa_Tester18","HeyMaa_Tester19","HeyMaa_Tester20","HeyMaa_Tester21","HeyMaa_Tester22","HeyMaa_Tester23","HeyMaa_Tester24","HeyMaa_Tester25","HeyMaa_Tester26","HeyMaa_Tester27","HeyMaa_Tester28","HeyMaa_Tester29","HeyMaa_Tester30"];
+function loadTesterCodes(){
+  const sel=$("tCode");
+  sel.innerHTML='<option value="">-- Κωδικός Εισόδου --</option>';
+  TESTER_CODES.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
+}
+function sendTesterInvite(){
+  const first=$("tFirstName").value.trim(), last=$("tLastName").value.trim();
+  const email=$("tEmail").value.trim(), plan=$("tPlan").value;
+  const code=$("tCode").value, lang=$("tLang").value;
+  if(!first||!last||!email||!code){showTesterMsg("Συμπλήρωσε όλα τα υποχρεωτικά πεδία (*)","err");return;}
+  showTesterMsg("Αποστολή…","ok");
+  fetch(API+"/admin/invite_tester",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},
+    body:JSON.stringify({first_name:first,last_name:last,email,plan,invite_code:code,lang})
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){showTesterMsg("✅ Πρόσκληση στάλθηκε στο "+email,"ok");$("tFirstName").value="";$("tLastName").value="";$("tEmail").value="";$("tCode").value="";}
+    else showTesterMsg("❌ "+(d.detail||"Αποτυχία"),"err");
+  }).catch(()=>showTesterMsg("Network error","err"));
+}
+function deleteAllTesters(){
+  if(!confirm("ΠΡΟΣΟΧΗ: Θα διαγραφούν ΟΛΟΙ οι χρήστες. Συνέχεια;"))return;
+  if(!confirm("Είσαι απολύτως σίγουρος; Αυτό δεν αναστρέφεται."))return;
+  fetch(API+"/admin/users/delete_all",{method:"DELETE",headers:{"x-admin-secret":SEC}})
+    .then(r=>r.json()).then(d=>{
+      $("deleteAllMsg").innerHTML=d.ok?'<div class="msg ok" style="margin-top:8px">✅ Διαγράφηκαν '+d.deleted+' χρήστες.</div>':'<div class="msg err" style="margin-top:8px">❌ '+(d.detail||"Αποτυχία")+'</div>';
+      if(d.ok)loadUsers();
+    }).catch(()=>{$("deleteAllMsg").innerHTML='<div class="msg err" style="margin-top:8px">Network error</div>';});
+}
+function showTesterMsg(t,c){$("testerMsg").innerHTML='<div class="msg '+c+'">'+t+'</div>';if(c==="ok")setTimeout(()=>$("testerMsg").innerHTML="",5000);}
+
 const saved=sessionStorage.getItem("hm_admin");
-if(saved){ SEC=saved; $("gate").style.display="none"; $("panel").style.display="block"; loadAll(); }
+if(saved){ SEC=saved; $("gate").style.display="none"; $("panel").style.display="block"; loadAll(); loadTesterCodes(); }
 </script>
 </body>
 </html>
