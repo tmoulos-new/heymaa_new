@@ -424,6 +424,67 @@ def match_promotion(token: str):
 @app.get("/")
 def root():
     return {"status": "HeyMaa API is running!"}
+def get_all_promotions_for_user(token: str):
+    if not sb:
+        return []
+    try:
+        from datetime import date
+        prof_res = sb.table("profiles").select("*").eq("token", token).execute()
+        if not prof_res.data:
+            return []
+        prof = prof_res.data[0]
+        if not prof.get("consent_marketing"):
+            return []
+        promo_res = sb.table("promotions").select("*").eq("active", True).order("created_at", desc=True).execute()
+        today = date.today()
+        user_country = prof.get("country") or ""
+        user_city = (prof.get("city") or "").lower()
+        user_zip = prof.get("zip") or ""
+        user_child_count = prof.get("child_count") or 0
+        user_pregnancy = bool(prof.get("pregnancy_active"))
+        raw_dates = prof.get("children_birthdates") or []
+        child_ages = []
+        for bd in raw_dates:
+            try:
+                birth = date.fromisoformat(bd)
+                m = (today.year - birth.year) * 12 + (today.month - birth.month)
+                if today.day < birth.day:
+                    m -= 1
+                child_ages.append(max(0, m))
+            except Exception:
+                pass
+        matched = []
+        for p in (promo_res.data or []):
+            if p.get("expires_at"):
+                try:
+                    if date.fromisoformat(p["expires_at"]) < today:
+                        continue
+                except Exception:
+                    pass
+            if p.get("target_countries") and user_country not in p["target_countries"]:
+                continue
+            if p.get("target_cities") and user_city not in [x.lower() for x in p["target_cities"]]:
+                continue
+            if p.get("target_zips") and user_zip not in p["target_zips"]:
+                continue
+            if p.get("child_count_min") is not None and user_child_count < p["child_count_min"]:
+                continue
+            if p.get("child_count_max") is not None and user_child_count > p["child_count_max"]:
+                continue
+            if p.get("target_pregnancy") is not None and user_pregnancy != p["target_pregnancy"]:
+                continue
+            age_min = p.get("child_age_min_months")
+            age_max = p.get("child_age_max_months")
+            if age_min is not None or age_max is not None:
+                lo = age_min if age_min is not None else 0
+                hi = age_max if age_max is not None else 9999
+                if not any(lo <= a <= hi for a in child_ages):
+                    continue
+            matched.append(p)
+        return matched
+    except Exception:
+        return []
+
 @app.post('/auth/register')
 def register_user(req: RegisterRequest):
     if not sb:
@@ -722,6 +783,19 @@ async def user_offers(lang: str = "el", x_token: Optional[str] = Header(None)):
                 except Exception:
                     pass
             filtered.append(o)
+        # Add matching promotions for this user
+        if x_token:
+            promos = get_all_promotions_for_user(x_token)
+            for promo in promos:
+                filtered.append({
+                    "id": f"promo_{promo.get('id')}",
+                    "title": promo.get("title",""),
+                    "body": promo.get("body",""),
+                    "link": promo.get("link"),
+                    "badge": "sponsored",
+                    "lang": "all",
+                    "expires_at": promo.get("expires_at"),
+                })
         return {"offers": filtered}
     except Exception as e:
         return {"offers": [], "error": str(e)}

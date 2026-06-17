@@ -15,6 +15,8 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<v
       headers: {"Content-Type": "application/json", "x-token": token},
       body: JSON.stringify({
         country: profile.country || null,
+        city: profile.city || null,
+        zip: profile.postalCode || null,
         child_count: ch.length,
         pregnancy_active: pregnant,
         children_birthdates: bds,
@@ -1525,7 +1527,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     setEditSaving(true);
     const updated = { ...profile, name: editName.trim()||profile.name, phone: editPhone.trim()||undefined, address: editAddress.trim()||undefined, city: editCity.trim()||undefined, postalCode: editPostal.trim()||undefined };
     onProfileUpdate(updated);
-    try { await axios.post(`${API}/profile/update`, updated, { headers: { "x-token": token } }); } catch {}
+    try { await syncProfileToSupabase(token, {...updated, consentMarketing: profile.consentMarketing}); localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated)); } catch {}
     setEditSaving(false);
     setShowProfileEdit(false);
   };
