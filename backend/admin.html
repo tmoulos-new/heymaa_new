@@ -193,6 +193,19 @@ button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{b
     <div id="usersMsg"></div>
     <div id="usersList">Loading…</div>
   </div>
+
+  <div class="card">
+    <h2>💬 Chat Test</h2>
+    <p style="font-size:12px;color:#7A7068;margin-bottom:10px">Paste το session token ενός user και στείλε μήνυμα για να δεις πώς απαντά η Maa.</p>
+    <div class="row">
+      <input id="chatToken" placeholder="x-token (από Supabase → users table → active_session_token)" style="font-size:11px">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="chatMsg" placeholder="Μήνυμα…" onkeydown="if(event.key==='Enter')sendAdminChat()">
+      <button onclick="sendAdminChat()" style="white-space:nowrap">▶ Αποστολή</button>
+    </div>
+    <div id="chatTestResult" style="display:none;margin-top:12px;padding:12px;background:#F8F5F2;border-radius:9px;font-size:13px;line-height:1.6;white-space:pre-wrap;color:#2B3A67"></div>
+  </div>
 </div>
 
 <script>
@@ -209,7 +222,20 @@ function login(){
     .catch(e=>{ $("gateErr").style.display="block"; $("gateErr").textContent=e.message; });
 }
 
-function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); }
+function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); loadUsers(); }
+
+async function sendAdminChat(){
+  const token = $("chatToken").value.trim();
+  const msg = $("chatMsg").value.trim();
+  if(!token||!msg){ alert("Συμπλήρωσε token και μήνυμα"); return; }
+  const el = $("chatTestResult");
+  el.style.display="block"; el.textContent="Αποστολή…";
+  try {
+    const r = await fetch(API+"/chat",{method:"POST",headers:{"Content-Type":"application/json","x-token":token},body:JSON.stringify({message:msg,history:[]})});
+    const d = await r.json();
+    el.textContent = d.response || JSON.stringify(d);
+  } catch(e){ el.textContent = "Σφάλμα: "+e.message; }
+}
 
 function loadHealth(){
   $("health").innerHTML='<div class="prov"><span class="nm">Pinging providers…</span></div>';
