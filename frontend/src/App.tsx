@@ -1499,6 +1499,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [showThreads, setShowThreads] = useState(false);
 
   const [memories, setMemories] = useState<Memory[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"memories"))||"[]");}catch{return[];} });
+  const [editingMemIdx, setEditingMemIdx] = useState<number|null>(null);
+  const [memEditVal, setMemEditVal] = useState("");
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"family"))||"[]");}catch{return[];} });
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones_map"))||"{}");}catch{return {};} });
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
@@ -1581,15 +1583,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   },[lang]);
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages,loading]);
-  useEffect(()=>{localStorage.setItem(sk(token,"chat"),JSON.stringify(messages));},[messages]);
-  useEffect(()=>{localStorage.setItem(sk(token,"threads"),JSON.stringify(threads));},[threads]);
-  useEffect(()=>{localStorage.setItem(sk(token,"memories"),JSON.stringify(memories));},[memories]);
-  useEffect(()=>{localStorage.setItem(sk(token,"family"),JSON.stringify(familyMembers));},[familyMembers]);
-  useEffect(()=>{localStorage.setItem(sk(token,"milestones_map"),JSON.stringify(milestoneChecksMap));},[milestoneChecksMap]);
+  const sbSave = async (key: string, value: any) => { localStorage.setItem(sk(token, key), JSON.stringify(value)); try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {} };
+
+  useEffect(() => {
+    axios.get(`${API}/userdata`, { headers: { "x-token": token } })
+      .then(res => {
+        const d = res.data?.data || {};
+        if (d.chat)           { try { setMessages(JSON.parse(d.chat)); } catch {} }
+        if (d.threads)        { try { setThreads(JSON.parse(d.threads)); } catch {} }
+        if (d.memories)       { try { setMemories(JSON.parse(d.memories)); } catch {} }
+        if (d.family)         { try { setFamilyMembers(JSON.parse(d.family)); } catch {} }
+        if (d.milestones_map) { try { setMilestoneChecksMap(JSON.parse(d.milestones_map)); } catch {} }
+        if (d.docs)           { try { setDocs(JSON.parse(d.docs)); } catch {} }
+        if (d.shopitems)      { try { setShopItems(JSON.parse(d.shopitems)); } catch {} }
+        if (d.superitems)     { try { setSuperItems(JSON.parse(d.superitems)); } catch {} }
+        if (d.ttsused)        { try { setTtsUsed(parseInt(d.ttsused) || 0); } catch {} }
+      }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(()=>{ void sbSave("chat", messages); },[messages]);
+  useEffect(()=>{ void sbSave("threads", threads); },[threads]);
+  useEffect(()=>{ void sbSave("memories", memories); },[memories]);
+  useEffect(()=>{ void sbSave("family", familyMembers); },[familyMembers]);
+  useEffect(()=>{ void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap]);
   useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
   useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
-  useEffect(()=>{localStorage.setItem(sk(token,"shopitems"),JSON.stringify(shopItems));},[shopItems]);
-  useEffect(()=>{localStorage.setItem(sk(token,"superitems"),JSON.stringify(superItems));},[superItems]);
+  useEffect(()=>{ void sbSave("shopitems", shopItems); },[shopItems]);
+  useEffect(()=>{ void sbSave("superitems", superItems); },[superItems]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -1620,7 +1641,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const TTS_QUOTA_BY_TIER: Record<string, number> = { starter: 30, premium: 100, annual: 100 };
   const ttsQuotaTotal = TTS_QUOTA_BY_TIER["starter"]; // test users default to Starter tier
   const [ttsUsed, setTtsUsed] = useState<number>(() => { try{return parseInt(localStorage.getItem(sk(token,"ttsused"))||"0");}catch{return 0;} });
-  useEffect(()=>{localStorage.setItem(sk(token,"ttsused"),String(ttsUsed));},[ttsUsed]);
+  useEffect(()=>{ void sbSave("ttsused", String(ttsUsed)); },[ttsUsed]);
   const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsed);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
@@ -1922,8 +1943,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
               return (
                 <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none"}}>
                   {m.img?<img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>:<span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>}
-                  <div style={{flex:1}}><div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500}}>{m.text!=="📷"?m.text:""}</div><div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div></div>
-                  <button onClick={()=>setMemories(memories.filter((_,j)=>j!==origIdx))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4,flexShrink:0}}>×</button>
+                  <div style={{flex:1}}>{editingMemIdx===origIdx?(<div style={{display:"flex",gap:5,marginBottom:4}}><input value={memEditVal} onChange={e=>setMemEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}if(e.key==="Escape")setEditingMemIdx(null);}} autoFocus style={{flex:1,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}/><button onClick={()=>{setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}} style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}>✓</button></div>):<div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500}}>{m.text!=="📷"?m.text:""}</div>}<div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div></div>
+                  <div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button><button onClick={()=>{setMemories(memories.filter((_,j)=>j!==origIdx));if(editingMemIdx===origIdx)setEditingMemIdx(null);}} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button></div>
                 </div>
               );
             });
@@ -1977,8 +1998,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 </div>
               ))}
             </div>
-            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
-              🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}
+            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span>🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}</span><button onClick={()=>prefillChat(lang==="el"?"Θέλω να προσθέσω ένα νέο milestone":"I want to add a new milestone")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:"0 2px"}}>🚀</button>
             </div>}
             <div style={card}>
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
@@ -2008,7 +2029,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                 </div>
               ))}
             </div>
-            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600}}>
+            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               🎉 {currentChildName} — {currentCheckedCount}/{currentMilestoneList.length} milestones!
             </div>}
             <div style={card}>
@@ -2056,7 +2077,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                       <input value={docDate} onChange={e=>setDocDate(e.target.value)} placeholder={t("docs_add_date_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
                       <input value={docCategory} onChange={e=>setDocCategory(e.target.value)} placeholder={t("docs_add_cat_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
                     </div>
-                    <button onClick={()=>{if(!docTitle.trim())return; setDocs([{title:docTitle.trim(),date:docDate.trim(),category:docCategory.trim(),ref:effDocRef,addedDate:new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"})},...docs]); setDocTitle(""); setDocDate(""); setDocCategory("");}} style={{padding:"9px 14px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>＋</button>
+                    <button onClick={()=>{if(!docTitle.trim())return; setDocs([{title:docTitle.trim(),date:docDate.trim(),category:docCategory.trim(),ref:effDocRef,addedDate:new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"})},...docs]); setDocTitle(""); setDocDate(""); setDocCategory("");}} style={{padding:"9px 14px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer"}}>🚀</button>
                   </div>
                 </>);
               })()}
@@ -2065,7 +2086,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         })()}
         {/* ── SHOPPING ── */}
         {tab==="shopping"&&<div style={card}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping · {displayAge}</div>
+          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
             <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
             <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>
