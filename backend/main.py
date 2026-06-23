@@ -1330,3 +1330,38 @@ async def lemon_webhook(request: Request):
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
+
+# == User Data Persistence ==
+@app.get("/userdata")
+async def get_userdata(key: str = None, x_token: str = Header(None)):
+    verify_token(x_token)
+    if not sb:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    try:
+        q = sb.table("user_data").select("key,value").eq("token", x_token)
+        if key:
+            q = q.eq("key", key)
+        res = q.execute()
+        if key:
+            row = next((r for r in (res.data or []) if r["key"] == key), None)
+            return {"value": row["value"] if row else None}
+        return {"data": {r["key"]: r["value"] for r in (res.data or [])}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/userdata")
+async def set_userdata(body: dict, x_token: str = Header(None)):
+    verify_token(x_token)
+    if not sb:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    key = body.get("key")
+    value = body.get("value")
+    if not key:
+        raise HTTPException(status_code=400, detail="key required")
+    try:
+        import datetime as _dt
+        sb.table("user_data").upsert({"token": x_token, "key": key, "value": value, "updated_at": _dt.datetime.utcnow().isoformat()}, on_conflict="token,key").execute()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

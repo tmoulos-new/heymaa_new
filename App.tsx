@@ -15,6 +15,8 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<v
       headers: {"Content-Type": "application/json", "x-token": token},
       body: JSON.stringify({
         country: profile.country || null,
+        city: profile.city || null,
+        zip: profile.postalCode || null,
         child_count: ch.length,
         pregnancy_active: pregnant,
         children_birthdates: bds,
@@ -26,8 +28,8 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<v
 }
 
 interface ChildEntity { name: string; birthDate: string; }
-interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; }
-interface Message { role: "user" | "assistant"; content: string; }
+interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; }
+interface Message { role: "user" | "assistant"; content: string; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
 interface FamilyMember { name: string; role: string; color: string; email?: string; phone?: string; }
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
@@ -1243,19 +1245,129 @@ function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0
 function sk(token: string, suffix: string) { return `hm_${suffix}_${token}`; }
 const COLORS = ["#E07B54","#4ABEAA","#7C5CBF","#2B3A67","#2D9E6B","#E0845B","#5B7FE8"];
 
-// ── Invite Screen ─────────────────────────────────────────────
-function InviteScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
-  const [code, setCode] = useState(""); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+// ── Auth Screen ─────────────────────────────────────────────
+
+function ForgotPasswordLink({ lang, email }: { lang: string; email: string }) {
+  const [sent, setSent] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const handleForgot = async () => {
+    const em = email.trim() || prompt(lang==="el"?"Βάλε το email σου:":"Enter your email:") || "";
+    if (!em) return;
+    setLoading(true);
+    try { await axios.post(`${API}/auth/forgot-password`, { email: em }); setSent(true); }
+    catch {} finally { setLoading(false); }
+  };
+  if (sent) return <span style={{fontSize:12,color:"#4ABEAA"}}>{lang==="el"?"Email εστάλη ✓":"Email sent ✓"}</span>;
+  return <button onClick={handleForgot} disabled={loading} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0}}>{loading?"...":(lang==="el"?"Ξέχασα τον κωδικό":"Forgot password?")}</button>;
+}
+
+function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
+  const [password, setPassword] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [done, setDone] = React.useState(false);
+  const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
+  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6};
+  const handleReset = async () => {
+    if (password.length < 6) { setError("Minimum 6 characters."); return; }
+    if (password !== confirm) { setError("Passwords do not match."); return; }
+    setLoading(true); setError("");
+    try {
+      await axios.post(`${API}/auth/reset-password`, { token, password });
+      setDone(true);
+      setTimeout(onDone, 2500);
+    } catch (e: any) {
+      setError(e.response?.data?.detail || "Reset failed. Link may have expired.");
+    } finally { setLoading(false); }
+  };
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={cardStyle}>
+        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:20}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
+        {done ? (
+          <div><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontSize:16,color:"#2B3A67",fontWeight:600}}>Password updated!</div><div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginTop:6}}>Redirecting to login...</div></div>
+        ) : (<>
+          <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>Set new password</div>
+          <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>Enter your new password below.</div>
+          <input style={inp} type="password" placeholder="New password (min 6 chars)" value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
+          <input style={inp} type="password" placeholder="Confirm password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleReset()} disabled={loading}/>
+          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
+          <button style={{...btn,opacity:(loading||!password||!confirm)?0.5:1}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading?"Updating...":"Update password →"}</button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
   const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el");
   const [showLang, setShowLang] = useState(false);
   const L = getLang(lang);
   const setAndPersistLang = (c: string) => { setLang(c); localStorage.setItem("hm_pre_lang", c); setShowLang(false); };
-  const submit = async () => {
-    const tr = code.trim(); if (!tr) return;
+  const [step, setStep] = useState<"email"|"invite"|"register"|"password">(() => {
+    return localStorage.getItem("hm_remember") ? "password" : "email";
+  });
+  const [email, setEmail] = useState(() => localStorage.getItem("hm_remember_email") || "");
+  const [inviteCode, setInviteCode] = useState("");
+  const [password, setPassword] = useState(() => localStorage.getItem("hm_remember") ? (localStorage.getItem("hm_remember_pw") || "") : "");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [name, setName] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem("hm_remember"));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
+  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6};
+  const handleEmailNext = async () => {
+    if (!email.trim()) return;
     setLoading(true); setError("");
-    try { const res = await axios.post(`${API}/auth/invite`, { code: tr }); if (res.data.ok) { localStorage.setItem(TOKEN_KEY, res.data.token); onSuccess(res.data.token); } }
-    catch { setError("Invalid invite code. Please check and try again."); } finally { setLoading(false); }
+    try {
+      const res = await axios.post(`${API}/auth/check_email`, { email: email.trim().toLowerCase() });
+      if (res.data.exists) { setStep("password"); } else { setStep("invite"); }
+    } catch { setError(lang==="el"?"Σφάλμα σύνδεσης.":"Connection error."); }
+    finally { setLoading(false); }
   };
+  const handleInviteNext = async () => {
+    if (!inviteCode.trim()) return;
+    setLoading(true); setError("");
+    try {
+      await axios.post(`${API}/auth/verify_invite`, { invite_code: inviteCode.trim() });
+      setStep("register");
+    } catch (e: any) {
+      setError(e.response?.data?.detail || (lang==="el"?"Μη έγκυρος κωδικός.":"Invalid invite code."));
+    } finally { setLoading(false); }
+  };
+  const handleLogin = async () => {
+    if (!password.trim()) return;
+    setLoading(true); setError("");
+    try {
+      const res = await axios.post(`${API}/auth/login`, { email: email.trim().toLowerCase(), password });
+      if (rememberMe) { localStorage.setItem("hm_remember","1"); localStorage.setItem("hm_remember_email",email.trim().toLowerCase()); localStorage.setItem("hm_remember_pw",password); }
+      else { ["hm_remember","hm_remember_email","hm_remember_pw"].forEach(k=>localStorage.removeItem(k)); }
+      localStorage.setItem(TOKEN_KEY, res.data.token);
+      onSuccess(res.data.token);
+    } catch (e: any) { setError(e.response?.data?.detail || (lang==="el"?"Λάθος κωδικός.":"Wrong password.")); }
+    finally { setLoading(false); }
+  };
+  const handleRegister = async () => {
+    if (password.length < 6) { setError(lang==="el"?"Κωδικός τουλάχιστον 6 χαρακτήρες.":"Min 6 characters."); return; }
+    if (password !== confirmPw) { setError(lang==="el"?"Οι κωδικοί δεν ταιριάζουν.":"Passwords do not match."); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await axios.post(`${API}/auth/register`, { email: email.trim().toLowerCase(), password, name: name.trim()||undefined, invite_code: inviteCode.trim() });
+      if (rememberMe) { localStorage.setItem("hm_remember","1"); localStorage.setItem("hm_remember_email",email.trim().toLowerCase()); localStorage.setItem("hm_remember_pw",password); }
+      localStorage.setItem(TOKEN_KEY, res.data.token);
+      onSuccess(res.data.token);
+    } catch (e: any) {
+      const d = e.response?.data?.detail || (lang==="el"?"Αποτυχία.":"Failed.");
+      setError(d);
+      if (d.toLowerCase().includes("invite")) setStep("invite");
+    } finally { setLoading(false); }
+  };
+  const stepProg = step==="email"?0:step==="invite"||step==="password"?1:2;
+  const stepTitle: Record<string,string> = { email:lang==="el"?"Καλωσήρθες":"Welcome", invite:lang==="el"?"Κωδικός Πρόσκλησης":"Invite Code", register:lang==="el"?"Δημιουργία Λογαριασμού":"Create Account", password:lang==="el"?"Σύνδεση":"Sign In" };
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
       {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
@@ -1264,22 +1376,49 @@ function InviteScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
           {LANGS.map(l=><div key={l.c} onClick={()=>setAndPersistLang(l.c)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?"#F0EBE6":"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:"#2B3A67"}}>{l.n}</span>{l.c===lang&&<span style={{color:"#4ABEAA",fontWeight:700}}>✓</span>}</div>)}
         </div>
       </div>}
-      <div style={{background:"#fff",borderRadius:24,padding:"40px 36px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}}>
-        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+      <div style={cardStyle}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67"}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(43,58,103,0.08)",border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"#2B3A67",fontFamily:"inherit"}}>{L.f} {L.s}</button>
         </div>
-        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:16}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
-        <div style={{fontSize:48,marginBottom:16}}>🔑</div>
-        <h2 style={{fontSize:20,color:"#2B3A67",margin:"0 0 10px"}}>Enter your invite code</h2>
-        <p style={{fontSize:14,color:"#666",lineHeight:1.6,margin:"0 0 24px"}}>HeyMaa is in closed beta. Enter the code we sent you.</p>
-        <input style={{width:"100%",padding:"14px 16px",border:`2px solid ${error?"#E07B54":"#e0e0e0"}`,borderRadius:12,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box" as any,textAlign:"center"}} placeholder="HeyMaa_CD_Test_XX" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} disabled={loading} autoFocus/>
-        {error && <div style={{color:"#E07B54",fontSize:13,marginTop:10}}>{error}</div>}
-        <button onClick={submit} disabled={loading||!code.trim()} style={{width:"100%",marginTop:16,padding:14,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontSize:16,fontWeight:600,cursor:"pointer",opacity:(loading||!code.trim())?0.5:1}}>{loading?"Checking...":"Enter HeyMaa →"}</button>
-        <div style={{marginTop:20,fontSize:13,color:"#999"}}>No code? <a href="https://heymaa.ai" target="_blank" rel="noreferrer" style={{color:"#4ABEAA",textDecoration:"none",fontWeight:600}}>Join the waitlist</a></div>
+        <div style={{display:"flex",gap:5,marginBottom:22}}>{[0,1,2].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<stepProg?"#4ABEAA":i===stepProg?"#2B3A67":"rgba(43,58,103,0.12)",transition:"background .3s"}}/>)}</div>
+        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:17,color:"#2B3A67",fontWeight:700,marginBottom:14}}>{stepTitle[step]}</div>
+        {step==="email"&&<>
+          <input style={inp} type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEmailNext()} autoFocus disabled={loading}/>
+          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
+          <button style={{...btn,opacity:(loading||!email.trim())?0.5:1}} onClick={handleEmailNext} disabled={loading||!email.trim()}>{loading?(lang==="el"?"Έλεγχος...":"Checking..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
+        </>}
+        {step==="invite"&&<>
+          <p style={{fontSize:13,color:"rgba(43,58,103,.6)",lineHeight:1.6,marginBottom:8}}>{lang==="el"?"Εισάγετε τον κωδικό πρόσκλησης που λάβατε στο email σας.":"Enter the invite code from your email."}</p>
+          <div style={{fontSize:12,color:"rgba(43,58,103,.4)",marginBottom:8,textAlign:"center" as any}}>{email}</div>
+          <input style={{...inp,textAlign:"center" as any,letterSpacing:1,fontWeight:600}} placeholder="HeyMaa_CD_Test_XX" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleInviteNext()} autoFocus disabled={loading}/>
+          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
+          <button style={{...btn,opacity:(loading||!inviteCode.trim())?0.5:1}} onClick={handleInviteNext} disabled={loading||!inviteCode.trim()}>{loading?(lang==="el"?"Έλεγχος...":"Checking..."):(lang==="el"?"Επόμενο →":"Next →")}</button>
+          <button onClick={()=>{setStep("email");setError("");}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Πίσω":"Back"}</button>
+        </>}
+        {step==="register"&&<>
+          <input style={inp} placeholder={lang==="el"?"Όνομα (προαιρετικό)":"Name (optional)"} value={name} onChange={e=>setName(e.target.value)} disabled={loading}/>
+          <input style={inp} type="password" placeholder={lang==="el"?"Κωδικός (min 6 χαρ.)":"Password (min 6 chars)"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading}/>
+          <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση κωδικού":"Confirm password"} value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleRegister()} disabled={loading}/>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"rgba(43,58,103,.6)",marginBottom:10,cursor:"pointer"}}><input type="checkbox" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} style={{accentColor:"#2B3A67"}}/>{lang==="el"?"Να με θυμάσαι":"Remember me"}</label>
+          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
+          <button style={{...btn,background:"#4ABEAA",opacity:(loading||!password||!confirmPw)?0.5:1}} onClick={handleRegister} disabled={loading||!password||!confirmPw}>{loading?(lang==="el"?"Δημιουργία...":"Creating..."):(lang==="el"?"Δημιουργία λογαριασμού →":"Create account →")}</button>
+          <button onClick={()=>{setStep("invite");setError("");}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Πίσω":"Back"}</button>
+        </>}
+        {step==="password"&&<>
+          <div style={{fontSize:12,color:"rgba(43,58,103,.4)",marginBottom:8,textAlign:"center" as any}}>{email}</div>
+          <input style={inp} type="password" placeholder={lang==="el"?"Κωδικός":"Password"} value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} autoFocus disabled={loading}/>
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"rgba(43,58,103,.6)",marginBottom:6,cursor:"pointer"}}><input type="checkbox" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} style={{accentColor:"#2B3A67"}}/>{lang==="el"?"Να με θυμάσαι":"Remember me"}</label>
+          <div style={{textAlign:"right" as any,marginBottom:4}}><ForgotPasswordLink lang={lang} email={email} /></div>
+          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
+          <button style={{...btn,opacity:(loading||!password)?0.5:1}} onClick={handleLogin} disabled={loading||!password}>{loading?(lang==="el"?"Σύνδεση...":"Signing in..."):(lang==="el"?"Είσοδος →":"Sign in →")}</button>
+          <button onClick={()=>{setStep("email");setEmail("");setPassword("");setError("");["hm_remember","hm_remember_email","hm_remember_pw"].forEach(k=>localStorage.removeItem(k));}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Άλλος λογαριασμός":"Different account"}</button>
+        </>}
       </div>
     </div>
   );
 }
+
 
 // ── Subscription Expired ────────────────────────────────────
 function SubscriptionExpired({ lang, onLogout }: { lang: string; onLogout: () => void }) {
@@ -1377,6 +1516,41 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [editName, setEditName] = useState(() => profile.name || "");
+  const [editPhone, setEditPhone] = useState(() => (profile as any).phone || "");
+  const [editAddress, setEditAddress] = useState(() => profile.address || "");
+  const [editCity, setEditCity] = useState(() => profile.city || "");
+  const [editPostal, setEditPostal] = useState(() => profile.postalCode || "");
+  const [editSaving, setEditSaving] = useState(false);
+  const saveProfileEdit = async () => {
+    setEditSaving(true);
+    const updated = { ...profile, name: editName.trim()||profile.name, phone: editPhone.trim()||undefined, address: editAddress.trim()||undefined, city: editCity.trim()||undefined, postalCode: editPostal.trim()||undefined };
+    onProfileUpdate(updated);
+    try { await syncProfileToSupabase(token, {...updated, consentMarketing: profile.consentMarketing}); localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated)); } catch {}
+    setEditSaving(false);
+    setShowProfileEdit(false);
+  };
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addrStreet, setAddrStreet] = useState(() => profile.address || "");
+  const [addrCity, setAddrCity] = useState(() => profile.city || "");
+  const [addrPostal, setAddrPostal] = useState(() => profile.postalCode || "");
+  const hasAddress = !!(profile.address && profile.city);
+
+  const handleShoppingTab = () => {
+    if (!hasAddress) { setShowAddressModal(true); } else { setTab("shopping"); }
+  };
+  const saveAddress = () => {
+    if (!addrStreet.trim() || !addrCity.trim()) return;
+    const updated = { ...profile, address: addrStreet.trim(), city: addrCity.trim(), postalCode: addrPostal.trim() };
+    onProfileUpdate(updated);
+    setShowAddressModal(false);
+    setTab("shopping");
+  };
+  const skipAddress = () => {
+    setShowAddressModal(false);
+    setTab("shopping");
+  };
   const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState(""); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState("");
   const [showAddChild, setShowAddChild] = useState(false); const [newChildName, setNewChildName] = useState(""); const [newChildBirthDate, setNewChildBirthDate] = useState("");
   const [activeMemRef, setActiveMemRef] = useState(undefined);
@@ -1424,7 +1598,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply}]); }
+    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
     catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
     finally { setLoading(false); }
   };
@@ -1516,6 +1690,40 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   return (
     <div dir={dir} style={{fontFamily:"'DM Sans',sans-serif",height:"100vh",display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto",background:cream}}>
 
+      {/* PROFILE EDIT MODAL */}
+      {showProfileEdit&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:520,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)",maxHeight:"90vh",overflowY:"auto"}}>
+          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</div>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Όνομα":"Name"}</label>
+          <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Τηλέφωνο":"Phone"}</label>
+          <input value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+30 69..." style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Διεύθυνση":"Address"}</label>
+          <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={lang==="el"?"Πόλη":"City"} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={lang==="el"?"ΤΚ":"Post"} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+          </div>
+          <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:editSaving?0.6:1}}>{editSaving?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Αποθήκευση ✓":"Save ✓")}</button>
+          <button onClick={()=>setShowProfileEdit(false)} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{lang==="el"?"Ακύρωση":"Cancel"}</button>
+        </div>
+      </div>}
+
+      {/* ADDRESS MODAL */}
+      {showAddressModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:510,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
+          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {lang==="el"?"Διεύθυνση Παράδοσης":"Delivery Address"}</div>
+          <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{lang==="el"?"Για να δούμε προσφορές στην περιοχή σου, χρειαζόμαστε τη διεύθυνσή σου.":"To show you local offers and delivery options, we need your address."}</p>
+          <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            <input value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={lang==="el"?"Πόλη":"City"} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={addrPostal} onChange={e=>setAddrPostal(e.target.value)} placeholder={lang==="el"?"ΤΚ":"Postcode"} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+          </div>
+          <button onClick={saveAddress} disabled={!addrStreet.trim()||!addrCity.trim()} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:(!addrStreet.trim()||!addrCity.trim())?0.45:1}}>{lang==="el"?"Αποθήκευση και συνέχεια →":"Save & continue →"}</button>
+          <button onClick={skipAddress} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{lang==="el"?"Παράλειψη προς τώρα":"Skip for now"}</button>
+        </div>
+      </div>}
+
       {/* LANG MODAL */}
       {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
         <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
@@ -1563,6 +1771,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
             {profile.name[0]?.toUpperCase()||"M"}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:140,zIndex:600}}>
+              <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone((profile as any).phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
             </div>}
           </div>
@@ -1611,6 +1820,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
                   <div><div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
                   <div style={{display:"flex",gap:6,alignItems:"center"}}><button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button></div></div>
                 </div>):(<div style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,margin:"8px 0 8px 40px",lineHeight:1.5}}>{msg.content}</div>)}
+              {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 40px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
+                  {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{msg.promo.badge.toUpperCase()}</span>}
+                  <span style={{fontWeight:700,fontSize:12.5,color:"#2B3A67"}}>{msg.promo.title}</span>
+                </div>
+                <div style={{fontSize:11.5,color:"#4A3F35",lineHeight:1.55,marginBottom:msg.promo.link?8:0}}>{msg.promo.body}</div>
+                {msg.promo.link&&<a href={msg.promo.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:2,fontSize:11,fontWeight:700,color:"#E07B54",textDecoration:"none",border:"1px solid #E07B54",borderRadius:7,padding:"4px 10px"}}>{msg.promo.cta||"Μάθε περισσότερα →"}</a>}
+              </div>)}
               </div>
             ))}
             {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
@@ -1930,7 +2147,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
       {/* TAB BAR */}
       <div style={{display:"flex",background:"#fff",borderTop:"1px solid rgba(43,58,103,.1)",flexShrink:0}}>
         {tabs.map(tb=>(
-          <button key={tb.id} onClick={()=>setTab(tb.id)} style={{flex:1,display:"flex",flexDirection:"column" as any,alignItems:"center",padding:"9px 4px 7px",cursor:"pointer",border:"none",background:"none",borderTop:tab===tb.id?`2px solid ${navy}`:"2px solid transparent",fontFamily:"'DM Sans',sans-serif"}}>
+          <button key={tb.id} onClick={()=>tb.id==="shopping"?handleShoppingTab():setTab(tb.id)} style={{flex:1,display:"flex",flexDirection:"column" as any,alignItems:"center",padding:"9px 4px 7px",cursor:"pointer",border:"none",background:"none",borderTop:tab===tb.id?`2px solid ${navy}`:"2px solid transparent",fontFamily:"'DM Sans',sans-serif"}}>
             <span style={{fontSize:20,opacity:tab===tb.id?1:0.3,position:"relative" as any}}>{tb.icon}{tb.id==="shopping"&&offers.length>0&&tab!=="shopping"&&<span style={{position:"absolute",top:-1,right:-2,width:7,height:7,borderRadius:"50%",background:coral,border:"1.5px solid #fff"}}/>}</span>
             <span style={{fontSize:9,color:tab===tb.id?navy:"rgba(43,58,103,.3)",marginTop:2,fontWeight:tab===tb.id?600:400}}>{tb.label}</span>
           </button>
@@ -1943,6 +2160,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 // ── Root ──────────────────────────────────────────────────────
 export default function App() {
   const [token, setToken] = useState<string|null>(localStorage.getItem(TOKEN_KEY));
+  const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
     const tk=localStorage.getItem(TOKEN_KEY); if(!tk)return null;
     try{return JSON.parse(localStorage.getItem(`hm_profile_${tk}`)||"null");}catch{return null;}
@@ -1952,8 +2170,17 @@ export default function App() {
 
   useEffect(() => {
     if (!token) { setProfile(null); return; }
-    try { setProfile(JSON.parse(localStorage.getItem(`hm_profile_${token}`) || "null")); }
-    catch { setProfile(null); }
+    const cached = (() => { try { return JSON.parse(localStorage.getItem(`hm_profile_${token}`) || "null"); } catch { return null; } })();
+    if (cached) { setProfile(cached); return; }
+    // No local cache — build minimal profile from /auth/me so existing users skip Onboarding
+    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
+      .then(res => {
+        const u = res.data;
+        const p: Profile = { name: u.name || "Mama", childName: "", childAge: "", lang: localStorage.getItem("hm_pre_lang") || "el" };
+        localStorage.setItem(`hm_profile_${token}`, JSON.stringify(p));
+        setProfile(p);
+      })
+      .catch(() => setProfile(null));
   }, [token]);
 
   useEffect(() => {
@@ -1969,7 +2196,8 @@ export default function App() {
     return () => { cancelled = true; };
   }, [token]);
 
-  if(!token)return <InviteScreen onSuccess={tk=>setToken(tk)}/>;
+  if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/");}}/>;
+  if(!token)return <AuthScreen onSuccess={tk=>setToken(tk)}/>;
   if(subActive===false)return <SubscriptionExpired lang={profile?.lang||"en"} onLogout={handleLogout}/>;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
   return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(`hm_profile_${token}`,JSON.stringify(p));}}/>;
