@@ -5,7 +5,8 @@ function getApiBase(): string {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
   const h = window.location.hostname;
   if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
-  return "https://api.vdarpp.com";
+  if (h.endsWith(".vercel.app")) return window.location.origin;
+  return window.location.origin;
 }
 const API = getApiBase();
 const TOKEN_KEY = "hm_token";

@@ -2,10 +2,8 @@ export function getApiBase(): string {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
   if (import.meta.env.DEV) return 'http://127.0.0.1:8000'
   const h = window.location.hostname
-  if (h === 'localhost' || h === '127.0.0.1') {
-    return `${window.location.protocol}//${window.location.host}`
-  }
-  return 'https://api.vdarpp.com'
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8000'
+  return `${window.location.protocol}//${window.location.host}`
 }
 
 export function apiDetail(d: unknown): string {

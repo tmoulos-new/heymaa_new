@@ -402,7 +402,8 @@ class LoginRequest(BaseModel):
 
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
-APP_URL = os.getenv("APP_URL", "https://app.vdarpp.com")
+APP_URL = os.getenv("APP_URL", "https://heymaa.vercel.app")
+RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <onboarding@resend.dev>")
 
 def verify_admin(x_admin_secret: Optional[str]):
     if not ADMIN_SECRET:
@@ -1271,7 +1272,7 @@ def _tester_invite_email_html(
     <div style="font-size:13px;color:#F5C5A3;margin-bottom:12px;font-weight:600">📱 Οδηγίες Εισόδου</div>
     <ol style="color:#fff;font-size:13px;line-height:2;margin:0;padding-left:18px">
       <li>Άνοιξε το app <strong>από κινητό</strong> σε <strong>incognito mode</strong></li>
-      <li>Επισκέψου: <a href="https://app.vdarpp.com" style="color:#4ABEAA">https://app.vdarpp.com</a></li>{login_steps}
+      <li>Επισκέψου: <a href="{APP_URL}" style="color:#4ABEAA">{APP_URL}</a></li>{login_steps}
     </ol>
   </div>
   <p style="font-size:12px;color:#7A7068;line-height:1.6;margin-bottom:0">
@@ -1295,7 +1296,7 @@ def _send_tester_invite_email(
 
     _resend.api_key = RESEND_API_KEY
     _resend.Emails.send({
-        "from": "HeyMaa <noreply@vdarpp.com>",
+        "from": RESEND_FROM,
         "to": email,
         "subject": f"Πρόσκληση Beta — HeyMaa {plan_label} | Κωδικός: {invite_code}",
         "html": _tester_invite_email_html(
@@ -1417,9 +1418,9 @@ def forgot_password(req: EmailRequest):
         token = secrets.token_urlsafe(32)
         expires = (datetime.utcnow() + timedelta(hours=2)).isoformat()
         sb.table("users").update({"reset_token": token, "reset_token_expires": expires}).eq("id", user["id"]).execute()
-        reset_url = f"https://app.vdarpp.com?reset={token}"
+        reset_url = f"{APP_URL}?reset={token}"
         resend_client.Emails.send({
-            "from": "HeyMaa <noreply@vdarpp.com>",
+            "from": RESEND_FROM,
             "to": user["email"],
             "subject": "Reset your HeyMaa password",
             "html": f"<p>Hi {user.get('name','')},</p><p>Click <a href='{reset_url}'>here</a> to reset your password. Link expires in 2 hours.</p><p>If you did not request this, ignore this email.</p>"
@@ -1522,7 +1523,7 @@ async def lemon_webhook(request: Request):
             try:
                 import resend as _resend
                 _resend.api_key = RESEND_API_KEY
-                app_link = f"https://app.vdarpp.com?invite={invite_code}"
+                app_link = f"{APP_URL}?invite={invite_code}"
                 html_body = (
                     "<div style='font-family:sans-serif;max-width:520px;margin:auto;padding:24px'>"
                     "<h2 style='color:#2B3A67'>Kalws irthes sto HeyMaa!</h2>"
@@ -1532,7 +1533,7 @@ async def lemon_webhook(request: Request):
                     "</div>"
                 )
                 _resend.Emails.send({
-                    "from": "HeyMaa <noreply@vdarpp.com>",
+                    "from": RESEND_FROM,
                     "to": customer_email,
                     "subject": "Kalws irthes sto HeyMaa!",
                     "html": html_body

@@ -41,3 +41,4 @@ frontend/.env
 frontend/build/
 admin/node_modules/
 admin/dist/
+dist/

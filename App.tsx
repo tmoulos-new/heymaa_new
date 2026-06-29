@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
-const API = "https://api.vdarpp.com";
+function getApiBase(): string {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
+  return window.location.origin;
+}
+const API = getApiBase();
 const TOKEN_KEY = "hm_token";
 
 async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
