@@ -1,8 +1,24 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
-const API = "https://api.vdarpp.com";
+function getApiBase(): string {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
+  return "https://api.vdarpp.com";
+}
+const API = getApiBase();
 const TOKEN_KEY = "hm_token";
+
+function apiDetail(data: unknown, fallback: string): string {
+  if (!data || typeof data !== "object") return fallback;
+  const d = (data as { detail?: unknown }).detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) {
+    return d.map(x => (x && typeof x === "object" && "msg" in x ? String((x as { msg: string }).msg) : JSON.stringify(x))).join("; ") || fallback;
+  }
+  return fallback;
+}
 
 async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
   try {
@@ -1348,7 +1364,7 @@ function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
       else { ["hm_remember","hm_remember_email","hm_remember_pw"].forEach(k=>localStorage.removeItem(k)); }
       localStorage.setItem(TOKEN_KEY, res.data.token);
       onSuccess(res.data.token);
-    } catch (e: any) { setError(e.response?.data?.detail || (lang==="el"?"Λάθος κωδικός.":"Wrong password.")); }
+    } catch (e: any) { setError(apiDetail(e.response?.data, lang==="el"?"Λάθος κωδικός.":"Wrong password.")); }
     finally { setLoading(false); }
   };
   const handleRegister = async () => {
@@ -1361,7 +1377,7 @@ function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
       localStorage.setItem(TOKEN_KEY, res.data.token);
       onSuccess(res.data.token);
     } catch (e: any) {
-      const d = e.response?.data?.detail || (lang==="el"?"Αποτυχία.":"Failed.");
+      const d = apiDetail(e.response?.data, lang==="el"?"Αποτυχία.":"Failed.");
       setError(d);
       if (d.toLowerCase().includes("invite")) setStep("invite");
     } finally { setLoading(false); }
