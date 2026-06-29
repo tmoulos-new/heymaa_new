@@ -5,8 +5,10 @@ backend/.env.bak
 # Logs & backups
 logs/
 backups/
+.DS_Store
 
 # Python cache
+backend/.venv/
 backend/__pycache__/
 *.pyc
 

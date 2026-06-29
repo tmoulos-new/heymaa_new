@@ -4,7 +4,7 @@ import base64
 import asyncio
 import bcrypt
 import uuid
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,6 +26,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 EMBED_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GEMINI_API_KEY}"
 
 sb = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+OFFER_NEWS_TABLE = os.getenv("OFFER_NEWS_TABLE", "offer-news")
 
 def get_embedding(text):
     r = requests.post(EMBED_URL, json={"model": "models/gemini-embedding-001", "content": {"parts": [{"text": text}]}}, timeout=10)
@@ -304,7 +305,7 @@ class TTSRequest(BaseModel):
     text: str
     lang: str = "el"
 
-class AdminOfferCreate(BaseModel):
+class OfferNewsCreate(BaseModel):
     title: str
     body: str
     lang: str = "all"
@@ -770,7 +771,7 @@ async def user_offers(lang: str = "el", x_token: Optional[str] = Header(None)):
     try:
         from datetime import date
         today = date.today()
-        result = sb.table("admin_messages").select("*").eq("active", True).order("id", desc=True).execute()
+        result = sb.table(OFFER_NEWS_TABLE).select("*").eq("active", True).order("id", desc=True).execute()
         filtered = []
         for o in (result.data or []):
             offer_lang = o.get("lang", "all")
@@ -867,19 +868,19 @@ async def admin_list_offers(x_admin_secret: Optional[str] = Header(None)):
     if not sb:
         return {"offers": []}
     try:
-        result = sb.table("admin_messages").select("*").eq("active", True).order("id", desc=True).execute()
+        result = sb.table(OFFER_NEWS_TABLE).select("*").eq("active", True).order("id", desc=True).execute()
         return {"offers": result.data or []}
     except Exception as e:
         return {"offers": [], "error": str(e)}
 
 @app.post("/admin/offers")
-async def create_offer(req: AdminOfferCreate, x_admin_secret: Optional[str] = Header(None)):
+async def create_offer(req: OfferNewsCreate, x_admin_secret: Optional[str] = Header(None)):
     verify_admin(x_admin_secret)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
         data = {"title": req.title, "body": req.body, "lang": req.lang, "badge": req.badge, "link": req.link, "expires_at": req.expires_at, "active": True}
-        result = sb.table("admin_messages").insert(data).execute()
+        result = sb.table(OFFER_NEWS_TABLE).insert(data).execute()
         return {"ok": True, "offer": result.data[0] if result.data else None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -890,7 +891,7 @@ async def delete_offer(offer_id: str, x_admin_secret: Optional[str] = Header(Non
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
-        sb.table("admin_messages").delete().eq("id", offer_id).execute()
+        sb.table(OFFER_NEWS_TABLE).delete().eq("id", offer_id).execute()
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -4,225 +4,599 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HeyMaa Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
+:root{
+  --navy:#2B3A67;--coral:#E07B54;--teal:#4ABEAA;--cream:#F5F0EB;--gl:#F0EBE6;
+  --muted:#7A7068;--border:rgba(43,58,103,.1);--shadow:0 4px 24px rgba(43,58,103,.08);
+  --green:#2D9E6B;--purple:#7C5CBF;--radius:14px;
+  --sidebar-w:240px;--sidebar-w-collapsed:68px;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#F5F0EB;color:#2B3A67;padding:16px;max-width:720px;margin:0 auto}
-h1{font-size:22px;margin-bottom:4px}.sub{font-size:13px;color:#7A7068;margin-bottom:20px}
-.card{background:#fff;border-radius:14px;padding:18px;margin-bottom:16px;border:.5px solid rgba(43,58,103,.1)}
-.card h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.gate{max-width:380px;margin:60px auto;text-align:center}
-input,textarea,select{width:100%;padding:11px 13px;border:1.5px solid #DDD7D0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:10px;outline:none}
-textarea{min-height:70px;resize:vertical}
-button{background:#2B3A67;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
-button:hover{opacity:.9}button.sec{background:#F0EBE6;color:#2B3A67}button.del{background:#E07B54;padding:6px 12px;font-size:12px}
-.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:120px}
-.prov{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:9px;background:#F8F5F2;margin-bottom:8px}
-.prov .nm{font-weight:600;font-size:14px}.prov .st{font-size:12px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
-.green{background:#2D9E6B}.red{background:#E07B54}.gray{background:#C8BFB8}
-.offer{padding:12px;border-radius:10px;background:#F8F5F2;margin-bottom:8px}
-.offer .t{font-weight:600;font-size:14px;margin-bottom:3px}.offer .b{font-size:12.5px;color:#7A7068;line-height:1.4;margin-bottom:6px}
-.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;margin-right:6px}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--navy);line-height:1.5;min-height:100vh}
+h1{font-family:'Fraunces',Georgia,serif;font-size:24px;font-weight:700;letter-spacing:-.02em}
+h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600}
+.sub{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ── Login gate ── */
+.gate-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--cream) 0%,var(--gl) 50%,rgba(74,190,170,.12) 100%)}
+.gate{background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:400px;box-shadow:var(--shadow);border:.5px solid var(--border);text-align:center}
+.gate .logo{margin-bottom:8px}
+.gate .logo span{color:var(--teal)}
+.gate input{margin-bottom:14px;text-align:center}
+.gate button{width:100%;padding:13px}
+
+/* ── Shell ── */
+.shell{display:none;min-height:100vh}
+
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);z-index:200;
+  background:#fff;border-right:.5px solid var(--border);
+  display:flex;flex-direction:column;padding:16px 10px;
+  transition:width .22s ease,padding .22s ease;
+}
+.sidebar.collapsed{width:var(--sidebar-w-collapsed);padding:16px 8px}
+.sidebar-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:2px 4px 16px;margin-bottom:4px;
+}
+.sidebar-brand{
+  font-family:'Fraunces',Georgia,serif;font-size:17px;font-weight:700;
+  letter-spacing:-.02em;overflow:hidden;white-space:nowrap;min-width:0;
+}
+.sidebar-brand span{color:var(--teal)}
+.brand-mark{
+  display:none;width:36px;height:36px;border-radius:10px;background:var(--navy);color:#fff;
+  align-items:center;justify-content:center;font-family:'Fraunces',Georgia,serif;
+  font-size:16px;font-weight:700;flex-shrink:0;
+}
+.sidebar.collapsed .sidebar-head{flex-direction:column;align-items:center;gap:6px;padding-bottom:10px}
+.sidebar.collapsed .brand-text{display:none}
+.sidebar.collapsed .brand-mark{display:flex}
+.sidebar-action{position:relative}
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;padding:0;border-radius:8px;
+  background:transparent;color:var(--muted);border:none;cursor:pointer;flex-shrink:0;
+  transition:background .15s,color .15s;
+}
+.icon-btn svg{width:18px;height:18px;transition:transform .22s ease}
+.icon-btn:hover{background:var(--gl);color:var(--navy);opacity:1}
+.sidebar.collapsed .collapse-btn svg{transform:rotate(180deg)}
+.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overflow-x:hidden}
+.sidebar-nav button{
+  display:flex;align-items:center;gap:11px;width:100%;
+  background:none;border:none;border-radius:10px;padding:10px 12px;
+  font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;
+  font-family:inherit;text-align:left;transition:color .15s,background .15s,padding .22s;
+  border-left:3px solid transparent;position:relative;
+}
+.sidebar-nav button .nav-icon{width:18px;height:18px;flex-shrink:0;stroke-width:2}
+.sidebar-nav button .nav-label{white-space:nowrap;overflow:hidden;transition:opacity .15s,width .22s}
+.sidebar.collapsed .sidebar-nav button{
+  justify-content:center;padding:10px 8px;border-left:none;
+  border-radius:10px;
+}
+.sidebar.collapsed .sidebar-nav button.active{
+  border-left:none;box-shadow:inset 0 0 0 2px rgba(74,190,170,.35);
+}
+.sidebar.collapsed .sidebar-nav button .nav-label{
+  width:0;opacity:0;pointer-events:none;
+}
+.sidebar-nav button:hover{color:var(--navy);background:var(--gl)}
+.sidebar-nav button.active{
+  color:var(--navy);background:rgba(74,190,170,.1);
+  border-left-color:var(--teal);
+}
+.sidebar-footer{
+  border-top:.5px solid var(--border);padding-top:10px;margin-top:8px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.sidebar-action{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+}
+.sidebar-action svg{width:16px;height:16px;flex-shrink:0}
+.sidebar-action .action-label{white-space:nowrap;overflow:hidden;transition:opacity .15s}
+.sidebar.collapsed .sidebar-action{justify-content:center;padding:10px 8px}
+.sidebar.collapsed .sidebar-action .action-label{width:0;opacity:0;overflow:hidden}
+.sidebar.collapsed [data-tip]::after{
+  content:attr(data-tip);position:absolute;left:calc(100% + 12px);top:50%;
+  transform:translateY(-50%);background:var(--navy);color:#fff;
+  padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;
+  z-index:400;box-shadow:0 4px 12px rgba(43,58,103,.2);
+}
+.sidebar.collapsed [data-tip]:hover::after{opacity:1}
+.sidebar.collapsed .sidebar-nav button::after{left:calc(100% + 8px)}
+
+.content-wrap{
+  margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column;
+  transition:margin-left .22s ease;
+}
+.sidebar.collapsed ~ .content-wrap{margin-left:var(--sidebar-w-collapsed)}
+.content-header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(245,240,235,.92);backdrop-filter:blur(12px);
+  border-bottom:.5px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.content-header h1{font-size:20px}
+.menu-toggle{display:none;background:var(--gl);color:var(--navy);border:none;border-radius:10px;padding:8px 10px;cursor:pointer;font-family:inherit}
+.menu-toggle svg{width:20px;height:20px}
+.card-head h2 svg,.card-head h2 .h-icon{width:16px;height:16px;vertical-align:-3px;margin-right:7px;stroke-width:2}
+
+.main{max-width:960px;padding:28px;width:100%;flex:1}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(43,58,103,.35);z-index:150;backdrop-filter:blur(2px)}
+
+/* ── Cards & layout ── */
+.card{background:#fff;border-radius:var(--radius);padding:20px;margin-bottom:16px;border:.5px solid var(--border);box-shadow:0 1px 3px rgba(43,58,103,.04)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.card-head h2{font-size:15px;display:flex;align-items:center;gap:8px}
+.card-desc{font-size:12.5px;color:var(--muted);margin:-8px 0 14px;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.section{display:none;animation:fadeIn .25s ease}
+.section.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── Forms ── */
+label.field{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.req{color:var(--coral);margin-left:2px;font-weight:700}
+input,textarea,select{width:100%;padding:11px 13px;border:1.5px solid #DDD7D0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:10px;outline:none;background:#fff;transition:border-color .15s,box-shadow .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,190,170,.15)}
+textarea{min-height:80px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:130px}
+.row .field-wrap{flex:1;min-width:130px}
+.row .field-wrap input,.row .field-wrap select{margin-bottom:0}
+
+button{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s}
+button:hover{opacity:.92}button:active{transform:scale(.98)}
+button:disabled{opacity:.42;cursor:not-allowed;transform:none}
+button:disabled:hover{opacity:.42}
+button.sec{background:var(--gl);color:var(--navy)}button.teal{background:var(--teal)}
+button.del{background:var(--coral);padding:7px 14px;font-size:12px}
+button.sm{padding:6px 12px;font-size:12px}
+button.ghost{background:transparent;color:var(--muted);padding:8px 12px}
+button.ghost:hover{color:var(--coral);background:rgba(224,123,84,.08);opacity:1}
+
+/* ── Stats ── */
+.stat{background:var(--gl);border-radius:12px;padding:16px;text-align:center;border:.5px solid var(--border)}
+.stat .n{font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:700;line-height:1.1}
+.stat .l{font-size:11px;color:var(--muted);margin-top:4px;font-weight:500}
+.stat.teal .n{color:var(--teal)}.stat.coral .n{color:var(--coral)}.stat.green .n{color:var(--green)}
+
+/* ── Provider status ── */
+.prov-grid{display:grid;gap:10px}
+.prov{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:12px;background:var(--gl);border:.5px solid var(--border);transition:transform .15s}
+.prov:hover{transform:translateY(-1px)}
+.prov .nm{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.prov .st{font-size:12px;color:var(--muted);text-align:right;max-width:55%}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot.green{background:var(--green);box-shadow:0 0 0 3px rgba(45,158,107,.2)}
+.dot.red{background:var(--coral);box-shadow:0 0 0 3px rgba(224,123,84,.2)}
+.dot.gray{background:#C8BFB8}
+
+/* ── Lists ── */
+.list-item{padding:14px 16px;border-radius:12px;background:var(--gl);margin-bottom:10px;border:.5px solid var(--border)}
+.list-item .t{font-weight:600;font-size:14px;margin-bottom:4px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.list-item .b{font-size:12.5px;color:var(--muted);line-height:1.45}
+.list-item .foot{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;color:#fff}
 .meta{font-size:11px;color:#C8BFB8}
-.links a{display:inline-block;font-size:12px;color:#4ABEAA;text-decoration:none;border:1px solid #4ABEAA;border-radius:8px;padding:6px 12px;margin:4px 4px 0 0}
-.usage{display:flex;gap:14px;flex-wrap:wrap}.usage>div{flex:1;min-width:90px;text-align:center;padding:10px;background:#F8F5F2;border-radius:9px}
-.usage .n{font-size:20px;font-weight:700}.usage .l{font-size:11px;color:#7A7068;margin-top:2px}
-.msg{font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px}
-.msg.ok{background:rgba(45,158,107,.12);color:#2D9E6B}.msg.err{background:rgba(224,123,84,.12);color:#E07B54}
+.chip{font-size:11px;background:#E8E4F0;color:var(--purple);padding:3px 9px;border-radius:999px;display:inline-block;margin:2px 4px 0 0}
+
+/* ── Links & misc ── */
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{display:inline-flex;align-items:center;font-size:12px;font-weight:600;color:var(--teal);text-decoration:none;border:1.5px solid var(--teal);border-radius:9px;padding:8px 14px;transition:background .15s,color .15s}
+.links a:hover{background:var(--teal);color:#fff}
+.msg{font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:500}
+.msg.ok{background:rgba(45,158,107,.12);color:var(--green)}.msg.err{background:rgba(224,123,84,.12);color:var(--coral)}
+.msg.info{background:rgba(74,190,170,.12);color:#2a8a7a}
+.danger-zone{border:1.5px solid rgba(224,123,84,.25);border-radius:12px;padding:16px;margin-top:16px;background:rgba(224,123,84,.04)}
+.danger-zone h3{font-size:13px;color:var(--coral);margin-bottom:6px}
+.search-wrap{margin-bottom:14px;position:relative}
+.search-wrap input{margin-bottom:0;padding-left:38px}
+.search-wrap .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);opacity:.55;pointer-events:none}
+.preview-box{padding:12px 16px;background:var(--gl);border-radius:10px;font-size:13px;text-align:center;border:.5px solid var(--border)}
+.chat-result{margin-top:14px;padding:16px;background:var(--gl);border-radius:12px;font-size:13px;line-height:1.65;white-space:pre-wrap;border:.5px solid var(--border)}
+.empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
+code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
+.checkbox-row{display:flex;gap:20px;font-size:13px;margin-bottom:10px;flex-wrap:wrap}
+.checkbox-row label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500}
+.checkbox-row input{width:auto;margin:0;accent-color:var(--teal)}
+
+@media(max-width:768px){
+  .sidebar{width:var(--sidebar-w)!important;transform:translateX(-100%);transition:transform .25s ease,box-shadow .25s;box-shadow:none}
+  .sidebar.open{transform:translateX(0);box-shadow:var(--shadow)}
+  .sidebar.collapsed ~ .content-wrap,.content-wrap{margin-left:0!important}
+  .sidebar-backdrop.open{display:block}
+  .collapse-btn{display:none}
+  .menu-toggle{display:inline-flex;align-items:center;justify-content:center}
+  .content-header{padding:12px 16px}
+  .main{padding:16px 16px 40px}
+  .card{padding:16px}
+  .stat .n{font-size:22px}
+}
 </style>
 </head>
 <body>
-<div id="gate" class="gate">
-  <h1>Hey<span style="color:#4ABEAA">Maa</span> Admin</h1>
-  <p class="sub">Enter admin secret to continue</p>
-  <input id="secret" type="password" placeholder="Admin secret" onkeydown="if(event.key==='Enter')login()">
-  <button onclick="login()" style="width:100%">Enter →</button>
-  <div id="gateErr" class="msg err" style="display:none;margin-top:10px"></div>
-</div>
 
-<div id="panel" style="display:none">
-  <h1>Hey<span style="color:#4ABEAA">Maa</span> Admin</h1>
-  <p class="sub">Provider status · usage · offers</p>
-
-
-  <div class="card" id="testerCard">
-    <h2>📨 Πρόσκληση Testers</h2>
-    <div id="testerMsg"></div>
-    <div class="row">
-      <input id="tFirstName" placeholder="Όνομα *">
-      <input id="tLastName" placeholder="Επώνυμο *">
-    </div>
-    <div class="row">
-      <input id="tEmail" type="email" placeholder="Email *">
-      <select id="tPlan">
-        <option value="starter">Starter</option>
-        <option value="premium">Premium</option>
-      </select>
-    </div>
-    <div class="row">
-      <select id="tCode"><option value="">-- Κωδικός Εισόδου --</option></select>
-      <select id="tLang">
-<option value="el">🇬🇷 Ελληνικά</option>
-<option value="en">🇬🇧 English</option>
-<option value="ar">🇸🇦 العربية</option>
-<option value="fr">🇫🇷 Français</option>
-<option value="de">🇩🇪 Deutsch</option>
-<option value="es">🇪🇸 Español</option>
-<option value="ro">🇷🇴 Română</option>
-<option value="tr">🇹🇷 Türkçe</option>
-<option value="ru">🇷🇺 Русский</option>
-<option value="uk">🇺🇦 Українська</option>
-<option value="pl">🇵🇱 Polski</option>
-<option value="cs">🇨🇿 Čeština</option>
-<option value="sk">🇸🇰 Slovenčina</option>
-<option value="hu">🇭🇺 Magyar</option>
-<option value="bg">🇧🇬 Български</option>
-<option value="hr">🇭🇷 Hrvatski</option>
-<option value="sr">🇷🇸 Srpski</option>
-<option value="sl">🇸🇮 Slovenščina</option>
-<option value="nl">🇳🇱 Nederlands</option>
-<option value="pt">🇵🇹 Português</option>
-<option value="it">🇮🇹 Italiano</option>
-<option value="he">🇮🇱 עברית</option>
-<option value="hi">🇮🇳 हिन्दी</option>
-      </select>
-    </div>
-    <button onclick="sendTesterInvite()" style="width:100%;margin-top:4px">📧 Αποστολή Πρόσκλησης →</button>
-    <div style="margin-top:16px;border-top:1px solid #F0EBE6;padding-top:14px">
-      <h2 style="margin-bottom:8px">🗑️ Διαγραφή Όλων των Testers</h2>
-      <p style="font-size:12px;color:#7A7068;margin-bottom:8px">Διαγράφει όλους τους χρήστες από τη βάση δεδομένων. Μη αναστρέψιμη ενέργεια.</p>
-      <button class="del" style="width:100%;padding:11px" onclick="deleteAllTesters()">⚠️ Διαγραφή Όλων των Χρηστών</button>
-      <div id="deleteAllMsg"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>🩺 Provider Status <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadHealth()">↻ Refresh</button></h2>
-    <div id="health"><div class="prov"><span class="nm">Checking…</span></div></div>
-  </div>
-
-  <div class="card">
-    <h2>📊 Usage (estimate)</h2>
-    <div class="usage" id="usage"><div><div class="n">…</div></div></div>
-    <p class="meta" id="usageNote" style="margin-top:10px"></p>
-  </div>
-
-  <div class="card">
-    <h2>💳 Top up credits</h2>
-    <div class="links">
-      <a href="https://console.anthropic.com/settings/billing" target="_blank">Anthropic → Billing</a>
-      <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>
-      <a href="https://console.groq.com/settings/billing" target="_blank">Groq → Billing</a>
-    </div>
-    <p class="meta" style="margin-top:8px">Live balances aren't exposed via API — use these links to check & top up.</p>
-  </div>
-
-  <div class="card">
-    <h2>➕ New Offer / News</h2>
-    <div id="offerMsg"></div>
-    <input id="oTitle" placeholder="Title">
-    <textarea id="oBody" placeholder="Message body"></textarea>
-    <div class="row">
-      <select id="oBadge"><option value="">No badge</option><option value="news">news</option><option value="promo">promo</option><option value="sponsored">sponsored</option></select>
-      <input id="oLang" placeholder="Lang (all / el / en…)" value="all">
-    </div>
-    <input id="oLink" placeholder="Link (optional)">
-    <input id="oExpires" type="date" title="Expiry date (optional)">
-    <button onclick="createOffer()" style="width:100%">Publish offer →</button>
-  </div>
-
-  <div class="card">
-    <h2>📋 Active Offers <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadOffers()">↻</button></h2>
-    <div id="offers">Loading…</div>
-  </div>
-
-  <div class="card">
-    <h2>🌱 Beta Profile Seed <span style="font-size:11px;font-weight:400;color:#7A7068">(Priority fix — enables promotion targeting)</span></h2>
-    <div id="seedMsg"></div>
-    <p style="font-size:12px;color:#7A7068;margin-bottom:10px">Seeds profiles for all 15 beta testers (HeyMaa_CD_Test_01–15) with <code style="background:#F0EBE6;padding:1px 5px;border-radius:4px">consent_marketing=true</code> so promotions reach them immediately.</p>
-    <div class="row" style="margin-bottom:8px">
-      <select id="seedCountry" style="margin-bottom:0"><option value="GR">🇬🇷 Greece (GR)</option><option value="CY">🇨🇾 Cyprus (CY)</option><option value="DE">🇩🇪 Germany (DE)</option><option value="GB">🇬🇧 United Kingdom (GB)</option><option value="US">🇺🇸 United States (US)</option></select>
-      <select id="seedPregnant" style="margin-bottom:0"><option value="true">🤰 Pregnant</option><option value="false">👶 Has children</option></select>
-      <select id="seedChildren" style="margin-bottom:0"><option value="0">0 children</option><option value="1">1 child</option><option value="2">2 children</option></select>
-    </div>
-    <div class="row" style="margin-bottom:8px">
-      <input id="seedCity" placeholder="City (optional)" style="margin-bottom:0">
-      <input id="seedZip" placeholder="ZIP / Postal code (optional)" style="margin-bottom:0">
-    </div>
-    <button onclick="seedBetaProfiles()" style="width:100%;background:#2D9E6B">🌱 Seed all 15 beta profiles →</button>
-  </div>
-
-  <div class="card">
-    <h2>🎯 New Promotion <span style="font-size:11px;font-weight:400;color:#7A7068">(targeted · consent users only)</span></h2>
-    <div id="promoMsg"></div>
-    <input id="pTitle" placeholder="Title *">
-    <textarea id="pBody" placeholder="Message body *"></textarea>
-    <input id="pLink" placeholder="Link (optional)">
-    <input id="pExpires" type="date" title="Expiry date">
-    <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">📍 GEO (blank = all)</p>
-    <div class="row">
-      <select id="pCountries" onchange="schedulePreview()"><option value="">All countries</option></select>
-      <select id="pCities" onchange="schedulePreview()"><option value="">All cities</option></select>
-      <select id="pZips" onchange="schedulePreview()"><option value="">All ZIPs</option></select>
-    </div>
-    <p style="font-size:11px;font-weight:600;color:#7A7068;margin:6px 0 4px">👶 DEMOGRAPHIC (blank = all)</p>
-    <div class="row">
-      <input id="pChildMin" type="number" placeholder="Child count min" min="0" oninput="schedulePreview()">
-      <input id="pChildMax" type="number" placeholder="Child count max" min="0" oninput="schedulePreview()">
-      <input id="pAgeMin" type="number" placeholder="Child age min (mo)" min="0" oninput="schedulePreview()">
-      <input id="pAgeMax" type="number" placeholder="Child age max (mo)" min="0" oninput="schedulePreview()">
-    </div>
-    <div style="margin-bottom:10px;display:flex;gap:16px;font-size:13px">
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pPregnant" style="width:auto;margin:0" onchange="schedulePreview()"> 🤰 Pregnant only</label>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="pNotPregnant" style="width:auto;margin:0" onchange="schedulePreview()"> 👶 Non-pregnant only</label>
-    </div>
-    <div class="row" style="margin-bottom:8px">
-      <button class="sec" onclick="previewPromotion()">👁 Preview match count</button>
-      <button onclick="createPromotion()">Publish →</button>
-    </div>
-    <div id="previewResult" style="display:none;padding:10px;background:#F8F5F2;border-radius:9px;font-size:13px;text-align:center"></div>
-  </div>
-
-  <div class="card">
-    <h2>🎯 Active Promotions <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadPromotions()">↻</button></h2>
-    <div id="promotions">Loading…</div>
-  </div>
-
-  <div class="card">
-    <h2>👥 Users <button class="sec" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="loadUsers()">↻</button></h2>
-    <div id="usersMsg"></div>
-    <div id="usersList">Loading…</div>
-  </div>
-
-  <div class="card">
-    <h2>💬 Chat Test</h2>
-    <p style="font-size:12px;color:#7A7068;margin-bottom:10px">Paste το session token ενός user και στείλε μήνυμα για να δεις πώς απαντά η Maa.</p>
-    <div class="row">
-      <input id="chatToken" placeholder="x-token (από Supabase → users table → active_session_token)" style="font-size:11px">
-    </div>
-    <div class="row" style="margin-top:8px">
-      <input id="chatMsg" placeholder="Μήνυμα…" onkeydown="if(event.key==='Enter')sendAdminChat()">
-      <button onclick="sendAdminChat()" style="white-space:nowrap">▶ Αποστολή</button>
-    </div>
-    <div id="chatTestResult" style="display:none;margin-top:12px;padding:12px;background:#F8F5F2;border-radius:9px;font-size:13px;line-height:1.6;white-space:pre-wrap;color:#2B3A67"></div>
+<!-- Login -->
+<div id="gate" class="gate-wrap">
+  <div class="gate">
+    <h1 class="logo">Hey<span>Maa</span> Admin</h1>
+    <p class="sub">Enter admin secret to continue</p>
+    <input id="secret" type="password" placeholder="Admin secret" autocomplete="current-password" onkeydown="if(event.key==='Enter'&&!$('btnLogin').disabled)login()">
+    <button id="btnLogin" onclick="login()" disabled>Enter dashboard →</button>
+    <div id="gateErr" class="msg err" style="display:none;margin-top:14px;text-align:left"></div>
   </div>
 </div>
 
+<!-- Dashboard -->
+<div id="panel" class="shell">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-brand">
+        <span class="brand-mark">H</span>
+        <span class="brand-text">Hey<span>Maa</span></span>
+      </div>
+      <button type="button" class="icon-btn collapse-btn" id="collapseBtn" onclick="toggleCollapse()" data-tip="Collapse sidebar" aria-label="Toggle sidebar">
+        <i data-lucide="chevrons-left" id="collapseIcon"></i>
+      </button>
+    </div>
+    <nav class="sidebar-nav" id="nav">
+      <button class="active" data-tab="overview" data-tip="Overview" onclick="switchTab('overview')">
+        <i data-lucide="layout-dashboard" class="nav-icon"></i><span class="nav-label">Overview</span>
+      </button>
+      <button data-tab="testers" data-tip="Testers" onclick="switchTab('testers')">
+        <i data-lucide="mail-plus" class="nav-icon"></i><span class="nav-label">Testers</span>
+      </button>
+      <button data-tab="content" data-tip="Offers & Promos" onclick="switchTab('content')">
+        <i data-lucide="megaphone" class="nav-icon"></i><span class="nav-label">Offers & Promos</span>
+      </button>
+      <button data-tab="users" data-tip="Users" onclick="switchTab('users')">
+        <i data-lucide="users" class="nav-icon"></i><span class="nav-label">Users</span>
+      </button>
+      <button data-tab="tools" data-tip="Tools" onclick="switchTab('tools')">
+        <i data-lucide="wrench" class="nav-icon"></i><span class="nav-label">Tools</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="sec sm sidebar-action" data-tip="Refresh all" onclick="loadAll()">
+        <i data-lucide="refresh-cw"></i><span class="action-label">Refresh all</span>
+      </button>
+      <button type="button" class="ghost sm sidebar-action" data-tip="Sign out" onclick="logout()">
+        <i data-lucide="log-out"></i><span class="action-label">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="content-wrap">
+    <header class="content-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button type="button" class="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu"><i data-lucide="menu"></i></button>
+        <h1 id="pageTitle">Overview</h1>
+      </div>
+    </header>
+
+    <main class="main">
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview" class="section active">
+      <div class="grid-3" style="margin-bottom:20px">
+        <div class="stat teal"><div class="n" id="statUsers">—</div><div class="l">Total users</div></div>
+        <div class="stat coral"><div class="n" id="statCost">—</div><div class="l">Est. API cost</div></div>
+        <div class="stat green"><div class="n" id="statCalls">—</div><div class="l">Total API calls</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2><i data-lucide="activity"></i> Provider Status</h2>
+            <button class="sec sm" onclick="loadHealth()"><i data-lucide="refresh-cw" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Refresh</button>
+          </div>
+          <div class="prov-grid" id="health"><div class="prov"><span class="nm">Checking…</span></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2><i data-lucide="bar-chart-3"></i> Usage</h2></div>
+          <div class="grid-3" id="usage"><div class="stat"><div class="n">…</div></div></div>
+          <p class="meta" id="usageNote" style="margin-top:12px"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2><i data-lucide="credit-card"></i> Top up credits</h2></div>
+        <p class="card-desc">Live balances aren't exposed via API — use these links to check & top up.</p>
+        <div class="links">
+          <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">Anthropic Billing</a>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>
+          <a href="https://console.groq.com/settings/billing" target="_blank" rel="noopener">Groq Billing</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- TESTERS -->
+    <section id="tab-testers" class="section">
+      <div class="card">
+        <div class="card-head"><h2><i data-lucide="mail-plus"></i> Πρόσκληση Testers</h2></div>
+        <div id="testerMsg"></div>
+        <div class="row">
+          <div class="field-wrap"><label class="field">Όνομα <span class="req" aria-hidden="true">*</span></label><input id="tFirstName" placeholder="Maria"></div>
+          <div class="field-wrap"><label class="field">Επώνυμο <span class="req" aria-hidden="true">*</span></label><input id="tLastName" placeholder="Papadopoulou"></div>
+        </div>
+        <div class="row">
+          <div class="field-wrap"><label class="field">Email <span class="req" aria-hidden="true">*</span></label><input id="tEmail" type="email" placeholder="maria@example.com"></div>
+          <div class="field-wrap"><label class="field">Plan</label>
+            <select id="tPlan"><option value="starter">Starter</option><option value="premium">Premium</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field-wrap"><label class="field">Κωδικός Εισόδου <span class="req" aria-hidden="true">*</span></label><select id="tCode"><option value="">-- Επιλογή --</option></select></div>
+          <div class="field-wrap"><label class="field">Γλώσσα</label>
+            <select id="tLang">
+              <option value="el">🇬🇷 Ελληνικά</option><option value="en">🇬🇧 English</option><option value="ar">🇸🇦 العربية</option>
+              <option value="fr">🇫🇷 Français</option><option value="de">🇩🇪 Deutsch</option><option value="es">🇪🇸 Español</option>
+              <option value="ro">🇷🇴 Română</option><option value="tr">🇹🇷 Türkçe</option><option value="ru">🇷🇺 Русский</option>
+              <option value="uk">🇺🇦 Українська</option><option value="pl">🇵🇱 Polski</option><option value="cs">🇨🇿 Čeština</option>
+              <option value="sk">🇸🇰 Slovenčina</option><option value="hu">🇭🇺 Magyar</option><option value="bg">🇧🇬 Български</option>
+              <option value="hr">🇭🇷 Hrvatski</option><option value="sr">🇷🇸 Srpski</option><option value="sl">🇸🇮 Slovenščina</option>
+              <option value="nl">🇳🇱 Nederlands</option><option value="pt">🇵🇹 Português</option><option value="it">🇮🇹 Italiano</option>
+              <option value="he">🇮🇱 עברית</option><option value="hi">🇮🇳 हिन्दी</option>
+            </select>
+          </div>
+        </div>
+        <button id="btnTesterInvite" onclick="sendTesterInvite()" style="width:100%;margin-top:4px" disabled>📧 Αποστολή Πρόσκλησης →</button>
+
+        <div class="danger-zone">
+          <h3><i data-lucide="alert-triangle" style="width:14px;height:14px;vertical-align:-2px;margin-right:5px"></i> Danger zone</h3>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Διαγράφει όλους τους χρήστες από τη βάση. Μη αναστρέψιμη ενέργεια.</p>
+          <button class="del" style="width:100%;padding:11px" onclick="deleteAllTesters()">Διαγραφή Όλων των Χρηστών</button>
+          <div id="deleteAllMsg"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTENT -->
+    <section id="tab-content" class="section">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2><i data-lucide="plus-circle"></i> New Offer / News</h2></div>
+          <div id="offerMsg"></div>
+          <label class="field">Title <span class="req" aria-hidden="true">*</span></label><input id="oTitle" placeholder="Offer title">
+          <label class="field">Message <span class="req" aria-hidden="true">*</span></label><textarea id="oBody" placeholder="Message body"></textarea>
+          <div class="row">
+            <div class="field-wrap"><label class="field">Badge</label>
+              <select id="oBadge"><option value="">No badge</option><option value="news">news</option><option value="promo">promo</option><option value="sponsored">sponsored</option></select>
+            </div>
+            <div class="field-wrap"><label class="field">Language</label><input id="oLang" placeholder="all / el / en…" value="all"></div>
+          </div>
+          <label class="field">Link (optional)</label><input id="oLink" placeholder="https://…">
+          <label class="field">Expiry (optional)</label><input id="oExpires" type="date">
+          <button id="btnCreateOffer" onclick="createOffer()" style="width:100%" disabled>Publish offer →</button>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2><i data-lucide="target"></i> New Promotion</h2>
+          </div>
+          <p class="card-desc">Targeted · consent users only</p>
+          <div id="promoMsg"></div>
+          <label class="field">Title <span class="req" aria-hidden="true">*</span></label><input id="pTitle" placeholder="Promotion title">
+          <label class="field">Message <span class="req" aria-hidden="true">*</span></label><textarea id="pBody" placeholder="Message body"></textarea>
+          <label class="field">Link (optional)</label><input id="pLink" placeholder="https://…">
+          <label class="field">Expiry</label><input id="pExpires" type="date">
+          <p class="field" style="margin-top:4px">📍 GEO (blank = all)</p>
+          <div class="row">
+            <select id="pCountries" onchange="schedulePreview()"><option value="">All countries</option></select>
+            <select id="pCities" onchange="schedulePreview()"><option value="">All cities</option></select>
+            <select id="pZips" onchange="schedulePreview()"><option value="">All ZIPs</option></select>
+          </div>
+          <p class="field" style="margin-top:4px">👶 Demographic (blank = all)</p>
+          <div class="row">
+            <input id="pChildMin" type="number" placeholder="Child min" min="0" oninput="schedulePreview()">
+            <input id="pChildMax" type="number" placeholder="Child max" min="0" oninput="schedulePreview()">
+            <input id="pAgeMin" type="number" placeholder="Age min (mo)" min="0" oninput="schedulePreview()">
+            <input id="pAgeMax" type="number" placeholder="Age max (mo)" min="0" oninput="schedulePreview()">
+          </div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" id="pPregnant" onchange="schedulePreview()"> 🤰 Pregnant only</label>
+            <label><input type="checkbox" id="pNotPregnant" onchange="schedulePreview()"> 👶 Non-pregnant only</label>
+          </div>
+          <div class="row" style="margin-bottom:8px">
+            <button class="sec" onclick="previewPromotion()">👁 Preview match</button>
+            <button id="btnCreatePromo" onclick="createPromotion()" disabled>Publish →</button>
+          </div>
+          <div id="previewResult" class="preview-box" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2><i data-lucide="newspaper"></i> Active Offers</h2>
+            <button class="sec sm" onclick="loadOffers()"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+          </div>
+          <div id="offers"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2><i data-lucide="target"></i> Active Promotions</h2>
+            <button class="sec sm" onclick="loadPromotions()"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+          </div>
+          <div id="promotions"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="tab-users" class="section">
+      <div class="card">
+        <div class="card-head">
+          <h2><i data-lucide="users"></i> Users</h2>
+          <button class="sec sm" onclick="loadUsers()"><i data-lucide="refresh-cw" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px"></i> Refresh</button>
+        </div>
+        <div id="usersMsg"></div>
+        <div class="search-wrap">
+          <i data-lucide="search" class="search-icon"></i>
+          <input id="userSearch" type="search" placeholder="Search by email or name…" oninput="filterUsers()">
+        </div>
+        <div id="usersList"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section id="tab-tools" class="section">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2><i data-lucide="sprout"></i> Beta Profile Seed</h2></div>
+          <p class="card-desc">Seeds profiles for all 15 beta testers (HeyMaa_CD_Test_01–15) with <code>consent_marketing=true</code>.</p>
+          <div id="seedMsg"></div>
+          <div class="row">
+            <select id="seedCountry"><option value="GR">🇬🇷 Greece</option><option value="CY">🇨🇾 Cyprus</option><option value="DE">🇩🇪 Germany</option><option value="GB">🇬🇧 UK</option><option value="US">🇺🇸 US</option></select>
+            <select id="seedPregnant"><option value="true">🤰 Pregnant</option><option value="false">👶 Has children</option></select>
+            <select id="seedChildren"><option value="0">0 children</option><option value="1">1 child</option><option value="2">2 children</option></select>
+          </div>
+          <div class="row">
+            <input id="seedCity" placeholder="City (optional)">
+            <input id="seedZip" placeholder="ZIP (optional)">
+          </div>
+          <button class="teal" onclick="seedBetaProfiles()" style="width:100%"><i data-lucide="sprout" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px"></i> Seed all 15 beta profiles →</button>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2><i data-lucide="message-circle"></i> Chat Test</h2></div>
+          <p class="card-desc">Paste a user's session token and send a message to test Maa's response.</p>
+          <label class="field">Session token</label>
+          <input id="chatToken" placeholder="x-token from Supabase users table" style="font-size:12px">
+          <label class="field">Message</label>
+          <div class="row">
+            <input id="chatMsg" placeholder="Γεια σου Maa…" onkeydown="if(event.key==='Enter')sendAdminChat()" style="margin-bottom:0">
+            <button onclick="sendAdminChat()" style="white-space:nowrap;flex:0 0 auto">▶ Send</button>
+          </div>
+          <div id="chatTestResult" class="chat-result" style="display:none"></div>
+        </div>
+      </div>
+    </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
-const API = "https://api.vdarpp.com";
+const API = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+  ? `${location.protocol}//${location.host}`
+  : "https://api.vdarpp.com";
 let SEC = "";
+let _allUsers = [];
 const $ = id => document.getElementById(id);
+const BADGE_COLORS = {news:"#4ABEAA",promo:"#E07B54",sponsored:"#7C5CBF"};
+const TAB_TITLES = {overview:"Overview",testers:"Testers",content:"Offers & Promos",users:"Users",tools:"Tools"};
+const _formValidators = {};
+
+function bindFormValidation(btnId, fieldIds, extraCheck){
+  const btn = $(btnId);
+  if(!btn) return;
+  const run = () => {
+    const filled = fieldIds.every(id => $(id) && $(id).value.trim() !== "");
+    btn.disabled = !(filled && (!extraCheck || extraCheck()));
+  };
+  _formValidators[btnId] = run;
+  fieldIds.forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    el.addEventListener("input", run);
+    el.addEventListener("change", run);
+  });
+  run();
+}
+
+function refreshForm(btnId){ _formValidators[btnId]?.(); }
+
+function initFormValidation(){
+  bindFormValidation("btnLogin", ["secret"]);
+  bindFormValidation("btnTesterInvite", ["tFirstName", "tLastName", "tEmail", "tCode"]);
+  bindFormValidation("btnCreateOffer", ["oTitle", "oBody"]);
+  bindFormValidation("btnCreatePromo", ["pTitle", "pBody"]);
+}
+
+function switchTab(id){
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".sidebar-nav button").forEach(b=>b.classList.remove("active"));
+  $("tab-"+id).classList.add("active");
+  document.querySelector(`[data-tab="${id}"]`).classList.add("active");
+  $("pageTitle").textContent = TAB_TITLES[id] || id;
+  sessionStorage.setItem("hm_admin_tab", id);
+  closeSidebar();
+}
+
+function toggleSidebar(){
+  $("sidebar").classList.toggle("open");
+  $("sidebarBackdrop").classList.toggle("open");
+}
+function closeSidebar(){
+  $("sidebar").classList.remove("open");
+  $("sidebarBackdrop").classList.remove("open");
+}
+
+function refreshIcons(){
+  if(window.lucide) lucide.createIcons();
+}
+
+function toggleCollapse(){
+  if(window.innerWidth <= 768) return;
+  const sb = $("sidebar");
+  const collapsed = sb.classList.toggle("collapsed");
+  localStorage.setItem("hm_admin_collapsed", collapsed ? "1" : "0");
+  const btn = $("collapseBtn");
+  btn.setAttribute("data-tip", collapsed ? "Expand sidebar" : "Collapse sidebar");
+  btn.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+}
+
+function initSidebar(){
+  if(localStorage.getItem("hm_admin_collapsed") === "1" && window.innerWidth > 768){
+    $("sidebar").classList.add("collapsed");
+    $("collapseBtn").setAttribute("data-tip", "Expand sidebar");
+    $("collapseBtn").setAttribute("aria-label", "Expand sidebar");
+  }
+  refreshIcons();
+}
+
+function logout(){
+  sessionStorage.removeItem("hm_admin");
+  sessionStorage.removeItem("hm_admin_tab");
+  SEC = "";
+  $("panel").style.display = "none";
+  $("gate").style.display = "flex";
+  $("secret").value = "";
+}
 
 function login(){
   SEC = $("secret").value.trim();
   if(!SEC) return;
   fetch(API+"/admin/health",{headers:{"x-admin-secret":SEC}})
     .then(r=>{if(r.status===403)throw new Error("Wrong secret");return r.json();})
-    .then(()=>{ $("gate").style.display="none"; $("panel").style.display="block"; sessionStorage.setItem("hm_admin",SEC); loadAll(); })
+    .then(()=>{
+      $("gate").style.display="none";
+      $("panel").style.display="block";
+      sessionStorage.setItem("hm_admin",SEC);
+      const tab = sessionStorage.getItem("hm_admin_tab") || "overview";
+      switchTab(tab);
+      loadAll();
+      initSidebar();
+    })
     .catch(e=>{ $("gateErr").style.display="block"; $("gateErr").textContent=e.message; });
 }
 
-function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); loadUsers(); }
+function loadAll(){
+  loadHealth(); loadUsage(); loadOffers(); loadPromotions();
+  loadAudienceDropdowns(); loadUsers(); loadTesterCodes();
+}
 
 async function sendAdminChat(){
   const token = $("chatToken").value.trim();
@@ -233,7 +607,7 @@ async function sendAdminChat(){
   try {
     const r = await fetch(API+"/chat",{method:"POST",headers:{"Content-Type":"application/json","x-token":token},body:JSON.stringify({message:msg,history:[]})});
     const d = await r.json();
-    el.textContent = d.response || JSON.stringify(d);
+    el.textContent = d.response || JSON.stringify(d,null,2);
   } catch(e){ el.textContent = "Σφάλμα: "+e.message; }
 }
 
@@ -244,7 +618,8 @@ function loadHealth(){
     for(const p of ["groq","gemini","claude"]){
       const s=d[p]||{ok:false,msg:"?"};
       const cls=s.ok?"green":"red";
-      h+=`<div class="prov"><span class="nm"><span class="dot ${cls}"></span>${p.charAt(0).toUpperCase()+p.slice(1)}</span><span class="st">${s.msg}</span></div>`;
+      const icon=s.ok?"✓":"✗";
+      h+=`<div class="prov"><span class="nm"><span class="dot ${cls}"></span>${p.charAt(0).toUpperCase()+p.slice(1)}</span><span class="st">${icon} ${s.msg}</span></div>`;
     }
     $("health").innerHTML=h;
   }).catch(()=>$("health").innerHTML='<div class="msg err">Failed to load</div>');
@@ -253,37 +628,38 @@ function loadHealth(){
 function loadUsage(){
   fetch(API+"/admin/usage",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
     const c=d.calls||{};
+    const total=(c.groq||0)+(c.gemini||0)+(c.claude||0);
     $("usage").innerHTML=
-      `<div><div class="n">${c.groq||0}</div><div class="l">Groq calls</div></div>`+
-      `<div><div class="n">${c.gemini||0}</div><div class="l">Gemini calls</div></div>`+
-      `<div><div class="n">${c.claude||0}</div><div class="l">Claude calls</div></div>`+
-      `<div><div class="n">$${(d.estimated_cost_usd||0).toFixed(2)}</div><div class="l">Est. cost</div></div>`;
-    $("usageNote").textContent=`Since ${d.since_days||0} days ago. Estimate only — Claude ≈ $0.0025/call, Groq & Gemini free tier. Resets on server restart.`;
+      `<div class="stat"><div class="n">${c.groq||0}</div><div class="l">Groq</div></div>`+
+      `<div class="stat"><div class="n">${c.gemini||0}</div><div class="l">Gemini</div></div>`+
+      `<div class="stat"><div class="n">${c.claude||0}</div><div class="l">Claude</div></div>`;
+    $("statCalls").textContent=total;
+    $("statCost").textContent="$"+(d.estimated_cost_usd||0).toFixed(2);
+    $("usageNote").textContent=`Since ${d.since_days||0} days ago · Claude ≈ $0.0025/call · Resets on server restart.`;
   }).catch(()=>{});
 }
 
 function loadOffers(){
-  $("offers").innerHTML="Loading…";
+  $("offers").innerHTML='<div class="empty">Loading…</div>';
   fetch(API+"/admin/offers",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
     const o=d.offers||[];
-    if(!o.length){ $("offers").innerHTML='<p class="meta">No active offers.</p>'; return; }
-    const colors={news:"#4ABEAA",promo:"#E07B54",sponsored:"#7C5CBF"};
+    if(!o.length){ $("offers").innerHTML='<div class="empty">No active offers.</div>'; return; }
     $("offers").innerHTML=o.map(x=>{
-      const bd=x.badge?`<span class="badge" style="background:${colors[x.badge]||'#999'}">${x.badge}</span>`:"";
+      const bd=x.badge?`<span class="badge" style="background:${BADGE_COLORS[x.badge]||'#999'}">${x.badge}</span>`:"";
       const exp=x.expires_at?` · expires ${x.expires_at}`:"";
-      return `<div class="offer"><div class="t">${bd}${esc(x.title)}</div><div class="b">${esc(x.body||"")}</div><div class="meta">${x.lang||'all'}${exp}</div><div style="margin-top:8px"><button class="del" onclick="delOffer('${x.id}')">Delete</button></div></div>`;
+      return `<div class="list-item"><div class="t">${bd}${esc(x.title)}</div><div class="b">${esc(x.body||"")}</div><div class="foot"><span class="meta">${x.lang||'all'}${exp}</span><button class="del" onclick="delOffer('${x.id}')">Delete</button></div></div>`;
     }).join("");
   }).catch(()=>$("offers").innerHTML='<div class="msg err">Failed to load</div>');
 }
 
 function createOffer(){
   const body={title:$("oTitle").value.trim(),body:$("oBody").value.trim(),badge:$("oBadge").value||null,lang:$("oLang").value.trim()||"all",link:$("oLink").value.trim()||null,expires_at:$("oExpires").value||null};
-  if(!body.title||!body.body){ showMsg("Title and body required","err"); return; }
+  if(!body.title||!body.body){ showMsg("offerMsg","Title and body required","err"); return; }
   fetch(API+"/admin/offers",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
     .then(r=>r.json()).then(d=>{
-      if(d.ok){ showMsg("Offer published ✓","ok"); $("oTitle").value="";$("oBody").value="";$("oLink").value="";$("oExpires").value="";$("oBadge").value="";loadOffers(); }
-      else showMsg(d.detail||"Failed","err");
-    }).catch(()=>showMsg("Network error","err"));
+      if(d.ok){ showMsg("offerMsg","Offer published ✓","ok"); $("oTitle").value="";$("oBody").value="";$("oLink").value="";$("oExpires").value="";$("oBadge").value="";refreshForm("btnCreateOffer");loadOffers(); }
+      else showMsg("offerMsg",d.detail||"Failed","err");
+    }).catch(()=>showMsg("offerMsg","Network error","err"));
 }
 
 function delOffer(id){
@@ -292,20 +668,17 @@ function delOffer(id){
     .then(r=>r.json()).then(()=>loadOffers()).catch(()=>{});
 }
 
-function showMsg(t,c){ $("offerMsg").innerHTML=`<div class="msg ${c}">${t}</div>`; setTimeout(()=>$("offerMsg").innerHTML="",4000); }
+function showMsg(elId,t,c){ $(elId).innerHTML=`<div class="msg ${c}">${t}</div>`; setTimeout(()=>$(elId).innerHTML="",4000); }
 function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
 
 function getPromoData(){
   const selVal=id=>{const v=$(id).value;return v?[v]:null;};
-  const pPreg=document.getElementById("pPregnant").checked;
-  const pNotPreg=document.getElementById("pNotPregnant").checked;
+  const pPreg=$("pPregnant").checked, pNotPreg=$("pNotPregnant").checked;
   const target_pregnancy=pPreg&&!pNotPreg?true:(!pPreg&&pNotPreg?false:null);
   return{
     title:$("pTitle").value.trim(),body:$("pBody").value.trim(),
     link:$("pLink").value.trim()||null,expires_at:$("pExpires").value||null,
-    target_countries:selVal("pCountries"),
-    target_cities:selVal("pCities"),
-    target_zips:selVal("pZips"),
+    target_countries:selVal("pCountries"),target_cities:selVal("pCities"),target_zips:selVal("pZips"),
     child_count_min:$("pChildMin").value!==""?parseInt($("pChildMin").value):null,
     child_count_max:$("pChildMax").value!==""?parseInt($("pChildMax").value):null,
     target_pregnancy,
@@ -313,60 +686,57 @@ function getPromoData(){
     child_age_max_months:$("pAgeMax").value!==""?parseInt($("pAgeMax").value):null,
   };
 }
+
 function previewPromotion(){
-  const body=getPromoData();
   $("previewResult").style.display="block";
   $("previewResult").textContent="Checking…";
-  fetch(API+"/admin/promotions/preview",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
+  fetch(API+"/admin/promotions/preview",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(getPromoData())})
     .then(r=>r.json()).then(d=>{
       $("previewResult").textContent=d.error?"Error: "+d.error:"✅ "+d.count+" users match (of "+d.total+" with consent)";
     }).catch(()=>$("previewResult").textContent="Network error");
 }
+
 function createPromotion(){
   const body=getPromoData();
-  if(!body.title||!body.body){showPromoMsg("Title and body required","err");return;}
+  if(!body.title||!body.body){showMsg("promoMsg","Title and body required","err");return;}
   fetch(API+"/admin/promotions",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
     .then(r=>r.json()).then(d=>{
       if(d.ok){
-        showPromoMsg("Promotion published ✓","ok");
+        showMsg("promoMsg","Promotion published ✓","ok");
         ["pTitle","pBody","pLink","pExpires","pCountries","pCities","pZips","pChildMin","pChildMax","pAgeMin","pAgeMax"].forEach(id=>$(id).value="");
-        ["pPregnant","pNotPregnant"].forEach(id=>document.getElementById(id).checked=false);
-        $("previewResult").style.display="none";loadPromotions();
-      }else showPromoMsg(d.detail||"Failed","err");
-    }).catch(()=>showPromoMsg("Network error","err"));
+        ["pPregnant","pNotPregnant"].forEach(id=>$(id).checked=false);
+        $("previewResult").style.display="none";refreshForm("btnCreatePromo");loadPromotions();
+      }else showMsg("promoMsg",d.detail||"Failed","err");
+    }).catch(()=>showMsg("promoMsg","Network error","err"));
 }
+
 function loadPromotions(){
-  $("promotions").innerHTML="Loading…";
+  $("promotions").innerHTML='<div class="empty">Loading…</div>';
   fetch(API+"/admin/promotions",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
     const list=d.promotions||[];
-    if(!list.length){$("promotions").innerHTML='<p class="meta">No active promotions.</p>';return;}
+    if(!list.length){$("promotions").innerHTML='<div class="empty">No active promotions.</div>';return;}
     $("promotions").innerHTML=list.map(x=>{
-      const geo=[];
-      if(x.target_countries&&x.target_countries.length)geo.push("🌍 "+x.target_countries.join(", "));
-      if(x.target_cities&&x.target_cities.length)geo.push("🏙 "+x.target_cities.join(", "));
-      if(x.target_zips&&x.target_zips.length)geo.push("📮 "+x.target_zips.join(", "));
-      const demo=[];
-      if(x.child_count_min!=null||x.child_count_max!=null)demo.push("👶 "+(x.child_count_min!=null?x.child_count_min:0)+"–"+(x.child_count_max!=null?x.child_count_max:"∞"));
+      const geo=[], demo=[];
+      if(x.target_countries?.length)geo.push("🌍 "+x.target_countries.join(", "));
+      if(x.target_cities?.length)geo.push("🏙 "+x.target_cities.join(", "));
+      if(x.target_zips?.length)geo.push("📮 "+x.target_zips.join(", "));
+      if(x.child_count_min!=null||x.child_count_max!=null)demo.push("👶 "+(x.child_count_min??0)+"–"+(x.child_count_max??"∞"));
       if(x.target_pregnancy===true)demo.push("🤰 pregnant");
-      if(x.target_pregnancy===false)demo.push("🚫🤰 non-pregnant");
-      if(x.child_age_min_months!=null||x.child_age_max_months!=null)demo.push("🗓 "+(x.child_age_min_months!=null?x.child_age_min_months:0)+"–"+(x.child_age_max_months!=null?x.child_age_max_months:"∞")+"mo");
-      const chips=[...geo,...demo].map(t=>'<span style="font-size:11px;background:#E8E4F0;color:#7C5CBF;padding:2px 8px;border-radius:999px;margin:2px 2px 0 0;display:inline-block">'+t+'</span>').join("");
+      if(x.target_pregnancy===false)demo.push("non-pregnant");
+      if(x.child_age_min_months!=null||x.child_age_max_months!=null)demo.push("🗓 "+(x.child_age_min_months??0)+"–"+(x.child_age_max_months??"∞")+"mo");
+      const chips=[...geo,...demo].map(t=>'<span class="chip">'+t+'</span>').join("");
       const exp=x.expires_at?" · expires "+x.expires_at:"";
-      return '<div class="offer"><div class="t"><span class="badge" style="background:#7C5CBF">sponsored</span>'+esc(x.title)+'</div><div class="b">'+esc(x.body)+'</div><div style="margin:6px 0">'+(chips||'<span style="font-size:11px;color:#C8BFB8">All consenting users</span>')+'</div><div class="meta">'+exp+'</div><div style="margin-top:8px"><button class="del" onclick="delPromotion('+x.id+')">Delete</button></div></div>';
+      return '<div class="list-item"><div class="t"><span class="badge" style="background:#7C5CBF">sponsored</span>'+esc(x.title)+'</div><div class="b">'+esc(x.body)+'</div><div style="margin:8px 0">'+(chips||'<span class="meta">All consenting users</span>')+'</div><div class="foot"><span class="meta">'+exp+'</span><button class="del" onclick="delPromotion('+x.id+')">Delete</button></div></div>';
     }).join("");
   }).catch(()=>$("promotions").innerHTML='<div class="msg err">Failed to load</div>');
 }
+
 function delPromotion(id){
   if(!confirm("Delete this promotion?"))return;
   fetch(API+"/admin/promotions/"+id,{method:"DELETE",headers:{"x-admin-secret":SEC}})
     .then(r=>r.json()).then(()=>loadPromotions()).catch(()=>{});
 }
-function showPromoMsg(t,c){$("promoMsg").innerHTML='<div class="msg '+c+'">'+t+'</div>';setTimeout(()=>$("promoMsg").innerHTML="",4000);}
 
-// ── loadAll ──────────────────────────────────────────────────
-function loadAll(){ loadHealth(); loadUsage(); loadOffers(); loadPromotions(); loadAudienceDropdowns(); loadUsers(); loadTesterCodes(); }
-
-// ── AH6: Dynamic dropdowns from live DB audience ──────────────
 function loadAudienceDropdowns(){
   fetch(API+"/admin/promotions/audience",{headers:{"x-admin-secret":SEC}})
     .then(r=>r.json()).then(d=>{
@@ -375,12 +745,12 @@ function loadAudienceDropdowns(){
       fillSelect("pZips","All ZIPs",d.zips||[]);
     }).catch(()=>{});
 }
+
 function fillSelect(id,placeholder,values){
   const el=$(id);
-  el.innerHTML=`<option value="">${placeholder}</option>`+values.map(v=>`<option value="${v}">${v}</option>`).join("");
+  el.innerHTML=`<option value="">${placeholder}</option>`+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
 }
 
-// ── Auto-preview (debounced 600ms) ───────────────────────────
 let _pvTimer=null;
 function schedulePreview(){
   clearTimeout(_pvTimer);
@@ -388,9 +758,8 @@ function schedulePreview(){
     const d=getPromoData();
     const hasFilter=d.target_countries||d.target_cities||d.target_zips||
       d.child_count_min!=null||d.child_count_max!=null||
-      d.child_age_min_months!=null||d.child_age_max_months!=null||
-      d.target_pregnancy!=null;
-    if(!hasFilter)return; // don't preview if no filters set
+      d.child_age_min_months!=null||d.child_age_max_months!=null||d.target_pregnancy!=null;
+    if(!hasFilter)return;
     $("previewResult").style.display="block";
     $("previewResult").textContent="Checking…";
     fetch(API+"/admin/promotions/preview",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(d)})
@@ -400,91 +769,105 @@ function schedulePreview(){
   },600);
 }
 
-// ── Beta profile seed (Priority 2 fix) ───────────────────────
 function seedBetaProfiles(){
-  if(!confirm("Seed profiles for all 15 beta testers? This will upsert their profiles with consent_marketing=true."))return;
-  const country=$("seedCountry").value;
-  const pregnancy_active=$("seedPregnant").value==="true";
-  const child_count=parseInt($("seedChildren").value);
-  $("seedMsg").innerHTML='<div class="msg ok">Seeding… please wait.</div>';
-  const city=document.getElementById("seedCity").value.trim()||null;
-  const zip=document.getElementById("seedZip").value.trim()||null;
+  if(!confirm("Seed profiles for all 15 beta testers?"))return;
+  $("seedMsg").innerHTML='<div class="msg info">Seeding… please wait.</div>';
   fetch(API+"/admin/profiles/seed",{
-    method:"POST",
-    headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},
-    body:JSON.stringify({country,pregnancy_active,child_count,city,zip})
+    method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},
+    body:JSON.stringify({
+      country:$("seedCountry").value,
+      pregnancy_active:$("seedPregnant").value==="true",
+      child_count:parseInt($("seedChildren").value),
+      city:$("seedCity").value.trim()||null,
+      zip:$("seedZip").value.trim()||null
+    })
   }).then(r=>r.json()).then(d=>{
-    if(d.ok){
-      $("seedMsg").innerHTML=`<div class="msg ok">✅ Seeded ${d.seeded} profiles successfully.</div>`;
-      loadAudienceDropdowns(); // refresh dropdowns with new data
-    } else {
-      $("seedMsg").innerHTML=`<div class="msg err">Error: ${d.detail||"Unknown error"}</div>`;
-    }
+    if(d.ok){$("seedMsg").innerHTML=`<div class="msg ok">✅ Seeded ${d.seeded} profiles.</div>`;loadAudienceDropdowns();}
+    else{$("seedMsg").innerHTML=`<div class="msg err">Error: ${d.detail||"Unknown"}</div>`;}
   }).catch(()=>$("seedMsg").innerHTML='<div class="msg err">Network error</div>');
 }
 
-// ── Auto-login if secret in session ──────────────────────────
+function renderUsers(list){
+  if(!list.length){$("usersList").innerHTML='<div class="empty">No users found.</div>';return;}
+  $("usersList").innerHTML=list.map(u=>{
+    const since=u.created_at?new Date(u.created_at).toLocaleDateString():"?";
+    const last=u.last_login?new Date(u.last_login).toLocaleDateString():"never";
+    const trialEnd=u.trial_ends_at?new Date(u.trial_ends_at).toLocaleDateString():"";
+    const planBadge=u.plan==="premium"?"#7C5CBF":u.plan==="starter"?"#2B3A67":"#2D9E6B";
+    const statusInfo=u.subscription_status==="trial"&&trialEnd?"trial (ends "+trialEnd+")":u.subscription_status||"?";
+    return '<div class="list-item"><div class="t"><span class="badge" style="background:'+planBadge+'">'+(u.plan||"trial")+'</span>'+esc(u.email)+'</div>'+
+      '<div class="b">'+(u.name?esc(u.name)+" · ":"")+statusInfo+' · joined '+since+' · last login '+last+'</div>'+
+      '<div class="foot"><span></span><button class="del" onclick="delUser(\''+u.id+'\')">Delete</button></div></div>';
+  }).join("");
+}
+
+function filterUsers(){
+  const q=$("userSearch").value.trim().toLowerCase();
+  if(!q){renderUsers(_allUsers);return;}
+  renderUsers(_allUsers.filter(u=>
+    (u.email||"").toLowerCase().includes(q)||(u.name||"").toLowerCase().includes(q)
+  ));
+}
+
 function loadUsers(){
-  $("usersList").innerHTML="Loading\u2026";
+  $("usersList").innerHTML='<div class="empty">Loading…</div>';
   fetch(API+"/admin/users",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
-    const list=d.users||[];
-    if(!list.length){$("usersList").innerHTML='<p class="meta">No users yet.</p>';return;}
-    $("usersList").innerHTML=list.map(u=>{
-      const since=u.created_at?new Date(u.created_at).toLocaleDateString():"?";
-      const last=u.last_login?new Date(u.last_login).toLocaleDateString():"never";
-      const trialEnd=u.trial_ends_at?new Date(u.trial_ends_at).toLocaleDateString():"";
-      const planBadge=u.plan==="premium"?"#7C5CBF":u.plan==="starter"?"#2B3A67":"#2D9E6B";
-      const statusInfo=u.subscription_status==="trial"&&trialEnd?"trial (ends "+trialEnd+")":u.subscription_status||"?";
-      return '<div class="offer"><div class="t"><span class="badge" style="background:'+planBadge+'">'+(u.plan||"trial")+'</span>'+esc(u.email)+'</div>'+
-        '<div class="b">'+(u.name?esc(u.name)+" \xb7 ":"")+statusInfo+' \xb7 joined '+since+' \xb7 last login '+last+'</div>'+
-        '<div style="margin-top:8px"><button class="del" onclick="delUser(\''+u.id+'\')">Delete</button></div></div>';
-    }).join("");
+    _allUsers=d.users||[];
+    $("statUsers").textContent=_allUsers.length;
+    filterUsers();
   }).catch(()=>$("usersList").innerHTML='<div class="msg err">Failed to load</div>');
 }
+
 function delUser(id){
   if(!confirm("Delete this user and their data? This cannot be undone."))return;
   fetch(API+"/admin/users/"+id,{method:"DELETE",headers:{"x-admin-secret":SEC}})
     .then(r=>r.json()).then(d=>{
-      if(d.ok){showUserMsg("User deleted \u2713","ok");loadUsers();}
-      else showUserMsg(d.detail||"Failed","err");
-    }).catch(()=>showUserMsg("Network error","err"));
+      if(d.ok){showMsg("usersMsg","User deleted ✓","ok");loadUsers();}
+      else showMsg("usersMsg",d.detail||"Failed","err");
+    }).catch(()=>showMsg("usersMsg","Network error","err"));
 }
-function showUserMsg(t,c){$("usersMsg").innerHTML='<div class="msg '+c+'">'+(t)+'</div>';setTimeout(()=>$("usersMsg").innerHTML="",4000);}
 
-
-// ── Tester Invite ─────────────────────────────────────────────
-const TESTER_CODES = ["HeyMaa_Tester01","HeyMaa_Tester02","HeyMaa_Tester03","HeyMaa_Tester04","HeyMaa_Tester05","HeyMaa_Tester06","HeyMaa_Tester07","HeyMaa_Tester08","HeyMaa_Tester09","HeyMaa_Tester10","HeyMaa_Tester11","HeyMaa_Tester12","HeyMaa_Tester13","HeyMaa_Tester14","HeyMaa_Tester15","HeyMaa_Tester16","HeyMaa_Tester17","HeyMaa_Tester18","HeyMaa_Tester19","HeyMaa_Tester20","HeyMaa_Tester21","HeyMaa_Tester22","HeyMaa_Tester23","HeyMaa_Tester24","HeyMaa_Tester25","HeyMaa_Tester26","HeyMaa_Tester27","HeyMaa_Tester28","HeyMaa_Tester29","HeyMaa_Tester30"];
+const TESTER_CODES = Array.from({length:30},(_,i)=>"HeyMaa_Tester"+String(i+1).padStart(2,"0"));
 function loadTesterCodes(){
   const sel=$("tCode");
-  sel.innerHTML='<option value="">-- Κωδικός Εισόδου --</option>';
+  sel.innerHTML='<option value="">-- Επιλογή --</option>';
   TESTER_CODES.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
 }
+
 function sendTesterInvite(){
   const first=$("tFirstName").value.trim(), last=$("tLastName").value.trim();
   const email=$("tEmail").value.trim(), plan=$("tPlan").value;
   const code=$("tCode").value, lang=$("tLang").value;
-  if(!first||!last||!email||!code){showTesterMsg("Συμπλήρωσε όλα τα υποχρεωτικά πεδία (*)","err");return;}
-  showTesterMsg("Αποστολή…","ok");
+  if(!first||!last||!email||!code){showMsg("testerMsg","Συμπλήρωσε όλα τα υποχρεωτικά πεδία (*)","err");return;}
+  showMsg("testerMsg","Αποστολή…","info");
   fetch(API+"/admin/invite_tester",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},
     body:JSON.stringify({first_name:first,last_name:last,email,plan,invite_code:code,lang})
   }).then(r=>r.json()).then(d=>{
-    if(d.ok){showTesterMsg("✅ Πρόσκληση στάλθηκε στο "+email,"ok");$("tFirstName").value="";$("tLastName").value="";$("tEmail").value="";$("tCode").value="";}
-    else showTesterMsg("❌ "+(d.detail||"Αποτυχία"),"err");
-  }).catch(()=>showTesterMsg("Network error","err"));
+    if(d.ok){showMsg("testerMsg","✅ Πρόσκληση στάλθηκε στο "+email,"ok");$("tFirstName").value="";$("tLastName").value="";$("tEmail").value="";$("tCode").value="";refreshForm("btnTesterInvite");}
+    else showMsg("testerMsg","❌ "+(d.detail||"Αποτυχία"),"err");
+  }).catch(()=>showMsg("testerMsg","Network error","err"));
 }
+
 function deleteAllTesters(){
   if(!confirm("ΠΡΟΣΟΧΗ: Θα διαγραφούν ΟΛΟΙ οι χρήστες. Συνέχεια;"))return;
   if(!confirm("Είσαι απολύτως σίγουρος; Αυτό δεν αναστρέφεται."))return;
   fetch(API+"/admin/users/delete_all",{method:"DELETE",headers:{"x-admin-secret":SEC}})
     .then(r=>r.json()).then(d=>{
-      $("deleteAllMsg").innerHTML=d.ok?'<div class="msg ok" style="margin-top:8px">✅ Διαγράφηκαν '+d.deleted+' χρήστες.</div>':'<div class="msg err" style="margin-top:8px">❌ '+(d.detail||"Αποτυχία")+'</div>';
+      $("deleteAllMsg").innerHTML=d.ok?'<div class="msg ok" style="margin-top:10px">✅ Διαγράφηκαν '+d.deleted+' χρήστες.</div>':'<div class="msg err" style="margin-top:10px">❌ '+(d.detail||"Αποτυχία")+'</div>';
       if(d.ok)loadUsers();
-    }).catch(()=>{$("deleteAllMsg").innerHTML='<div class="msg err" style="margin-top:8px">Network error</div>';});
+    }).catch(()=>{$("deleteAllMsg").innerHTML='<div class="msg err" style="margin-top:10px">Network error</div>';});
 }
-function showTesterMsg(t,c){$("testerMsg").innerHTML='<div class="msg '+c+'">'+t+'</div>';if(c==="ok")setTimeout(()=>$("testerMsg").innerHTML="",5000);}
 
 const saved=sessionStorage.getItem("hm_admin");
-if(saved){ SEC=saved; $("gate").style.display="none"; $("panel").style.display="block"; loadAll(); loadTesterCodes(); }
+initFormValidation();
+if(saved){
+  SEC=saved;
+  $("gate").style.display="none";
+  $("panel").style.display="block";
+  switchTab(sessionStorage.getItem("hm_admin_tab")||"overview");
+  loadAll();
+  initSidebar();
+}
 </script>
 </body>
 </html>
