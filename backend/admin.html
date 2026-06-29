@@ -207,6 +207,17 @@ code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
 .checkbox-row label{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:500}
 .checkbox-row input{width:auto;margin:0;accent-color:var(--teal)}
 
+.dropzone{border:2px dashed #DDD7D0;border-radius:12px;padding:18px 14px;text-align:center;cursor:pointer;margin-bottom:12px;transition:border-color .15s,background .15s;background:#fff;min-height:96px;display:flex;align-items:center;justify-content:center}
+.dropzone:hover,.dropzone.drag{border-color:var(--teal);background:rgba(74,190,170,.06)}
+.dropzone.uploading{opacity:.55;pointer-events:none}
+.dropzone .dz-inner{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-size:13px;width:100%}
+.dropzone .dz-inner svg{width:28px;height:28px;color:var(--teal);stroke-width:1.5}
+.dropzone .dz-hint{font-size:11px;opacity:.75}
+.dropzone .dz-preview{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.dropzone .dz-preview img{max-width:100%;max-height:140px;border-radius:10px;object-fit:cover}
+.list-item.with-thumb{display:flex;gap:12px;align-items:flex-start}
+.list-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:.5px solid var(--border);background:var(--gl)}
+
 @media(max-width:768px){
   .sidebar{width:var(--sidebar-w)!important;transform:translateX(-100%);transition:transform .25s ease,box-shadow .25s;box-shadow:none}
   .sidebar.open{transform:translateX(0);box-shadow:var(--shadow)}
@@ -369,6 +380,20 @@ code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
           <div id="offerMsg"></div>
           <label class="field">Title <span class="req" aria-hidden="true">*</span></label><input id="oTitle" placeholder="Offer title">
           <label class="field">Message <span class="req" aria-hidden="true">*</span></label><textarea id="oBody" placeholder="Message body"></textarea>
+          <label class="field">Image (optional)</label>
+          <div class="dropzone" id="oDropzone" onclick="if(!event.target.closest('.dz-clear'))$('oFile').click()">
+            <input type="file" id="oFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <input type="hidden" id="oImageKey">
+            <div class="dz-inner" id="oDzInner">
+              <i data-lucide="image-plus"></i>
+              <span>Drop image here or click to browse</span>
+              <span class="dz-hint">JPEG, PNG, WebP, GIF · max 5 MB</span>
+            </div>
+            <div class="dz-preview" id="oDzPreview" style="display:none">
+              <img id="oDzImg" alt="Preview">
+              <button type="button" class="sm ghost dz-clear" onclick="event.stopPropagation();clearDropzone('o')">Remove image</button>
+            </div>
+          </div>
           <div class="row">
             <div class="field-wrap"><label class="field">Badge</label>
               <select id="oBadge"><option value="">No badge</option><option value="news">news</option><option value="promo">promo</option><option value="sponsored">sponsored</option></select>
@@ -388,6 +413,20 @@ code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
           <div id="promoMsg"></div>
           <label class="field">Title <span class="req" aria-hidden="true">*</span></label><input id="pTitle" placeholder="Promotion title">
           <label class="field">Message <span class="req" aria-hidden="true">*</span></label><textarea id="pBody" placeholder="Message body"></textarea>
+          <label class="field">Image (optional)</label>
+          <div class="dropzone" id="pDropzone" onclick="if(!event.target.closest('.dz-clear'))$('pFile').click()">
+            <input type="file" id="pFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <input type="hidden" id="pImageKey">
+            <div class="dz-inner" id="pDzInner">
+              <i data-lucide="image-plus"></i>
+              <span>Drop image here or click to browse</span>
+              <span class="dz-hint">JPEG, PNG, WebP, GIF · max 5 MB</span>
+            </div>
+            <div class="dz-preview" id="pDzPreview" style="display:none">
+              <img id="pDzImg" alt="Preview">
+              <button type="button" class="sm ghost dz-clear" onclick="event.stopPropagation();clearDropzone('p')">Remove image</button>
+            </div>
+          </div>
           <label class="field">Link (optional)</label><input id="pLink" placeholder="https://…">
           <label class="field">Expiry</label><input id="pExpires" type="date">
           <p class="field" style="margin-top:4px">📍 GEO (blank = all)</p>
@@ -576,13 +615,37 @@ function logout(){
   $("secret").value = "";
 }
 
+function apiDetail(d){
+  if(!d) return "";
+  if(typeof d.detail === "string") return d.detail;
+  if(Array.isArray(d.detail)) return d.detail.map(x=>x.msg||JSON.stringify(x)).join("; ");
+  return d.error || d.message || "";
+}
+
+async function adminFetch(path, opts={}){
+  const headers = {...(opts.headers||{}), "x-admin-secret": SEC};
+  const r = await fetch(API+path, {...opts, headers});
+  let d = {};
+  try { d = await r.json(); } catch {}
+  if(!r.ok){
+    const msg = apiDetail(d) || `HTTP ${r.status}`;
+    if(r.status===401 || r.status===403){
+      logout();
+      $("gateErr").style.display="block";
+      $("gateErr").textContent=msg;
+    }
+    throw new Error(msg);
+  }
+  return d;
+}
+
 function login(){
   SEC = $("secret").value.trim();
   if(!SEC) return;
-  fetch(API+"/admin/health",{headers:{"x-admin-secret":SEC}})
-    .then(r=>{if(r.status===403)throw new Error("Wrong secret");return r.json();})
+  adminFetch("/admin/health")
     .then(()=>{
       $("gate").style.display="none";
+      $("gateErr").style.display="none";
       $("panel").style.display="block";
       sessionStorage.setItem("hm_admin",SEC);
       const tab = sessionStorage.getItem("hm_admin_tab") || "overview";
@@ -639,6 +702,53 @@ function loadUsage(){
   }).catch(()=>{});
 }
 
+function clearDropzone(prefix){
+  $(prefix+"ImageKey").value="";
+  $(prefix+"File").value="";
+  $(prefix+"DzInner").style.display="";
+  $(prefix+"DzPreview").style.display="none";
+  $(prefix+"DzImg").src="";
+}
+
+function showDropzonePreview(prefix, url){
+  $(prefix+"DzInner").style.display="none";
+  $(prefix+"DzPreview").style.display="flex";
+  $(prefix+"DzImg").src=url;
+}
+
+async function uploadDropzoneImage(prefix, bucket, file){
+  const dz=$(prefix+"Dropzone");
+  dz.classList.add("uploading");
+  try{
+    const fd=new FormData();
+    fd.append("file", file);
+    const r=await fetch(API+"/admin/upload/"+bucket,{method:"POST",headers:{"x-admin-secret":SEC},body:fd});
+    let d={}; try{d=await r.json();}catch{}
+    if(!r.ok) throw new Error(apiDetail(d)||"HTTP "+r.status);
+    $(prefix+"ImageKey").value=d.key;
+    showDropzonePreview(prefix, d.url);
+  }catch(e){
+    showMsg(prefix==="o"?"offerMsg":"promoMsg", e.message, "err");
+  }finally{
+    dz.classList.remove("uploading");
+    refreshIcons();
+  }
+}
+
+function bindDropzone(prefix, bucket){
+  const dz=$(prefix+"Dropzone"), file=$(prefix+"File");
+  ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");}));
+  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");}));
+  dz.addEventListener("drop",e=>{const f=e.dataTransfer?.files?.[0]; if(f) uploadDropzoneImage(prefix,bucket,f);});
+  file.addEventListener("change",()=>{if(file.files[0]) uploadDropzoneImage(prefix,bucket,file.files[0]);});
+}
+
+function initDropzones(){
+  bindDropzone("o","offers");
+  bindDropzone("p","promotions");
+  refreshIcons();
+}
+
 function loadOffers(){
   $("offers").innerHTML='<div class="empty">Loading…</div>';
   fetch(API+"/admin/offers",{headers:{"x-admin-secret":SEC}}).then(r=>r.json()).then(d=>{
@@ -647,19 +757,21 @@ function loadOffers(){
     $("offers").innerHTML=o.map(x=>{
       const bd=x.badge?`<span class="badge" style="background:${BADGE_COLORS[x.badge]||'#999'}">${x.badge}</span>`:"";
       const exp=x.expires_at?` · expires ${x.expires_at}`:"";
-      return `<div class="list-item"><div class="t">${bd}${esc(x.title)}</div><div class="b">${esc(x.body||"")}</div><div class="foot"><span class="meta">${x.lang||'all'}${exp}</span><button class="del" onclick="delOffer('${x.id}')">Delete</button></div></div>`;
+      const thumb=x.image_url?`<img class="list-thumb" src="${esc(x.image_url)}" alt="">`:"";
+      const cls=thumb?"list-item with-thumb":"list-item";
+      return `<div class="${cls}">${thumb}<div style="flex:1;min-width:0"><div class="t">${bd}${esc(x.title)}</div><div class="b">${esc(x.body||"")}</div><div class="foot"><span class="meta">${x.lang||'all'}${exp}</span><button class="del" onclick="delOffer('${x.id}')">Delete</button></div></div></div>`;
     }).join("");
   }).catch(()=>$("offers").innerHTML='<div class="msg err">Failed to load</div>');
 }
 
 function createOffer(){
-  const body={title:$("oTitle").value.trim(),body:$("oBody").value.trim(),badge:$("oBadge").value||null,lang:$("oLang").value.trim()||"all",link:$("oLink").value.trim()||null,expires_at:$("oExpires").value||null};
+  const body={title:$("oTitle").value.trim(),body:$("oBody").value.trim(),badge:$("oBadge").value||null,lang:$("oLang").value.trim()||"all",link:$("oLink").value.trim()||null,expires_at:$("oExpires").value||null,image_key:$("oImageKey").value||null};
   if(!body.title||!body.body){ showMsg("offerMsg","Title and body required","err"); return; }
-  fetch(API+"/admin/offers",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
-    .then(r=>r.json()).then(d=>{
-      if(d.ok){ showMsg("offerMsg","Offer published ✓","ok"); $("oTitle").value="";$("oBody").value="";$("oLink").value="";$("oExpires").value="";$("oBadge").value="";refreshForm("btnCreateOffer");loadOffers(); }
-      else showMsg("offerMsg",d.detail||"Failed","err");
-    }).catch(()=>showMsg("offerMsg","Network error","err"));
+  adminFetch("/admin/offers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(d=>{
+      if(d.ok){ showMsg("offerMsg","Offer published ✓","ok"); $("oTitle").value="";$("oBody").value="";$("oLink").value="";$("oExpires").value="";$("oBadge").value="";clearDropzone("o");refreshForm("btnCreateOffer");loadOffers(); }
+      else showMsg("offerMsg",apiDetail(d)||"Failed","err");
+    }).catch(e=>showMsg("offerMsg",e.message,"err"));
 }
 
 function delOffer(id){
@@ -684,6 +796,7 @@ function getPromoData(){
     target_pregnancy,
     child_age_min_months:$("pAgeMin").value!==""?parseInt($("pAgeMin").value):null,
     child_age_max_months:$("pAgeMax").value!==""?parseInt($("pAgeMax").value):null,
+    image_key:$("pImageKey").value||null,
   };
 }
 
@@ -699,15 +812,16 @@ function previewPromotion(){
 function createPromotion(){
   const body=getPromoData();
   if(!body.title||!body.body){showMsg("promoMsg","Title and body required","err");return;}
-  fetch(API+"/admin/promotions",{method:"POST",headers:{"x-admin-secret":SEC,"Content-Type":"application/json"},body:JSON.stringify(body)})
-    .then(r=>r.json()).then(d=>{
+  adminFetch("/admin/promotions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(d=>{
       if(d.ok){
         showMsg("promoMsg","Promotion published ✓","ok");
         ["pTitle","pBody","pLink","pExpires","pCountries","pCities","pZips","pChildMin","pChildMax","pAgeMin","pAgeMax"].forEach(id=>$(id).value="");
         ["pPregnant","pNotPregnant"].forEach(id=>$(id).checked=false);
+        clearDropzone("p");
         $("previewResult").style.display="none";refreshForm("btnCreatePromo");loadPromotions();
-      }else showMsg("promoMsg",d.detail||"Failed","err");
-    }).catch(()=>showMsg("promoMsg","Network error","err"));
+      }else showMsg("promoMsg",apiDetail(d)||"Failed","err");
+    }).catch(e=>showMsg("promoMsg",e.message,"err"));
 }
 
 function loadPromotions(){
@@ -726,7 +840,9 @@ function loadPromotions(){
       if(x.child_age_min_months!=null||x.child_age_max_months!=null)demo.push("🗓 "+(x.child_age_min_months??0)+"–"+(x.child_age_max_months??"∞")+"mo");
       const chips=[...geo,...demo].map(t=>'<span class="chip">'+t+'</span>').join("");
       const exp=x.expires_at?" · expires "+x.expires_at:"";
-      return '<div class="list-item"><div class="t"><span class="badge" style="background:#7C5CBF">sponsored</span>'+esc(x.title)+'</div><div class="b">'+esc(x.body)+'</div><div style="margin:8px 0">'+(chips||'<span class="meta">All consenting users</span>')+'</div><div class="foot"><span class="meta">'+exp+'</span><button class="del" onclick="delPromotion('+x.id+')">Delete</button></div></div>';
+      const thumb=x.image_url?'<img class="list-thumb" src="'+esc(x.image_url)+'" alt="">':"";
+      const cls=thumb?'list-item with-thumb':'list-item';
+      return '<div class="'+cls+'">'+thumb+'<div style="flex:1;min-width:0"><div class="t"><span class="badge" style="background:#7C5CBF">sponsored</span>'+esc(x.title)+'</div><div class="b">'+esc(x.body)+'</div><div style="margin:8px 0">'+(chips||'<span class="meta">All consenting users</span>')+'</div><div class="foot"><span class="meta">'+exp+'</span><button class="del" onclick="delPromotion('+x.id+')">Delete</button></div></div></div>';
     }).join("");
   }).catch(()=>$("promotions").innerHTML='<div class="msg err">Failed to load</div>');
 }
@@ -860,6 +976,7 @@ function deleteAllTesters(){
 
 const saved=sessionStorage.getItem("hm_admin");
 initFormValidation();
+initDropzones();
 if(saved){
   SEC=saved;
   $("gate").style.display="none";

@@ -2143,6 +2143,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
             {offers.map((o:any)=>(
               <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
                 {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{o.badge.toUpperCase()}</div>}
+                {o.image_url&&<img src={o.image_url} alt="" style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:10,marginBottom:8,display:"block"}}/>}
                 <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
                 <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap" as any}}>
