@@ -1,28 +1,13 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, type ReactNode } from 'react'
+import { useToast, type ToastKind } from '../context/ToastContext'
 
-export function Message({
-  text,
-  kind,
-}: {
-  text: string
-  kind: 'ok' | 'err' | 'info'
-}) {
-  if (!text) return null
-  return <div className={`msg ${kind}`}>{text}</div>
-}
-
-export function useFlashMessage(timeoutMs = 4000) {
-  const [msg, setMsg] = useState<{ text: string; kind: 'ok' | 'err' | 'info' } | null>(null)
-
-  useEffect(() => {
-    if (!msg) return
-    const t = setTimeout(() => setMsg(null), timeoutMs)
-    return () => clearTimeout(t)
-  }, [msg, timeoutMs])
-
-  const show = (text: string, kind: 'ok' | 'err' | 'info' = 'ok') => setMsg({ text, kind })
-
-  return { msg, show, Message: msg ? <Message text={msg.text} kind={msg.kind} /> : null }
+export function useFlashMessage() {
+  const { showToast } = useToast()
+  const show = useCallback(
+    (text: string, kind: ToastKind = 'ok') => showToast(text, kind),
+    [showToast],
+  )
+  return { show, Message: null }
 }
 
 export function FieldLabel({

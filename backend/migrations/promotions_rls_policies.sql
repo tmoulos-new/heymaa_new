@@ -1,14 +1,10 @@
 -- Row-level security for promotions (targeted/sponsored content).
--- Run in Supabase SQL Editor (same pattern as offer_news_rls_policies.sql).
+-- Same pattern as offers_rls_policies.sql.
+-- Run in Supabase SQL Editor.
 
 ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
 
--- App feed: anyone can read active promotions
 DROP POLICY IF EXISTS "Public read active promotions" ON public.promotions;
-CREATE POLICY "Public read active promotions"
-ON public.promotions FOR SELECT
-TO public
-USING (active = true);
 
 DROP POLICY IF EXISTS "Authenticated read promotions" ON public.promotions;
 CREATE POLICY "Authenticated read promotions"

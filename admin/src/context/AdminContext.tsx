@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { apiDetail, getApiBase } from '../lib/api'
+import { useToast } from './ToastContext'
 
 interface AdminContextValue {
   secret: string
@@ -30,6 +31,7 @@ export function AdminProvider({
 }) {
   const [secret, setSecret] = useState(() => sessionStorage.getItem(SECRET_KEY) || '')
   const api = getApiBase()
+  const { showToast } = useToast()
 
   const logout = useCallback(() => {
     sessionStorage.removeItem(SECRET_KEY)
@@ -52,12 +54,13 @@ export function AdminProvider({
         if (r.status === 401 || r.status === 403) {
           logout()
           onAuthError(msg)
+          showToast(msg, 'err')
         }
         throw new Error(msg)
       }
       return d
     },
-    [api, secret, logout, onAuthError],
+    [api, secret, logout, onAuthError, showToast],
   )
 
   const login = useCallback(

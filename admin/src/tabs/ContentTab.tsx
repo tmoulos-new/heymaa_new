@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Newspaper, PlusCircle, RefreshCw, Target } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Newspaper, Pencil, PlusCircle, RefreshCw, Target, X } from 'lucide-react'
 import { Dropzone } from '../components/Dropzone'
+import { MultiSelectSearch } from '../components/MultiSelectSearch'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { BADGE_COLORS } from '../lib/constants'
 import { apiDetail } from '../lib/api'
-import type { Offer, PromoFormData, Promotion } from '../lib/types'
+import type { Offer, PromoFormData, Promotion, RegionRow } from '../lib/types'
 
 function buildPromoForm(
   title: string,
@@ -22,6 +23,7 @@ function buildPromoForm(
   pregnant: boolean,
   notPregnant: boolean,
   imageKey: string,
+  regionIds: string[],
 ): PromoFormData {
   const selVal = (v: string) => (v ? [v] : null)
   const target_pregnancy = pregnant && !notPregnant ? true : !pregnant && notPregnant ? false : null
@@ -39,7 +41,51 @@ function buildPromoForm(
     child_age_min_months: ageMin !== '' ? parseInt(ageMin, 10) : null,
     child_age_max_months: ageMax !== '' ? parseInt(ageMax, 10) : null,
     image_key: imageKey || null,
+    region_ids: regionIds.length ? regionIds : null,
   }
+}
+
+function dateInputValue(v?: string | null) {
+  if (!v) return ''
+  return v.slice(0, 10)
+}
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal modal-wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="content-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 id="content-modal-title">{title}</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  )
 }
 
 export function ContentTab() {
@@ -62,6 +108,7 @@ export function ContentTab() {
   const [oExpires, setOExpires] = useState('')
   const [oImageKey, setOImageKey] = useState('')
   const [oPreview, setOPreview] = useState('')
+  const [oRegionIds, setORegionIds] = useState<string[]>([])
 
   const [pTitle, setPTitle] = useState('')
   const [pBody, setPBody] = useState('')
@@ -78,12 +125,45 @@ export function ContentTab() {
   const [pNotPregnant, setPNotPregnant] = useState(false)
   const [pImageKey, setPImageKey] = useState('')
   const [pPreview, setPPreview] = useState('')
+  const [pRegionIds, setPRegionIds] = useState<string[]>([])
   const [previewText, setPreviewText] = useState('')
   const [previewVisible, setPreviewVisible] = useState(false)
 
   const [countries, setCountries] = useState<string[]>([])
   const [cities, setCities] = useState<string[]>([])
   const [zips, setZips] = useState<string[]>([])
+  const [regions, setRegions] = useState<RegionRow[]>([])
+
+  const [editOfferId, setEditOfferId] = useState<string | null>(null)
+  const [eOTitle, setEOTitle] = useState('')
+  const [eOBody, setEOBody] = useState('')
+  const [eOBadge, setEOBadge] = useState('')
+  const [eOLang, setEOLang] = useState('all')
+  const [eOLink, setEOLink] = useState('')
+  const [eOExpires, setEOExpires] = useState('')
+  const [eOImageKey, setEOImageKey] = useState('')
+  const [eOPreview, setEOPreview] = useState('')
+  const [eORegionIds, setEORegionIds] = useState<string[]>([])
+  const [savingOfferEdit, setSavingOfferEdit] = useState(false)
+
+  const [editPromoId, setEditPromoId] = useState<string | null>(null)
+  const [ePTitle, setEPTitle] = useState('')
+  const [ePBody, setEPBody] = useState('')
+  const [ePLink, setEPLink] = useState('')
+  const [ePExpires, setEPExpires] = useState('')
+  const [ePCountries, setEPCountries] = useState('')
+  const [ePCities, setEPCities] = useState('')
+  const [ePZips, setEPZips] = useState('')
+  const [ePChildMin, setEPChildMin] = useState('')
+  const [ePChildMax, setEPChildMax] = useState('')
+  const [ePAgeMin, setEPAgeMin] = useState('')
+  const [ePAgeMax, setEPAgeMax] = useState('')
+  const [ePPregnant, setEPPregnant] = useState(false)
+  const [ePNotPregnant, setEPNotPregnant] = useState(false)
+  const [ePImageKey, setEPImageKey] = useState('')
+  const [ePPreview, setEPPreview] = useState('')
+  const [ePRegionIds, setEPRegionIds] = useState<string[]>([])
+  const [savingPromoEdit, setSavingPromoEdit] = useState(false)
 
   const pvTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -103,6 +183,7 @@ export function ContentTab() {
       pPregnant,
       pNotPregnant,
       pImageKey,
+      pRegionIds,
     )
 
   const loadOffers = useCallback(async () => {
@@ -142,11 +223,36 @@ export function ContentTab() {
     }
   }, [adminFetch])
 
+  const loadRegions = useCallback(async () => {
+    try {
+      const d = await adminFetch('/admin/regions')
+      setRegions((d.regions as RegionRow[]) || [])
+    } catch {
+      /* ignore */
+    }
+  }, [adminFetch])
+
   useEffect(() => {
     void loadOffers()
     void loadPromotions()
     void loadAudience()
-  }, [loadOffers, loadPromotions, loadAudience])
+    void loadRegions()
+  }, [loadOffers, loadPromotions, loadAudience, loadRegions])
+
+  const regionOptions = regions
+    .filter((r) => r.active !== false)
+    .map((r) => ({
+      value: r.id,
+      label: r.name,
+      hint: (r.languages || []).join(', '),
+    }))
+
+  const regionSummary = (ids?: string[], linked?: RegionRow[]) => {
+    const names =
+      linked?.map((r) => r.name) ||
+      (ids || []).map((id) => regions.find((r) => r.id === id)?.name).filter(Boolean)
+    return names.length ? names.join(', ') : 'All regions'
+  }
 
   const createOffer = async () => {
     const body = {
@@ -157,6 +263,7 @@ export function ContentTab() {
       link: oLink.trim() || null,
       expires_at: oExpires || null,
       image_key: oImageKey || null,
+      region_ids: oRegionIds.length ? oRegionIds : null,
     }
     if (!body.title || !body.body) {
       offerMsg.show('Title and body required', 'err')
@@ -177,6 +284,7 @@ export function ContentTab() {
         setOBadge('')
         setOImageKey('')
         setOPreview('')
+        setORegionIds([])
         void loadOffers()
       } else {
         offerMsg.show(apiDetail(d) || 'Failed', 'err')
@@ -215,6 +323,7 @@ export function ContentTab() {
         setPNotPregnant(false)
         setPImageKey('')
         setPPreview('')
+        setPRegionIds([])
         setPreviewVisible(false)
         void loadPromotions()
       } else {
@@ -290,6 +399,133 @@ export function ContentTab() {
     }
   }
 
+  const openEditOffer = (o: Offer) => {
+    setEditOfferId(o.id)
+    setEOTitle(o.title || '')
+    setEOBody(o.body || '')
+    setEOBadge(o.badge || '')
+    setEOLang(o.lang || 'all')
+    setEOLink(o.link || '')
+    setEOExpires(dateInputValue(o.expires_at))
+    setEOImageKey(o.image_key || '')
+    setEOPreview(o.image_url || '')
+    setEORegionIds(o.region_ids || o.regions?.map((r) => r.id) || [])
+  }
+
+  const closeEditOffer = () => {
+    if (savingOfferEdit) return
+    setEditOfferId(null)
+  }
+
+  const saveEditOffer = async () => {
+    if (!editOfferId) return
+    const body = {
+      title: eOTitle.trim(),
+      body: eOBody.trim(),
+      badge: eOBadge || null,
+      lang: eOLang.trim() || 'all',
+      link: eOLink.trim() || null,
+      expires_at: eOExpires || null,
+      image_key: eOImageKey || null,
+      region_ids: eORegionIds.length ? eORegionIds : null,
+    }
+    if (!body.title || !body.body) {
+      offerMsg.show('Title and body required', 'err')
+      return
+    }
+    setSavingOfferEdit(true)
+    try {
+      const d = await adminFetch(`/admin/offers/${editOfferId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (d.ok) {
+        offerMsg.show('Offer updated ✓', 'ok')
+        setEditOfferId(null)
+        void loadOffers()
+      } else {
+        offerMsg.show(apiDetail(d) || 'Failed', 'err')
+      }
+    } catch (e) {
+      offerMsg.show(e instanceof Error ? e.message : 'Failed', 'err')
+    } finally {
+      setSavingOfferEdit(false)
+    }
+  }
+
+  const openEditPromo = (p: Promotion) => {
+    setEditPromoId(p.id)
+    setEPTitle(p.title || '')
+    setEPBody(p.body || '')
+    setEPLink(p.link || '')
+    setEPExpires(dateInputValue(p.expires_at))
+    setEPCountries(p.target_countries?.[0] || '')
+    setEPCities(p.target_cities?.[0] || '')
+    setEPZips(p.target_zips?.[0] || '')
+    setEPChildMin(p.child_count_min != null ? String(p.child_count_min) : '')
+    setEPChildMax(p.child_count_max != null ? String(p.child_count_max) : '')
+    setEPAgeMin(p.child_age_min_months != null ? String(p.child_age_min_months) : '')
+    setEPAgeMax(p.child_age_max_months != null ? String(p.child_age_max_months) : '')
+    setEPPregnant(p.target_pregnancy === true)
+    setEPNotPregnant(p.target_pregnancy === false)
+    setEPImageKey(p.image_key || '')
+    setEPPreview(p.image_url || '')
+    setEPRegionIds(p.region_ids || p.regions?.map((r) => r.id) || [])
+  }
+
+  const closeEditPromo = () => {
+    if (savingPromoEdit) return
+    setEditPromoId(null)
+  }
+
+  const editPromoPayload = (): PromoFormData =>
+    buildPromoForm(
+      ePTitle,
+      ePBody,
+      ePLink,
+      ePExpires,
+      ePCountries,
+      ePCities,
+      ePZips,
+      ePChildMin,
+      ePChildMax,
+      ePAgeMin,
+      ePAgeMax,
+      ePPregnant,
+      ePNotPregnant,
+      ePImageKey,
+      ePRegionIds,
+    )
+
+  const saveEditPromo = async () => {
+    if (!editPromoId) return
+    const body = editPromoPayload()
+    if (!body.title || !body.body) {
+      promoMsg.show('Title and body required', 'err')
+      return
+    }
+    setSavingPromoEdit(true)
+    try {
+      const d = await adminFetch(`/admin/promotions/${editPromoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (d.ok) {
+        promoMsg.show('Promotion updated ✓', 'ok')
+        setEditPromoId(null)
+        void loadPromotions()
+      } else {
+        promoMsg.show(apiDetail(d) || 'Failed', 'err')
+      }
+    } catch (e) {
+      promoMsg.show(e instanceof Error ? e.message : 'Failed', 'err')
+    } finally {
+      setSavingPromoEdit(false)
+    }
+  }
+
   return (
     <>
       <div className="grid-2">
@@ -338,6 +574,17 @@ export function ContentTab() {
           <input value={oLink} onChange={(e) => setOLink(e.target.value)} placeholder="https://…" />
           <FieldLabel>Expiry (optional)</FieldLabel>
           <input type="date" value={oExpires} onChange={(e) => setOExpires(e.target.value)} />
+          <FieldLabel>Regions (optional)</FieldLabel>
+          <MultiSelectSearch
+            options={regionOptions}
+            value={oRegionIds}
+            onChange={setORegionIds}
+            placeholder="Search regions…"
+            emptyLabel="No regions — create some in the Regions tab"
+          />
+          <p className="field" style={{ marginTop: -4 }}>
+            Blank = visible in all regions
+          </p>
           <button
             type="button"
             style={{ width: '100%' }}
@@ -379,6 +626,17 @@ export function ContentTab() {
           <input value={pLink} onChange={(e) => setPLink(e.target.value)} placeholder="https://…" />
           <FieldLabel>Expiry</FieldLabel>
           <input type="date" value={pExpires} onChange={(e) => setPExpires(e.target.value)} />
+          <FieldLabel>Regions (optional)</FieldLabel>
+          <MultiSelectSearch
+            options={regionOptions}
+            value={pRegionIds}
+            onChange={setPRegionIds}
+            placeholder="Search regions…"
+            emptyLabel="No regions — create some in the Regions tab"
+          />
+          <p className="field" style={{ marginTop: -4 }}>
+            Blank = visible in all regions
+          </p>
           <p className="field" style={{ marginTop: 4 }}>
             📍 GEO (blank = all)
           </p>
@@ -540,11 +798,23 @@ export function ContentTab() {
                     <div className="foot">
                       <span className="meta">
                         {x.lang || 'all'}
+                        {' · '}
+                        {regionSummary(x.region_ids, x.regions)}
                         {exp}
                       </span>
-                      <button type="button" className="del" onClick={() => void delOffer(x.id)}>
-                        Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() => openEditOffer(x)}
+                          title="Edit"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button type="button" className="del" onClick={() => void delOffer(x.id)}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -581,6 +851,7 @@ export function ContentTab() {
               if (x.child_age_min_months != null || x.child_age_max_months != null)
                 demo.push(`🗓 ${x.child_age_min_months ?? 0}–${x.child_age_max_months ?? '∞'}mo`)
               const chips = [...geo, ...demo]
+              const regionLine = regionSummary(x.region_ids, x.regions)
               const exp = x.expires_at ? ` · expires ${x.expires_at}` : ''
               return (
                 <div key={x.id} className={`list-item${x.image_url ? ' with-thumb' : ''}`}>
@@ -603,10 +874,23 @@ export function ContentTab() {
                         : <span className="meta">All consenting users</span>}
                     </div>
                     <div className="foot">
-                      <span className="meta">{exp}</span>
-                      <button type="button" className="del" onClick={() => void delPromotion(x.id)}>
-                        Delete
-                      </button>
+                      <span className="meta">
+                        🌐 {regionLine}
+                        {exp}
+                      </span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() => openEditPromo(x)}
+                          title="Edit"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button type="button" className="del" onClick={() => void delPromotion(x.id)}>
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -614,6 +898,189 @@ export function ContentTab() {
             })}
         </div>
       </div>
+
+      {editOfferId && (
+        <Modal title="Edit offer" onClose={closeEditOffer}>
+          {offerMsg.Message}
+          <FieldLabel required>Title</FieldLabel>
+          <input value={eOTitle} onChange={(e) => setEOTitle(e.target.value)} />
+          <FieldLabel required>Message</FieldLabel>
+          <textarea value={eOBody} onChange={(e) => setEOBody(e.target.value)} rows={4} />
+          <FieldLabel>Image</FieldLabel>
+          <Dropzone
+            bucket="offers"
+            imageKey={eOImageKey}
+            previewUrl={eOPreview}
+            onUploaded={(key, url) => {
+              setEOImageKey(key)
+              setEOPreview(url)
+            }}
+            onClear={() => {
+              setEOImageKey('')
+              setEOPreview('')
+            }}
+            onError={(m) => offerMsg.show(m, 'err')}
+          />
+          <div className="row">
+            <div className="field-wrap">
+              <FieldLabel>Badge</FieldLabel>
+              <select value={eOBadge} onChange={(e) => setEOBadge(e.target.value)}>
+                <option value="">No badge</option>
+                <option value="news">news</option>
+                <option value="promo">promo</option>
+                <option value="sponsored">sponsored</option>
+              </select>
+            </div>
+            <div className="field-wrap">
+              <FieldLabel>Language</FieldLabel>
+              <input value={eOLang} onChange={(e) => setEOLang(e.target.value)} placeholder="all / el / en…" />
+            </div>
+          </div>
+          <FieldLabel>Link (optional)</FieldLabel>
+          <input value={eOLink} onChange={(e) => setEOLink(e.target.value)} placeholder="https://…" />
+          <FieldLabel>Expiry (optional)</FieldLabel>
+          <input type="date" value={eOExpires} onChange={(e) => setEOExpires(e.target.value)} />
+          <FieldLabel>Regions (optional)</FieldLabel>
+          <MultiSelectSearch
+            options={regionOptions}
+            value={eORegionIds}
+            onChange={setEORegionIds}
+            placeholder="Search regions…"
+          />
+          <div className="modal-foot">
+            <button type="button" className="ghost" onClick={closeEditOffer} disabled={savingOfferEdit}>
+              Cancel
+            </button>
+            <button type="button" onClick={() => void saveEditOffer()} disabled={savingOfferEdit}>
+              {savingOfferEdit ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {editPromoId && (
+        <Modal title="Edit promotion" onClose={closeEditPromo}>
+          {promoMsg.Message}
+          <FieldLabel required>Title</FieldLabel>
+          <input value={ePTitle} onChange={(e) => setEPTitle(e.target.value)} />
+          <FieldLabel required>Message</FieldLabel>
+          <textarea value={ePBody} onChange={(e) => setEPBody(e.target.value)} rows={4} />
+          <FieldLabel>Image</FieldLabel>
+          <Dropzone
+            bucket="promotions"
+            imageKey={ePImageKey}
+            previewUrl={ePPreview}
+            onUploaded={(key, url) => {
+              setEPImageKey(key)
+              setEPPreview(url)
+            }}
+            onClear={() => {
+              setEPImageKey('')
+              setEPPreview('')
+            }}
+            onError={(m) => promoMsg.show(m, 'err')}
+          />
+          <FieldLabel>Link (optional)</FieldLabel>
+          <input value={ePLink} onChange={(e) => setEPLink(e.target.value)} />
+          <FieldLabel>Expiry</FieldLabel>
+          <input type="date" value={ePExpires} onChange={(e) => setEPExpires(e.target.value)} />
+          <FieldLabel>Regions (optional)</FieldLabel>
+          <MultiSelectSearch
+            options={regionOptions}
+            value={ePRegionIds}
+            onChange={setEPRegionIds}
+            placeholder="Search regions…"
+          />
+          <p className="field" style={{ marginTop: 4 }}>
+            📍 GEO (blank = all)
+          </p>
+          <div className="row">
+            <select value={ePCountries} onChange={(e) => setEPCountries(e.target.value)}>
+              <option value="">All countries</option>
+              {countries.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select value={ePCities} onChange={(e) => setEPCities(e.target.value)}>
+              <option value="">All cities</option>
+              {cities.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select value={ePZips} onChange={(e) => setEPZips(e.target.value)}>
+              <option value="">All ZIPs</option>
+              {zips.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="field" style={{ marginTop: 4 }}>
+            👶 Demographic (blank = all)
+          </p>
+          <div className="row">
+            <input
+              type="number"
+              placeholder="Child min"
+              min={0}
+              value={ePChildMin}
+              onChange={(e) => setEPChildMin(e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Child max"
+              min={0}
+              value={ePChildMax}
+              onChange={(e) => setEPChildMax(e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Age min (mo)"
+              min={0}
+              value={ePAgeMin}
+              onChange={(e) => setEPAgeMin(e.target.value)}
+            />
+            <input
+              type="number"
+              placeholder="Age max (mo)"
+              min={0}
+              value={ePAgeMax}
+              onChange={(e) => setEPAgeMax(e.target.value)}
+            />
+          </div>
+          <div className="checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={ePPregnant}
+                onChange={(e) => setEPPregnant(e.target.checked)}
+              />{' '}
+              🤰 Pregnant only
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={ePNotPregnant}
+                onChange={(e) => setEPNotPregnant(e.target.checked)}
+              />{' '}
+              👶 Non-pregnant only
+            </label>
+          </div>
+          <div className="modal-foot">
+            <button type="button" className="ghost" onClick={closeEditPromo} disabled={savingPromoEdit}>
+              Cancel
+            </button>
+            <button type="button" onClick={() => void saveEditPromo()} disabled={savingPromoEdit}>
+              {savingPromoEdit ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </>
   )
 }

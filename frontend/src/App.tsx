@@ -22,30 +22,46 @@ function apiDetail(data: unknown, fallback: string): string {
 }
 
 async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
-  try {
-    const ch: ChildEntity[] = profile.children ||
-      (profile.childBirthDate ? [{name: profile.childName||"", birthDate: profile.childBirthDate||""}] : []);
-    const bds = ch.map((c: ChildEntity) => c.birthDate).filter((d: string) => d.length > 0);
-    const pregnant = !!(profile.dueDate && profile.pregnancyStatus !== "completed");
-    await fetch(`${API}/profile/sync`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json", "x-token": token},
-      body: JSON.stringify({
-        country: profile.country || null,
-        city: profile.city || null,
-        zip: profile.postalCode || null,
-        child_count: ch.length,
-        pregnancy_active: pregnant,
-        children_birthdates: bds,
-        consent_marketing: !!profile.consentMarketing,
-        consent_date: profile.consentDate || null,
-      }),
-    });
-  } catch(_) {}
+  const ch: ChildEntity[] = profile.children ||
+    (profile.childBirthDate ? [{name: profile.childName||"", birthDate: profile.childBirthDate||""}] : []);
+  const bds = ch.map((c: ChildEntity) => c.birthDate).filter((d: string) => d.length > 0);
+  const pregnant = !!(profile.dueDate && profile.pregnancyStatus !== "completed");
+  const res = await fetch(`${API}/profile/sync`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "x-token": token},
+    body: JSON.stringify({
+      name: profile.name || null,
+      phone: profile.phone || null,
+      country: profile.country || null,
+      city: profile.city || null,
+      zip: profile.postalCode || null,
+      address_street: profile.address || null,
+      address_zip: profile.postalCode || null,
+      address_city: profile.city || null,
+      address_country: profile.country || "GR",
+      child_count: ch.length,
+      pregnancy_active: pregnant,
+      children_birthdates: bds,
+      consent_marketing: !!profile.consentMarketing,
+      consent_date: profile.consentDate || null,
+    }),
+  });
+  let body: { ok?: boolean; error?: string; detail?: unknown } = {};
+  try { body = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok) {
+    throw new Error(apiDetail(body, res.statusText || "Request failed"));
+  }
+  if (body.ok === false) {
+    throw new Error(body.error || "Profile sync failed");
+  }
 }
 
+type ToastKind = "ok" | "err";
+type ToastItem = { id: number; text: string; kind: ToastKind };
+let toastSeq = 0;
+
 interface ChildEntity { name: string; birthDate: string; }
-interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; }
+interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
 interface Message { role: "user" | "assistant"; content: string; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
 interface FamilyMember { name: string; role: string; color: string; email?: string; phone?: string; }
@@ -1505,6 +1521,14 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 
 // ── Main App ──────────────────────────────────────────────────
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void }) {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const showToast = (text: string, kind: ToastKind = "ok") => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const id = ++toastSeq;
+    setToasts(prev => [...prev, { id, text: trimmed, kind }]);
+    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+  };
   const lang = profile.lang; const L = getLang(lang);
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
 
@@ -1537,18 +1561,33 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
-  const [editPhone, setEditPhone] = useState(() => (profile as any).phone || "");
+  const [editPhone, setEditPhone] = useState(() => profile.phone || "");
   const [editAddress, setEditAddress] = useState(() => profile.address || "");
   const [editCity, setEditCity] = useState(() => profile.city || "");
   const [editPostal, setEditPostal] = useState(() => profile.postalCode || "");
   const [editSaving, setEditSaving] = useState(false);
   const saveProfileEdit = async () => {
     setEditSaving(true);
-    const updated = { ...profile, name: editName.trim()||profile.name, phone: editPhone.trim()||undefined, address: editAddress.trim()||undefined, city: editCity.trim()||undefined, postalCode: editPostal.trim()||undefined };
-    onProfileUpdate(updated);
-    try { await syncProfileToSupabase(token, {...updated, consentMarketing: profile.consentMarketing}); localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated)); } catch {}
-    setEditSaving(false);
-    setShowProfileEdit(false);
+    const updated: Profile = {
+      ...profile,
+      name: editName.trim() || profile.name,
+      phone: editPhone.trim() || undefined,
+      address: editAddress.trim() || undefined,
+      city: editCity.trim() || undefined,
+      postalCode: editPostal.trim() || undefined,
+    };
+    try {
+      await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
+      localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated));
+      onProfileUpdate(updated);
+      showToast(lang === "el" ? "Τα στοιχεία αποθηκεύτηκαν" : "Profile saved", "ok");
+      setShowProfileEdit(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      showToast(msg || (lang === "el" ? "Αποτυχία αποθήκευσης" : "Could not save profile"), "err");
+    } finally {
+      setEditSaving(false);
+    }
   };
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [addrStreet, setAddrStreet] = useState(() => profile.address || "");
@@ -1559,12 +1598,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const handleShoppingTab = () => {
     if (!hasAddress) { setShowAddressModal(true); } else { setTab("shopping"); }
   };
-  const saveAddress = () => {
+  const saveAddress = async () => {
     if (!addrStreet.trim() || !addrCity.trim()) return;
-    const updated = { ...profile, address: addrStreet.trim(), city: addrCity.trim(), postalCode: addrPostal.trim() };
-    onProfileUpdate(updated);
-    setShowAddressModal(false);
-    setTab("shopping");
+    const updated: Profile = {
+      ...profile,
+      address: addrStreet.trim(),
+      city: addrCity.trim(),
+      postalCode: addrPostal.trim() || undefined,
+    };
+    try {
+      await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
+      localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated));
+      onProfileUpdate(updated);
+      showToast(lang === "el" ? "Η διεύθυνση αποθηκεύτηκε" : "Address saved", "ok");
+      setShowAddressModal(false);
+      setTab("shopping");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      showToast(msg || (lang === "el" ? "Αποτυχία αποθήκευσης διεύθυνσης" : "Could not save address"), "err");
+    }
   };
   const skipAddress = () => {
     setShowAddressModal(false);
@@ -1726,6 +1778,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   ];
 
   return (
+    <>
     <div dir={dir} style={{fontFamily:"'DM Sans',sans-serif",height:"100vh",display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto",background:cream}}>
 
       {/* PROFILE EDIT MODAL */}
@@ -1809,7 +1862,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
             {profile.name[0]?.toUpperCase()||"M"}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:140,zIndex:600}}>
-              <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone((profile as any).phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
+              <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
             </div>}
           </div>
@@ -2193,6 +2246,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         ))}
       </div>
     </div>
+    {toasts.length > 0 && (
+      <div aria-live="polite" style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10,pointerEvents:"none",maxWidth:"min(420px, calc(100vw - 32px))"}}>
+        {toasts.map(t => (
+          <div key={t.id} role="status" style={{
+            pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"14px 18px", borderRadius:12,
+            boxShadow:"0 8px 32px rgba(43,58,103,.18)",
+            background:"#fff",
+            color: t.kind === "ok" ? "#2D9E6B" : "#E07B54",
+            border: t.kind === "ok" ? "1.5px solid rgba(45,158,107,.35)" : "1.5px solid rgba(224,123,84,.4)",
+          }}>{t.text}</div>
+        ))}
+      </div>
+    )}
+    </>
   );
 }
 
@@ -2235,7 +2302,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [token]);
 
-  if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/");}}/>;
+  if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   if(!token)return <AuthScreen onSuccess={tk=>setToken(tk)}/>;
   if(subActive===false)return <SubscriptionExpired lang={profile?.lang||"en"} onLogout={handleLogout}/>;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;

@@ -7,6 +7,8 @@ export const BADGE_COLORS: Record<string, string> = {
 export const TAB_TITLES: Record<string, string> = {
   overview: 'Overview',
   testers: 'Testers',
+  invites: 'Invite Codes',
+  regions: 'Regions',
   content: 'Offers & Promos',
   users: 'Users',
   tools: 'Tools',

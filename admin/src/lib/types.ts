@@ -8,6 +8,8 @@ export interface Offer {
   expires_at?: string
   image_key?: string
   image_url?: string
+  region_ids?: string[]
+  regions?: RegionRow[]
 }
 
 export interface Promotion {
@@ -26,6 +28,28 @@ export interface Promotion {
   target_pregnancy?: boolean | null
   child_age_min_months?: number | null
   child_age_max_months?: number | null
+  region_ids?: string[]
+  regions?: RegionRow[]
+}
+
+export interface RegionRow {
+  id: string
+  name: string
+  languages: string[]
+  active?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface InviteCodeRow {
+  id?: string
+  code: string
+  status: 'active' | 'inactive' | 'expired' | string
+  label?: string | null
+  notes?: string | null
+  expires_at?: string | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface UserRow {
@@ -58,4 +82,5 @@ export interface PromoFormData {
   child_age_min_months: number | null
   child_age_max_months: number | null
   image_key: string | null
+  region_ids: string[] | null
 }

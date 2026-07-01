@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { AdminProvider, useAdmin } from './context/AdminContext'
+import { ToastProvider } from './context/ToastContext'
 import { LoginGate } from './components/LoginGate'
 import { AdminShell } from './components/AdminShell'
 
@@ -30,8 +31,10 @@ export default function App() {
   const clearAuthError = useCallback(() => setAuthError(''), [])
 
   return (
-    <AdminProvider onAuthError={setAuthError}>
-      <AdminRoot authError={authError} clearAuthError={clearAuthError} />
-    </AdminProvider>
+    <ToastProvider>
+      <AdminProvider onAuthError={setAuthError}>
+        <AdminRoot authError={authError} clearAuthError={clearAuthError} />
+      </AdminProvider>
+    </ToastProvider>
   )
 }

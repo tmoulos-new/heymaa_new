@@ -1,4 +1,4 @@
--- RLS for offers / promotions storage buckets (matches offer-news table policies).
+-- RLS for offers / promotions storage buckets (matches offers table policies).
 -- Run in Supabase SQL Editor after add_offer_promotion_images.sql.
 
 INSERT INTO storage.buckets (id, name, public)

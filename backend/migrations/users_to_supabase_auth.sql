@@ -1,15 +1,16 @@
 -- Supabase Auth setup for HeyMaa (new users only — no data backfill).
 -- Run once in the Supabase SQL Editor before deploying the updated backend.
 
--- Legacy column: passwords are in auth.users; app rows may omit password_hash (invites, register).
-ALTER TABLE public.users ALTER COLUMN password_hash DROP NOT NULL;
+-- Passwords are in auth.users only. Drop legacy column via users_drop_password_hash.sql.
 
 -- Link app tables to auth.users
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.user_data ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS profiles_user_id_idx ON public.profiles(user_id);
+-- Also run profiles_auth_user_id.sql (nullable token + unique user_id) before auth users can save profiles.
 CREATE INDEX IF NOT EXISTS user_data_user_id_idx ON public.user_data(user_id);
+-- Also run user_data_auth_user_id.sql (nullable token + unique user_id/key) before auth users can save app data.
 
 -- public.users.id must match auth.users.id (created together at registration).
 -- Requires users_auth_orphan_cleanup.sql first if legacy rows exist without auth.users.

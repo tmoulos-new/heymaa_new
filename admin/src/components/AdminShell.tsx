@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronsLeft,
+  Globe2,
   LayoutDashboard,
   LogOut,
+  KeyRound,
   MailPlus,
   Megaphone,
   Menu,
@@ -16,11 +18,15 @@ import { OverviewTab } from '../tabs/OverviewTab'
 import { TestersTab } from '../tabs/TestersTab'
 import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
+import { InviteCodesTab } from '../tabs/InviteCodesTab'
+import { RegionsTab } from '../tabs/RegionsTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'overview', icon: LayoutDashboard, tip: 'Overview' },
   { id: 'testers', icon: MailPlus, tip: 'Testers' },
+  { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
+  { id: 'regions', icon: Globe2, tip: 'Regions' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'tools', icon: Wrench, tip: 'Tools' },
@@ -140,6 +146,12 @@ export function AdminShell() {
           </section>
           <section className={`section${tab === 'testers' ? ' active' : ''}`}>
             <TestersTab key={`te-${refreshKey}`} onUsersChanged={refreshAll} />
+          </section>
+          <section className={`section${tab === 'invites' ? ' active' : ''}`}>
+            <InviteCodesTab key={`ic-${refreshKey}`} />
+          </section>
+          <section className={`section${tab === 'regions' ? ' active' : ''}`}>
+            <RegionsTab key={`rg-${refreshKey}`} />
           </section>
           <section className={`section${tab === 'content' ? ' active' : ''}`}>
             <ContentTab key={`co-${refreshKey}`} />

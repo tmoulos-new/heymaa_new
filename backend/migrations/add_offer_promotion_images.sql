@@ -1,7 +1,7 @@
 -- Image storage for offers and promotions.
 -- Run in Supabase SQL Editor.
 
-ALTER TABLE public."offer-news" ADD COLUMN IF NOT EXISTS image_key text;
+ALTER TABLE public.offers ADD COLUMN IF NOT EXISTS image_key text;
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS image_key text;
 
 INSERT INTO storage.buckets (id, name, public)
