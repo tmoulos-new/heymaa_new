@@ -1,24 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install --prefix frontend && npm install --prefix admin",
-  "buildCommand": "npm run build --prefix frontend && npm run build --prefix admin && node scripts/merge-vercel-build.mjs",
-  "outputDirectory": "dist",
   "functions": {
-    "api/index.py": {
+    "backend/main.py": {
       "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/auth/:path*", "destination": "/api/index" },
-    { "source": "/profile/:path*", "destination": "/api/index" },
-    { "source": "/profile", "destination": "/api/index" },
-    { "source": "/chat", "destination": "/api/index" },
-    { "source": "/tts", "destination": "/api/index" },
-    { "source": "/offers", "destination": "/api/index" },
-    { "source": "/public/offers", "destination": "/api/index" },
-    { "source": "/public/promotions", "destination": "/api/index" },
-    { "source": "/userdata", "destination": "/api/index" },
-    { "source": "/webhooks/:path*", "destination": "/api/index" },
+    { "source": "/", "destination": "/index.html" },
     {
       "source": "/admin/:path*",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
@@ -29,21 +17,9 @@
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
       "destination": "/admin/index.html"
     },
-    { "source": "/admin/health", "destination": "/api/index" },
-    { "source": "/admin/usage", "destination": "/api/index" },
-    { "source": "/admin/upload/:path*", "destination": "/api/index" },
-    { "source": "/admin/offers/:path*", "destination": "/api/index" },
-    { "source": "/admin/offers", "destination": "/api/index" },
-    { "source": "/admin/promotions/:path*", "destination": "/api/index" },
-    { "source": "/admin/promotions", "destination": "/api/index" },
-    { "source": "/admin/regions/:path*", "destination": "/api/index" },
-    { "source": "/admin/regions", "destination": "/api/index" },
-    { "source": "/admin/invite_codes/:path*", "destination": "/api/index" },
-    { "source": "/admin/invite_codes", "destination": "/api/index" },
-    { "source": "/admin/profiles/:path*", "destination": "/api/index" },
-    { "source": "/admin/users/:path*", "destination": "/api/index" },
-    { "source": "/admin/users", "destination": "/api/index" },
-    { "source": "/admin/invite_tester", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat$|tts$|offers$|public/offers|public/promotions|userdata$|webhooks(?:/|$)|admin/(?:health|usage|upload|offers|promotions|regions|invite_codes|profiles|users|invite_tester)(?:/|$)|static/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

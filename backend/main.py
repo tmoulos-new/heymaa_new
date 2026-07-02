@@ -4,7 +4,7 @@ import base64
 import asyncio
 import uuid
 from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -984,7 +984,7 @@ def match_promotion(token: str):
         return None
     return None
 # Routes
-@app.get("/")
+@app.get("/healthz")
 def root():
     return {"status": "HeyMaa API is running!"}
 def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
@@ -1391,15 +1391,21 @@ async def user_offers(lang: str = "el", x_token: Optional[str] = Header(None)):
         return {"offers": [], "error": str(e)}
 
 ADMIN_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "admin", "dist"))
+PUBLIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "public"))
+
+def _admin_index_path():
+    for candidate in (
+        os.path.join(ADMIN_DIST, "index.html"),
+        os.path.join(PUBLIC_DIR, "admin", "index.html"),
+    ):
+        if os.path.isfile(candidate):
+            return candidate
+    return os.path.join(ADMIN_DIST, "index.html")
 
 @app.get("/admin")
 @app.get("/admin/")
 async def admin_panel():
-    index = os.path.join(ADMIN_DIST, "index.html")
-    if os.path.isfile(index):
-        return FileResponse(index, media_type="text/html")
-    legacy = os.path.join(os.path.dirname(__file__), "admin.html")
-    return FileResponse(legacy, media_type="text/html")
+    return FileResponse(_admin_index_path(), media_type="text/html")
 
 import time as _time
 USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
@@ -2626,6 +2632,58 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 _admin_assets = os.path.join(ADMIN_DIST, "assets")
-if os.path.isdir(_admin_assets):
+_admin_public_assets = os.path.join(PUBLIC_DIR, "admin", "assets")
+if os.path.isdir(_admin_assets) or os.path.isdir(_admin_public_assets):
     from fastapi.staticfiles import StaticFiles
-    app.mount("/admin/assets", StaticFiles(directory=_admin_assets), name="admin-assets")
+    if os.path.isdir(_admin_assets):
+        app.mount("/admin/assets", StaticFiles(directory=_admin_assets), name="admin-assets")
+    elif os.path.isdir(_admin_public_assets):
+        app.mount("/admin/assets", StaticFiles(directory=_admin_public_assets), name="admin-assets")
+
+_frontend_static = os.path.join(PUBLIC_DIR, "static")
+if os.path.isdir(_frontend_static):
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/static", StaticFiles(directory=_frontend_static), name="frontend-static")
+
+@app.get("/")
+async def serve_frontend_root():
+    index = os.path.join(PUBLIC_DIR, "index.html")
+    if os.path.isfile(index):
+        return FileResponse(index, media_type="text/html")
+    return RedirectResponse("/index.html", status_code=307)
+
+_SPA_PUBLIC_FILES = ("favicon.ico", "manifest.json", "robots.txt", "asset-manifest.json", "restore.html", "logo192.png", "logo512.png")
+
+def _register_public_root_files():
+    for name in _SPA_PUBLIC_FILES:
+        path = os.path.join(PUBLIC_DIR, name)
+        if not os.path.isfile(path):
+            continue
+        def _make_handler(file_path: str):
+            async def _handler():
+                return FileResponse(file_path)
+            return _handler
+        app.get(f"/{name}")(_make_handler(path))
+
+_register_public_root_files()
+
+_API_PATH_PREFIXES = (
+    "auth/", "profile", "chat", "tts", "offers", "userdata", "webhooks/",
+    "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
+    "admin/regions", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
+    "public/offers", "public/promotions", "healthz",
+)
+
+@app.get("/{spa_path:path}")
+async def spa_fallback(spa_path: str, request: Request):
+    if spa_path.startswith("static/") or spa_path.startswith("admin/"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if any(spa_path == p.rstrip("/") or spa_path.startswith(p) for p in _API_PATH_PREFIXES):
+        raise HTTPException(status_code=404, detail="Not Found")
+    accept = request.headers.get("accept", "")
+    if "text/html" not in accept:
+        raise HTTPException(status_code=404, detail="Not Found")
+    index = os.path.join(PUBLIC_DIR, "index.html")
+    if os.path.isfile(index):
+        return FileResponse(index, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Not Found")

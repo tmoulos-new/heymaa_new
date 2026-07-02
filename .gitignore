@@ -42,3 +42,6 @@ frontend/build/
 admin/node_modules/
 admin/dist/
 dist/
+public/
+backend/public/
+.vercel

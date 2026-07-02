@@ -26,7 +26,30 @@ if (!fs.existsSync(adminBuild)) {
   process.exit(1)
 }
 
+const publicDir = path.join(root, 'public')
+const backendPublicDir = path.join(root, 'backend', 'public')
+const vercelOutputStatic = '/vercel/output/static'
+const localVercelOutputStatic = path.join(root, '.vercel', 'output', 'static')
+
 fs.rmSync(out, { recursive: true, force: true })
 copyDir(frontendBuild, out)
 copyDir(adminBuild, path.join(out, 'admin'))
-console.log('Merged frontend + admin into dist/')
+
+fs.rmSync(backendPublicDir, { recursive: true, force: true })
+copyDir(out, backendPublicDir)
+
+if (fs.existsSync('/vercel/output')) {
+  fs.rmSync(vercelOutputStatic, { recursive: true, force: true })
+  copyDir(out, vercelOutputStatic)
+  console.log('Merged frontend + admin into dist/, backend/public/, and /vercel/output/static/')
+} else if (fs.existsSync(path.join(root, '.vercel', 'output'))) {
+  fs.rmSync(localVercelOutputStatic, { recursive: true, force: true })
+  copyDir(out, localVercelOutputStatic)
+  fs.rmSync(publicDir, { recursive: true, force: true })
+  copyDir(out, publicDir)
+  console.log('Merged frontend + admin into dist/, public/, backend/public/, and .vercel/output/static/')
+} else {
+  fs.rmSync(publicDir, { recursive: true, force: true })
+  copyDir(out, publicDir)
+  console.log('Merged frontend + admin into dist/, public/, and backend/public/')
+}
