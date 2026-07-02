@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
 
 function getApiBase(): string {
@@ -1518,9 +1518,9 @@ function SubscriptionExpired({ lang, onLogout }: { lang: string; onLogout: () =>
 
 
 function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => void }) {
-  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childAge, setChildAge] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
+  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
   const L = getLang(lang);
-  const save = () => { localStorage.setItem("hm_pre_lang", lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":(childAge||""),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
+  const save = () => { localStorage.setItem("hm_pre_lang", lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,lang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
   const s: React.CSSProperties = {minHeight:"100vh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
@@ -1675,14 +1675,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   // Which person are we adding a memory for? undefined = general/user
 
   const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
-  const authH = { "x-token": token };
   const allChildren = getAllChildren(profile);
   const primaryChild = allChildren[0];
   const milestoneList = getMilestones(ageMonthsFromBirthDate(primaryChild?.birthDate) ?? parseAgeMonths(profile.childAge), lang);
   const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang) : profile.childAge;
   const primaryChildName = primaryChild?.name || "Baby";
   const pregnancyActive = !!profile.dueDate && !isDueDatePassed(profile.dueDate) && profile.pregnancyStatus !== "completed";
-  const isPregnantProfile = pregnancyActive && allChildren.length===0;
   const pregWeek = pregnancyWeekFromDueDate(profile.dueDate) ?? 1;
   const pregMilestoneList = getPregnancyMilestones(pregWeek, lang);
 
@@ -1691,15 +1689,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   useEffect(()=>{
     let cancelled=false;
     setOffersLoading(true);
-    axios.get(`${API}/offers`,{params:{lang},headers:authH})
+    axios.get(`${API}/offers`,{params:{lang},headers:{"x-token":token}})
       .then(res=>{if(!cancelled)setOffers(res.data.offers||[]);})
       .catch(()=>{if(!cancelled)setOffers([]);})
       .finally(()=>{if(!cancelled)setOffersLoading(false);});
     return ()=>{cancelled=true;};
-  },[lang]);
+  },[lang, token]);
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages,loading]);
-  const sbSave = async (key: string, value: any) => { localStorage.setItem(sk(token, key), JSON.stringify(value)); try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {} };
+  const sbSave = useCallback(async (key: string, value: any) => {
+    localStorage.setItem(sk(token, key), JSON.stringify(value));
+    try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {}
+  }, [token]);
 
   useEffect(() => {
     axios.get(`${API}/userdata`, { headers: { "x-token": token } })
@@ -1718,15 +1719,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  useEffect(()=>{ void sbSave("chat", messages); },[messages]);
-  useEffect(()=>{ void sbSave("threads", threads); },[threads]);
-  useEffect(()=>{ void sbSave("memories", memories); },[memories]);
-  useEffect(()=>{ void sbSave("family", familyMembers); },[familyMembers]);
-  useEffect(()=>{ void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap]);
-  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
-  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs]);
-  useEffect(()=>{ void sbSave("shopitems", shopItems); },[shopItems]);
-  useEffect(()=>{ void sbSave("superitems", superItems); },[superItems]);
+  useEffect(()=>{ void sbSave("chat", messages); },[messages, sbSave]);
+  useEffect(()=>{ void sbSave("threads", threads); },[threads, sbSave]);
+  useEffect(()=>{ void sbSave("memories", memories); },[memories, sbSave]);
+  useEffect(()=>{ void sbSave("family", familyMembers); },[familyMembers, sbSave]);
+  useEffect(()=>{ void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave]);
+  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs, token]);
+  useEffect(()=>{ void sbSave("shopitems", shopItems); },[shopItems, sbSave]);
+  useEffect(()=>{ void sbSave("superitems", superItems); },[superItems, sbSave]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -1735,7 +1735,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:authH}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
+    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:{"x-token":token}}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
     catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
     finally { setLoading(false); }
   };
@@ -1757,17 +1757,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const TTS_QUOTA_BY_TIER: Record<string, number> = { starter: 30, premium: 100, annual: 100 };
   const ttsQuotaTotal = TTS_QUOTA_BY_TIER["starter"]; // test users default to Starter tier
   const [ttsUsed, setTtsUsed] = useState<number>(() => { try{return parseInt(localStorage.getItem(sk(token,"ttsused"))||"0");}catch{return 0;} });
-  useEffect(()=>{ void sbSave("ttsused", String(ttsUsed)); },[ttsUsed]);
+  useEffect(()=>{ void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave]);
   const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsed);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
   const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
   const speak = async (text: string, idx: number) => {
+    if(playingIndex===idx){stopAudio();return;}
     if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
-    if(playingIndex===idx){setPlayingIndex(null);return;}
     if(ttsRemaining<=0)return;
     setPlayingIndex(idx);
-    try { const ttsLang=lang; const clean=stripMd(text); const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:authH}); const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`); audioRef.current=audio; audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;}; audio.play(); setTtsUsed(u=>u+1); }
+    try { const ttsLang=lang; const clean=stripMd(text); const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:{"x-token":token}}); const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`); audioRef.current=audio; audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;}; audio.play(); setTtsUsed(u=>u+1); }
     catch{setPlayingIndex(null);}
   };
 
