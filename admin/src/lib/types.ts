@@ -61,6 +61,9 @@ export interface UserRow {
   created_at?: string
   last_login?: string
   trial_ends_at?: string
+  role?: string | null
+  account_kind?: 'registered' | 'auth_only'
+  must_change_password?: boolean
 }
 
 export interface ProviderStatus {

@@ -16,6 +16,8 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
   const [code, setCode] = useState('')
   const [lang, setLang] = useState('el')
   const [createSupabaseUser, setCreateSupabaseUser] = useState(true)
+  const [temporaryPassword, setTemporaryPassword] = useState('')
+  const [requirePasswordChange, setRequirePasswordChange] = useState(true)
   const [sending, setSending] = useState(false)
   const [inviteCodes, setInviteCodes] = useState<string[]>(TESTER_CODES)
 
@@ -58,6 +60,8 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
           invite_code: code,
           lang,
           create_supabase_user: createSupabaseUser,
+          temporary_password: temporaryPassword.trim() || null,
+          require_password_change: requirePasswordChange,
         }),
       })
       if (!d.ok) {
@@ -84,6 +88,7 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
         setLastName('')
         setEmail('')
         setCode('')
+        setTemporaryPassword('')
       }
     } catch (e) {
       show(e instanceof Error ? e.message : 'Network error', 'err')
@@ -172,10 +177,33 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
         </label>
       </div>
       {createSupabaseUser && (
-        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
-          Δημιουργεί χρήστη στο auth.users + public.users αμέσως — χωρίς Supabase invite/rate limit.
-          Προαιρετικά στέλνει οδηγίες μέσω Resend. Ο tester ορίζει password με «Ξέχασα τον κωδικό».
-        </p>
+        <>
+          <div className="field-wrap" style={{ marginTop: 8 }}>
+            <FieldLabel>Προσωρινός κωδικός (προαιρετικό)</FieldLabel>
+            <input
+              type="password"
+              value={temporaryPassword}
+              onChange={(e) => setTemporaryPassword(e.target.value)}
+              placeholder="min 6 χαρακτήρες — αφήστε κενό για reset email"
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="checkbox-row" style={{ marginTop: 4 }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={requirePasswordChange}
+                onChange={(e) => setRequirePasswordChange(e.target.checked)}
+                disabled={!temporaryPassword.trim()}
+              />
+              Αλλαγή κωδικού στην πρώτη σύνδεση
+            </label>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
+            Με προσωρινό κωδικό: ο χρήστης συνδέεται αμέσως και ορίζει νέο κωδικό στο app.
+            Χωρίς κωδικό: χρησιμοποιεί «Ξέχασα τον κωδικό» από το email.
+          </p>
+        </>
       )}
       <button
         type="button"

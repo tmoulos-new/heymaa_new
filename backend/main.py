@@ -535,6 +535,98 @@ def user_data_upsert(auth: dict, key: str, value, updated_at: str) -> None:
                 else:
                     raise
 
+def _paginate_table_rows(table: str, columns: str, order_col: str = "created_at") -> list:
+    """Fetch all rows (Supabase/PostgREST caps each request at ~1000 rows)."""
+    rows: list = []
+    page_size = 1000
+    offset = 0
+    while True:
+        end = offset + page_size - 1
+        res = (
+            sb.table(table)
+            .select(columns)
+            .order(order_col, desc=True)
+            .range(offset, end)
+            .execute()
+        )
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return rows
+
+def _list_all_auth_users() -> list:
+    """All auth.users via admin API (paginated)."""
+    users: list = []
+    page = 1
+    per_page = 1000
+    while True:
+        res = sb.auth.admin.list_users(page=page, per_page=per_page)
+        batch = []
+        if hasattr(res, "users"):
+            batch = res.users or []
+        elif isinstance(res, dict):
+            batch = res.get("users") or []
+        if not batch:
+            break
+        users.extend(batch)
+        if len(batch) < per_page:
+            break
+        page += 1
+    return users
+
+def _auth_user_row(auth_user) -> dict:
+    """Normalize auth user object/dict for admin list merge."""
+    if isinstance(auth_user, dict):
+        uid = auth_user.get("id")
+        email = auth_user.get("email") or ""
+        meta = auth_user.get("user_metadata") or {}
+        created = auth_user.get("created_at")
+    else:
+        uid = getattr(auth_user, "id", None)
+        email = getattr(auth_user, "email", None) or ""
+        meta = getattr(auth_user, "user_metadata", None) or {}
+        created = getattr(auth_user, "created_at", None)
+    name = meta.get("name") if isinstance(meta, dict) else None
+    return {
+        "id": uid,
+        "email": email,
+        "name": name,
+        "plan": None,
+        "subscription_status": "auth_only",
+        "trial_ends_at": None,
+        "created_at": created,
+        "last_login": None,
+        "role": None,
+        "account_kind": "auth_only",
+    }
+
+def _subscription_active_for_user(user_id: str) -> bool:
+    """Registered Supabase users: active plan or unexpired trial."""
+    res = sb.table("users").select("subscription_status,trial_ends_at,role").eq("id", user_id).execute()
+    if not res.data:
+        return False
+    row = res.data[0]
+    if row.get("role") == "admin":
+        return True
+    status = (row.get("subscription_status") or "").lower()
+    if status == "active":
+        return True
+    if status == "trial":
+        trial_ends = row.get("trial_ends_at")
+        if not trial_ends:
+            return True
+        from datetime import datetime, timezone
+        try:
+            exp_dt = datetime.fromisoformat(str(trial_ends).replace("Z", "+00:00"))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            return exp_dt >= datetime.now(timezone.utc)
+        except Exception:
+            return True
+    return False
+
 def check_subscription(token: str):
     if not sb:
         return True
@@ -559,8 +651,20 @@ def check_subscription(token: str):
                 except Exception:
                     pass
             return True
+        try:
+            auth = resolve_auth(token)
+            if auth["kind"] == "user" and auth.get("user_id"):
+                return _subscription_active_for_user(auth["user_id"])
+        except HTTPException:
+            pass
         return is_valid_invite_code(token)
     except Exception:
+        try:
+            auth = resolve_auth(token)
+            if auth["kind"] == "user" and auth.get("user_id"):
+                return _subscription_active_for_user(auth["user_id"])
+        except HTTPException:
+            pass
         return is_valid_invite_code(token)
 
 _invite_codes_cache: Optional[set] = None
@@ -787,17 +891,35 @@ class LoginRequest(BaseModel):
     password: str
 
 
-ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
+BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").lower().strip()
 APP_URL = os.getenv("APP_URL", "https://heymaa.vercel.app")
 RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <hello@vdarpp.com>")
 
-def verify_admin(x_admin_secret: Optional[str]):
-    if not ADMIN_SECRET:
-        raise HTTPException(status_code=503, detail="ADMIN_SECRET is not set on the server")
-    if not x_admin_secret:
-        raise HTTPException(status_code=401, detail="Missing x-admin-secret header")
-    if x_admin_secret != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
+def verify_admin(x_token: Optional[str]) -> str:
+    """Require a logged-in user with role=admin (JWT via x-token)."""
+    if not sb:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    if not x_token:
+        raise HTTPException(status_code=401, detail="Missing x-token header")
+    auth = resolve_auth(x_token)
+    if auth["kind"] != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Invalid session")
+    user_id = auth["user_id"]
+    res = sb.table("users").select("email,role").eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=401, detail="User not found")
+    row = res.data[0]
+    role = row.get("role")
+    if role != "admin":
+        if BOOTSTRAP_ADMIN_EMAIL:
+            email = (row.get("email") or "").lower().strip()
+            if email == BOOTSTRAP_ADMIN_EMAIL:
+                admins = sb.table("users").select("id").eq("role", "admin").limit(1).execute()
+                if not admins.data:
+                    sb.table("users").update({"role": "admin"}).eq("id", user_id).execute()
+                    return user_id
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user_id
 
 def match_promotion(token: str):
     if not sb:
@@ -967,6 +1089,7 @@ def register_user(req: RegisterRequest):
             'subscription_status': 'trial',
             'trial_ends_at': trial_ends,
             'invite_code': req.invite_code,
+            'role': None,
         }).execute()
         session = sb.auth.sign_in_with_password({'email': email, 'password': req.password})
         access_token = session.session.access_token
@@ -1000,9 +1123,15 @@ def login_user(req: LoginRequest):
         user_id = session.user.id
         from datetime import datetime
         sb.table('users').update({'last_login': datetime.utcnow().isoformat()}).eq('id', user_id).execute()
-        u = sb.table('users').select('plan,name').eq('id', user_id).execute()
+        u = sb.table('users').select('plan,name,role,must_change_password').eq('id', user_id).execute()
         row = u.data[0] if u.data else {}
-        return {'token': access_token, 'plan': row.get('plan', 'trial'), 'name': row.get('name', '')}
+        return {
+            'token': access_token,
+            'plan': row.get('plan', 'trial'),
+            'name': row.get('name', ''),
+            'role': row.get('role'),
+            'must_change_password': bool(row.get('must_change_password')),
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -1024,7 +1153,7 @@ def get_me(x_token: Optional[str] = Header(None)):
         auth = resolve_auth(x_token)
         if auth["kind"] == "invite":
             raise HTTPException(status_code=401, detail='Invalid session.')
-        res = sb.table('users').select('id,email,name,plan,subscription_status,trial_ends_at').eq('id', auth["user_id"]).execute()
+        res = sb.table('users').select('id,email,name,plan,subscription_status,trial_ends_at,role,must_change_password').eq('id', auth["user_id"]).execute()
         if not res.data:
             raise HTTPException(status_code=401, detail='Invalid session.')
         return res.data[0]
@@ -1277,9 +1406,19 @@ USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
 COST_PER_CALL = {"groq": 0.0, "gemini": 0.0, "claude": 0.0025}
 
 @app.get("/admin/health")
-async def admin_health(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
-    status = {}
+async def admin_health(x_token: Optional[str] = Header(None)):
+    admin_user_id = verify_admin(x_token)
+    admin_row = sb.table("users").select("email,name,role").eq("id", admin_user_id).execute()
+    admin_info = (admin_row.data or [{}])[0]
+    status = {
+        "admin": {
+            "ok": True,
+            "user_id": admin_user_id,
+            "email": admin_info.get("email"),
+            "name": admin_info.get("name"),
+            "role": admin_info.get("role"),
+        }
+    }
     try:
         if GROQ_API_KEY:
             from groq import Groq
@@ -1322,8 +1461,8 @@ async def admin_health(x_admin_secret: Optional[str] = Header(None)):
     return status
 
 @app.get("/admin/usage")
-async def admin_usage(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_usage(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq","gemini","claude"))
     days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
     return {
@@ -1336,9 +1475,9 @@ async def admin_usage(x_admin_secret: Optional[str] = Header(None)):
 async def admin_upload_image(
     bucket: str,
     file: UploadFile = File(...),
-    x_admin_secret: Optional[str] = Header(None),
+    x_token: Optional[str] = Header(None),
 ):
-    verify_admin(x_admin_secret)
+    verify_admin(x_token)
     if bucket not in IMAGE_BUCKETS:
         raise HTTPException(status_code=400, detail="Bucket must be offers or promotions")
     if not sb:
@@ -1364,8 +1503,8 @@ async def admin_upload_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/admin/offers")
-async def admin_list_offers(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_list_offers(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"offers": []}
     try:
@@ -1376,8 +1515,8 @@ async def admin_list_offers(x_admin_secret: Optional[str] = Header(None)):
         return {"offers": [], "error": str(e)}
 
 @app.post("/admin/offers")
-async def create_offer(req: OfferCreate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def create_offer(req: OfferCreate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1394,8 +1533,8 @@ async def create_offer(req: OfferCreate, x_admin_secret: Optional[str] = Header(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/admin/offers/{offer_id}")
-async def update_offer(offer_id: str, req: OfferUpdate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def update_offer(offer_id: str, req: OfferUpdate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     offer_key = offer_id.strip()
@@ -1449,8 +1588,8 @@ async def update_offer(offer_id: str, req: OfferUpdate, x_admin_secret: Optional
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/admin/offers/{offer_id}")
-async def delete_offer(offer_id: str, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def delete_offer(offer_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1463,8 +1602,8 @@ async def delete_offer(offer_id: str, x_admin_secret: Optional[str] = Header(Non
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/admin/promotions")
-async def create_promotion(req: PromotionCreate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def create_promotion(req: PromotionCreate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1487,8 +1626,8 @@ async def create_promotion(req: PromotionCreate, x_admin_secret: Optional[str] =
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/admin/promotions/{promotion_id}")
-async def update_promotion(promotion_id: str, req: PromotionUpdate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def update_promotion(promotion_id: str, req: PromotionUpdate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     promo_key = promotion_id.strip()
@@ -1556,8 +1695,8 @@ async def update_promotion(promotion_id: str, req: PromotionUpdate, x_admin_secr
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/admin/promotions")
-async def list_promotions(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def list_promotions(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"promotions": []}
     try:
@@ -1568,8 +1707,8 @@ async def list_promotions(x_admin_secret: Optional[str] = Header(None)):
         return {"promotions": [], "error": str(e)}
 
 @app.post("/admin/promotions/preview")
-async def preview_promotion(req: PromotionCreate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def preview_promotion(req: PromotionCreate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"count": 0, "total": 0, "error": "Database not configured"}
     try:
@@ -1620,8 +1759,8 @@ async def preview_promotion(req: PromotionCreate, x_admin_secret: Optional[str] 
         return {"count": 0, "total": 0, "error": str(e)}
 
 @app.delete("/admin/promotions/{promotion_id}")
-async def delete_promotion(promotion_id: str, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def delete_promotion(promotion_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1631,8 +1770,8 @@ async def delete_promotion(promotion_id: str, x_admin_secret: Optional[str] = He
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/admin/profiles/seed")
-async def seed_beta_profiles(req: SeedBetaRequest, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def seed_beta_profiles(req: SeedBetaRequest, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     from datetime import date
@@ -1661,8 +1800,8 @@ async def seed_beta_profiles(req: SeedBetaRequest, x_admin_secret: Optional[str]
     return {"ok": True, "seeded": seeded, "errors": errors}
 
 @app.get("/admin/promotions/audience")
-async def audience_data(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def audience_data(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"countries":[],"cities":[],"zips":[],"child_counts":[],"child_ages_months":[],"pregnant_count":0,"non_pregnant_count":0,"total_consenting":0}
     try:
@@ -1700,19 +1839,51 @@ async def audience_data(x_admin_secret: Optional[str] = Header(None)):
         return {"countries":[],"cities":[],"zips":[],"child_counts":[],"child_ages_months":[],"error":str(e)}
 
 @app.get("/admin/users")
-async def admin_list_users(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_list_users(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"users": []}
     try:
-        result = sb.table("users").select("id,email,name,plan,subscription_status,trial_ends_at,created_at,last_login").order("created_at", desc=True).execute()
-        return {"users": result.data or []}
+        columns = "id,email,name,plan,subscription_status,trial_ends_at,created_at,last_login,role,must_change_password"
+        app_users = _paginate_table_rows("users", columns)
+        for row in app_users:
+            row["account_kind"] = "registered"
+
+        known_ids = {u.get("id") for u in app_users if u.get("id")}
+        auth_only: list = []
+        for auth_user in _list_all_auth_users():
+            row = _auth_user_row(auth_user)
+            if row.get("id") and row["id"] not in known_ids:
+                auth_only.append(row)
+
+        invite_only_count = 0
+        try:
+            invite_res = (
+                sb.table("profiles")
+                .select("token", count="exact")
+                .is_("user_id", "null")
+                .not_.is_("token", "null")
+                .limit(1)
+                .execute()
+            )
+            invite_only_count = invite_res.count or 0
+        except Exception:
+            pass
+
+        merged = app_users + auth_only
+        merged.sort(key=lambda u: u.get("created_at") or "", reverse=True)
+        return {
+            "users": merged,
+            "registered_count": len(app_users),
+            "auth_only_count": len(auth_only),
+            "invite_only_count": invite_only_count,
+        }
     except Exception as e:
         return {"users": [], "error": str(e)}
 
 @app.delete("/admin/users/{user_id}")
-async def admin_delete_user(user_id: str, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_delete_user(user_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1724,8 +1895,8 @@ async def admin_delete_user(user_id: str, x_admin_secret: Optional[str] = Header
 
 
 @app.delete("/admin/users/delete_all")
-async def admin_delete_all_users(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_delete_all_users(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
@@ -1743,8 +1914,8 @@ async def admin_delete_all_users(x_admin_secret: Optional[str] = Header(None)):
 
 
 @app.get("/admin/regions")
-async def admin_list_regions(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_list_regions(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"regions": [], "error": "Database not configured"}
     try:
@@ -1754,8 +1925,8 @@ async def admin_list_regions(x_admin_secret: Optional[str] = Header(None)):
         return {"regions": [], "error": str(e)}
 
 @app.post("/admin/regions")
-async def admin_create_region(req: RegionCreate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_create_region(req: RegionCreate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     name = (req.name or "").strip()
@@ -1783,8 +1954,8 @@ async def admin_create_region(req: RegionCreate, x_admin_secret: Optional[str] =
         raise HTTPException(status_code=500, detail=err)
 
 @app.put("/admin/regions/{region_id}")
-async def admin_update_region(region_id: str, req: RegionUpdate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_update_region(region_id: str, req: RegionUpdate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     region_key = region_id.strip()
@@ -1820,8 +1991,8 @@ async def admin_update_region(region_id: str, req: RegionUpdate, x_admin_secret:
         raise HTTPException(status_code=500, detail=err)
 
 @app.delete("/admin/regions/{region_id}")
-async def admin_delete_region(region_id: str, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_delete_region(region_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     region_key = region_id.strip()
@@ -1858,8 +2029,8 @@ def _normalize_invite_status(status: Optional[str]) -> str:
     return s
 
 @app.get("/admin/invite_codes")
-async def admin_list_invite_codes(x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_list_invite_codes(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         return {"codes": [], "error": "Database not configured"}
     try:
@@ -1871,8 +2042,8 @@ async def admin_list_invite_codes(x_admin_secret: Optional[str] = Header(None)):
         return {"codes": [], "error": str(e)}
 
 @app.post("/admin/invite_codes")
-async def admin_create_invite_code(req: InviteCodeCreate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_create_invite_code(req: InviteCodeCreate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     code = (req.code or "").strip()
@@ -1901,8 +2072,8 @@ async def admin_create_invite_code(req: InviteCodeCreate, x_admin_secret: Option
         raise HTTPException(status_code=500, detail=err)
 
 @app.put("/admin/invite_codes/{code}")
-async def admin_update_invite_code(code: str, req: InviteCodeUpdate, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_update_invite_code(code: str, req: InviteCodeUpdate, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     code_key = code.strip()
@@ -1932,8 +2103,8 @@ async def admin_update_invite_code(code: str, req: InviteCodeUpdate, x_admin_sec
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/admin/invite_codes/{code}")
-async def admin_delete_invite_code(code: str, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_delete_invite_code(code: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     code_key = code.strip()
@@ -1982,16 +2153,17 @@ def _tester_plan_fields(plan: str) -> dict:
     return {"plan": "starter", "subscription_status": "active"}
 
 
-def supabase_create_auth_user(email: str, user_metadata: dict) -> str:
+def supabase_create_auth_user(email: str, user_metadata: dict, password: Optional[str] = None) -> str:
     """Create auth.users via admin API — no Supabase invite/confirmation email."""
     import secrets
 
     user_id = str(uuid.uuid4())
+    auth_password = password.strip() if password and password.strip() else secrets.token_urlsafe(32)
     try:
         sb.auth.admin.create_user({
             "id": user_id,
             "email": email,
-            "password": secrets.token_urlsafe(32),
+            "password": auth_password,
             "email_confirm": True,
             "user_metadata": user_metadata,
         })
@@ -2016,8 +2188,14 @@ def _tester_invite_email_html(
     plan_label: str,
     *,
     auth_account_ready: bool = False,
+    temporary_password: Optional[str] = None,
 ) -> str:
-    if auth_account_ready:
+    if auth_account_ready and temporary_password:
+        login_steps = f"""
+      <li>Βάλε το email σου: <strong>{email}</strong></li>
+      <li>Προσωρινός κωδικός: <strong>{temporary_password}</strong></li>
+      <li>Σύνδεση — θα σου ζητηθεί να ορίσεις <strong>νέο κωδικό</strong> στην πρώτη είσοδο</li>"""
+    elif auth_account_ready:
         login_steps = f"""
       <li>Βάλε το email σου: <strong>{email}</strong></li>
       <li>Πάτα <strong>«Ξέχασα τον κωδικό»</strong> για να ορίσεις password</li>
@@ -2062,6 +2240,7 @@ def _send_tester_invite_email(
     plan_label: str,
     *,
     auth_account_ready: bool = False,
+    temporary_password: Optional[str] = None,
 ) -> Optional[str]:
     """Send invite email. Returns None on success, error message on failure."""
     if not RESEND_API_KEY:
@@ -2080,6 +2259,7 @@ def _send_tester_invite_email(
                 invite_code,
                 plan_label,
                 auth_account_ready=auth_account_ready,
+                temporary_password=temporary_password,
             ),
         })
     except Exception as e:
@@ -2095,10 +2275,12 @@ class TesterInviteRequest(BaseModel):
     invite_code: str
     lang: str = "el"
     create_supabase_user: bool = False
+    temporary_password: Optional[str] = None
+    require_password_change: bool = True
 
 @app.post("/admin/invite_tester")
-async def invite_tester(req: TesterInviteRequest, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def invite_tester(req: TesterInviteRequest, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     if not is_valid_invite_code(req.invite_code):
         raise HTTPException(status_code=400, detail="Invalid invite code.")
     email = req.email.lower().strip()
@@ -2111,6 +2293,9 @@ async def invite_tester(req: TesterInviteRequest, x_admin_secret: Optional[str] 
             existing = sb.table("users").select("id").eq("email", email).execute()
             if existing.data:
                 raise HTTPException(status_code=400, detail="Email already registered.")
+            temp_pw = (req.temporary_password or "").strip()
+            if temp_pw and len(temp_pw) < 6:
+                raise HTTPException(status_code=400, detail="Temporary password must be at least 6 characters.")
             user_id = supabase_create_auth_user(
                 email,
                 {
@@ -2118,13 +2303,17 @@ async def invite_tester(req: TesterInviteRequest, x_admin_secret: Optional[str] 
                     "invite_code": req.invite_code,
                     "plan": req.plan,
                 },
+                password=temp_pw or None,
             )
+            must_change = bool(temp_pw and req.require_password_change)
             try:
                 sb.table("users").insert({
                     "id": user_id,
                     "email": email,
                     "name": full_name,
                     "invite_code": req.invite_code,
+                    "role": None,
+                    "must_change_password": must_change,
                     **_tester_plan_fields(req.plan),
                 }).execute()
             except Exception as e:
@@ -2139,6 +2328,7 @@ async def invite_tester(req: TesterInviteRequest, x_admin_secret: Optional[str] 
                 req.invite_code,
                 plan_label,
                 auth_account_ready=True,
+                temporary_password=temp_pw or None,
             )
             return {
                 "ok": True,
@@ -2170,19 +2360,86 @@ class ResetPasswordRequest(BaseModel):
 
 class PasswordChange(BaseModel):
     password: str
+    require_change_on_login: bool = True
+
+
+class ChangePasswordRequest(BaseModel):
+    password: str
+    current_password: Optional[str] = None
+
+class UserRoleUpdate(BaseModel):
+    role: Optional[str] = None
+
+
+@app.patch("/admin/users/{user_id}/role")
+async def admin_set_user_role(user_id: str, body: UserRoleUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    new_role = body.role
+    if new_role is not None and new_role != "admin":
+        raise HTTPException(status_code=400, detail="role must be 'admin' or null")
+    if user_id == admin_id and new_role is None:
+        admins = sb.table("users").select("id").eq("role", "admin").execute()
+        if len(admins.data or []) <= 1:
+            raise HTTPException(status_code=400, detail="Cannot remove admin role from the last admin")
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        sb.table("users").update({"role": new_role}).eq("id", user_id).execute()
+        return {"ok": True, "role": new_role}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.patch("/admin/users/{user_id}/password")
-async def admin_change_password(user_id: str, body: PasswordChange, x_admin_secret: Optional[str] = Header(None)):
-    verify_admin(x_admin_secret)
+async def admin_change_password(user_id: str, body: PasswordChange, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
     new_password = body.password.strip()
     if not new_password or len(new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
     try:
         sb.auth.admin.update_user_by_id(user_id, {"password": new_password})
+        sb.table("users").update({
+            "must_change_password": bool(body.require_change_on_login),
+        }).eq("id", user_id).execute()
         return {"ok": True, "message": f"Password updated for user {user_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/auth/change-password")
+def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(None)):
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database unavailable.")
+    auth = resolve_auth(x_token)
+    if auth["kind"] != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    user_id = auth["user_id"]
+    new_password = (req.password or "").strip()
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    u = sb.table("users").select("email,must_change_password").eq("id", user_id).execute()
+    if not u.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+    row = u.data[0]
+    email = row.get("email") or ""
+    if not row.get("must_change_password"):
+        if not req.current_password:
+            raise HTTPException(status_code=400, detail="Current password is required.")
+        try:
+            sb.auth.sign_in_with_password({"email": email, "password": req.current_password.strip()})
+        except Exception:
+            raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    try:
+        sb.auth.admin.update_user_by_id(user_id, {"password": new_password})
+        sb.table("users").update({"must_change_password": False}).eq("id", user_id).execute()
+        session = sb.auth.sign_in_with_password({"email": email, "password": new_password})
+        access_token = session.session.access_token
+        return {"ok": True, "token": access_token}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 import resend as resend_client
 
 @app.post("/auth/forgot-password")

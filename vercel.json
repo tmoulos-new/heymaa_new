@@ -19,6 +19,16 @@
     { "source": "/public/promotions", "destination": "/api/index" },
     { "source": "/userdata", "destination": "/api/index" },
     { "source": "/webhooks/:path*", "destination": "/api/index" },
+    {
+      "source": "/admin/:path*",
+      "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin",
+      "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+      "destination": "/admin/index.html"
+    },
     { "source": "/admin/health", "destination": "/api/index" },
     { "source": "/admin/usage", "destination": "/api/index" },
     { "source": "/admin/upload/:path*", "destination": "/api/index" },
@@ -34,8 +44,6 @@
     { "source": "/admin/users/:path*", "destination": "/api/index" },
     { "source": "/admin/users", "destination": "/api/index" },
     { "source": "/admin/invite_tester", "destination": "/api/index" },
-    { "source": "/admin", "destination": "/admin/index.html" },
-    { "source": "/admin/", "destination": "/admin/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

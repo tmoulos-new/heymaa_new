@@ -10,8 +10,8 @@ import { apiDetail, getApiBase } from '../lib/api'
 import { useToast } from './ToastContext'
 
 interface AdminContextValue {
-  secret: string
-  login: (secret: string) => Promise<void>
+  token: string
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
   adminFetch: (path: string, opts?: RequestInit) => Promise<Record<string, unknown>>
   uploadImage: (bucket: 'offers' | 'promotions', file: File) => Promise<{ key: string; url: string }>
@@ -20,7 +20,7 @@ interface AdminContextValue {
 
 const AdminContext = createContext<AdminContextValue | null>(null)
 
-const SECRET_KEY = 'hm_admin'
+const TOKEN_KEY = 'hm_admin_token'
 
 export function AdminProvider({
   children,
@@ -29,19 +29,18 @@ export function AdminProvider({
   children: ReactNode
   onAuthError: (msg: string) => void
 }) {
-  const [secret, setSecret] = useState(() => sessionStorage.getItem(SECRET_KEY) || '')
+  const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '')
   const api = getApiBase()
   const { showToast } = useToast()
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(SECRET_KEY)
-    sessionStorage.removeItem('hm_admin_tab')
-    setSecret('')
+    sessionStorage.removeItem(TOKEN_KEY)
+    setToken('')
   }, [])
 
   const adminFetch = useCallback(
     async (path: string, opts: RequestInit = {}) => {
-      const headers = { ...(opts.headers as Record<string, string>), 'x-admin-secret': secret }
+      const headers = { ...(opts.headers as Record<string, string>), 'x-token': token }
       const r = await fetch(`${api}${path}`, { ...opts, headers })
       let d: Record<string, unknown> = {}
       try {
@@ -60,25 +59,45 @@ export function AdminProvider({
       }
       return d
     },
-    [api, secret, logout, onAuthError, showToast],
+    [api, token, logout, onAuthError, showToast],
   )
 
   const login = useCallback(
-    async (value: string) => {
-      const trimmed = value.trim()
-      if (!trimmed) return
-      const r = await fetch(`${api}/admin/health`, {
-        headers: { 'x-admin-secret': trimmed },
+    async (email: string, password: string) => {
+      const em = email.trim().toLowerCase()
+      if (!em || !password) return
+      const loginRes = await fetch(`${api}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: em, password }),
       })
-      let d: Record<string, unknown> = {}
+      let loginData: Record<string, unknown> = {}
       try {
-        d = (await r.json()) as Record<string, unknown>
+        loginData = (await loginRes.json()) as Record<string, unknown>
       } catch {
         /* empty */
       }
-      if (!r.ok) throw new Error(apiDetail(d) || `HTTP ${r.status}`)
-      sessionStorage.setItem(SECRET_KEY, trimmed)
-      setSecret(trimmed)
+      if (!loginRes.ok) {
+        throw new Error(apiDetail(loginData) || `HTTP ${loginRes.status}`)
+      }
+      const accessToken = String(loginData.token || '')
+      if (!accessToken) throw new Error('Login failed: no token')
+
+      const healthRes = await fetch(`${api}/admin/health`, {
+        headers: { 'x-token': accessToken },
+      })
+      let healthData: Record<string, unknown> = {}
+      try {
+        healthData = (await healthRes.json()) as Record<string, unknown>
+      } catch {
+        /* empty */
+      }
+      if (!healthRes.ok) {
+        throw new Error(apiDetail(healthData) || 'This account does not have admin access.')
+      }
+
+      sessionStorage.setItem(TOKEN_KEY, accessToken)
+      setToken(accessToken)
     },
     [api],
   )
@@ -89,7 +108,7 @@ export function AdminProvider({
       fd.append('file', file)
       const r = await fetch(`${api}/admin/upload/${bucket}`, {
         method: 'POST',
-        headers: { 'x-admin-secret': secret },
+        headers: { 'x-token': token },
         body: fd,
       })
       let d: Record<string, unknown> = {}
@@ -101,12 +120,12 @@ export function AdminProvider({
       if (!r.ok) throw new Error(apiDetail(d) || `HTTP ${r.status}`)
       return { key: String(d.key), url: String(d.url) }
     },
-    [api, secret],
+    [api, token],
   )
 
   const value = useMemo(
-    () => ({ secret, login, logout, adminFetch, uploadImage, onAuthError }),
-    [secret, login, logout, adminFetch, uploadImage, onAuthError],
+    () => ({ token, login, logout, adminFetch, uploadImage, onAuthError }),
+    [token, login, logout, adminFetch, uploadImage, onAuthError],
   )
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>

@@ -12,8 +12,9 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
-import { TAB_TITLES, type TabId } from '../lib/constants'
+import { pathForTab, TAB_TITLES, tabIdFromLocation, type TabId } from '../lib/constants'
 import { OverviewTab } from '../tabs/OverviewTab'
 import { TestersTab } from '../tabs/TestersTab'
 import { ContentTab } from '../tabs/ContentTab'
@@ -34,9 +35,10 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
 
 export function AdminShell() {
   const { logout } = useAdmin()
-  const [tab, setTab] = useState<TabId>(
-    () => (sessionStorage.getItem('hm_admin_tab') as TabId) || 'overview',
-  )
+  const navigate = useNavigate()
+  const location = useLocation()
+  const tab = tabIdFromLocation(location.pathname)
+
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('hm_admin_collapsed') === '1',
   )
@@ -45,8 +47,7 @@ export function AdminShell() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   const switchTab = (id: TabId) => {
-    setTab(id)
-    sessionStorage.setItem('hm_admin_tab', id)
+    navigate(pathForTab(id))
     setSidebarOpen(false)
   }
 
@@ -141,27 +142,25 @@ export function AdminShell() {
         </header>
 
         <main className="main">
-          <section className={`section${tab === 'overview' ? ' active' : ''}`}>
-            <OverviewTab key={`ov-${refreshKey}`} userCount={userCount} />
-          </section>
-          <section className={`section${tab === 'testers' ? ' active' : ''}`}>
-            <TestersTab key={`te-${refreshKey}`} onUsersChanged={refreshAll} />
-          </section>
-          <section className={`section${tab === 'invites' ? ' active' : ''}`}>
-            <InviteCodesTab key={`ic-${refreshKey}`} />
-          </section>
-          <section className={`section${tab === 'regions' ? ' active' : ''}`}>
-            <RegionsTab key={`rg-${refreshKey}`} />
-          </section>
-          <section className={`section${tab === 'content' ? ' active' : ''}`}>
-            <ContentTab key={`co-${refreshKey}`} />
-          </section>
-          <section className={`section${tab === 'users' ? ' active' : ''}`}>
-            <UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />
-          </section>
-          <section className={`section${tab === 'tools' ? ' active' : ''}`}>
-            <ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />
-          </section>
+          <Routes>
+            <Route
+              index
+              element={<OverviewTab key={`ov-${refreshKey}`} userCount={userCount} />}
+            />
+            <Route
+              path="testers"
+              element={<TestersTab key={`te-${refreshKey}`} onUsersChanged={refreshAll} />}
+            />
+            <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
+            <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
+            <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
+            <Route
+              path="users"
+              element={<UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />}
+            />
+            <Route path="tools" element={<ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
       </div>
     </div>

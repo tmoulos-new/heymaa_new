@@ -11,17 +11,18 @@ export function LoginGate({
   clearAuthError: () => void
 }) {
   const { login } = useAdmin()
-  const [secret, setSecret] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
-    if (!secret.trim()) return
+    if (!email.trim() || !password) return
     setLoading(true)
     setError('')
     clearAuthError()
     try {
-      await login(secret.trim())
+      await login(email.trim(), password)
       onSuccess()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed')
@@ -31,7 +32,7 @@ export function LoginGate({
   }
 
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && secret.trim()) void submit()
+    if (e.key === 'Enter' && email.trim() && password) void submit()
   }
 
   return (
@@ -40,17 +41,29 @@ export function LoginGate({
         <h1 className="logo">
           Hey<span>Maa</span> Admin
         </h1>
-        <p className="sub">Enter admin secret to continue</p>
+        <p className="sub">Sign in with your HeyMaa account</p>
         <input
-          type="password"
-          placeholder="Admin secret"
-          autoComplete="current-password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
+          type="email"
+          placeholder="Email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           onKeyDown={onKey}
         />
-        <button type="button" disabled={!secret.trim() || loading} onClick={() => void submit()}>
-          {loading ? 'Checking…' : 'Enter dashboard →'}
+        <input
+          type="password"
+          placeholder="Password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={onKey}
+        />
+        <button
+          type="button"
+          disabled={!email.trim() || !password || loading}
+          onClick={() => void submit()}
+        >
+          {loading ? 'Signing in…' : 'Enter dashboard →'}
         </button>
         {(error || authError) && (
           <div className="msg err" style={{ marginTop: 14, textAlign: 'left' }}>

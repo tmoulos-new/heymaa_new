@@ -1,9 +1,13 @@
 export function getApiBase(): string {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
-  if (import.meta.env.DEV) return 'http://127.0.0.1:8000'
-  const h = window.location.hostname
-  if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8000'
-  return `${window.location.protocol}//${window.location.host}`
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    const h = window.location.hostname
+    if (h === 'localhost' || h === '127.0.0.1') {
+      return import.meta.env.VITE_API_PROXY || 'http://127.0.0.1:8000'
+    }
+  }
+  // Production: same-origin (Vercel rewrites /admin/* and /auth/* to API).
+  return ''
 }
 
 export function apiDetail(d: unknown): string {

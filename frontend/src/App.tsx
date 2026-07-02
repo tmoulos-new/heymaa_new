@@ -9,7 +9,8 @@ function getApiBase(): string {
   return window.location.origin;
 }
 const API = getApiBase();
-const TOKEN_KEY = "hm_token";
+export const HM_TOKEN_KEY = "hm_token";
+const TOKEN_KEY = HM_TOKEN_KEY;
 
 function apiDetail(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") return fallback;
@@ -1334,7 +1335,53 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
   );
 }
 
-function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
+function ChangePasswordScreen({
+  token,
+  lang,
+  onDone,
+  onLogout,
+}: {
+  token: string
+  lang: string
+  onDone: (newToken: string) => void
+  onLogout: () => void
+}) {
+  const [password, setPassword] = React.useState("")
+  const [confirm, setConfirm] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any}
+  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6}
+  const handleChange = async () => {
+    if (password.length < 6) { setError(lang==="el"?"Τουλάχιστον 6 χαρακτήρες.":"Min 6 characters."); return; }
+    if (password !== confirm) { setError(lang==="el"?"Οι κωδικοί δεν ταιριάζουν.":"Passwords do not match."); return; }
+    setLoading(true); setError("")
+    try {
+      const res = await axios.post(`${API}/auth/change-password`, { password }, { headers: { "x-token": token } })
+      const newToken = res.data.token || token
+      onDone(newToken)
+    } catch (e: any) {
+      setError(apiDetail(e.response?.data, lang==="el"?"Αποτυχία.":"Failed."))
+    } finally { setLoading(false) }
+  }
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={cardStyle}>
+        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:12}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
+        <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>{lang==="el"?"Νέος κωδικός":"Choose a new password"}</div>
+        <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>{lang==="el"?"Για λόγους ασφαλείας, όρισε δικό σου κωδικό πριν συνεχίσεις.":"For security, set your own password before continuing."}</div>
+        <input style={inp} type="password" placeholder={lang==="el"?"Νέος κωδικός":"New password"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
+        <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση":"Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleChange()} disabled={loading}/>
+        {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
+        <button style={{...btn,opacity:(loading||!password||!confirm)?0.5:1}} onClick={handleChange} disabled={loading||!password||!confirm}>{loading?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
+        <button onClick={onLogout} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:14,padding:6,width:"100%"}}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
+      </div>
+    </div>
+  )
+}
+
+export function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
   const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el");
   const [showLang, setShowLang] = useState(false);
   const L = getLang(lang);
@@ -2272,21 +2319,22 @@ export default function App() {
     try{return JSON.parse(localStorage.getItem(`hm_profile_${tk}`)||"null");}catch{return null;}
   });
   const [subActive, setSubActive] = useState<boolean|null>(null);
-  const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);};
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
 
   useEffect(() => {
-    if (!token) { setProfile(null); return; }
+    if (!token) { setProfile(null); setMustChangePassword(false); return; }
     const cached = (() => { try { return JSON.parse(localStorage.getItem(`hm_profile_${token}`) || "null"); } catch { return null; } })();
-    if (cached) { setProfile(cached); return; }
-    // No local cache — build minimal profile from /auth/me so existing users skip Onboarding
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
       .then(res => {
         const u = res.data;
+        setMustChangePassword(!!u.must_change_password);
+        if (cached) { setProfile(cached); return; }
         const p: Profile = { name: u.name || "Mama", childName: "", childAge: "", lang: localStorage.getItem("hm_pre_lang") || "el" };
         localStorage.setItem(`hm_profile_${token}`, JSON.stringify(p));
         setProfile(p);
       })
-      .catch(() => setProfile(null));
+      .catch(() => { setProfile(null); setMustChangePassword(false); });
   }, [token]);
 
   useEffect(() => {
@@ -2304,6 +2352,7 @@ export default function App() {
 
   if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   if(!token)return <AuthScreen onSuccess={tk=>setToken(tk)}/>;
+  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={profile?.lang||localStorage.getItem("hm_pre_lang")||"el"} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <SubscriptionExpired lang={profile?.lang||"en"} onLogout={handleLogout}/>;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
   return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(`hm_profile_${token}`,JSON.stringify(p));}}/>;

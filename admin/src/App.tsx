@@ -11,9 +11,9 @@ function AdminRoot({
   authError: string
   clearAuthError: () => void
 }) {
-  const { secret } = useAdmin()
+  const { token } = useAdmin()
 
-  if (!secret) {
+  if (!token) {
     return (
       <LoginGate
         onSuccess={clearAuthError}

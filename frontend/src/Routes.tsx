@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import App from "./App";
 import Home from "./home/Home";
+import { AuthPage } from "./pages/AuthPage";
 import { APP_ROUTE } from "./publicRoutes";
 
 const TOKEN_KEY = "hm_token";
@@ -23,6 +24,7 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/" element={<PublicHome />} />
         <Route path="/home" element={<Home />} />
         <Route path={`${APP_ROUTE}/*`} element={<App />} />

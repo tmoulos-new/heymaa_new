@@ -16,6 +16,35 @@ export const TAB_TITLES: Record<string, string> = {
 
 export type TabId = keyof typeof TAB_TITLES
 
+/** URL segment under /admin (empty string = overview at /admin). */
+export const TAB_PATHS: Record<TabId, string> = {
+  overview: '',
+  testers: 'testers',
+  invites: 'invite-codes',
+  regions: 'regions',
+  content: 'content',
+  users: 'users',
+  tools: 'tools',
+}
+
+const PATH_TO_TAB = Object.fromEntries(
+  (Object.entries(TAB_PATHS) as [TabId, string][]).map(([id, path]) => [path || '_root', id]),
+) as Record<string, TabId>
+
+export function tabIdFromLocation(pathname: string): TabId {
+  const segment = pathname.replace(/^\/+/, '').split('/')[0] || '_root'
+  return PATH_TO_TAB[segment] ?? 'overview'
+}
+
+export function pathForTab(id: TabId): string {
+  const segment = TAB_PATHS[id]
+  return segment ? `/${segment}` : '/'
+}
+
+export const ADMIN_UI_GET_PATHS = new Set(
+  ['', ...Object.values(TAB_PATHS).filter(Boolean)].map((p) => (p ? `/admin/${p}` : '/admin')),
+)
+
 export const TESTER_CODES = Array.from({ length: 30 }, (_, i) =>
   `HeyMaa_Tester${String(i + 1).padStart(2, '0')}`,
 )
