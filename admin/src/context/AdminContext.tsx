@@ -57,8 +57,12 @@ export function AdminProvider({
         const msg = apiDetail(d) || `HTTP ${r.status}`
         if (r.status === 401 || r.status === 403) {
           logout()
-          onAuthError(msg)
-          showToast(msg, 'err')
+          const friendly =
+            msg === 'Invalid or missing token.' || msg === 'Missing x-token header' || msg === 'Invalid session'
+              ? 'Your admin session has expired. Please sign in again.'
+              : msg
+          onAuthError(friendly)
+          showToast(friendly, 'err')
         }
         throw new Error(msg)
       }

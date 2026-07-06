@@ -10,10 +10,21 @@ export function getApiBase(): string {
   return ''
 }
 
+function detailObject(detail: unknown): Record<string, unknown> | null {
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return null
+  return detail as Record<string, unknown>
+}
+
 export function apiDetail(d: unknown): string {
   if (!d || typeof d !== 'object') return ''
   const o = d as Record<string, unknown>
+  if (typeof o.friendly_message === 'string') return o.friendly_message
   if (typeof o.detail === 'string') return o.detail
+  const nested = detailObject(o.detail)
+  if (nested) {
+    if (typeof nested.friendly_message === 'string') return nested.friendly_message
+    if (typeof nested.detail === 'string') return nested.detail
+  }
   if (Array.isArray(o.detail)) {
     return o.detail.map((x) => {
       if (x && typeof x === 'object' && 'msg' in x) return String((x as { msg: string }).msg)

@@ -10,7 +10,10 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Optional, List
 
-from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
+try:
+    from .chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
+except ImportError:
+    from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
 
 _backend_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
@@ -688,10 +691,38 @@ def detect_msg_lang(message: str, profile_lang: str = "") -> str:
 def is_complex(message):
     return any(kw in message.lower() for kw in COMPLEX_KEYWORDS) or len(message) > 300
 
-def resolve_auth(token: str):
+def _api_error(
+    status_code: int,
+    code: str,
+    friendly_message: str,
+    detail: str = "",
+):
+    raise HTTPException(
+        status_code=status_code,
+        detail={
+            "code": code,
+            "detail": detail or friendly_message,
+            "friendly_message": friendly_message,
+        },
+    )
+
+def resolve_auth(token: str, *, context: str = "app"):
     """Validate x-token: beta invite code or Supabase JWT access token."""
+    token = (token or "").strip()
     if not token:
-        raise HTTPException(status_code=401, detail='Invalid or missing token.')
+        if context == "admin":
+            _api_error(
+                401,
+                "missing_token",
+                "You are not signed in. Please log in to the admin panel.",
+                "Missing x-token header",
+            )
+        _api_error(
+            401,
+            "missing_token",
+            "No login token was sent. Sign in to HeyMaa or enter a valid beta invite code.",
+            "Missing x-token header",
+        )
     if is_valid_invite_code(token):
         return {"kind": "invite", "token": token, "user_id": None}
     if sb:
@@ -701,7 +732,19 @@ def resolve_auth(token: str):
                 return {"kind": "user", "token": token, "user_id": user_res.user.id}
         except Exception:
             pass
-    raise HTTPException(status_code=401, detail='Invalid or missing token.')
+    if context == "admin":
+        _api_error(
+            401,
+            "invalid_session",
+            "Your admin session has expired or is invalid. Please sign in again.",
+            "Invalid or expired token",
+        )
+    _api_error(
+        401,
+        "invalid_token",
+        "Your session has expired or is not valid. Please sign in again.",
+        "Invalid or expired token",
+    )
 
 def verify_token(token: str):
     resolve_auth(token)
@@ -1259,11 +1302,14 @@ def verify_admin(x_token: Optional[str]) -> str:
     """Require a logged-in user with role=admin (JWT via x-token)."""
     if not sb:
         raise HTTPException(status_code=503, detail=DB_UNCONFIGURED_MSG)
-    if not x_token:
-        raise HTTPException(status_code=401, detail="Missing x-token header")
-    auth = resolve_auth(x_token)
+    auth = resolve_auth(x_token, context="admin")
     if auth["kind"] != "user" or not auth.get("user_id"):
-        raise HTTPException(status_code=401, detail="Invalid session")
+        _api_error(
+            401,
+            "invalid_session",
+            "Admin access requires a logged-in account. Please sign in with email and password.",
+            "Invalid session",
+        )
     user_id = auth["user_id"]
     res = sb.table("users").select("email,role").eq("id", user_id).execute()
     if not res.data:
