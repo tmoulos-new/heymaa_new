@@ -10,6 +10,7 @@ import {
   Megaphone,
   Menu,
   MousePointerClick,
+  Bot,
   RefreshCw,
   ScrollText,
   Users,
@@ -28,6 +29,7 @@ import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
 import { UserDataTab } from '../tabs/UserDataTab'
 import { UserActivityLogTab } from '../tabs/UserActivityLogTab'
+import { ChatPromptTab } from '../tabs/ChatPromptTab'
 import { SidebarUser } from './SidebarUser'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
@@ -39,6 +41,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
   { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
+  { id: 'chatprompt', icon: Bot, tip: 'Chat Prompt' },
   { id: 'activity', icon: ScrollText, tip: 'Admin Activity' },
   { id: 'tools', icon: Wrench, tip: 'Tools' },
 ]
@@ -152,7 +155,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' ? ' main-wide' : ''}`}>
+        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' ? ' main-wide' : ''}`}>
           <Routes>
             <Route
               index
@@ -171,6 +174,7 @@ export function AdminShell() {
             />
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
             <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />
+            <Route path="chat-prompt" element={<ChatPromptTab key={`cp-${refreshKey}`} />} />
             <Route path="activity-log" element={<ActivityLogTab key={`al-${refreshKey}`} />} />
             <Route path="tools" element={<ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />} />
             <Route path="*" element={<Navigate to="/" replace />} />

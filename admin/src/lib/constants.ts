@@ -13,6 +13,7 @@ export const TAB_TITLES: Record<string, string> = {
   users: 'Users',
   userdata: 'User Data',
   useractivity: 'User Activity',
+  chatprompt: 'Chat Prompt',
   tools: 'Tools',
   activity: 'Admin Activity',
 }
@@ -29,6 +30,7 @@ export const TAB_PATHS: Record<TabId, string> = {
   users: 'users',
   userdata: 'user-data',
   useractivity: 'user-activity',
+  chatprompt: 'chat-prompt',
   tools: 'tools',
   activity: 'activity-log',
 }
