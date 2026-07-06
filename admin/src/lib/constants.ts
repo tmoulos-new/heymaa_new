@@ -11,7 +11,9 @@ export const TAB_TITLES: Record<string, string> = {
   regions: 'Regions',
   content: 'Offers & Promos',
   users: 'Users',
+  userdata: 'User Data',
   tools: 'Tools',
+  activity: 'Activity log',
 }
 
 export type TabId = keyof typeof TAB_TITLES
@@ -24,7 +26,9 @@ export const TAB_PATHS: Record<TabId, string> = {
   regions: 'regions',
   content: 'content',
   users: 'users',
+  userdata: 'user-data',
   tools: 'tools',
+  activity: 'activity-log',
 }
 
 const PATH_TO_TAB = Object.fromEntries(

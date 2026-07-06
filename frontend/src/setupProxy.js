@@ -5,10 +5,12 @@ const ADMIN_VITE = process.env.REACT_APP_ADMIN_DEV || 'http://localhost:5174'
 
 const ADMIN_API_EXACT = new Set([
   '/admin/health',
+  '/admin/me',
   '/admin/usage',
   '/admin/invite_tester',
   '/admin/profiles/seed',
   '/admin/users/delete_all',
+  '/admin/activity_log',
 ])
 
 const ADMIN_API_PREFIXES = [
@@ -17,6 +19,7 @@ const ADMIN_API_PREFIXES = [
   '/admin/promotions',
   '/admin/regions',
   '/admin/invite_codes',
+  '/admin/user_data',
   '/admin/users',
   '/admin/profiles/',
 ]
@@ -28,7 +31,9 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/regions',
   '/admin/content',
   '/admin/users',
+  '/admin/user-data',
   '/admin/tools',
+  '/admin/activity-log',
 ])
 
 function wantsHtml(req) {

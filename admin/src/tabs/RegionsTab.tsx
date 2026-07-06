@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Globe2, Pencil, Plus, RefreshCw, Trash2, X, AlertTriangle } from 'lucide-react'
+import { Globe2, Pencil, Plus, RefreshCw, RotateCcw, Trash2, X, AlertTriangle } from 'lucide-react'
 import { MultiSelectSearch } from '../components/MultiSelectSearch'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
@@ -73,6 +73,8 @@ export function RegionsTab() {
 
   const [deleteTarget, setDeleteTarget] = useState<RegionRow | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const langOptions = LANG_OPTIONS.map((l) => ({ value: l.value, label: l.label }))
 
@@ -80,7 +82,8 @@ export function RegionsTab() {
     setLoading(true)
     setErr(false)
     try {
-      const d = await adminFetch('/admin/regions')
+      const qs = showDeleted ? '?deleted_only=true' : ''
+      const d = await adminFetch(`/admin/regions${qs}`)
       setRegions((d.regions as RegionRow[]) || [])
     } catch {
       setErr(true)
@@ -88,7 +91,7 @@ export function RegionsTab() {
     } finally {
       setLoading(false)
     }
-  }, [adminFetch])
+  }, [adminFetch, showDeleted])
 
   useEffect(() => {
     void loadRegions()
@@ -178,13 +181,30 @@ export function RegionsTab() {
     setDeleting(true)
     try {
       await adminFetch(`/admin/regions/${deleteTarget.id}`, { method: 'DELETE' })
-      show('Region deleted', 'ok')
+      show('Region soft-deleted', 'ok')
       setDeleteTarget(null)
       void loadRegions()
     } catch (e) {
       show(e instanceof Error ? e.message : 'Delete failed', 'err')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const restoreRegion = async (id: string) => {
+    setRestoringId(id)
+    try {
+      const d = await adminFetch(`/admin/regions/${id}/restore`, { method: 'POST' })
+      if (!d.ok) {
+        show(apiDetail(d) || 'Restore failed', 'err')
+        return
+      }
+      show('Region restored', 'ok')
+      void loadRegions()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Restore failed', 'err')
+    } finally {
+      setRestoringId(null)
     }
   }
 
@@ -195,13 +215,23 @@ export function RegionsTab() {
           <h2>
             <Globe2 size={16} className="h-icon" /> Regions
           </h2>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="show-deleted-toggle">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+              />
+              Show deleted
+            </label>
             <button type="button" className="sec sm" onClick={() => void loadRegions()}>
               <RefreshCw size={14} />
             </button>
-            <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>
-              <Plus size={14} /> New
-            </button>
+            {!showDeleted && (
+              <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>
+                <Plus size={14} /> New
+              </button>
+            )}
           </div>
         </div>
         <p className="card-desc">
@@ -212,29 +242,52 @@ export function RegionsTab() {
         {loading && <div className="empty">Loading…</div>}
         {err && <div className="msg err">Failed to load regions</div>}
         {!loading && !err && regions.length === 0 && (
-          <div className="empty">No regions yet. Create one to get started.</div>
+          <div className="empty">
+            {showDeleted ? 'No deleted regions.' : 'No regions yet. Create one to get started.'}
+          </div>
         )}
 
         {!loading &&
           !err &&
           regions.map((r) => (
-            <div key={r.id} className="list-item">
+            <div key={r.id} className={`list-item${r.is_deleted ? ' is-deleted' : ''}`}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="t">
-                  <span className={`badge ${r.active === false ? 'badge-muted' : 'badge-ok'}`}>
-                    {r.active === false ? 'inactive' : 'active'}
-                  </span>
+                  {r.is_deleted ? (
+                    <span className="badge badge-warn">deleted</span>
+                  ) : (
+                    <span className={`badge ${r.active === false ? 'badge-muted' : 'badge-ok'}`}>
+                      {r.active === false ? 'inactive' : 'active'}
+                    </span>
+                  )}
                   {r.name}
                 </div>
-                <div className="b">{langLabels(r.languages)}</div>
+                <div className="b">
+                  {langLabels(r.languages)}
+                  {r.created_by_name ? ` · by ${r.created_by_name}` : ''}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button type="button" className="sec sm" onClick={() => openEdit(r)}>
-                  <Pencil size={14} />
-                </button>
-                <button type="button" className="del" onClick={() => setDeleteTarget(r)}>
-                  <Trash2 size={14} />
-                </button>
+                {r.is_deleted ? (
+                  <button
+                    type="button"
+                    className="sec sm"
+                    disabled={restoringId === r.id}
+                    onClick={() => void restoreRegion(r.id)}
+                    title="Restore"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="sec sm" onClick={() => openEdit(r)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button type="button" className="del" onClick={() => setDeleteTarget(r)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -285,12 +338,12 @@ export function RegionsTab() {
       )}
 
       {deleteTarget && (
-        <Modal title="Delete region?" onClose={() => !deleting && setDeleteTarget(null)}>
+        <Modal title="Soft delete region?" onClose={() => !deleting && setDeleteTarget(null)}>
           <p className="card-desc" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
             <span>
-              Delete <strong>{deleteTarget.name}</strong>? Offers and promotions linked to this region will lose
-              that association.
+              Soft-delete <strong>{deleteTarget.name}</strong>? It will be hidden from targeting but can be
+              restored later from the deleted list.
             </span>
           </p>
           <div className="modal-foot">
@@ -298,7 +351,7 @@ export function RegionsTab() {
               Cancel
             </button>
             <button type="button" className="del" onClick={() => void confirmDelete()} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? 'Deleting…' : 'Soft delete'}
             </button>
           </div>
         </Modal>

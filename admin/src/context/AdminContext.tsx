@@ -2,15 +2,18 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import { apiDetail, getApiBase } from '../lib/api'
+import type { AdminUser } from '../lib/types'
 import { useToast } from './ToastContext'
 
 interface AdminContextValue {
   token: string
+  user: AdminUser | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   adminFetch: (path: string, opts?: RequestInit) => Promise<Record<string, unknown>>
@@ -30,12 +33,14 @@ export function AdminProvider({
   onAuthError: (msg: string) => void
 }) {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || '')
+  const [user, setUser] = useState<AdminUser | null>(null)
   const api = getApiBase()
   const { showToast } = useToast()
 
   const logout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_KEY)
     setToken('')
+    setUser(null)
   }, [])
 
   const adminFetch = useCallback(
@@ -61,6 +66,23 @@ export function AdminProvider({
     },
     [api, token, logout, onAuthError, showToast],
   )
+
+  const loadUser = useCallback(async () => {
+    if (!token) {
+      setUser(null)
+      return
+    }
+    try {
+      const d = await adminFetch('/admin/me')
+      setUser((d.user as AdminUser) || null)
+    } catch {
+      setUser(null)
+    }
+  }, [token, adminFetch])
+
+  useEffect(() => {
+    void loadUser()
+  }, [loadUser])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -98,6 +120,15 @@ export function AdminProvider({
 
       sessionStorage.setItem(TOKEN_KEY, accessToken)
       setToken(accessToken)
+      const admin = healthData.admin as Record<string, unknown> | undefined
+      if (admin?.ok && admin.user_id) {
+        setUser({
+          id: String(admin.user_id),
+          email: String(admin.email || ''),
+          name: admin.name != null ? String(admin.name) : null,
+          role: admin.role != null ? String(admin.role) : null,
+        })
+      }
     },
     [api],
   )
@@ -124,8 +155,8 @@ export function AdminProvider({
   )
 
   const value = useMemo(
-    () => ({ token, login, logout, adminFetch, uploadImage, onAuthError }),
-    [token, login, logout, adminFetch, uploadImage, onAuthError],
+    () => ({ token, user, login, logout, adminFetch, uploadImage, onAuthError }),
+    [token, user, login, logout, adminFetch, uploadImage, onAuthError],
   )
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>

@@ -33,7 +33,7 @@ ALTER TABLE public.regions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.offer_regions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promotion_regions ENABLE ROW LEVEL SECURITY;
 
--- No anon/authenticated policies: backend service role only.
+-- No anon/authenticated policies here — run regions_rls_policies.sql after this file.
 
 -- Optional starter regions (safe to re-run).
 INSERT INTO public.regions (name, languages, active)

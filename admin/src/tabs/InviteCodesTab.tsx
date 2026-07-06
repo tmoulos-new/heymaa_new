@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { KeyRound, Pencil, Plus, RefreshCw, Trash2, X, AlertTriangle } from 'lucide-react'
+import { KeyRound, Pencil, Plus, RefreshCw, RotateCcw, Trash2, X, AlertTriangle } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { apiDetail } from '../lib/api'
+import { datetimeLocalInputValue } from '../lib/datetime'
 import { TESTER_CODES } from '../lib/constants'
 import type { InviteCodeRow } from '../lib/types'
 
@@ -79,21 +80,24 @@ export function InviteCodesTab() {
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showDeleted, setShowDeleted] = useState(false)
+  const [restoringCode, setRestoringCode] = useState<string | null>(null)
 
   const loadCodes = useCallback(async () => {
     setLoading(true)
     setErr(false)
     try {
-      const d = await adminFetch('/admin/invite_codes')
+      const qs = showDeleted ? '?deleted_only=true' : ''
+      const d = await adminFetch(`/admin/invite_codes${qs}`)
       const list = (d.codes as InviteCodeRow[]) || []
-      setCodes(list.length ? list : TESTER_CODES.map((c) => ({ code: c, status: 'active' })))
+      setCodes(list.length ? list : showDeleted ? [] : TESTER_CODES.map((c) => ({ code: c, status: 'active' })))
     } catch {
       setErr(true)
-      setCodes(TESTER_CODES.map((c) => ({ code: c, status: 'active' })))
+      setCodes(showDeleted ? [] : TESTER_CODES.map((c) => ({ code: c, status: 'active' })))
     } finally {
       setLoading(false)
     }
-  }, [adminFetch])
+  }, [adminFetch, showDeleted])
 
   useEffect(() => {
     void loadCodes()
@@ -116,7 +120,7 @@ export function InviteCodesTab() {
     setEditStatus(row.status || 'active')
     setEditLabel(row.label || '')
     setEditNotes(row.notes || '')
-    setEditExpires(row.expires_at ? row.expires_at.slice(0, 16) : '')
+    setEditExpires(datetimeLocalInputValue(row.expires_at))
   }
 
   const cancelEdit = () => {
@@ -196,7 +200,7 @@ export function InviteCodesTab() {
         show(apiDetail(d) || 'Could not delete', 'err')
         return
       }
-      show(`Deleted ${code}`, 'ok')
+      show(`Soft-deleted ${code}`, 'ok')
       setDeleteTarget(null)
       if (editCode === code) cancelEdit()
       void loadCodes()
@@ -204,6 +208,24 @@ export function InviteCodesTab() {
       show(e instanceof Error ? e.message : 'Network error', 'err')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const restoreCode = async (code: string) => {
+    setRestoringCode(code)
+    try {
+      const d = await adminFetch(`/admin/invite_codes/${encodeURIComponent(code)}/restore`, { method: 'POST' })
+      if (!d.ok) {
+        show(apiDetail(d) || 'Could not restore', 'err')
+        return
+      }
+      show(`Restored ${code}`, 'ok')
+      if (editCode === code) cancelEdit()
+      void loadCodes()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Network error', 'err')
+    } finally {
+      setRestoringCode(null)
     }
   }
 
@@ -215,17 +237,29 @@ export function InviteCodesTab() {
             <KeyRound size={16} className="h-icon" /> Invite codes
           </h2>
           <div className="card-head-actions">
+            <label className="show-deleted-toggle">
+              <input
+                type="checkbox"
+                checked={showDeleted}
+                onChange={(e) => setShowDeleted(e.target.checked)}
+              />
+              Show deleted
+            </label>
             <button type="button" className="sec sm" onClick={() => void loadCodes()}>
               <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
-            <button type="button" className="teal sm" onClick={() => setCreateOpen(true)}>
-              <Plus size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> New invite code
-            </button>
+            {!showDeleted && (
+              <button type="button" className="teal sm" onClick={() => setCreateOpen(true)}>
+                <Plus size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> New invite code
+              </button>
+            )}
           </div>
         </div>
         {loading && <div className="empty">Loading…</div>}
         {err && <div className="msg err">Could not load from database — showing defaults.</div>}
-        {!loading && codes.length === 0 && <div className="empty">No invite codes yet.</div>}
+        {!loading && codes.length === 0 && (
+          <div className="empty">{showDeleted ? 'No deleted invite codes.' : 'No invite codes yet.'}</div>
+        )}
         {!loading && codes.length > 0 && (
           <div className="table-wrap">
             <table className="data-table">
@@ -234,31 +268,54 @@ export function InviteCodesTab() {
                   <th>Code</th>
                   <th>Status</th>
                   <th>Label</th>
+                  <th>Created by</th>
                   <th>Expires</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {codes.map((row) => (
-                  <tr key={row.code}>
+                  <tr key={row.code} className={row.is_deleted || showDeleted ? 'is-deleted' : ''}>
                     <td>
                       <code>{row.code}</code>
+                      {(row.is_deleted || showDeleted) && (
+                        <div>
+                          <span className="badge badge-warn" style={{ marginTop: 4 }}>
+                            deleted
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td>{statusBadge(row.status)}</td>
                     <td>{row.label || '—'}</td>
+                    <td>{row.created_by_name || '—'}</td>
                     <td>{row.expires_at ? new Date(row.expires_at).toLocaleString() : '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <button type="button" className="ghost sm" onClick={() => startEdit(row)} title="Edit">
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost sm"
-                        onClick={() => setDeleteTarget(row.code)}
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {row.is_deleted || showDeleted ? (
+                        <button
+                          type="button"
+                          className="ghost sm"
+                          disabled={restoringCode === row.code}
+                          onClick={() => void restoreCode(row.code)}
+                          title="Restore"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        <>
+                          <button type="button" className="ghost sm" onClick={() => startEdit(row)} title="Edit">
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost sm"
+                            onClick={() => setDeleteTarget(row.code)}
+                            title="Soft delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -361,23 +418,22 @@ export function InviteCodesTab() {
       )}
 
       {deleteTarget && (
-        <Modal title="Delete invite code?" onClose={() => !deleting && setDeleteTarget(null)}>
+        <Modal title="Soft delete invite code?" onClose={() => !deleting && setDeleteTarget(null)}>
           <div className="confirm-dialog">
             <div className="confirm-icon" aria-hidden="true">
               <AlertTriangle size={22} />
             </div>
             <p>
-              You are about to delete <code>{deleteTarget}</code>. Anyone using this code as their session token
-              will no longer be able to sign in.
+              Soft-delete <code>{deleteTarget}</code>? Anyone using this code will no longer be able to sign in,
+              but you can restore it later from the deleted list.
             </p>
-            <p className="confirm-warn">This action cannot be undone.</p>
           </div>
           <div className="modal-foot">
             <button type="button" className="ghost" disabled={deleting} onClick={() => setDeleteTarget(null)}>
               Cancel
             </button>
             <button type="button" className="del" disabled={deleting} onClick={() => void confirmDelete()}>
-              {deleting ? 'Deleting…' : 'Delete code'}
+              {deleting ? 'Deleting…' : 'Soft delete'}
             </button>
           </div>
         </Modal>

@@ -1,5 +1,13 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import {
+  EMPTY_FAMILY,
+  getFamilyChildren,
+  normalizeFamilyData,
+  parseFamilyData,
+  parseFamilyDataValue,
+  type FamilyData,
+} from "./lib/familyData";
 
 function getApiBase(): string {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
@@ -65,7 +73,6 @@ interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
 interface Message { role: "user" | "assistant"; content: string; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
-interface FamilyMember { name: string; role: string; color: string; email?: string; phone?: string; }
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
@@ -1589,7 +1596,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [memories, setMemories] = useState<Memory[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"memories"))||"[]");}catch{return[];} });
   const [editingMemIdx, setEditingMemIdx] = useState<number|null>(null);
   const [memEditVal, setMemEditVal] = useState("");
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"family"))||"[]");}catch{return[];} });
+  const [familyData, setFamilyData] = useState<FamilyData>(() => {
+    try {
+      return parseFamilyData(localStorage.getItem(sk(token, "family")), undefined);
+    } catch {
+      return EMPTY_FAMILY;
+    }
+  });
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones_map"))||"{}");}catch{return {};} });
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
@@ -1675,7 +1688,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   // Which person are we adding a memory for? undefined = general/user
 
   const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
-  const allChildren = getAllChildren(profile);
+  const profileChildren = useMemo(() => getAllChildren(profile), [profile]);
+  const familyChildren = useMemo(
+    () => getFamilyChildren(familyData, profileChildren),
+    [familyData, profileChildren],
+  );
+  const allChildren = familyChildren;
   const primaryChild = allChildren[0];
   const milestoneList = getMilestones(ageMonthsFromBirthDate(primaryChild?.birthDate) ?? parseAgeMonths(profile.childAge), lang);
   const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang) : profile.childAge;
@@ -1709,7 +1727,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         if (d.chat)           { try { setMessages(JSON.parse(d.chat)); } catch {} }
         if (d.threads)        { try { setThreads(JSON.parse(d.threads)); } catch {} }
         if (d.memories)       { try { setMemories(JSON.parse(d.memories)); } catch {} }
-        if (d.family)         { try { setFamilyMembers(JSON.parse(d.family)); } catch {} }
+        if (d.family) {
+          const fd = parseFamilyDataValue(d.family, profileChildren);
+          setFamilyData(fd);
+        }
         if (d.milestones_map) { try { setMilestoneChecksMap(JSON.parse(d.milestones_map)); } catch {} }
         if (d.docs)           { try { setDocs(JSON.parse(d.docs)); } catch {} }
         if (d.shopitems)      { try { setShopItems(JSON.parse(d.shopitems)); } catch {} }
@@ -1719,10 +1740,24 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // Migrate legacy profile-only children into user_data.family.children
+  useEffect(() => {
+    setFamilyData((prev) => {
+      if (prev.children.length > 0) return prev;
+      if (profileChildren.length === 0) return prev;
+      return {
+        ...prev,
+        children: profileChildren.map((c) => ({ name: c.name, birthDate: c.birthDate })),
+      };
+    });
+  }, [profileChildren]);
+
   useEffect(()=>{ void sbSave("chat", messages); },[messages, sbSave]);
   useEffect(()=>{ void sbSave("threads", threads); },[threads, sbSave]);
   useEffect(()=>{ void sbSave("memories", memories); },[memories, sbSave]);
-  useEffect(()=>{ void sbSave("family", familyMembers); },[familyMembers, sbSave]);
+  useEffect(() => {
+    void sbSave("family", normalizeFamilyData(familyData));
+  }, [familyData, sbSave]);
   useEffect(()=>{ void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave]);
   useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs, token]);
   useEffect(()=>{ void sbSave("shopitems", shopItems); },[shopItems, sbSave]);
@@ -1735,7 +1770,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:getAllChildren(profile).map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:{"x-token":token}}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
+    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:familyChildren.map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:{"x-token":token}}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
     catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
     finally { setLoading(false); }
   };
@@ -1797,16 +1832,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
-    setFamilyMembers([...familyMembers,{name:newMemberName.trim(),role:newMemberRole.trim()||"Family",color:COLORS[familyMembers.length%COLORS.length],email:newMemberEmail.trim()||undefined,phone:newMemberPhone.trim()||undefined}]);
+    const member = {
+      name: newMemberName.trim(),
+      relationship: newMemberRole.trim() || "Family",
+      ...(newMemberEmail.trim() ? { email: newMemberEmail.trim() } : {}),
+      ...(newMemberPhone.trim() ? { phone: newMemberPhone.trim() } : {}),
+    };
+    setFamilyData((prev) => ({ ...prev, members: [...prev.members, member] }));
     setNewMemberName(""); setNewMemberRole(""); setNewMemberEmail(""); setNewMemberPhone(""); setShowAddMember(false);
   };
 
   const addChild = () => {
     if(!newChildName.trim()||!newChildBirthDate)return;
-    const existing = getAllChildren(profile);
-    const updatedChildren = [...existing, {name:newChildName.trim(),birthDate:newChildBirthDate}];
-    const updatedProfile: Profile = {...profile, children: updatedChildren, pregnancyStatus: profile.dueDate ? "completed" : profile.pregnancyStatus};
+    const updatedChildren = [...familyChildren, {name:newChildName.trim(),birthDate:newChildBirthDate}];
+    setFamilyData((prev) => ({ ...prev, children: updatedChildren }));
+    const updatedProfile: Profile = {
+      ...profile,
+      children: updatedChildren,
+      childName: updatedChildren[0]?.name || profile.childName,
+      childBirthDate: updatedChildren[0]?.birthDate || profile.childBirthDate,
+      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : profile.childAge,
+      pregnancyStatus: profile.dueDate ? "completed" : profile.pregnancyStatus,
+    };
     onProfileUpdate(updatedProfile);
+    void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
     setNewChildName(""); setNewChildBirthDate(""); setShowAddChild(false);
   };
 
@@ -1984,7 +2033,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
               <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:"#fff",flexShrink:0}}>🤰</div>
               <div><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
             </div>}
-            {getAllChildren(profile).map((child,i)=>{
+            {familyChildren.map((child,i)=>{
               const age = formatChildAge(child.birthDate, lang);
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{child.name[0]?.toUpperCase()}</div>
@@ -2002,12 +2051,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
               </div>
             </div>}
             <div onClick={()=>setShowAddChild(!showAddChild)} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
-            {familyMembers.map((m,i)=>(
+            {familyData.members.map((m,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{m.name[0]?.toUpperCase()}</div>
-                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{m.role}</div></div>
+                <div style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{m.name[0]?.toUpperCase()}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
+                  <div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{m.relationship}</div>
+                  {(m.email || m.phone) && (
+                    <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4}}>
+                      {m.email}{m.email && m.phone ? " · " : ""}{m.phone}
+                    </div>
+                  )}
+                </div>
                 <button onClick={()=>{setActiveMemRef(m.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
-                <button onClick={()=>setFamilyMembers(familyMembers.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
+                <button onClick={()=>setFamilyData((prev)=>({...prev,members:prev.members.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
             ))}
             {showAddMember&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
@@ -2040,8 +2097,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           {(()=>{
             const memRefs: {label:string,value:string|undefined}[] = [{label:"🌸 "+ (lang==="el"?"Γενικά":"General"),value:undefined}];
             if(pregnancyActive) memRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-            getAllChildren(profile).forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name}));
-            familyMembers.forEach(m=>memRefs.push({label:"👤 "+m.name,value:m.name}));
+            familyChildren.forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name}));
+            familyData.members.forEach(m=>memRefs.push({label:"👤 "+m.name,value:m.name}));
             if(memRefs.length>1) return (
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
                 {memRefs.map((r,i)=>(
@@ -2077,10 +2134,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
         {tab==="milestones"&&(()=>{
           const msRefs: {label:string,value:string}[] = [];
           if(profile.dueDate) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-          getAllChildren(profile).forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
+          familyChildren.forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
           const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value;
           const isPreg = effectiveRef==="pregnancy";
-          const currentChild = isPreg?null:getAllChildren(profile).find(ch=>ch.name===effectiveRef);
+          const currentChild = isPreg?null:familyChildren.find(ch=>ch.name===effectiveRef);
           const currentChecks = getChecksForRef(effectiveRef||"");
           const currentLastIdx = lastCheckedMap[effectiveRef||""]??null;
           const currentMilestoneList = isPreg?pregMilestoneList:(currentChild?getMilestones(ageMonthsFromBirthDate(currentChild.birthDate)??parseAgeMonths(profile.childAge),lang):milestoneList);
@@ -2167,8 +2224,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
               {(()=>{
                 const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="hi"?"सामान्य":lang==="ja"?"一般":"General"),value:""}];
                 if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-                getAllChildren(profile).forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
-                familyMembers.forEach(fm=>docRefs.push({label:"👤 "+fm.name,value:fm.name}));
+                familyChildren.forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
+                familyData.members.forEach(fm=>docRefs.push({label:"👤 "+fm.name,value:fm.name}));
                 const effDocRef = activeDocRef;
                 const filteredDocs = docs.filter(d=>d.ref===effDocRef);
                 return (<>

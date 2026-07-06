@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Newspaper, Pencil, PlusCircle, RefreshCw, Target, X } from 'lucide-react'
+import { Newspaper, Pencil, PlusCircle, RefreshCw, RotateCcw, Target, X } from 'lucide-react'
 import { Dropzone } from '../components/Dropzone'
 import { MultiSelectSearch } from '../components/MultiSelectSearch'
 import { FieldLabel, useFlashMessage } from '../components/ui'
@@ -164,6 +164,10 @@ export function ContentTab() {
   const [ePPreview, setEPPreview] = useState('')
   const [ePRegionIds, setEPRegionIds] = useState<string[]>([])
   const [savingPromoEdit, setSavingPromoEdit] = useState(false)
+  const [showDeletedOffers, setShowDeletedOffers] = useState(false)
+  const [showDeletedPromos, setShowDeletedPromos] = useState(false)
+  const [restoringOfferId, setRestoringOfferId] = useState<string | null>(null)
+  const [restoringPromoId, setRestoringPromoId] = useState<string | null>(null)
 
   const pvTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -190,27 +194,29 @@ export function ContentTab() {
     setOffersLoading(true)
     setOffersErr(false)
     try {
-      const d = await adminFetch('/admin/offers')
+      const qs = showDeletedOffers ? '?deleted_only=true' : ''
+      const d = await adminFetch(`/admin/offers${qs}`)
       setOffers((d.offers as Offer[]) || [])
     } catch {
       setOffersErr(true)
     } finally {
       setOffersLoading(false)
     }
-  }, [adminFetch])
+  }, [adminFetch, showDeletedOffers])
 
   const loadPromotions = useCallback(async () => {
     setPromosLoading(true)
     setPromosErr(false)
     try {
-      const d = await adminFetch('/admin/promotions')
+      const qs = showDeletedPromos ? '?deleted_only=true' : ''
+      const d = await adminFetch(`/admin/promotions${qs}`)
       setPromotions((d.promotions as Promotion[]) || [])
     } catch {
       setPromosErr(true)
     } finally {
       setPromosLoading(false)
     }
-  }, [adminFetch])
+  }, [adminFetch, showDeletedPromos])
 
   const loadAudience = useCallback(async () => {
     try {
@@ -240,7 +246,7 @@ export function ContentTab() {
   }, [loadOffers, loadPromotions, loadAudience, loadRegions])
 
   const regionOptions = regions
-    .filter((r) => r.active !== false)
+    .filter((r) => r.active !== false && !r.is_deleted)
     .map((r) => ({
       value: r.id,
       label: r.name,
@@ -380,22 +386,58 @@ export function ContentTab() {
   }
 
   const delOffer = async (id: string) => {
-    if (!confirm('Delete this offer?')) return
+    if (!confirm('Soft-delete this offer? You can restore it later from the deleted list.')) return
     try {
       await adminFetch(`/admin/offers/${id}`, { method: 'DELETE' })
+      offerMsg.show('Offer soft-deleted', 'ok')
       void loadOffers()
     } catch {
-      /* ignore */
+      offerMsg.show('Delete failed', 'err')
     }
   }
 
   const delPromotion = async (id: string) => {
-    if (!confirm('Delete this promotion?')) return
+    if (!confirm('Soft-delete this promotion? You can restore it later from the deleted list.')) return
     try {
       await adminFetch(`/admin/promotions/${id}`, { method: 'DELETE' })
+      promoMsg.show('Promotion soft-deleted', 'ok')
       void loadPromotions()
     } catch {
-      /* ignore */
+      promoMsg.show('Delete failed', 'err')
+    }
+  }
+
+  const restoreOffer = async (id: string) => {
+    setRestoringOfferId(id)
+    try {
+      const d = await adminFetch(`/admin/offers/${id}/restore`, { method: 'POST' })
+      if (d.ok) {
+        offerMsg.show('Offer restored', 'ok')
+        void loadOffers()
+      } else {
+        offerMsg.show(apiDetail(d) || 'Restore failed', 'err')
+      }
+    } catch (e) {
+      offerMsg.show(e instanceof Error ? e.message : 'Restore failed', 'err')
+    } finally {
+      setRestoringOfferId(null)
+    }
+  }
+
+  const restorePromotion = async (id: string) => {
+    setRestoringPromoId(id)
+    try {
+      const d = await adminFetch(`/admin/promotions/${id}/restore`, { method: 'POST' })
+      if (d.ok) {
+        promoMsg.show('Promotion restored', 'ok')
+        void loadPromotions()
+      } else {
+        promoMsg.show(apiDetail(d) || 'Restore failed', 'err')
+      }
+    } catch (e) {
+      promoMsg.show(e instanceof Error ? e.message : 'Restore failed', 'err')
+    } finally {
+      setRestoringPromoId(null)
     }
   }
 
@@ -769,24 +811,38 @@ export function ContentTab() {
         <div className="card">
           <div className="card-head">
             <h2>
-              <Newspaper size={16} className="h-icon" /> Active Offers
+              <Newspaper size={16} className="h-icon" /> {showDeletedOffers ? 'Deleted Offers' : 'Active Offers'}
             </h2>
-            <button type="button" className="sec sm" onClick={() => void loadOffers()}>
-              <RefreshCw size={14} />
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label className="show-deleted-toggle">
+                <input
+                  type="checkbox"
+                  checked={showDeletedOffers}
+                  onChange={(e) => setShowDeletedOffers(e.target.checked)}
+                />
+                Show deleted
+              </label>
+              <button type="button" className="sec sm" onClick={() => void loadOffers()}>
+                <RefreshCw size={14} />
+              </button>
+            </div>
           </div>
           {offersLoading && <div className="empty">Loading…</div>}
           {offersErr && <div className="msg err">Failed to load</div>}
-          {!offersLoading && !offersErr && offers.length === 0 && <div className="empty">No active offers.</div>}
+          {!offersLoading && !offersErr && offers.length === 0 && (
+            <div className="empty">{showDeletedOffers ? 'No deleted offers.' : 'No active offers.'}</div>
+          )}
           {!offersLoading &&
             !offersErr &&
             offers.map((x) => {
               const exp = x.expires_at ? ` · expires ${x.expires_at}` : ''
+              const deleted = x.is_deleted || showDeletedOffers
               return (
-                <div key={x.id} className={`list-item${x.image_url ? ' with-thumb' : ''}`}>
+                <div key={x.id} className={`list-item${x.image_url ? ' with-thumb' : ''}${deleted ? ' is-deleted' : ''}`}>
                   {x.image_url && <img className="list-thumb" src={x.image_url} alt="" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="t">
+                      {deleted && <span className="badge badge-warn">deleted</span>}
                       {x.badge && (
                         <span className="badge" style={{ background: BADGE_COLORS[x.badge] || '#999' }}>
                           {x.badge}
@@ -801,19 +857,34 @@ export function ContentTab() {
                         {' · '}
                         {regionSummary(x.region_ids, x.regions)}
                         {exp}
+                        {x.created_by_name ? ` · by ${x.created_by_name}` : ''}
                       </span>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          className="sec sm"
-                          onClick={() => openEditOffer(x)}
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" className="del" onClick={() => void delOffer(x.id)}>
-                          Delete
-                        </button>
+                        {deleted ? (
+                          <button
+                            type="button"
+                            className="sec sm"
+                            disabled={restoringOfferId === x.id}
+                            onClick={() => void restoreOffer(x.id)}
+                            title="Restore"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="sec sm"
+                              onClick={() => openEditOffer(x)}
+                              title="Edit"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button type="button" className="del" onClick={() => void delOffer(x.id)}>
+                              Soft delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -825,16 +896,26 @@ export function ContentTab() {
         <div className="card">
           <div className="card-head">
             <h2>
-              <Target size={16} className="h-icon" /> Active Promotions
+              <Target size={16} className="h-icon" /> {showDeletedPromos ? 'Deleted Promotions' : 'Active Promotions'}
             </h2>
-            <button type="button" className="sec sm" onClick={() => void loadPromotions()}>
-              <RefreshCw size={14} />
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label className="show-deleted-toggle">
+                <input
+                  type="checkbox"
+                  checked={showDeletedPromos}
+                  onChange={(e) => setShowDeletedPromos(e.target.checked)}
+                />
+                Show deleted
+              </label>
+              <button type="button" className="sec sm" onClick={() => void loadPromotions()}>
+                <RefreshCw size={14} />
+              </button>
+            </div>
           </div>
           {promosLoading && <div className="empty">Loading…</div>}
           {promosErr && <div className="msg err">Failed to load</div>}
           {!promosLoading && !promosErr && promotions.length === 0 && (
-            <div className="empty">No active promotions.</div>
+            <div className="empty">{showDeletedPromos ? 'No deleted promotions.' : 'No active promotions.'}</div>
           )}
           {!promosLoading &&
             !promosErr &&
@@ -853,11 +934,13 @@ export function ContentTab() {
               const chips = [...geo, ...demo]
               const regionLine = regionSummary(x.region_ids, x.regions)
               const exp = x.expires_at ? ` · expires ${x.expires_at}` : ''
+              const deleted = x.is_deleted || showDeletedPromos
               return (
-                <div key={x.id} className={`list-item${x.image_url ? ' with-thumb' : ''}`}>
+                <div key={x.id} className={`list-item${x.image_url ? ' with-thumb' : ''}${deleted ? ' is-deleted' : ''}`}>
                   {x.image_url && <img className="list-thumb" src={x.image_url} alt="" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="t">
+                      {deleted && <span className="badge badge-warn">deleted</span>}
                       <span className="badge" style={{ background: '#7C5CBF' }}>
                         sponsored
                       </span>
@@ -877,19 +960,34 @@ export function ContentTab() {
                       <span className="meta">
                         🌐 {regionLine}
                         {exp}
+                        {x.created_by_name ? ` · by ${x.created_by_name}` : ''}
                       </span>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          type="button"
-                          className="sec sm"
-                          onClick={() => openEditPromo(x)}
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" className="del" onClick={() => void delPromotion(x.id)}>
-                          Delete
-                        </button>
+                        {deleted ? (
+                          <button
+                            type="button"
+                            className="sec sm"
+                            disabled={restoringPromoId === x.id}
+                            onClick={() => void restorePromotion(x.id)}
+                            title="Restore"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="sec sm"
+                              onClick={() => openEditPromo(x)}
+                              title="Edit"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button type="button" className="del" onClick={() => void delPromotion(x.id)}>
+                              Soft delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

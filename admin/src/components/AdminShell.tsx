@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronsLeft,
+  Database,
   Globe2,
   LayoutDashboard,
   LogOut,
@@ -9,6 +10,7 @@ import {
   Megaphone,
   Menu,
   RefreshCw,
+  ScrollText,
   Users,
   Wrench,
 } from 'lucide-react'
@@ -22,6 +24,9 @@ import { UsersTab } from '../tabs/UsersTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { ToolsTab } from '../tabs/ToolsTab'
+import { ActivityLogTab } from '../tabs/ActivityLogTab'
+import { UserDataTab } from '../tabs/UserDataTab'
+import { SidebarUser } from './SidebarUser'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'overview', icon: LayoutDashboard, tip: 'Overview' },
@@ -30,6 +35,8 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'regions', icon: Globe2, tip: 'Regions' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'users', icon: Users, tip: 'Users' },
+  { id: 'userdata', icon: Database, tip: 'User Data' },
+  { id: 'activity', icon: ScrollText, tip: 'Activity log' },
   { id: 'tools', icon: Wrench, tip: 'Tools' },
 ]
 
@@ -124,6 +131,7 @@ export function AdminShell() {
             <span className="action-label">Sign out</span>
           </button>
         </div>
+        <SidebarUser />
       </aside>
 
       <div className="content-wrap">
@@ -141,7 +149,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main className="main">
+        <main className={`main${tab === 'activity' || tab === 'userdata' ? ' main-wide' : ''}`}>
           <Routes>
             <Route
               index
@@ -158,6 +166,8 @@ export function AdminShell() {
               path="users"
               element={<UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />}
             />
+            <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
+            <Route path="activity-log" element={<ActivityLogTab key={`al-${refreshKey}`} />} />
             <Route path="tools" element={<ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

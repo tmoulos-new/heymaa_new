@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { RefreshCw, Search, Shield, ShieldOff, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { ChevronRight, RefreshCw, Search, Shield, ShieldOff, Users, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { apiDetail } from '../lib/api'
+import { pathForTab } from '../lib/constants'
+import { formatUserDataSummary, hasUserDataSummary } from '../lib/userDataSummary'
 import type { UserRow } from '../lib/types'
 
 function Modal({
@@ -45,6 +48,7 @@ function Modal({
 
 export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
   const { adminFetch } = useAdmin()
+  const navigate = useNavigate()
   const { show, Message } = useFlashMessage()
   const [allUsers, setAllUsers] = useState<UserRow[]>([])
   const [query, setQuery] = useState('')
@@ -167,6 +171,14 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
     }
   }
 
+  const openUserData = (id: string) => {
+    navigate(`${pathForTab('userdata')}?user=${encodeURIComponent(id)}`)
+  }
+
+  const stopRowClick = (e: MouseEvent) => {
+    e.stopPropagation()
+  }
+
   return (
     <div className="card">
       <div className="card-head">
@@ -217,8 +229,21 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
               ? `trial (ends ${trialEnd})`
               : u.subscription_status || '?'
           const isAdmin = u.role === 'admin'
+          const summaryParts = formatUserDataSummary(u.data_summary)
           return (
-            <div key={u.id} className="list-item">
+            <div
+              key={u.id}
+              className="list-item list-item-clickable"
+              role="button"
+              tabIndex={0}
+              onClick={() => openUserData(u.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openUserData(u.id)
+                }
+              }}
+            >
               <div className="t">
                 <span className="badge" style={{ background: planBadge }}>
                   {isAuthOnly ? 'auth only' : u.plan || 'trial'}
@@ -239,9 +264,30 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                 {u.name ? `${u.name} · ` : ''}
                 {statusInfo} · joined {since} · last login {last}
               </div>
+              {hasUserDataSummary(u.data_summary) ? (
+                <div className="list-item-stats">
+                  {summaryParts.map((part) => (
+                    <span key={part} className="list-item-stat">
+                      {part}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="list-item-stats muted">No saved app data yet</div>
+              )}
               <div className="foot">
-                <span />
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="ghost sm list-item-data-link"
+                  onClick={(e) => {
+                    stopRowClick(e)
+                    openUserData(u.id)
+                  }}
+                >
+                  View user data
+                  <ChevronRight size={14} />
+                </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={stopRowClick}>
                   {!isAuthOnly && (
                     <button
                       type="button"

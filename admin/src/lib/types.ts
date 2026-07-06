@@ -10,6 +10,8 @@ export interface Offer {
   image_url?: string
   region_ids?: string[]
   regions?: RegionRow[]
+  created_by_name?: string
+  is_deleted?: boolean
 }
 
 export interface Promotion {
@@ -30,6 +32,8 @@ export interface Promotion {
   child_age_max_months?: number | null
   region_ids?: string[]
   regions?: RegionRow[]
+  created_by_name?: string
+  is_deleted?: boolean
 }
 
 export interface RegionRow {
@@ -37,8 +41,10 @@ export interface RegionRow {
   name: string
   languages: string[]
   active?: boolean
+  is_deleted?: boolean
   created_at?: string
   updated_at?: string
+  created_by_name?: string
 }
 
 export interface InviteCodeRow {
@@ -48,8 +54,10 @@ export interface InviteCodeRow {
   label?: string | null
   notes?: string | null
   expires_at?: string | null
+  is_deleted?: boolean
   created_at?: string
   updated_at?: string
+  created_by_name?: string
 }
 
 export interface UserRow {
@@ -64,6 +72,35 @@ export interface UserRow {
   role?: string | null
   account_kind?: 'registered' | 'auth_only'
   must_change_password?: boolean
+  data_summary?: UserDataSummary
+}
+
+export interface UserDataSummary {
+  children: number
+  members: number
+  chat_messages: number
+  memories: number
+  threads: number
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  name?: string | null
+  role?: string | null
+}
+
+export interface ActivityLogRow {
+  id: string
+  user_id: string
+  action: string
+  entity_type: string
+  entity_id?: string | null
+  details?: Record<string, unknown>
+  value_before?: Record<string, unknown> | null
+  value_after?: Record<string, unknown> | null
+  created_at: string
+  actor_name?: string
 }
 
 export interface ProviderStatus {
