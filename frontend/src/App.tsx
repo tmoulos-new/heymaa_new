@@ -8,6 +8,7 @@ import {
   parseFamilyDataValue,
   type FamilyData,
 } from "./lib/familyData";
+import { appPath, logUserActivity } from "./lib/userActivity";
 
 function getApiBase(): string {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
@@ -1586,6 +1587,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const lang = profile.lang; const L = getLang(lang);
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
 
+  const track = useCallback((action: string, path: string, label?: string, details?: Record<string, unknown>) => {
+    logUserActivity(token, { action, path, label, details });
+  }, [token]);
+
   // Threads state
   const [threads, setThreads] = useState<Thread[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"threads"))||"[]");}catch{return[];} });
   const [messages, setMessages] = useState<Message[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"chat"))||"[]");}catch{return[];} });
@@ -1615,6 +1620,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   const [superItems, setSuperItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"superitems")); return s?JSON.parse(s):["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];}catch{return[];} });
 
   const [tab, setTab] = useState<"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
+
+  useEffect(() => {
+    track("view", appPath(tab));
+  }, [tab, track]);
+
   const [input, setInput] = useState("");
   const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
@@ -1641,6 +1651,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
       localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated));
       onProfileUpdate(updated);
       showToast(lang === "el" ? "Τα στοιχεία αποθηκεύτηκαν" : "Profile saved", "ok");
+      track("submit", appPath("profile", "save"), "Save profile");
       setShowProfileEdit(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -1765,6 +1776,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
+    track("submit", appPath("chat", "send"), "Send message");
     const userMsg: Message = {role:"user",content:text};
     const next = [...messages, userMsg]; setMessages(next); setInput(""); setLoading(true);
     // Last 15 memories (text only, no images) for context
@@ -1818,6 +1830,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const addMemory = (imgData?: string) => {
     if(!memInput.trim()&&!imgData)return;
+    track("submit", appPath("memories", "add"), imgData ? "Add photo memory" : "Add memory", { ref: activeMemRef });
     const emojis=["😊","🍼","😎","🛁","❤️","🌟","🎉","🌸","🏆","✨"];
     setMemories([{emoji:emojis[memories.length%emojis.length],text:memInput.trim()||"📷",date:new Date().toLocaleDateString(lang,{day:"numeric",month:"short"}),img:imgData,ref:activeMemRef},...memories]);
     setMemInput("");
@@ -1832,6 +1845,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
+    track("submit", appPath("family", "add-member"), "Add family member");
     const member = {
       name: newMemberName.trim(),
       relationship: newMemberRole.trim() || "Family",
@@ -1844,6 +1858,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
 
   const addChild = () => {
     if(!newChildName.trim()||!newChildBirthDate)return;
+    track("submit", appPath("family", "add-child"), "Add child");
     const updatedChildren = [...familyChildren, {name:newChildName.trim(),birthDate:newChildBirthDate}];
     setFamilyData((prev) => ({ ...prev, children: updatedChildren }));
     const updatedProfile: Profile = {

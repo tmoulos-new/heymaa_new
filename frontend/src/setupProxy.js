@@ -19,6 +19,7 @@ const ADMIN_API_PREFIXES = [
   '/admin/promotions',
   '/admin/regions',
   '/admin/invite_codes',
+  '/admin/user_activity',
   '/admin/user_data',
   '/admin/users',
   '/admin/profiles/',
@@ -32,6 +33,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/content',
   '/admin/users',
   '/admin/user-data',
+  '/admin/user-activity',
   '/admin/tools',
   '/admin/activity-log',
 ])

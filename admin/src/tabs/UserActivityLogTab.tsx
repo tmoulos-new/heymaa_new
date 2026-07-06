@@ -1,71 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, RefreshCw, ScrollText } from 'lucide-react'
+import { ChevronDown, ChevronUp, MousePointerClick, RefreshCw } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel } from '../components/ui'
 import { ValuePairs } from '../components/ValuePairs'
-import { diffSnapshots } from '../lib/diffSnapshots'
-import type { ActivityLogRow, UserRow } from '../lib/types'
+import { formatWhen } from '../lib/datetime'
+import type { UserActivityRow, UserRow } from '../lib/types'
 
 const ACTION_OPTIONS = [
-  { value: '', label: 'All activities' },
-  { value: 'insert', label: 'Insert' },
-  { value: 'update', label: 'Update' },
-  { value: 'delete', label: 'Delete' },
-  { value: 'soft_delete', label: 'Soft delete' },
-  { value: 'restore', label: 'Restore' },
-  { value: 'upload', label: 'Upload' },
-  { value: 'seed', label: 'Seed' },
-  { value: 'invite_tester', label: 'Invite tester' },
-  { value: 'set_role', label: 'Set role' },
-  { value: 'reset_password', label: 'Reset password' },
-  { value: 'delete_all', label: 'Delete all' },
+  { value: '', label: 'All actions' },
+  { value: 'view', label: 'View' },
+  { value: 'click', label: 'Click' },
+  { value: 'navigate', label: 'Navigate' },
+  { value: 'submit', label: 'Submit' },
+  { value: 'open', label: 'Open' },
+  { value: 'close', label: 'Close' },
+  { value: 'change', label: 'Change' },
 ]
-
-const ENTITY_OPTIONS = [
-  { value: '', label: 'All entities' },
-  { value: 'offer', label: 'Offer' },
-  { value: 'promotion', label: 'Promotion' },
-  { value: 'region', label: 'Region' },
-  { value: 'invite_code', label: 'Invite code' },
-  { value: 'user', label: 'User' },
-  { value: 'profile', label: 'Profile' },
-  { value: 'image', label: 'Image' },
-]
-
-function formatAction(action: string) {
-  return action.replace(/_/g, ' ')
-}
-
-function formatEntity(entity: string) {
-  return entity.replace(/_/g, ' ')
-}
 
 const PAGE_SIZE = 10
 
-type SortKey = 'created_at' | 'user_id' | 'action' | 'entity_type'
+type SortKey = 'created_at' | 'user_id' | 'action' | 'path'
 type SortDir = 'asc' | 'desc'
 
 const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'created_at', label: 'When' },
   { key: 'user_id', label: 'User' },
-  { key: 'action', label: 'Activity' },
-  { key: 'entity_type', label: 'Entity' },
+  { key: 'action', label: 'Action' },
+  { key: 'path', label: 'Path' },
 ]
 
 function defaultSortDir(key: SortKey): SortDir {
   return key === 'created_at' ? 'desc' : 'asc'
 }
 
-export function ActivityLogTab() {
+export function UserActivityLogTab() {
   const { adminFetch } = useAdmin()
-  const [entries, setEntries] = useState<ActivityLogRow[]>([])
+  const [entries, setEntries] = useState<UserActivityRow[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(false)
-  const [admins, setAdmins] = useState<UserRow[]>([])
+  const [users, setUsers] = useState<UserRow[]>([])
 
   const [action, setAction] = useState('')
-  const [entityType, setEntityType] = useState('')
+  const [pathFilter, setPathFilter] = useState('')
   const [userId, setUserId] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -75,7 +52,7 @@ export function ActivityLogTab() {
 
   useEffect(() => {
     setPage(1)
-  }, [action, entityType, userId, fromDate, toDate])
+  }, [action, pathFilter, userId, fromDate, toDate])
 
   const toggleSort = (key: SortKey) => {
     setPage(1)
@@ -91,10 +68,9 @@ export function ActivityLogTab() {
     void (async () => {
       try {
         const d = await adminFetch('/admin/users')
-        const list = ((d.users as UserRow[]) || []).filter((u) => u.role === 'admin')
-        setAdmins(list)
+        setUsers((d.users as UserRow[]) || [])
       } catch {
-        setAdmins([])
+        setUsers([])
       }
     })()
   }, [adminFetch])
@@ -102,7 +78,7 @@ export function ActivityLogTab() {
   const queryString = useMemo(() => {
     const params = new URLSearchParams()
     if (action) params.set('action', action)
-    if (entityType) params.set('entity_type', entityType)
+    if (pathFilter.trim()) params.set('path', pathFilter.trim())
     if (userId) params.set('user_id', userId)
     if (fromDate) params.set('from_date', fromDate)
     if (toDate) params.set('to_date', toDate)
@@ -111,7 +87,7 @@ export function ActivityLogTab() {
     params.set('limit', String(PAGE_SIZE))
     params.set('offset', String((page - 1) * PAGE_SIZE))
     return `?${params.toString()}`
-  }, [action, entityType, userId, fromDate, toDate, sortBy, sortDir, page])
+  }, [action, pathFilter, userId, fromDate, toDate, sortBy, sortDir, page])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
@@ -125,8 +101,8 @@ export function ActivityLogTab() {
     setLoading(true)
     setErr(false)
     try {
-      const d = await adminFetch(`/admin/activity_log${queryString}`)
-      setEntries((d.entries as ActivityLogRow[]) || [])
+      const d = await adminFetch(`/admin/user_activity${queryString}`)
+      setEntries((d.entries as UserActivityRow[]) || [])
       setTotal(typeof d.total === 'number' ? d.total : 0)
     } catch {
       setErr(true)
@@ -145,22 +121,20 @@ export function ActivityLogTab() {
     <div className="card">
       <div className="card-head">
         <h2>
-          <ScrollText size={16} className="h-icon" /> Admin Activity
+          <MousePointerClick size={16} className="h-icon" /> User Activity
         </h2>
         <button type="button" className="sec sm" onClick={() => void loadLog()}>
           <RefreshCw size={14} />
         </button>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <FieldLabel label="Activity">
+      <p className="card-desc">
+        Views, clicks, and navigation in the consumer app — distinct from admin audit actions.
+      </p>
+
+      <div className="user-activity-filters">
+        <div className="field-wrap">
+          <FieldLabel>Action</FieldLabel>
           <select value={action} onChange={(e) => setAction(e.target.value)}>
             {ACTION_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>
@@ -168,44 +142,46 @@ export function ActivityLogTab() {
               </option>
             ))}
           </select>
-        </FieldLabel>
-        <FieldLabel label="Entity">
-          <select value={entityType} onChange={(e) => setEntityType(e.target.value)}>
-            {ENTITY_OPTIONS.map((o) => (
-              <option key={o.value || 'all'} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </FieldLabel>
-        <FieldLabel label="User">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>Path contains</FieldLabel>
+          <input
+            value={pathFilter}
+            onChange={(e) => setPathFilter(e.target.value)}
+            placeholder="/app/family"
+          />
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>User</FieldLabel>
           <select value={userId} onChange={(e) => setUserId(e.target.value)}>
             <option value="">All users</option>
-            {admins.map((u) => (
+            {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name || u.email}
               </option>
             ))}
           </select>
-        </FieldLabel>
-        <FieldLabel label="From">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>From</FieldLabel>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </FieldLabel>
-        <FieldLabel label="To">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>To</FieldLabel>
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </FieldLabel>
+        </div>
       </div>
 
       {loading && <div className="empty">Loading…</div>}
-      {err && !loading && <div className="msg err">Failed to load activity log</div>}
+      {err && !loading && <div className="msg err">Failed to load user activity</div>}
       {!loading && !err && entries.length === 0 && (
-        <div className="empty">No activity recorded yet.</div>
+        <div className="empty">No user activity recorded yet.</div>
       )}
 
       {!loading && !err && entries.length > 0 && (
         <>
           <div className="table-wrap">
-            <table className="data-table activity-log-table">
+            <table className="data-table user-activity-table">
               <thead>
                 <tr>
                   {SORT_COLUMNS.map(({ key, label }) => (
@@ -226,62 +202,57 @@ export function ActivityLogTab() {
                       </button>
                     </th>
                   ))}
-                  <th>Before</th>
-                  <th>After</th>
+                  <th>Label</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {entries.map((row) => {
-                  const { before, after } = diffSnapshots(row.value_before, row.value_after)
-                  return (
+                {entries.map((row) => (
                   <tr key={row.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {new Date(row.created_at).toLocaleString()}
-                    </td>
-                    <td>{row.actor_name || '—'}</td>
+                    <td>{formatWhen(row.created_at)}</td>
+                    <td>{row.actor_name || row.user_id || '—'}</td>
                     <td>
-                      <span className="badge badge-muted">{formatAction(row.action)}</span>
+                      <span className={`chip user-activity-action user-activity-action-${row.action}`}>
+                        {row.action}
+                      </span>
                     </td>
                     <td>
-                      <div>{formatEntity(row.entity_type)}</div>
-                      {row.entity_id && (
-                        <div className="activity-log-entity-id">{row.entity_id}</div>
+                      <code className="user-activity-path">{row.path}</code>
+                    </td>
+                    <td>{row.label || '—'}</td>
+                    <td>
+                      {row.details && Object.keys(row.details).length > 0 ? (
+                        <ValuePairs value={row.details} nested />
+                      ) : (
+                        '—'
                       )}
                     </td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <ValuePairs value={before} />
-                    </td>
-                    <td style={{ verticalAlign: 'top' }}>
-                      <ValuePairs value={after} />
-                    </td>
                   </tr>
-                  )
-                })}
+                ))}
               </tbody>
             </table>
           </div>
+
           <div className="pagination-bar">
             <span className="pagination-info">
-              {total === 0
-                ? 'No entries'
-                : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
+              {rangeStart}–{rangeEnd} of {total}
             </span>
             <div className="pagination-controls">
               <button
                 type="button"
                 className="sec sm"
-                disabled={page <= 1 || loading}
+                disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 Previous
               </button>
               <span className="pagination-page">
-                Page {page} of {totalPages}
+                Page {page} / {totalPages}
               </span>
               <button
                 type="button"
                 className="sec sm"
-                disabled={page >= totalPages || loading}
+                disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
                 Next

@@ -48,6 +48,10 @@ EMBED_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-emb
 sb = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 OFFERS_TABLE = os.getenv("OFFERS_TABLE") or os.getenv("OFFER_NEWS_TABLE", "offers")
 ACTIVITY_LOG_TABLE = "activity_log"
+USER_ACTIVITY_LOG_TABLE = "user_activity_log"
+USER_ACTIVITY_ACTIONS = frozenset({
+    "view", "click", "navigate", "submit", "open", "close", "change",
+})
 
 def _user_auth_client():
     """Separate client for end-user sign-in so user JWTs never attach to service-role `sb`."""
@@ -237,6 +241,51 @@ def _log_activity(
         }).execute()
     except Exception:
         pass
+
+def _log_user_activity(
+    auth: dict,
+    action: str,
+    path: str,
+    label: Optional[str] = None,
+    details: Optional[dict] = None,
+):
+    if not sb or not action or not path:
+        return
+    action = action.strip().lower()
+    path = path.strip()
+    if not action or not path:
+        return
+    if action not in USER_ACTIVITY_ACTIONS:
+        action = "click"
+    payload = {
+        "action": action,
+        "path": path[:500],
+        "label": (label or "").strip()[:200] or None,
+        "details": details or {},
+    }
+    if auth.get("user_id"):
+        payload["user_id"] = auth["user_id"]
+    if auth.get("token"):
+        payload["token"] = auth["token"]
+    try:
+        sb.table(USER_ACTIVITY_LOG_TABLE).insert(payload).execute()
+    except Exception:
+        pass
+
+def _attach_user_activity_names(rows: list) -> list:
+    if not rows:
+        return rows
+    name_map = _creator_name_map([r.get("user_id") for r in rows if r.get("user_id")])
+    for row in rows:
+        uid = row.get("user_id")
+        if uid:
+            row["actor_name"] = name_map.get(str(uid), "Unknown")
+        elif row.get("token"):
+            tok = str(row["token"])
+            row["actor_name"] = f"Invite · {tok[:8]}…" if len(tok) > 8 else f"Invite · {tok}"
+        else:
+            row["actor_name"] = "Unknown"
+    return rows
 
 def _activity_snapshot(row: Optional[dict], extra: Optional[dict] = None) -> Optional[dict]:
     if not row:
@@ -1080,6 +1129,12 @@ class TTSRequest(BaseModel):
     text: str
     lang: str = "el"
 
+class UserActivityRequest(BaseModel):
+    action: str
+    path: str
+    label: Optional[str] = None
+    details: Optional[dict] = None
+
 class OfferCreate(BaseModel):
     title: str
     body: str
@@ -1821,6 +1876,54 @@ async def admin_list_activity_log(
         order_field, order_desc = _activity_log_order(sort_by, sort_dir)
         result = q.order(order_field, desc=order_desc).range(offset, offset + limit - 1).execute()
         entries = _attach_actor_names(result.data or [])
+        return {"entries": entries, "total": result.count or len(entries)}
+    except Exception as e:
+        return {"entries": [], "total": 0, "error": str(e)}
+
+USER_ACTIVITY_SORT_COLUMNS = frozenset({"created_at", "user_id", "action", "path"})
+
+def _user_activity_order(sort_by: Optional[str], sort_dir: Optional[str]):
+    field = sort_by if sort_by in USER_ACTIVITY_SORT_COLUMNS else "created_at"
+    descending = (sort_dir or "desc").strip().lower() != "asc"
+    return field, descending
+
+@app.get("/admin/user_activity")
+async def admin_list_user_activity(
+    x_token: Optional[str] = Header(None),
+    action: Optional[str] = Query(None),
+    path: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("created_at"),
+    sort_dir: Optional[str] = Query("desc"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    verify_admin(x_token)
+    if not sb:
+        return {"entries": [], "total": 0, "error": "Database not configured"}
+    try:
+        q = sb.table(USER_ACTIVITY_LOG_TABLE).select("*", count="exact")
+        if action:
+            q = q.eq("action", action.strip().lower())
+        if path:
+            q = q.ilike("path", f"%{path.strip()}%")
+        if user_id:
+            q = q.eq("user_id", user_id.strip())
+        if from_date:
+            fd = from_date.strip()
+            if len(fd) == 10:
+                fd = f"{fd}T00:00:00"
+            q = q.gte("created_at", fd)
+        if to_date:
+            td = to_date.strip()
+            if len(td) == 10:
+                td = f"{td}T23:59:59.999999"
+            q = q.lte("created_at", td)
+        order_field, order_desc = _user_activity_order(sort_by, sort_dir)
+        result = q.order(order_field, desc=order_desc).range(offset, offset + limit - 1).execute()
+        entries = _attach_user_activity_names(result.data or [])
         return {"entries": entries, "total": result.count or len(entries)}
     except Exception as e:
         return {"entries": [], "total": 0, "error": str(e)}
@@ -3250,6 +3353,20 @@ async def lemon_webhook(request: Request):
 
 
 
+# == User activity (views, clicks) ==
+@app.post("/user_activity")
+async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None)):
+    auth = resolve_auth(x_token)
+    path = (req.path or "").strip()
+    action = (req.action or "").strip().lower()
+    if not path:
+        raise HTTPException(status_code=400, detail="path required")
+    if not action:
+        raise HTTPException(status_code=400, detail="action required")
+    _log_user_activity(auth, action, path, label=req.label, details=req.details)
+    return {"ok": True}
+
+
 # == User Data Persistence ==
 @app.get("/userdata")
 async def get_userdata(key: str = None, x_token: str = Header(None)):
@@ -3325,9 +3442,10 @@ def _register_public_root_files():
 _register_public_root_files()
 
 _API_PATH_PREFIXES = (
-    "auth/", "profile", "chat", "tts", "offers", "userdata", "webhooks/",
+    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "webhooks/",
     "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
+    "admin/activity_log", "admin/user_activity", "admin/user_data",
     "public/offers", "public/promotions", "healthz",
 )
 

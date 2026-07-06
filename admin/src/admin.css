@@ -367,6 +367,18 @@ code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
 .user-data-chat-role{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
 .user-data-chat-body{font-size:13px;line-height:1.55;white-space:pre-wrap}
 
+.user-activity-filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.user-activity-table th:nth-child(1),.user-activity-table td:nth-child(1){width:14%}
+.user-activity-table th:nth-child(2),.user-activity-table td:nth-child(2){width:12%}
+.user-activity-table th:nth-child(3),.user-activity-table td:nth-child(3){width:8%}
+.user-activity-table th:nth-child(4),.user-activity-table td:nth-child(4){width:18%}
+.user-activity-table th:nth-child(5),.user-activity-table td:nth-child(5){width:14%}
+.user-activity-table th:nth-child(6),.user-activity-table td:nth-child(6){width:34%}
+.user-activity-path{font-size:11.5px;word-break:break-word}
+.user-activity-action{text-transform:capitalize}
+.user-activity-action-view{background:rgba(74,190,170,.14);color:var(--teal)}
+.user-activity-action-click,.user-activity-action-submit{background:rgba(43,58,103,.08);color:var(--navy)}
+
 .user-data-memories{display:flex;flex-direction:column;gap:12px}
 .user-data-memory{padding:12px 14px;background:var(--gl);border-radius:10px;border:.5px solid var(--border)}
 .user-data-memory-head{display:flex;gap:12px;align-items:flex-start}

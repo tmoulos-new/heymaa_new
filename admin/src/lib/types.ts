@@ -103,6 +103,18 @@ export interface ActivityLogRow {
   actor_name?: string
 }
 
+export interface UserActivityRow {
+  id: string
+  user_id?: string | null
+  token?: string | null
+  action: string
+  path: string
+  label?: string | null
+  details?: Record<string, unknown>
+  created_at: string
+  actor_name?: string
+}
+
 export interface ProviderStatus {
   ok: boolean
   msg: string

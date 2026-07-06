@@ -12,8 +12,9 @@ export const TAB_TITLES: Record<string, string> = {
   content: 'Offers & Promos',
   users: 'Users',
   userdata: 'User Data',
+  useractivity: 'User Activity',
   tools: 'Tools',
-  activity: 'Activity log',
+  activity: 'Admin Activity',
 }
 
 export type TabId = keyof typeof TAB_TITLES
@@ -27,6 +28,7 @@ export const TAB_PATHS: Record<TabId, string> = {
   content: 'content',
   users: 'users',
   userdata: 'user-data',
+  useractivity: 'user-activity',
   tools: 'tools',
   activity: 'activity-log',
 }

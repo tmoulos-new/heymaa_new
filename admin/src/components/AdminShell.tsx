@@ -9,6 +9,7 @@ import {
   MailPlus,
   Megaphone,
   Menu,
+  MousePointerClick,
   RefreshCw,
   ScrollText,
   Users,
@@ -26,6 +27,7 @@ import { RegionsTab } from '../tabs/RegionsTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
 import { UserDataTab } from '../tabs/UserDataTab'
+import { UserActivityLogTab } from '../tabs/UserActivityLogTab'
 import { SidebarUser } from './SidebarUser'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
@@ -36,7 +38,8 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
-  { id: 'activity', icon: ScrollText, tip: 'Activity log' },
+  { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
+  { id: 'activity', icon: ScrollText, tip: 'Admin Activity' },
   { id: 'tools', icon: Wrench, tip: 'Tools' },
 ]
 
@@ -149,7 +152,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main className={`main${tab === 'activity' || tab === 'userdata' ? ' main-wide' : ''}`}>
+        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' ? ' main-wide' : ''}`}>
           <Routes>
             <Route
               index
@@ -167,6 +170,7 @@ export function AdminShell() {
               element={<UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />}
             />
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
+            <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />
             <Route path="activity-log" element={<ActivityLogTab key={`al-${refreshKey}`} />} />
             <Route path="tools" element={<ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
