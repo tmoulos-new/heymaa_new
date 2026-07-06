@@ -160,7 +160,8 @@ export function ActivityLogTab() {
           marginBottom: 16,
         }}
       >
-        <FieldLabel label="Activity">
+        <div className="field-wrap">
+          <FieldLabel>Activity</FieldLabel>
           <select value={action} onChange={(e) => setAction(e.target.value)}>
             {ACTION_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>
@@ -168,8 +169,9 @@ export function ActivityLogTab() {
               </option>
             ))}
           </select>
-        </FieldLabel>
-        <FieldLabel label="Entity">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>Entity</FieldLabel>
           <select value={entityType} onChange={(e) => setEntityType(e.target.value)}>
             {ENTITY_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>
@@ -177,8 +179,9 @@ export function ActivityLogTab() {
               </option>
             ))}
           </select>
-        </FieldLabel>
-        <FieldLabel label="User">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>User</FieldLabel>
           <select value={userId} onChange={(e) => setUserId(e.target.value)}>
             <option value="">All users</option>
             {admins.map((u) => (
@@ -187,13 +190,15 @@ export function ActivityLogTab() {
               </option>
             ))}
           </select>
-        </FieldLabel>
-        <FieldLabel label="From">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>From</FieldLabel>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </FieldLabel>
-        <FieldLabel label="To">
+        </div>
+        <div className="field-wrap">
+          <FieldLabel>To</FieldLabel>
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </FieldLabel>
+        </div>
       </div>
 
       {loading && <div className="empty">Loading…</div>}
