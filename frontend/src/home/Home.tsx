@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
 import {
-  C,
-  LANGS,
-  PLANS_BY_LANG,
-  SAFETY_BY_LANG,
-  mf,
-  type Plan,
-} from "./homeContent";
+  HOME_I18N_STORAGE_KEY,
+  isHomeLocale,
+} from "../i18n";
+import type {
+  HomeFaqItem,
+  HomeFeatureItem,
+  HomeHowItem,
+  HomePlan,
+  HomeSafetyItem,
+} from "../i18n/homeTypes";
+import { LANGS, mf } from "./homeContent";
 import {
   fetchPublicOffers,
   fetchPublicPromotions,
@@ -20,58 +25,8 @@ import "./home.css";
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
 
-const SIGN_IN_LABEL: Record<string, string> = {
-  el: "Σύνδεση",
-  en: "Sign in",
-  ar: "تسجيل الدخول",
-  zh: "登录",
-  es: "Iniciar sesión",
-  fr: "Connexion",
-  ro: "Autentificare",
-  pl: "Zaloguj się",
-  tr: "Giriş yap",
-  hi: "साइन इन",
-  ur: "سائن ان",
-  ja: "サインイン",
-  ru: "Войти",
-  de: "Anmelden",
-  pt: "Entrar",
-  it: "Accedi",
-  nl: "Inloggen",
-  bn: "সাইন ইন",
-  id: "Masuk",
-  sw: "Ingia",
-  tl: "Mag-sign in",
-  mr: "साइन इन",
-  te: "సైన్ ఇన్",
-};
-
-const FEED_LABELS: Record<
-  string,
-  { offers: string; promotions: string; learn: string; getIt: string; emptyOffers: string; emptyPromotions: string; sponsored: string }
-> = {
-  el: {
-    offers: "Προσφορές",
-    promotions: "Προωθητικές ενέργειες",
-    learn: "Μάθε περισσότερα →",
-    getIt: "Πάρε το",
-    emptyOffers: "Δεν υπάρχουν ενεργές προσφορές.",
-    emptyPromotions: "Δεν υπάρχουν ενεργές προωθήσεις.",
-    sponsored: "Χορηγούμενο",
-  },
-  en: {
-    offers: "Offers",
-    promotions: "Promotions",
-    learn: "Learn more →",
-    getIt: "Get it",
-    emptyOffers: "No active offers right now.",
-    emptyPromotions: "No active promotions right now.",
-    sponsored: "Sponsored",
-  },
-};
-
-function feedLabels(lang: string) {
-  return FEED_LABELS[lang] || FEED_LABELS.en;
+function asObjectArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
 }
 
 function offerBadgeClass(badge?: string): string {
@@ -84,36 +39,36 @@ function FlagHtml({ html }: { html: string }) {
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({ plan }: { plan: HomePlan }) {
   return (
     <div
-      className={`plan ${plan.cls}`}
+      className={`plan ${plan.variant}`}
       style={{ marginTop: plan.badge ? "14px" : "0" }}
     >
       {plan.badge ? (
-        <div className="plan-badge" style={{ background: plan.bc }}>
+        <div className="plan-badge" style={{ background: plan.badgeColor }}>
           {plan.badge}
         </div>
       ) : null}
-      <div className="plan-ico">{plan.ico}</div>
-      <div className="plan-name">{plan.n}</div>
-      <div className="plan-price">{plan.p}</div>
-      <div className="plan-period">{plan.per}</div>
+      <div className="plan-ico">{plan.icon}</div>
+      <div className="plan-name">{plan.name}</div>
+      <div className="plan-price">{plan.price}</div>
+      <div className="plan-period">{plan.period}</div>
       <div className="plan-save">{plan.save || "\u00a0"}</div>
       <ul className="plan-feats">
-        {plan.feats.map((f) => (
-          <li key={f}>
+        {plan.features.map((feature) => (
+          <li key={feature}>
             <i className="ti ti-check" />
-            {f}
+            {feature}
           </li>
         ))}
       </ul>
       <button
         type="button"
-        className={`plan-btn ${plan.bcls}`}
-        disabled={plan.cls === "current"}
+        className={`plan-btn ${plan.buttonClass}`}
+        disabled={plan.variant === "current"}
       >
-        {plan.btn}
+        {plan.button}
       </button>
     </div>
   );
@@ -127,7 +82,13 @@ function FeedCard({
   getItLabel,
   onGetIt,
 }: {
-  item: { id: string | number; title: string; body?: string; link?: string | null; image_url?: string | null };
+  item: {
+    id: string | number;
+    title: string;
+    body?: string;
+    link?: string | null;
+    image_url?: string | null;
+  };
   badge?: string;
   badgeClass: string;
   learnLabel: string;
@@ -165,8 +126,9 @@ function FeedCard({
 
 export default function Home() {
   const navigate = useNavigate();
-  const [lang, setLang] = useState(
-    () => localStorage.getItem("hm_pre_lang") || "el"
+  const { t, i18n } = useTranslation();
+  const [contentLang, setContentLang] = useState(
+    () => localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el"
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
@@ -175,12 +137,30 @@ export default function Home() {
   const [feedLoading, setFeedLoading] = useState(true);
 
   const goToApp = useCallback(() => navigate(APP_ROUTE), [navigate]);
-  const labels = feedLabels(lang);
+
+  const howItems = asObjectArray<HomeHowItem>(
+    t("how.items", { returnObjects: true })
+  );
+  const featureItems = asObjectArray<HomeFeatureItem>(
+    t("features.items", { returnObjects: true })
+  );
+  const plans = asObjectArray<HomePlan>(
+    t("pricing.plans", { returnObjects: true })
+  );
+  const safetyItems = asObjectArray<HomeSafetyItem>(
+    t("safety.items", { returnObjects: true })
+  );
+  const faqItems = asObjectArray<HomeFaqItem>(
+    t("faq.items", { returnObjects: true })
+  );
 
   useEffect(() => {
     let cancelled = false;
     setFeedLoading(true);
-    Promise.all([fetchPublicOffers(lang), fetchPublicPromotions(lang)])
+    Promise.all([
+      fetchPublicOffers(contentLang),
+      fetchPublicPromotions(contentLang),
+    ])
       .then(([o, p]) => {
         if (cancelled) return;
         setOffers(o);
@@ -198,7 +178,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [lang]);
+  }, [contentLang]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -211,17 +191,17 @@ export default function Home() {
   }, []);
 
   const langMeta = useMemo(
-    () => LANGS.find((l) => l.code === lang) || LANGS[0],
-    [lang]
+    () => LANGS.find((l) => l.code === contentLang) || LANGS[0],
+    [contentLang]
   );
-  const t = C[lang] || C.en;
-  const plans = PLANS_BY_LANG[lang] || PLANS_BY_LANG.en;
-  const safety = SAFETY_BY_LANG[lang] || SAFETY_BY_LANG.en;
   const stripItems = useMemo(() => [...LANGS, ...LANGS], []);
 
   const selectLang = (code: string) => {
-    setLang(code);
-    localStorage.setItem("hm_pre_lang", code);
+    setContentLang(code);
+    localStorage.setItem(HOME_I18N_STORAGE_KEY, code);
+    if (isHomeLocale(code)) {
+      void i18n.changeLanguage(code);
+    }
     setLangOpen(false);
     setOpenFaqs({});
   };
@@ -242,12 +222,12 @@ export default function Home() {
         >
           <div className="lang-box">
             <div className="lang-box-hdr">
-              <div className="lang-box-title">{t.lp}</div>
+              <div className="lang-box-title">{t("langPicker.title")}</div>
               <button
                 type="button"
                 className="lang-close"
                 onClick={() => setLangOpen(false)}
-                aria-label="Close"
+                aria-label={t("nav.close")}
               >
                 ✕
               </button>
@@ -257,7 +237,7 @@ export default function Home() {
                 <button
                   type="button"
                   key={l.code}
-                  className={`flag-item${l.code === lang ? " active" : ""}`}
+                  className={`flag-item${l.code === contentLang ? " active" : ""}`}
                   onClick={() => selectLang(l.code)}
                 >
                   <FlagHtml html={mf(l.code, 40, 27)} />
@@ -272,7 +252,10 @@ export default function Home() {
 
         <nav className="navbar">
           <div className="nb-logo">
-            <img src={`${process.env.PUBLIC_URL}/logo192.png`} alt="HeyMaa logo" />
+            <img
+              src={`${process.env.PUBLIC_URL}/logo192.png`}
+              alt={t("nav.logoAlt")}
+            />
             <span className="nb-logo-text">
               Hey<span>Maa</span>
             </span>
@@ -283,19 +266,15 @@ export default function Home() {
               className="lang-trigger"
               onClick={() => setLangOpen(true)}
             >
-              <FlagHtml html={mf(lang, 22, 15)} />
+              <FlagHtml html={mf(contentLang, 22, 15)} />
               <span>{langMeta.name}</span>
               <i className="ti ti-chevron-down" style={{ fontSize: 11 }} />
             </button>
-            <button
-              type="button"
-              className="nb-signin"
-              onClick={goToApp}
-            >
-              {SIGN_IN_LABEL[lang] || SIGN_IN_LABEL.en}
+            <button type="button" className="nb-signin" onClick={goToApp}>
+              {t("nav.signIn")}
             </button>
             <button type="button" className="nb-cta" onClick={goToApp}>
-              Demo
+              {t("nav.demo")}
             </button>
           </div>
         </nav>
@@ -303,19 +282,19 @@ export default function Home() {
         <div className="hero">
           <div className="hero-badge">
             <span className="hero-badge-dot" />
-            <span>{t.hb}</span>
+            <span>{t("hero.badge")}</span>
           </div>
-          <h1 dangerouslySetInnerHTML={{ __html: t.h1 }} />
-          <p className="hero-sub">{t.hsub}</p>
+          <h1 dangerouslySetInnerHTML={{ __html: t("hero.title") }} />
+          <p className="hero-sub">{t("hero.subtitle")}</p>
           <div className="hero-btns">
             <button type="button" className="btn-primary" onClick={goToApp}>
-              {t.cta2}
+              {t("hero.cta")}
             </button>
           </div>
           <div className="hero-pills">
             <span className="hero-pill">
               <i className="ti ti-check" />
-              <span>{t.hp[2]}</span>
+              <span>{t("hero.pillLanguages")}</span>
             </span>
           </div>
         </div>
@@ -331,11 +310,11 @@ export default function Home() {
         </div>
 
         <div className="section" style={{ paddingTop: 40 }}>
-          <div className="sec-title">{labels.offers}</div>
+          <div className="sec-title">{t("feed.offers")}</div>
           {feedLoading ? (
-            <div className="feed-loading">…</div>
+            <div className="feed-loading">{t("feed.loading")}</div>
           ) : offers.length === 0 ? (
-            <div className="feed-empty">{labels.emptyOffers}</div>
+            <div className="feed-empty">{t("feed.emptyOffers")}</div>
           ) : (
             <div className="feed-grid">
               {offers.map((o) => (
@@ -344,8 +323,8 @@ export default function Home() {
                   item={o}
                   badge={o.badge || undefined}
                   badgeClass={offerBadgeClass(o.badge)}
-                  learnLabel={labels.learn}
-                  getItLabel={labels.getIt}
+                  learnLabel={t("feed.learnMore")}
+                  getItLabel={t("feed.getIt")}
                   onGetIt={goToApp}
                 />
               ))}
@@ -354,21 +333,21 @@ export default function Home() {
         </div>
 
         <div className="section" style={{ paddingTop: 0 }}>
-          <div className="sec-title">{labels.promotions}</div>
+          <div className="sec-title">{t("feed.promotions")}</div>
           {feedLoading ? (
-            <div className="feed-loading">…</div>
+            <div className="feed-loading">{t("feed.loading")}</div>
           ) : promotions.length === 0 ? (
-            <div className="feed-empty">{labels.emptyPromotions}</div>
+            <div className="feed-empty">{t("feed.emptyPromotions")}</div>
           ) : (
             <div className="feed-grid">
               {promotions.map((p) => (
                 <FeedCard
                   key={String(p.id)}
                   item={p}
-                  badge={labels.sponsored}
+                  badge={t("feed.sponsored")}
                   badgeClass="feed-badge-sponsored"
-                  learnLabel={labels.learn}
-                  getItLabel={labels.getIt}
+                  learnLabel={t("feed.learnMore")}
+                  getItLabel={t("feed.getIt")}
                   onGetIt={goToApp}
                 />
               ))}
@@ -377,15 +356,15 @@ export default function Home() {
         </div>
 
         <div className="section">
-          <div className="sec-label">{t.how_lbl}</div>
-          <div className="sec-title">{t.how_ttl}</div>
-          <div className="sec-sub">{t.how_sub}</div>
+          <div className="sec-label">{t("how.label")}</div>
+          <div className="sec-title">{t("how.title")}</div>
+          <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">
-            {t.how.map((h) => (
-              <div className="how-card" key={h.t}>
-                <div className="how-num">{h.ico}</div>
-                <div className="how-title">{h.t}</div>
-                <div className="how-body">{h.b}</div>
+            {howItems.map((item) => (
+              <div className="how-card" key={item.title}>
+                <div className="how-num">{item.icon}</div>
+                <div className="how-title">{item.title}</div>
+                <div className="how-body">{item.body}</div>
               </div>
             ))}
           </div>
@@ -393,21 +372,21 @@ export default function Home() {
 
         <div className="section" style={{ paddingTop: 0 }}>
           <div className="feat-wrap">
-            <div className="sec-label">{t.feat_lbl}</div>
-            <div className="sec-title">{t.feat_ttl}</div>
-            <div className="sec-sub">{t.feat_sub}</div>
+            <div className="sec-label">{t("features.label")}</div>
+            <div className="sec-title">{t("features.title")}</div>
+            <div className="sec-sub">{t("features.subtitle")}</div>
             <div className="feat-grid">
-              {t.feats.map((f) => (
-                <div className="feat-card" key={f.t}>
+              {featureItems.map((item) => (
+                <div className="feat-card" key={item.title}>
                   <div
                     className="feat-icon"
-                    style={{ background: f.bg }}
+                    style={{ background: item.bg }}
                   >
-                    {f.ico}
+                    {item.icon}
                   </div>
                   <div>
-                    <div className="feat-title">{f.t}</div>
-                    <div className="feat-body">{f.b}</div>
+                    <div className="feat-title">{item.title}</div>
+                    <div className="feat-body">{item.body}</div>
                   </div>
                 </div>
               ))}
@@ -416,31 +395,31 @@ export default function Home() {
         </div>
 
         <div className="section">
-          <div className="sec-label">{t.pr_lbl}</div>
-          <div className="sec-title">{t.pr_ttl}</div>
+          <div className="sec-label">{t("pricing.label")}</div>
+          <div className="sec-title">{t("pricing.title")}</div>
           <div className="pricing-grid">
-            {plans.map((p) => (
-              <PlanCard plan={p} key={p.n} />
+            {plans.map((plan) => (
+              <PlanCard plan={plan} key={plan.name} />
             ))}
           </div>
         </div>
 
         <div className="section" style={{ paddingTop: 0 }}>
           <div className="safety-wrap">
-            <div className="sec-label">{t.sf_lbl}</div>
-            <div className="sec-title">{t.sf_ttl}</div>
-            <div className="sec-sub">{t.sf_sub}</div>
+            <div className="sec-label">{t("safety.label")}</div>
+            <div className="sec-title">{t("safety.title")}</div>
+            <div className="sec-sub">{t("safety.subtitle")}</div>
             <div className="safety-grid">
-              {safety.map((s) => (
-                <div className="safety-card" key={s.t}>
+              {safetyItems.map((item) => (
+                <div className="safety-card" key={item.title}>
                   <div
                     className="safety-card-icon"
-                    style={{ background: s.bg }}
+                    style={{ background: item.bg }}
                   >
-                    {s.ico}
+                    {item.icon}
                   </div>
-                  <div className="safety-card-title">{s.t}</div>
-                  <div className="safety-card-body">{s.b}</div>
+                  <div className="safety-card-title">{item.title}</div>
+                  <div className="safety-card-body">{item.body}</div>
                 </div>
               ))}
             </div>
@@ -448,13 +427,13 @@ export default function Home() {
         </div>
 
         <div className="section">
-          <div className="sec-label">{t.faq_lbl}</div>
-          <div className="sec-title">{t.faq_ttl}</div>
+          <div className="sec-label">{t("faq.label")}</div>
+          <div className="sec-title">{t("faq.title")}</div>
           <div>
-            {t.faqs.map((f, i) => {
+            {faqItems.map((item, i) => {
               const open = !!openFaqs[i];
               return (
-                <div className="faq-item" key={f.q}>
+                <div className="faq-item" key={item.question}>
                   <div
                     className={`faq-q${open ? " open" : ""}`}
                     onClick={() => toggleFaq(i)}
@@ -464,10 +443,12 @@ export default function Home() {
                       if (e.key === "Enter" || e.key === " ") toggleFaq(i);
                     }}
                   >
-                    <span>{f.q}</span>
+                    <span>{item.question}</span>
                     <i className="ti ti-chevron-down" />
                   </div>
-                  <div className={`faq-a${open ? " open" : ""}`}>{f.a}</div>
+                  <div className={`faq-a${open ? " open" : ""}`}>
+                    {item.answer}
+                  </div>
                 </div>
               );
             })}
@@ -475,19 +456,15 @@ export default function Home() {
         </div>
 
         <div className="cta-wrap">
-          <h2>{t.cta_h}</h2>
-          <p
-            dangerouslySetInnerHTML={{
-              __html: t.cta_p.replace("\n", "<br>"),
-            }}
-          />
+          <h2>{t("cta.title")}</h2>
+          <p dangerouslySetInnerHTML={{ __html: t("cta.body") }} />
           <button
             type="button"
             className="btn-primary"
             style={{ fontSize: 15, padding: "14px 34px" }}
             onClick={goToApp}
           >
-            {t.cta2}
+            {t("cta.button")}
           </button>
         </div>
 
@@ -495,13 +472,13 @@ export default function Home() {
           <div className="footer-logo">
             <img
               src={`${process.env.PUBLIC_URL}/logo192.png`}
-              alt="HeyMaa"
+              alt={t("footer.logoAlt")}
             />
             <span className="footer-logo-text">
               Hey<span>Maa</span>
             </span>
           </div>
-          <div className="footer-copy">{t.footer}</div>
+          <div className="footer-copy">{t("footer.copy")}</div>
         </div>
       </div>
     </div>

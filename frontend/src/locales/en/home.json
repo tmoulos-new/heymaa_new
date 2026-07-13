@@ -1,0 +1,223 @@
+{
+  "nav": {
+    "signIn": "Sign in",
+    "demo": "Start free",
+    "close": "Close",
+    "logoAlt": "HeyMaa logo"
+  },
+  "langPicker": {
+    "title": "🌐 Select language"
+  },
+  "hero": {
+    "badge": "The first AI app for moms",
+    "title": "Every moment that<br>deserves to be <em>remembered</em>.",
+    "subtitle": "Write, speak or send a photo. HeyMaa organises your memories, records your children's development, and is always with you — no stress, no pressure.",
+    "cta": "See how it works",
+    "pillLanguages": "23 languages"
+  },
+  "feed": {
+    "offers": "Offers",
+    "promotions": "Promotions",
+    "learnMore": "Learn more →",
+    "getIt": "Get it",
+    "emptyOffers": "No active offers right now.",
+    "emptyPromotions": "No active promotions right now.",
+    "sponsored": "Sponsored",
+    "loading": "…"
+  },
+  "how": {
+    "label": "How it works",
+    "title": "Three ways. One story.",
+    "subtitle": "No need to change your habits.",
+    "items": [
+      {
+        "icon": "✏️",
+        "title": "Write",
+        "body": "A thought, a sentence — whenever you have a few seconds."
+      },
+      {
+        "icon": "🎙️",
+        "title": "Speak",
+        "body": "Hands full? Speak naturally, HeyMaa is there to listen. 💬"
+      },
+      {
+        "icon": "📷",
+        "title": "Show",
+        "body": "Send a photo. Saved automatically to your story."
+      }
+    ]
+  },
+  "features": {
+    "label": "Features",
+    "title": "Everything you need.",
+    "subtitle": "From memories to AI conversation and family sharing.",
+    "items": [
+      {
+        "icon": "🏆",
+        "bg": "rgba(43,58,103,0.08)",
+        "title": "Development Timeline",
+        "body": "Milestones per child, from newborn to 5+ years."
+      },
+      {
+        "icon": "👨‍👩‍👧",
+        "bg": "rgba(74,190,170,0.12)",
+        "title": "Family",
+        "body": "Shared access with spouse, parents, siblings."
+      },
+      {
+        "icon": "🌍",
+        "bg": "rgba(124,92,191,0.1)",
+        "title": "23 Languages",
+        "body": "Full UI, chat and voice in 23 languages."
+      },
+      {
+        "icon": "📅",
+        "bg": "rgba(43,58,103,0.08)",
+        "title": "Reminders",
+        "body": "Appointments, vaccines, weekly milestones."
+      }
+    ]
+  },
+  "pricing": {
+    "label": "Pricing",
+    "title": "Simple & transparent plans.",
+    "plans": [
+      {
+        "icon": "✨",
+        "name": "Free Trial",
+        "price": "Free",
+        "period": "3 days",
+        "badge": "Current",
+        "badgeColor": "#2D9E6B",
+        "variant": "current",
+        "save": "",
+        "features": [
+          "Unlimited Chat",
+          "Voice with limits",
+          "Basic Memory"
+        ],
+        "button": "Active",
+        "buttonClass": "btn-ghost-p"
+      },
+      {
+        "icon": "⚡",
+        "name": "Starter",
+        "price": "€19",
+        "period": "/month",
+        "badge": "",
+        "badgeColor": "",
+        "variant": "",
+        "save": "",
+        "features": [
+          "Unlimited Chat",
+          "150 Voice/month",
+          "Full Memory"
+        ],
+        "button": "Choose Plan",
+        "buttonClass": "btn-dark"
+      },
+      {
+        "icon": "👑",
+        "name": "Premium",
+        "price": "€39",
+        "period": "/month",
+        "badge": "Popular",
+        "badgeColor": "#7C5CBF",
+        "variant": "popular",
+        "save": "",
+        "features": [
+          "Unlimited Chat",
+          "400 Voice/month",
+          "Full Memory",
+          "Weekly Support"
+        ],
+        "button": "Choose Plan",
+        "buttonClass": "btn-purple"
+      },
+      {
+        "icon": "💎",
+        "name": "Annual Premium",
+        "price": "€199",
+        "period": "/year",
+        "badge": "Best Value",
+        "badgeColor": "#E07B54",
+        "variant": "best",
+        "save": "Save 57%",
+        "features": [
+          "All of Premium",
+          "700 Voice/month",
+          "Annual Scrapbook",
+          "Priority Support"
+        ],
+        "button": "Choose Plan",
+        "buttonClass": "btn-coral"
+      }
+    ]
+  },
+  "safety": {
+    "label": "Security & Trust",
+    "title": "Your data belongs to you.",
+    "subtitle": "We built HeyMaa with privacy as a core principle — not a feature.",
+    "items": [
+      {
+        "icon": "🔒",
+        "bg": "rgba(74,190,170,0.15)",
+        "title": "End-to-end encryption",
+        "body": "Your memories are encrypted before storage. Nobody — not even us — can read them."
+      },
+      {
+        "icon": "🚫",
+        "bg": "rgba(224,123,84,0.15)",
+        "title": "Never medical advice",
+        "body": "For anything health-related, HeyMaa always refers you to a doctor or pharmacist. No exceptions."
+      },
+      {
+        "icon": "🗑️",
+        "bg": "rgba(255,255,255,0.08)",
+        "title": "Full deletion anytime",
+        "body": "Delete everything with one click. We keep no copies."
+      },
+      {
+        "icon": "🛡️",
+        "bg": "rgba(74,190,170,0.15)",
+        "title": "GDPR · EU data storage",
+        "body": "We store in Europe, fully GDPR compliant. We never sell data."
+      }
+    ]
+  },
+  "faq": {
+    "label": "FAQ",
+    "title": "Any questions?",
+    "items": [
+      {
+        "question": "What does the free trial include?",
+        "answer": "3 days full access to all Premium features — unlimited chat, voice, full memory. No card needed."
+      },
+      {
+        "question": "Does HeyMaa give medical advice?",
+        "answer": "Never. For anything health-related, HeyMaa refers you exclusively to a doctor or pharmacist."
+      },
+      {
+        "question": "Which languages does it support?",
+        "answer": "23 languages — Greek, English, Arabic, Chinese, Spanish, French, Romanian, Polish, Turkish, Hindi, Urdu, Japanese, Russian, German, Portuguese, Italian, Dutch, Bengali, Indonesian, Swahili, Filipino, Marathi, Telugu. UI, chat and voice all change to the selected language."
+      },
+      {
+        "question": "Can I cancel anytime?",
+        "answer": "Yes, for monthly plans. Annual cancels at the end of the period."
+      },
+      {
+        "question": "What is Full Memory?",
+        "answer": "Full Memory (Premium) adds AI Memory Suggestions — the app can automatically suggest which moments would be worth capturing, connecting conversations with memories."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Start today.",
+    "body": "You don't need more effort.<br>You need a smart solution that works for you.",
+    "button": "See how it works"
+  },
+  "footer": {
+    "copy": "© 2026 HeyMaa · Care Direct · info@heymaa.ai",
+    "logoAlt": "HeyMaa"
+  }
+}
