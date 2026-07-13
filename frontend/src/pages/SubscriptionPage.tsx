@@ -156,7 +156,10 @@ export function SubscriptionPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const tHome = (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'home', ...opts })
-  const tSub = (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'subscription', ...opts })
+  const tSub = useCallback(
+    (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'subscription', ...opts }),
+    [t],
+  )
   const [langOpen, setLangOpen] = useState(false)
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({})
   const token = localStorage.getItem(HM_TOKEN_KEY)
