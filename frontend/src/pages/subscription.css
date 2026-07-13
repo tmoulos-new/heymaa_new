@@ -1,0 +1,32 @@
+.subscription-page {
+  min-height: 100vh;
+}
+
+.subscription-hero {
+  padding-top: 48px;
+  padding-bottom: 32px;
+}
+
+.subscription-trial-ends {
+  font-size: 13px;
+  color: var(--coral);
+  font-weight: 500;
+  margin-top: -12px;
+}
+
+.subscription-loading {
+  text-align: center;
+  padding: 40px 0;
+  color: rgba(43, 58, 103, 0.5);
+  font-size: 14px;
+}
+
+.hero-badge-dot.expired {
+  background: var(--coral);
+  animation: none;
+}
+
+.plan.expired {
+  border-color: rgba(224, 123, 84, 0.35);
+  opacity: 0.92;
+}

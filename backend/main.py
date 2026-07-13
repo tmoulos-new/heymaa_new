@@ -54,12 +54,73 @@ sb = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY 
 OFFERS_TABLE = os.getenv("OFFERS_TABLE") or os.getenv("OFFER_NEWS_TABLE", "offers")
 ACTIVITY_LOG_TABLE = "activity_log"
 USER_ACTIVITY_LOG_TABLE = "user_activity_log"
+LEVELS_TABLE = "levels"
+POINT_TRANSACTIONS_TABLE = "point_transactions"
 CHAT_PROMPT_SETTINGS_TABLE = "chat_prompt_settings"
 CHAT_PROMPT_KEY = "system"
 _system_prompt_cache: Optional[str] = None
 USER_ACTIVITY_ACTIONS = frozenset({
     "view", "click", "navigate", "submit", "open", "close", "change",
 })
+
+DEFAULT_LEVELS = [
+    {"id": 1, "sort_order": 1, "min_points": 0, "name_el": "Νέα Μαμά", "name_en": "New Mom"},
+    {"id": 2, "sort_order": 2, "min_points": 250, "name_el": "Ενεργή Μαμά", "name_en": "Active Mom"},
+    {"id": 3, "sort_order": 3, "min_points": 750, "name_el": "Αφοσιωμένη Μαμά", "name_en": "Dedicated Mom"},
+    {"id": 4, "sort_order": 4, "min_points": 1500, "name_el": "Super Μαμά", "name_en": "Super Mom"},
+    {"id": 5, "sort_order": 5, "min_points": 2500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
+]
+
+POINT_RULES = {
+    ("submit", "/app/chat/send"): 5,
+    ("submit", "/app/memories/add"): 15,
+    ("submit", "/app/family/add-child"): 25,
+    ("submit", "/app/family/add-member"): 15,
+    ("submit", "/app/profile/save"): 10,
+}
+
+INVITE_REFERRAL_POINTS = 50
+TRIAL_DAYS = max(1, int(os.getenv("TRIAL_DAYS", "14")))
+
+def _parse_utc_dt(value) -> Optional["datetime"]:
+    from datetime import datetime, timezone
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+def _trial_ends_at_iso(start) -> str:
+    from datetime import datetime, timedelta, timezone
+    dt = _parse_utc_dt(start) or datetime.now(timezone.utc)
+    return (dt + timedelta(days=TRIAL_DAYS)).isoformat()
+
+def _ensure_full_trial_period(user_id: str, row: dict) -> Optional[str]:
+    """Extend legacy short trials to the full TRIAL_DAYS from signup."""
+    status = (row.get("subscription_status") or "").lower()
+    if status != "trial":
+        return row.get("trial_ends_at")
+    created = _parse_utc_dt(row.get("created_at"))
+    if not created:
+        return row.get("trial_ends_at")
+    from datetime import timedelta
+    expected_end = created + timedelta(days=TRIAL_DAYS)
+    current_end = _parse_utc_dt(row.get("trial_ends_at"))
+    if current_end and current_end >= expected_end - timedelta(minutes=1):
+        return row.get("trial_ends_at")
+    new_end = _trial_ends_at_iso(created)
+    if sb:
+        try:
+            sb.table("users").update({"trial_ends_at": new_end}).eq("id", user_id).execute()
+        except Exception:
+            pass
+    return new_end
+
+_levels_cache: Optional[list] = None
 
 def _user_auth_client():
     """Separate client for end-user sign-in so user JWTs never attach to service-role `sb`."""
@@ -279,6 +340,389 @@ def _log_user_activity(
         sb.table(USER_ACTIVITY_LOG_TABLE).insert(payload).execute()
     except Exception:
         pass
+    return _maybe_award_points(auth, action, path)
+
+def _get_levels() -> list:
+    global _levels_cache
+    if _levels_cache is not None:
+        return _levels_cache
+    if not sb:
+        _levels_cache = list(DEFAULT_LEVELS)
+        return _levels_cache
+    try:
+        res = (
+            sb.table(LEVELS_TABLE)
+            .select("id,sort_order,min_points,name_el,name_en")
+            .order("sort_order")
+            .execute()
+        )
+        rows = res.data or []
+        _levels_cache = rows if rows else list(DEFAULT_LEVELS)
+    except Exception:
+        _levels_cache = list(DEFAULT_LEVELS)
+    return _levels_cache
+
+def _invalidate_levels_cache():
+    global _levels_cache
+    _levels_cache = None
+
+def _gamification_status(
+    points: int,
+    levels: Optional[list] = None,
+    current_level: Optional[dict] = None,
+) -> dict:
+    levels = levels or _get_levels()
+    sorted_levels = sorted(levels, key=lambda row: int(row.get("min_points") or 0))
+    if current_level:
+        current = current_level
+    else:
+        current = sorted_levels[0]
+        for row in sorted_levels:
+            if points >= int(row.get("min_points") or 0):
+                current = row
+            else:
+                break
+    current_idx = next(
+        (i for i, row in enumerate(sorted_levels) if int(row.get("id") or 0) == int(current.get("id") or 0)),
+        0,
+    )
+    is_max = current_idx >= len(sorted_levels) - 1
+    current_min = int(current.get("min_points") or 0)
+    next_level = None
+    if is_max:
+        progress_needed = 0
+        points_to_next = 0
+        progress_percent = 100
+    else:
+        next_level = sorted_levels[current_idx + 1]
+        next_min = int(next_level.get("min_points") or 0)
+        progress_needed = max(next_min - current_min, 1)
+        progress_in_level = max(points - current_min, 0)
+        points_to_next = max(next_min - points, 0)
+        progress_percent = min(100, round((progress_in_level / progress_needed) * 100))
+    progress_in_level = max(points - current_min, 0)
+    return {
+        "points": points,
+        "level": {
+            "number": int(current.get("id") or current.get("sort_order") or 1),
+            "name_el": current.get("name_el") or "",
+            "name_en": current.get("name_en") or "",
+            "min_points": current_min,
+            "is_max": is_max,
+        },
+        "next_level": None if not next_level else {
+            "number": int(next_level.get("id") or next_level.get("sort_order") or 1),
+            "name_el": next_level.get("name_el") or "",
+            "name_en": next_level.get("name_en") or "",
+            "min_points": int(next_level.get("min_points") or 0),
+        },
+        "progress_in_level": progress_in_level,
+        "progress_needed": progress_needed,
+        "points_to_next": points_to_next,
+        "progress_percent": progress_percent,
+    }
+
+def _points_for_activity(action: str, path: str) -> int:
+    return int(POINT_RULES.get((action, path), 0))
+
+def _level_id_for_points(points: int, levels: Optional[list] = None) -> int:
+    levels = levels or _get_levels()
+    sorted_levels = sorted(levels, key=lambda row: int(row.get("min_points") or 0))
+    level_id = int(sorted_levels[0].get("id") or 1)
+    for row in sorted_levels:
+        if points >= int(row.get("min_points") or 0):
+            level_id = int(row.get("id") or level_id)
+    return level_id
+
+def _level_by_id(level_id: int, levels: Optional[list] = None) -> Optional[dict]:
+    levels = levels or _get_levels()
+    for row in levels:
+        if int(row.get("id") or 0) == int(level_id):
+            return row
+    return levels[0] if levels else None
+
+def _get_user_points(user_id: str) -> int:
+    if not sb or not user_id:
+        return 0
+    try:
+        res = sb.rpc("user_total_points", {"p_user_id": user_id}).execute()
+        if res.data is not None:
+            return int(res.data)
+    except Exception:
+        pass
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("amount")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return sum(int(row.get("amount") or 0) for row in (res.data or []))
+    except Exception:
+        pass
+    return 0
+
+def _get_user_level_id(user_id: str) -> int:
+    if not sb or not user_id:
+        return 1
+    try:
+        res = sb.table("users").select("level_id").eq("id", user_id).limit(1).execute()
+        if res.data:
+            return int(res.data[0].get("level_id") or 1)
+    except Exception:
+        pass
+    return 1
+
+def _sync_user_level_id(user_id: str, points: int) -> int:
+    if not sb or not user_id:
+        return 1
+    level_id = _level_id_for_points(points)
+    try:
+        current = _get_user_level_id(user_id)
+        if current != level_id:
+            sb.table("users").update({"level_id": level_id}).eq("id", user_id).execute()
+    except Exception:
+        pass
+    return level_id
+
+def _user_gamification(user_id: str) -> dict:
+    levels = _get_levels()
+    points = _get_user_points(user_id)
+    level_id = _sync_user_level_id(user_id, points)
+    current_level = _level_by_id(level_id, levels)
+    return _gamification_status(points, levels, current_level=current_level)
+
+def _points_totals_for_users(user_ids: list) -> dict:
+    if not sb or not user_ids:
+        return {}
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("user_id,amount")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        totals: dict = {}
+        for row in res.data or []:
+            uid = str(row.get("user_id") or "")
+            if not uid:
+                continue
+            totals[uid] = totals.get(uid, 0) + int(row.get("amount") or 0)
+        return totals
+    except Exception:
+        return {}
+
+def _user_point_transactions(user_id: str) -> list:
+    if not sb or not user_id:
+        return []
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("id,amount,reason,action,path,created_at")
+            .eq("user_id", user_id)
+            .order("created_at")
+            .execute()
+        )
+        return res.data or []
+    except Exception:
+        return []
+
+POINT_PATH_TO_USER_DATA_KEY = {
+    "/app/chat/send": "chat",
+    "/app/memories/add": "memories",
+    "/app/family/add-child": "family",
+    "/app/family/add-member": "family",
+}
+
+def _user_data_key_for_point_path(path: str) -> Optional[str]:
+    path = (path or "").strip()
+    if path in POINT_PATH_TO_USER_DATA_KEY:
+        return POINT_PATH_TO_USER_DATA_KEY[path]
+    lower = path.lower()
+    if "/family/" in lower:
+        return "family"
+    if "/chat/" in lower:
+        return "chat"
+    if "/memories/" in lower:
+        return "memories"
+    if "/threads/" in lower:
+        return "threads"
+    if "/milestones" in lower:
+        return "milestones_map"
+    return None
+
+def _summary_category_for_point_path(path: str) -> Optional[str]:
+    path = (path or "").strip()
+    if path == "/app/family/add-child":
+        return "children"
+    if path == "/app/family/add-member":
+        return "members"
+    key = _user_data_key_for_point_path(path)
+    if key == "chat":
+        return "chat_messages"
+    if key == "memories":
+        return "memories"
+    if key == "threads":
+        return "threads"
+    return None
+
+def _transaction_counts_by_user_data_key(user_id: str) -> dict:
+    counts: dict = {}
+    for tx in _user_point_transactions(user_id):
+        key = _user_data_key_for_point_path(tx.get("path") or "")
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+def _transaction_counts_for_users(user_ids: list) -> dict:
+    if not sb or not user_ids:
+        return {}
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("user_id,path")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        result: dict = {uid: {} for uid in user_ids}
+        for row in res.data or []:
+            uid = str(row.get("user_id") or "")
+            if uid not in result:
+                continue
+            category = _summary_category_for_point_path(row.get("path") or "")
+            if not category:
+                continue
+            bucket = result[uid]
+            bucket[category] = bucket.get(category, 0) + 1
+        return result
+    except Exception:
+        return {}
+
+def _user_gamification_analysis(user_id: str) -> dict:
+    gamification = _user_gamification(user_id)
+    txs = _user_point_transactions(user_id)
+    cumulative = 0
+    timeline: list = []
+    breakdown_map: dict = {}
+    for tx in txs:
+        amount = int(tx.get("amount") or 0)
+        cumulative += amount
+        action = (tx.get("action") or "").strip()
+        path = (tx.get("path") or "").strip()
+        key = f"{action}|{path}"
+        if key not in breakdown_map:
+            breakdown_map[key] = {
+                "action": action,
+                "path": path,
+                "count": 0,
+                "points": 0,
+            }
+        breakdown_map[key]["count"] += 1
+        breakdown_map[key]["points"] += amount
+        timeline.append({
+            "at": tx.get("created_at"),
+            "amount": amount,
+            "cumulative": cumulative,
+            "reason": tx.get("reason"),
+            "action": action,
+            "path": path,
+        })
+    breakdown = sorted(breakdown_map.values(), key=lambda row: -int(row.get("points") or 0))
+    recent = list(reversed(timeline[-20:]))
+    return {
+        "gamification": gamification,
+        "timeline": timeline,
+        "breakdown": breakdown,
+        "recent_transactions": recent,
+        "transaction_count": len(txs),
+    }
+
+def _attach_user_points_summary(users: list) -> None:
+    if not users:
+        return
+    registered_ids = [
+        str(u.get("id"))
+        for u in users
+        if u.get("id") and u.get("account_kind") != "auth_only"
+    ]
+    totals = _points_totals_for_users(registered_ids)
+    tx_counts = _transaction_counts_for_users(registered_ids)
+    levels = _get_levels()
+    level_by_id = {int(row.get("id") or 0): row for row in levels}
+    for user in users:
+        if user.get("account_kind") == "auth_only":
+            user["total_points"] = 0
+            user["transaction_counts"] = {}
+            continue
+        uid = str(user.get("id") or "")
+        user["total_points"] = int(totals.get(uid, 0))
+        user["transaction_counts"] = tx_counts.get(uid, {})
+        level_id = int(user.get("level_id") or 1)
+        level_row = level_by_id.get(level_id)
+        if level_row:
+            user["level_name_en"] = level_row.get("name_en")
+            user["level_name_el"] = level_row.get("name_el")
+
+def _award_points(user_id: str, amount: int, reason: str, action: str = "", path: str = "") -> int:
+    if not sb or not user_id or amount <= 0:
+        return _get_user_points(user_id)
+    try:
+        sb.table(POINT_TRANSACTIONS_TABLE).insert({
+            "user_id": user_id,
+            "amount": amount,
+            "reason": reason[:200],
+            "action": action or None,
+            "path": path or None,
+        }).execute()
+        points = _get_user_points(user_id)
+        _sync_user_level_id(user_id, points)
+        return points
+    except Exception:
+        return _get_user_points(user_id)
+
+def _referrer_id_for_invite_code(code: str) -> Optional[str]:
+    if not sb or not code:
+        return None
+    code_key = code.strip()
+    if not code_key:
+        return None
+    try:
+        res = (
+            sb.table("invite_codes")
+            .select("user_id")
+            .eq("code", code_key)
+            .eq("is_deleted", False)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            referrer = str(res.data[0].get("user_id") or "")
+            return referrer or None
+    except Exception:
+        pass
+    return None
+
+def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
+    referrer_id = _referrer_id_for_invite_code(invite_code)
+    if not referrer_id or referrer_id == new_user_id:
+        return
+    _award_points(
+        referrer_id,
+        INVITE_REFERRAL_POINTS,
+        f"referral:{invite_code.strip()}",
+        action="referral",
+        path="/auth/register",
+    )
+
+def _maybe_award_points(auth: dict, action: str, path: str) -> Optional[dict]:
+    user_id = auth.get("user_id")
+    if not user_id:
+        return None
+    amount = _points_for_activity(action, path)
+    if amount > 0:
+        _award_points(user_id, amount, f"{action}:{path}", action=action, path=path)
+    return _user_gamification(user_id)
 
 def _attach_user_activity_names(rows: list) -> list:
     if not rows:
@@ -1019,6 +1463,32 @@ def _subscription_active_for_user(user_id: str) -> bool:
             return True
     return False
 
+def _subscription_status_for_user(user_id: str) -> dict:
+    """Subscription snapshot for a registered user."""
+    res = sb.table("users").select("subscription_status,trial_ends_at,created_at,role,plan").eq("id", user_id).execute()
+    if not res.data:
+        return {"subscription_active": False, "subscription_status": None, "trial_ends_at": None, "is_trial": False, "plan": None}
+    row = res.data[0]
+    if row.get("role") == "admin":
+        return {
+            "subscription_active": True,
+            "subscription_status": row.get("subscription_status") or "active",
+            "trial_ends_at": row.get("trial_ends_at"),
+            "is_trial": False,
+            "plan": row.get("plan"),
+        }
+    status = (row.get("subscription_status") or "").lower()
+    trial_ends = _ensure_full_trial_period(user_id, row) if status == "trial" else row.get("trial_ends_at")
+    active = _subscription_active_for_user(user_id)
+    is_trial = status == "trial" and active
+    return {
+        "subscription_active": active,
+        "subscription_status": status or None,
+        "trial_ends_at": trial_ends,
+        "is_trial": is_trial,
+        "plan": row.get("plan"),
+    }
+
 def check_subscription(token: str):
     if not sb:
         return True
@@ -1231,6 +1701,11 @@ class ProfileSyncRequest(BaseModel):
     children_birthdates: Optional[list] = None
     consent_marketing: Optional[bool] = None
     consent_date: Optional[str] = None
+    want_child: Optional[bool] = None
+    consent_privacy: Optional[bool] = None
+    consent_terms: Optional[bool] = None
+    consent_privacy_at: Optional[str] = None
+    consent_terms_at: Optional[str] = None
 
 class PromotionCreate(BaseModel):
     title: str
@@ -1276,6 +1751,19 @@ class RegionUpdate(BaseModel):
     languages: Optional[List[str]] = None
     active: Optional[bool] = None
 
+class LevelCreate(BaseModel):
+    id: int
+    sort_order: int
+    min_points: int
+    name_el: str
+    name_en: str
+
+class LevelUpdate(BaseModel):
+    sort_order: Optional[int] = None
+    min_points: Optional[int] = None
+    name_el: Optional[str] = None
+    name_en: Optional[str] = None
+
 class SeedBetaRequest(BaseModel):
     country: Optional[str] = "GR"
     pregnancy_active: Optional[bool] = True
@@ -1288,6 +1776,12 @@ class RegisterRequest(BaseModel):
     password: str
     name: Optional[str] = None
     invite_code: Optional[str] = None
+    want_child: Optional[bool] = False
+    pregnancy_or_mom: Optional[bool] = False
+    consent_marketing: Optional[bool] = False
+    consent_privacy: bool = False
+    consent_terms: bool = False
+    lang: Optional[str] = "el"
 
 class LoginRequest(BaseModel):
     email: str
@@ -1471,25 +1965,31 @@ def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
 def register_user(req: RegisterRequest):
     if not sb:
         raise HTTPException(status_code=500, detail=DB_UNCONFIGURED_MSG)
+    if not req.consent_privacy or not req.consent_terms:
+        raise HTTPException(status_code=400, detail='Privacy policy and terms acceptance are required.')
+    if not (req.name or '').strip():
+        raise HTTPException(status_code=400, detail='Name is required.')
     user_id = None
     try:
-        if req.invite_code:
-            if not is_valid_invite_code(req.invite_code):
+        invite_code = (req.invite_code or '').strip() or None
+        if invite_code:
+            if not is_valid_invite_code(invite_code):
                 raise HTTPException(status_code=401, detail='Invalid invite code.')
         email = req.email.lower().strip()
         existing = sb.table('users').select('id').eq('email', email).execute()
         if existing.data and len(existing.data) > 0:
             raise HTTPException(status_code=400, detail='Email already registered.')
         user_id = str(uuid.uuid4())
+        user_metadata = {'name': req.name}
         sb.auth.admin.create_user({
             'id': user_id,
             'email': email,
             'password': req.password,
             'email_confirm': True,
-            'user_metadata': {'name': req.name},
+            'user_metadata': user_metadata,
         })
-        from datetime import datetime, timedelta
-        trial_ends = (datetime.utcnow() + timedelta(days=3)).isoformat()
+        from datetime import datetime, timezone
+        trial_ends = _trial_ends_at_iso(datetime.now(timezone.utc))
         sb.table('users').insert({
             'id': user_id,
             'email': email,
@@ -1497,9 +1997,26 @@ def register_user(req: RegisterRequest):
             'plan': 'trial',
             'subscription_status': 'trial',
             'trial_ends_at': trial_ends,
-            'invite_code': req.invite_code,
+            'invite_code': invite_code,
             'role': None,
+            'level_id': 1,
         }).execute()
+        auth = {'kind': 'user', 'user_id': user_id, 'token': None}
+        now = datetime.now(timezone.utc).isoformat()
+        profile_fields = {
+            'pregnancy_active': bool(req.pregnancy_or_mom),
+            'want_child': bool(req.want_child),
+            'child_count': 0,
+            'consent_marketing': bool(req.consent_marketing),
+            'consent_date': now if req.consent_marketing else None,
+            'consent_privacy': True,
+            'consent_privacy_at': now,
+            'consent_terms': True,
+            'consent_terms_at': now,
+        }
+        profile_upsert(auth, profile_fields)
+        if invite_code:
+            _award_invite_referral(invite_code, user_id)
         session = _sign_in_with_password_as_user(email, req.password)
         access_token = session.session.access_token
         return {'token': access_token, 'plan': 'trial', 'name': req.name}
@@ -1562,10 +2079,12 @@ def get_me(x_token: Optional[str] = Header(None)):
         auth = resolve_auth(x_token)
         if auth["kind"] == "invite":
             raise HTTPException(status_code=401, detail='Invalid session.')
-        res = sb.table('users').select('id,email,name,plan,subscription_status,trial_ends_at,role,must_change_password').eq('id', auth["user_id"]).execute()
+        res = sb.table('users').select('id,email,name,plan,subscription_status,trial_ends_at,role,must_change_password,level_id').eq('id', auth["user_id"]).execute()
         if not res.data:
             raise HTTPException(status_code=401, detail='Invalid session.')
-        return res.data[0]
+        user = res.data[0]
+        user["gamification"] = _user_gamification(auth["user_id"])
+        return user
     except HTTPException:
         raise
     except Exception as e:
@@ -1611,8 +2130,12 @@ def redeem_invite(req: InviteRequest):
 
 @app.get("/auth/status")
 async def auth_status(x_token: Optional[str] = Header(None)):
-    verify_token(x_token)
-    return {"ok": True, "subscription_active": check_subscription(x_token)}
+    auth = resolve_auth(x_token)
+    active = check_subscription(x_token)
+    payload = {"ok": True, "subscription_active": active}
+    if auth.get("kind") == "user" and auth.get("user_id"):
+        payload.update(_subscription_status_for_user(auth["user_id"]))
+    return payload
 
 @app.get("/profile")
 async def get_profile(x_token: Optional[str] = Header(None)):
@@ -1648,6 +2171,11 @@ async def sync_profile(req: ProfileSyncRequest, x_token: Optional[str] = Header(
         if req.children_birthdates is not None: data["children_birthdates"] = req.children_birthdates
         if req.consent_marketing is not None: data["consent_marketing"] = req.consent_marketing
         if req.consent_date is not None: data["consent_date"] = req.consent_date
+        if req.want_child is not None: data["want_child"] = req.want_child
+        if req.consent_privacy is not None: data["consent_privacy"] = req.consent_privacy
+        if req.consent_terms is not None: data["consent_terms"] = req.consent_terms
+        if req.consent_privacy_at is not None: data["consent_privacy_at"] = req.consent_privacy_at
+        if req.consent_terms_at is not None: data["consent_terms_at"] = req.consent_terms_at
         if data:
             profile_upsert(auth, data)
         if req.name is not None and auth["kind"] == "user":
@@ -2528,7 +3056,7 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
     if not sb:
         return {"users": []}
     try:
-        columns = "id,email,name,plan,subscription_status,trial_ends_at,created_at,last_login,role,must_change_password"
+        columns = "id,email,name,plan,subscription_status,trial_ends_at,created_at,last_login,role,must_change_password,level_id"
         app_users = _paginate_table_rows("users", columns)
         for row in app_users:
             row["account_kind"] = "registered"
@@ -2561,6 +3089,7 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
         for u in merged:
             uid = u.get("id")
             u["data_summary"] = summaries.get(uid, dict(EMPTY_USER_DATA_SUMMARY))
+        _attach_user_points_summary(merged)
         return {
             "users": merged,
             "registered_count": len(app_users),
@@ -2569,6 +3098,29 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
         }
     except Exception as e:
         return {"users": [], "error": str(e)}
+
+@app.get("/admin/users/{user_id}/gamification")
+async def admin_user_gamification(user_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    user_key = (user_id or "").strip()
+    if not user_key:
+        raise HTTPException(status_code=400, detail="user id required")
+    try:
+        user_res = sb.table("users").select("id,email,name,level_id").eq("id", user_key).limit(1).execute()
+        if not user_res.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user = user_res.data[0]
+        analysis = _user_gamification_analysis(user_key)
+        return {
+            "user": user,
+            **analysis,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/admin/user_data")
 async def admin_get_user_data(
@@ -2631,7 +3183,8 @@ async def admin_get_user_data(
 
         data = {r["key"]: r["value"] for r in rows}
         meta = {r["key"]: {"updated_at": r.get("updated_at")} for r in rows}
-        return {"data": data, "meta": meta}
+        transaction_counts = _transaction_counts_by_user_data_key(user_id) if user_id else {}
+        return {"data": data, "meta": meta, "transaction_counts": transaction_counts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2671,6 +3224,131 @@ async def admin_delete_all_users(x_token: Optional[str] = Header(None)):
             value_after={"deleted": deleted},
         )
         return {"ok": True, "deleted": deleted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/admin/levels")
+async def admin_list_levels(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        return {"levels": list(DEFAULT_LEVELS), "error": "Database not configured"}
+    try:
+        _invalidate_levels_cache()
+        return {"levels": _get_levels()}
+    except Exception as e:
+        return {"levels": [], "error": str(e)}
+
+@app.post("/admin/levels")
+async def admin_create_level(req: LevelCreate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    name_el = (req.name_el or "").strip()
+    name_en = (req.name_en or "").strip()
+    if not name_el or not name_en:
+        raise HTTPException(status_code=400, detail="Greek and English names are required")
+    if req.min_points < 0:
+        raise HTTPException(status_code=400, detail="min_points must be >= 0")
+    if req.id < 1 or req.sort_order < 1:
+        raise HTTPException(status_code=400, detail="id and sort_order must be >= 1")
+    payload = {
+        "id": int(req.id),
+        "sort_order": int(req.sort_order),
+        "min_points": int(req.min_points),
+        "name_el": name_el,
+        "name_en": name_en,
+    }
+    try:
+        result = sb.table(LEVELS_TABLE).insert(payload).execute()
+        row = (result.data or [payload])[0]
+        _invalidate_levels_cache()
+        _log_activity(admin_id, "insert", "level", str(row.get("id")), value_after=_activity_snapshot(row))
+        return {"ok": True, "level": row}
+    except Exception as e:
+        err = str(e)
+        if "unique" in err.lower() or "duplicate" in err.lower():
+            raise HTTPException(status_code=409, detail="Level id or sort order already exists")
+        raise HTTPException(status_code=500, detail=err)
+
+@app.put("/admin/levels/{level_id}")
+async def admin_update_level(level_id: int, req: LevelUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    level_key = int(level_id)
+    if level_key < 1:
+        raise HTTPException(status_code=400, detail="invalid level id")
+    try:
+        fetch = sb.table(LEVELS_TABLE).select("*").eq("id", level_key).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Level not found")
+        before_snap = _activity_snapshot(fetch.data[0])
+        data: dict = {}
+        if req.sort_order is not None:
+            if int(req.sort_order) < 1:
+                raise HTTPException(status_code=400, detail="sort_order must be >= 1")
+            data["sort_order"] = int(req.sort_order)
+        if req.min_points is not None:
+            if int(req.min_points) < 0:
+                raise HTTPException(status_code=400, detail="min_points must be >= 0")
+            data["min_points"] = int(req.min_points)
+        if req.name_el is not None:
+            name_el = req.name_el.strip()
+            if not name_el:
+                raise HTTPException(status_code=400, detail="name_el cannot be empty")
+            data["name_el"] = name_el
+        if req.name_en is not None:
+            name_en = req.name_en.strip()
+            if not name_en:
+                raise HTTPException(status_code=400, detail="name_en cannot be empty")
+            data["name_en"] = name_en
+        if not data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        result = sb.table(LEVELS_TABLE).update(data).eq("id", level_key).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Level not found")
+        row = result.data[0]
+        _invalidate_levels_cache()
+        _log_activity(
+            admin_id, "update", "level", str(level_key),
+            value_before=before_snap,
+            value_after=_activity_snapshot(row),
+        )
+        return {"ok": True, "level": row}
+    except HTTPException:
+        raise
+    except Exception as e:
+        err = str(e)
+        if "unique" in err.lower() or "duplicate" in err.lower():
+            raise HTTPException(status_code=409, detail="sort_order already exists")
+        raise HTTPException(status_code=500, detail=err)
+
+@app.delete("/admin/levels/{level_id}")
+async def admin_delete_level(level_id: int, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    level_key = int(level_id)
+    if level_key < 1:
+        raise HTTPException(status_code=400, detail="invalid level id")
+    try:
+        fetch = sb.table(LEVELS_TABLE).select("*").eq("id", level_key).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Level not found")
+        before_snap = _activity_snapshot(fetch.data[0])
+        users = sb.table("users").select("id").eq("level_id", level_key).limit(1).execute()
+        if users.data:
+            raise HTTPException(status_code=409, detail="Level is assigned to users and cannot be deleted")
+        sb.table(LEVELS_TABLE).delete().eq("id", level_key).execute()
+        _invalidate_levels_cache()
+        _log_activity(
+            admin_id, "delete", "level", str(level_key),
+            value_before=before_snap,
+        )
+        return {"ok": True}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -3240,6 +3918,62 @@ class UserRoleUpdate(BaseModel):
     role: Optional[str] = None
 
 
+class UserTrialUpdate(BaseModel):
+    trial_ends_at: Optional[str] = None
+    extend_days: Optional[int] = None
+
+
+@app.patch("/admin/users/{user_id}/trial")
+async def admin_set_user_trial(user_id: str, body: UserTrialUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    if body.trial_ends_at is None and body.extend_days is None:
+        raise HTTPException(status_code=400, detail="Provide trial_ends_at or extend_days")
+    if body.extend_days is not None and body.extend_days < 1:
+        raise HTTPException(status_code=400, detail="extend_days must be at least 1")
+    try:
+        from datetime import datetime, timedelta, timezone
+        res = sb.table("users").select("subscription_status,trial_ends_at,plan").eq("id", user_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        row = res.data[0]
+        now = datetime.now(timezone.utc)
+        if body.extend_days is not None:
+            base = _parse_utc_dt(row.get("trial_ends_at")) or now
+            if base < now:
+                base = now
+            new_end = base + timedelta(days=body.extend_days)
+        else:
+            new_end = _parse_utc_dt(body.trial_ends_at)
+            if not new_end:
+                raise HTTPException(status_code=400, detail="Invalid trial_ends_at")
+            if new_end <= now:
+                raise HTTPException(status_code=400, detail="Expiration must be in the future")
+        updates = {"trial_ends_at": new_end.isoformat()}
+        status = (row.get("subscription_status") or "").lower()
+        if status != "active":
+            updates["subscription_status"] = "trial"
+            if (row.get("plan") or "").lower() not in ("starter", "premium"):
+                updates["plan"] = "trial"
+        before_snap = _user_log_snapshot(user_id)
+        sb.table("users").update(updates).eq("id", user_id).execute()
+        after_snap = _user_log_snapshot(user_id)
+        _log_activity(
+            admin_id,
+            "set_trial_expiry",
+            "user",
+            user_id,
+            value_before=before_snap,
+            value_after=after_snap,
+        )
+        return {"ok": True, "trial_ends_at": updates["trial_ends_at"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.patch("/admin/users/{user_id}/role")
 async def admin_set_user_role(user_id: str, body: UserRoleUpdate, x_token: Optional[str] = Header(None)):
     admin_id = verify_admin(x_token)
@@ -3416,6 +4150,57 @@ async def save_address(req: AddressUpdateRequest, x_token: Optional[str] = Heade
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class VivaCheckoutRequest(BaseModel):
+    plan: str
+    lang: Optional[str] = "el"
+
+@app.post("/checkout/viva")
+async def checkout_viva(req: VivaCheckoutRequest, x_token: Optional[str] = Header(None)):
+    try:
+        try:
+            from .viva_checkout import create_viva_checkout_order, viva_configured, VIVA_PLANS
+        except ImportError:
+            from viva_checkout import create_viva_checkout_order, viva_configured, VIVA_PLANS
+        if not viva_configured():
+            raise HTTPException(status_code=503, detail="Viva Wallet is not configured on the server.")
+        plan_key = (req.plan or "").strip().lower()
+        if plan_key not in VIVA_PLANS:
+            raise HTTPException(status_code=400, detail=f"Unknown plan: {req.plan}")
+        lang = "en" if (req.lang or "").strip().lower() == "en" else "el"
+        customer_email = None
+        customer_name = None
+        user_id = None
+        token = (x_token or "").strip()
+        if token and sb:
+            try:
+                auth = resolve_auth(token)
+                if auth["kind"] == "user":
+                    user_id = auth["user_id"]
+                    user_res = sb.auth.get_user(token)
+                    if user_res and user_res.user:
+                        customer_email = user_res.user.email
+                    prof = profile_query(auth).select("name").execute()
+                    if prof.data:
+                        customer_name = prof.data[0].get("name")
+            except HTTPException:
+                pass
+            except Exception:
+                pass
+        result = await create_viva_checkout_order(
+            plan_key,
+            lang=lang,
+            customer_email=customer_email,
+            customer_name=customer_name,
+            user_id=user_id,
+        )
+        return result
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Lemon Squeezy Webhook
 @app.post("/webhooks/lemon")
 async def lemon_webhook(request: Request):
@@ -3480,8 +4265,14 @@ async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None
         raise HTTPException(status_code=400, detail="path required")
     if not action:
         raise HTTPException(status_code=400, detail="action required")
-    _log_user_activity(auth, action, path, label=req.label, details=req.details)
-    return {"ok": True}
+    gamification = _log_user_activity(auth, action, path, label=req.label, details=req.details)
+    response = {"ok": True}
+    if gamification:
+        amount = _points_for_activity(action, path)
+        if amount > 0:
+            response["points_awarded"] = amount
+        response["gamification"] = gamification
+    return response
 
 
 # == User Data Persistence ==
@@ -3559,9 +4350,9 @@ def _register_public_root_files():
 _register_public_root_files()
 
 _API_PATH_PREFIXES = (
-    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "webhooks/",
+    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "webhooks/", "checkout/",
     "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
-    "admin/regions", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
+    "admin/regions", "admin/levels", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",
     "public/offers", "public/promotions", "healthz",
 )

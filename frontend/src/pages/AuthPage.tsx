@@ -1,17 +1,7 @@
-import { Navigate, useNavigate } from 'react-router-dom'
-import { AuthScreen, HM_TOKEN_KEY } from '../App'
+import { Navigate } from 'react-router-dom'
 import { APP_ROUTE } from '../publicRoutes'
 
+/** Legacy /auth URL → canonical /app/auth */
 export function AuthPage() {
-  const navigate = useNavigate()
-  const existing = localStorage.getItem(HM_TOKEN_KEY)
-  if (existing) return <Navigate to={APP_ROUTE} replace />
-
-  return (
-    <AuthScreen
-      onSuccess={() => {
-        navigate(APP_ROUTE, { replace: true })
-      }}
-    />
-  )
+  return <Navigate to={`${APP_ROUTE}/auth`} replace />
 }

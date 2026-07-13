@@ -9,6 +9,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/testers',
   '/admin/invite-codes',
   '/admin/regions',
+  '/admin/levels',
   '/admin/content',
   '/admin/users',
   '/admin/user-data',
@@ -39,7 +40,7 @@ export default defineConfig({
         target: API_TARGET,
         changeOrigin: true,
       },
-      '^/admin/(health|me|usage|invite_tester|upload|offers|promotions|regions|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
+      '^/admin/(health|me|usage|invite_tester|upload|offers|promotions|regions|levels|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
         target: API_TARGET,
         changeOrigin: true,
         bypass: adminApiBypass,

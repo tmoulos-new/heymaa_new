@@ -47,6 +47,14 @@ export interface RegionRow {
   created_by_name?: string
 }
 
+export interface LevelRow {
+  id: number
+  sort_order: number
+  min_points: number
+  name_el: string
+  name_en: string
+}
+
 export interface InviteCodeRow {
   id?: string
   code: string
@@ -73,6 +81,54 @@ export interface UserRow {
   account_kind?: 'registered' | 'auth_only'
   must_change_password?: boolean
   data_summary?: UserDataSummary
+  level_id?: number
+  total_points?: number
+  level_name_en?: string
+  level_name_el?: string
+  transaction_counts?: Partial<Record<keyof UserDataSummary, number>>
+}
+
+export interface GamificationLevel {
+  number: number
+  name_el: string
+  name_en: string
+  min_points: number
+  is_max?: boolean
+}
+
+export interface GamificationStatus {
+  points: number
+  level: GamificationLevel
+  next_level: GamificationLevel | null
+  progress_in_level: number
+  progress_needed: number
+  points_to_next: number
+  progress_percent: number
+}
+
+export interface PointTimelineEntry {
+  at?: string
+  amount: number
+  cumulative: number
+  reason?: string
+  action?: string
+  path?: string
+}
+
+export interface PointBreakdownEntry {
+  action: string
+  path: string
+  count: number
+  points: number
+}
+
+export interface UserGamificationAnalysis {
+  user: { id: string; email: string; name?: string; level_id?: number }
+  gamification: GamificationStatus
+  timeline: PointTimelineEntry[]
+  breakdown: PointBreakdownEntry[]
+  recent_transactions: PointTimelineEntry[]
+  transaction_count: number
 }
 
 export interface UserDataSummary {

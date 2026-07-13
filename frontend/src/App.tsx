@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Navigate, Link } from "react-router-dom";
 import axios from "axios";
 import {
   EMPTY_FAMILY,
@@ -9,27 +10,12 @@ import {
   type FamilyData,
 } from "./lib/familyData";
 import { appPath, logUserActivity } from "./lib/userActivity";
+import { levelName, type GamificationStatus } from "./lib/userGamification";
+import { API, HM_TOKEN_KEY, apiDetail } from "./lib/authApi";
+import { APP_ROUTE } from "./publicRoutes";
 
-function getApiBase(): string {
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-  const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
-  if (h.endsWith(".vercel.app")) return window.location.origin;
-  return window.location.origin;
-}
-const API = getApiBase();
-export const HM_TOKEN_KEY = "hm_token";
+export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
-
-function apiDetail(data: unknown, fallback: string): string {
-  if (!data || typeof data !== "object") return fallback;
-  const d = (data as { detail?: unknown }).detail;
-  if (typeof d === "string") return d;
-  if (Array.isArray(d)) {
-    return d.map(x => (x && typeof x === "object" && "msg" in x ? String((x as { msg: string }).msg) : JSON.stringify(x))).join("; ") || fallback;
-  }
-  return fallback;
-}
 
 async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
   const ch: ChildEntity[] = profile.children ||
@@ -1287,21 +1273,7 @@ function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0
 function sk(token: string, suffix: string) { return `hm_${suffix}_${token}`; }
 const COLORS = ["#E07B54","#4ABEAA","#7C5CBF","#2B3A67","#2D9E6B","#E0845B","#5B7FE8"];
 
-// ── Auth Screen ─────────────────────────────────────────────
-
-function ForgotPasswordLink({ lang, email }: { lang: string; email: string }) {
-  const [sent, setSent] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const handleForgot = async () => {
-    const em = email.trim() || prompt(lang==="el"?"Βάλε το email σου:":"Enter your email:") || "";
-    if (!em) return;
-    setLoading(true);
-    try { await axios.post(`${API}/auth/forgot-password`, { email: em }); setSent(true); }
-    catch {} finally { setLoading(false); }
-  };
-  if (sent) return <span style={{fontSize:12,color:"#4ABEAA"}}>{lang==="el"?"Email εστάλη ✓":"Email sent ✓"}</span>;
-  return <button onClick={handleForgot} disabled={loading} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0}}>{loading?"...":(lang==="el"?"Ξέχασα τον κωδικό":"Forgot password?")}</button>;
-}
+// ── Password reset ─────────────────────────────────────────────
 
 function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
   const [password, setPassword] = React.useState("");
@@ -1389,142 +1361,7 @@ function ChangePasswordScreen({
   )
 }
 
-export function AuthScreen({ onSuccess }: { onSuccess: (token: string) => void }) {
-  const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el");
-  const [showLang, setShowLang] = useState(false);
-  const L = getLang(lang);
-  const setAndPersistLang = (c: string) => { setLang(c); localStorage.setItem("hm_pre_lang", c); setShowLang(false); };
-  const [step, setStep] = useState<"email"|"invite"|"register"|"password">(() => {
-    return localStorage.getItem("hm_remember") ? "password" : "email";
-  });
-  const [email, setEmail] = useState(() => localStorage.getItem("hm_remember_email") || "");
-  const [inviteCode, setInviteCode] = useState("");
-  const [password, setPassword] = useState(() => localStorage.getItem("hm_remember") ? (localStorage.getItem("hm_remember_pw") || "") : "");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [name, setName] = useState("");
-  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem("hm_remember"));
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
-  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
-  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6};
-  const handleEmailNext = async () => {
-    if (!email.trim()) return;
-    setLoading(true); setError("");
-    try {
-      const res = await axios.post(`${API}/auth/check_email`, { email: email.trim().toLowerCase() });
-      if (res.data.exists) { setStep("password"); } else { setStep("invite"); }
-    } catch { setError(lang==="el"?"Σφάλμα σύνδεσης.":"Connection error."); }
-    finally { setLoading(false); }
-  };
-  const handleInviteNext = async () => {
-    if (!inviteCode.trim()) return;
-    setLoading(true); setError("");
-    try {
-      await axios.post(`${API}/auth/verify_invite`, { invite_code: inviteCode.trim() });
-      setStep("register");
-    } catch (e: any) {
-      setError(e.response?.data?.detail || (lang==="el"?"Μη έγκυρος κωδικός.":"Invalid invite code."));
-    } finally { setLoading(false); }
-  };
-  const handleLogin = async () => {
-    if (!password.trim()) return;
-    setLoading(true); setError("");
-    try {
-      const res = await axios.post(`${API}/auth/login`, { email: email.trim().toLowerCase(), password });
-      if (rememberMe) { localStorage.setItem("hm_remember","1"); localStorage.setItem("hm_remember_email",email.trim().toLowerCase()); localStorage.setItem("hm_remember_pw",password); }
-      else { ["hm_remember","hm_remember_email","hm_remember_pw"].forEach(k=>localStorage.removeItem(k)); }
-      localStorage.setItem(TOKEN_KEY, res.data.token);
-      onSuccess(res.data.token);
-    } catch (e: any) { setError(apiDetail(e.response?.data, lang==="el"?"Λάθος κωδικός.":"Wrong password.")); }
-    finally { setLoading(false); }
-  };
-  const handleRegister = async () => {
-    if (password.length < 6) { setError(lang==="el"?"Κωδικός τουλάχιστον 6 χαρακτήρες.":"Min 6 characters."); return; }
-    if (password !== confirmPw) { setError(lang==="el"?"Οι κωδικοί δεν ταιριάζουν.":"Passwords do not match."); return; }
-    setLoading(true); setError("");
-    try {
-      const res = await axios.post(`${API}/auth/register`, { email: email.trim().toLowerCase(), password, name: name.trim()||undefined, invite_code: inviteCode.trim() });
-      if (rememberMe) { localStorage.setItem("hm_remember","1"); localStorage.setItem("hm_remember_email",email.trim().toLowerCase()); localStorage.setItem("hm_remember_pw",password); }
-      localStorage.setItem(TOKEN_KEY, res.data.token);
-      onSuccess(res.data.token);
-    } catch (e: any) {
-      const d = apiDetail(e.response?.data, lang==="el"?"Αποτυχία.":"Failed.");
-      setError(d);
-      if (d.toLowerCase().includes("invite")) setStep("invite");
-    } finally { setLoading(false); }
-  };
-  const stepProg = step==="email"?0:step==="invite"||step==="password"?1:2;
-  const stepTitle: Record<string,string> = { email:lang==="el"?"Καλωσήρθες":"Welcome", invite:lang==="el"?"Κωδικός Πρόσκλησης":"Invite Code", register:lang==="el"?"Δημιουργία Λογαριασμού":"Create Account", password:lang==="el"?"Σύνδεση":"Sign In" };
-  return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
-      {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
-        <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:"#2B3A67",fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:"1px solid #F0EBE6",marginBottom:4}}>🌐 {t("selectlanguage_login",lang)}</div>
-          {LANGS.map(l=><div key={l.c} onClick={()=>setAndPersistLang(l.c)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?"#F0EBE6":"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:"#2B3A67"}}>{l.n}</span>{l.c===lang&&<span style={{color:"#4ABEAA",fontWeight:700}}>✓</span>}</div>)}
-        </div>
-      </div>}
-      <div style={cardStyle}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67"}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
-          <button onClick={()=>setShowLang(true)} style={{background:"rgba(43,58,103,0.08)",border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"#2B3A67",fontFamily:"inherit"}}>{L.f} {L.s}</button>
-        </div>
-        <div style={{display:"flex",gap:5,marginBottom:22}}>{[0,1,2].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<stepProg?"#4ABEAA":i===stepProg?"#2B3A67":"rgba(43,58,103,0.12)",transition:"background .3s"}}/>)}</div>
-        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:17,color:"#2B3A67",fontWeight:700,marginBottom:14}}>{stepTitle[step]}</div>
-        {step==="email"&&<>
-          <input style={inp} type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEmailNext()} autoFocus disabled={loading}/>
-          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
-          <button style={{...btn,opacity:(loading||!email.trim())?0.5:1}} onClick={handleEmailNext} disabled={loading||!email.trim()}>{loading?(lang==="el"?"Έλεγχος...":"Checking..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
-        </>}
-        {step==="invite"&&<>
-          <p style={{fontSize:13,color:"rgba(43,58,103,.6)",lineHeight:1.6,marginBottom:8}}>{lang==="el"?"Εισάγετε τον κωδικό πρόσκλησης που λάβατε στο email σας.":"Enter the invite code from your email."}</p>
-          <div style={{fontSize:12,color:"rgba(43,58,103,.4)",marginBottom:8,textAlign:"center" as any}}>{email}</div>
-          <input style={{...inp,textAlign:"center" as any,letterSpacing:1,fontWeight:600}} placeholder="HeyMaa_CD_Test_XX" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleInviteNext()} autoFocus disabled={loading}/>
-          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
-          <button style={{...btn,opacity:(loading||!inviteCode.trim())?0.5:1}} onClick={handleInviteNext} disabled={loading||!inviteCode.trim()}>{loading?(lang==="el"?"Έλεγχος...":"Checking..."):(lang==="el"?"Επόμενο →":"Next →")}</button>
-          <button onClick={()=>{setStep("email");setError("");}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Πίσω":"Back"}</button>
-        </>}
-        {step==="register"&&<>
-          <input style={inp} placeholder={lang==="el"?"Όνομα (προαιρετικό)":"Name (optional)"} value={name} onChange={e=>setName(e.target.value)} disabled={loading}/>
-          <input style={inp} type="password" placeholder={lang==="el"?"Κωδικός (min 6 χαρ.)":"Password (min 6 chars)"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading}/>
-          <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση κωδικού":"Confirm password"} value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleRegister()} disabled={loading}/>
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"rgba(43,58,103,.6)",marginBottom:10,cursor:"pointer"}}><input type="checkbox" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} style={{accentColor:"#2B3A67"}}/>{lang==="el"?"Να με θυμάσαι":"Remember me"}</label>
-          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
-          <button style={{...btn,background:"#4ABEAA",opacity:(loading||!password||!confirmPw)?0.5:1}} onClick={handleRegister} disabled={loading||!password||!confirmPw}>{loading?(lang==="el"?"Δημιουργία...":"Creating..."):(lang==="el"?"Δημιουργία λογαριασμού →":"Create account →")}</button>
-          <button onClick={()=>{setStep("invite");setError("");}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Πίσω":"Back"}</button>
-        </>}
-        {step==="password"&&<>
-          <div style={{fontSize:12,color:"rgba(43,58,103,.4)",marginBottom:8,textAlign:"center" as any}}>{email}</div>
-          <input style={inp} type="password" placeholder={lang==="el"?"Κωδικός":"Password"} value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} autoFocus disabled={loading}/>
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"rgba(43,58,103,.6)",marginBottom:6,cursor:"pointer"}}><input type="checkbox" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} style={{accentColor:"#2B3A67"}}/>{lang==="el"?"Να με θυμάσαι":"Remember me"}</label>
-          <div style={{textAlign:"right" as any,marginBottom:4}}><ForgotPasswordLink lang={lang} email={email} /></div>
-          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8}}>{error}</div>}
-          <button style={{...btn,opacity:(loading||!password)?0.5:1}} onClick={handleLogin} disabled={loading||!password}>{loading?(lang==="el"?"Σύνδεση...":"Signing in..."):(lang==="el"?"Είσοδος →":"Sign in →")}</button>
-          <button onClick={()=>{setStep("email");setEmail("");setPassword("");setError("");["hm_remember","hm_remember_email","hm_remember_pw"].forEach(k=>localStorage.removeItem(k));}} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,width:"100%",textAlign:"center" as any}}>← {lang==="el"?"Άλλος λογαριασμός":"Different account"}</button>
-        </>}
-      </div>
-    </div>
-  );
-}
-
-
-// ── Subscription Expired ────────────────────────────────────
-function SubscriptionExpired({ lang, onLogout }: { lang: string; onLogout: () => void }) {
-  return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
-      <div style={{background:"#fff",borderRadius:24,padding:"40px 36px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}}>
-        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:16}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
-        <div style={{fontSize:48,marginBottom:16}}>⏳</div>
-        <h2 style={{fontSize:20,color:"#2B3A67",margin:"0 0 10px"}}>{t("subexpiredtitle",lang)}</h2>
-        <p style={{fontSize:14,color:"#666",lineHeight:1.6,margin:"0 0 24px"}}>{t("subexpiredbody",lang)}</p>
-        <a href="https://heymaa.vdarpp.com" target="_blank" rel="noreferrer" style={{display:"block",width:"100%",padding:14,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontSize:16,fontWeight:600,textDecoration:"none",boxSizing:"border-box" as any}}>{t("renewbtn",lang)}</a>
-        <button onClick={onLogout} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:16,padding:6,width:"100%",textAlign:"center"}}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
-      </div>
-    </div>
-  );
-}
-
-
+// ── Onboarding ────────────────────────────────────────────────
 function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => void }) {
   const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
   const L = getLang(lang);
@@ -1575,7 +1412,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 }
 
 // ── Main App ──────────────────────────────────────────────────
-function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void }) {
+function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; trialEndsAt?: string | null }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const showToast = (text: string, kind: ToastKind = "ok") => {
     const trimmed = text.trim();
@@ -1586,10 +1423,24 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
   };
   const lang = profile.lang; const L = getLang(lang);
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
+  const [gamification, setGamification] = useState<GamificationStatus | null>(null);
 
-  const track = useCallback((action: string, path: string, label?: string, details?: Record<string, unknown>) => {
-    logUserActivity(token, { action, path, label, details });
+  useEffect(() => {
+    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
+      .then(res => {
+        if (res.data?.gamification) setGamification(res.data.gamification);
+      })
+      .catch(() => {});
   }, [token]);
+
+  const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
+    const result = await logUserActivity(token, { action, path, label, details });
+    if (result?.gamification) setGamification(result.gamification);
+    if (result?.points_awarded) {
+      const ptsLabel = lang === "el" ? "πόντοι" : "points";
+      showToast(`+${result.points_awarded} ${ptsLabel}`, "ok");
+    }
+  }, [token, lang]);
 
   // Threads state
   const [threads, setThreads] = useState<Thread[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"threads"))||"[]");}catch{return[];} });
@@ -1888,6 +1739,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
     {id:"shopping" as const,icon:"🛍️",label:t("shopping",lang)},
   ];
 
+  const trialEndLabel = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleString(lang === "el" ? "el-GR" : "en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
     <>
     <div dir={dir} style={{fontFamily:"'DM Sans',sans-serif",height:"100vh",display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto",background:cream}}>
@@ -1965,6 +1826,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
       <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>addMemory(ev.target?.result as string);r.readAsDataURL(f);e.target.value="";}}/>
 
       {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
+      {trialEndLabel && (
+        <div style={{background:"#C62828",color:"#fff",padding:"10px 14px",fontSize:12.5,lineHeight:1.45,flexShrink:0,textAlign:"center"}}>
+          {lang === "el"
+            ? `Δωρεάν δοκιμή — λήγει ${trialEndLabel}. `
+            : `Free trial — ends ${trialEndLabel}. `}
+          <Link to="/subscription" style={{color:"#fff",fontWeight:700,textDecoration:"underline"}}>
+            {lang === "el" ? "Επίλεξε πακέτο" : "Choose a plan"}
+          </Link>
+        </div>
+      )}
       {/* HEADER */}
       <div style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
         <div style={{color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{profile.name}</span> 👋</div>
@@ -1979,6 +1850,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
           </div>
         </div>
       </div>
+
+      {gamification && (
+        <div style={{background:"#243156",padding:"8px 18px 10px",flexShrink:0,borderBottom:`1px solid rgba(255,255,255,.08)`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,color:"rgba(255,255,255,.9)",marginBottom:5}}>
+            <span>🏆 {levelName(gamification.level, lang)} · Lv.{gamification.level.number}</span>
+            <span>{gamification.points} {lang==="el"?"πόντοι":"pts"}</span>
+          </div>
+          <div style={{height:6,borderRadius:99,background:"rgba(255,255,255,.12)",overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${gamification.progress_percent}%`,background:gamification.level.is_max?coral:teal,borderRadius:99,transition:"width .3s"}}/>
+          </div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.55)",marginTop:4}}>
+            {gamification.level.is_max
+              ? (lang==="el"?"Μέγιστο επίπεδο · 0 ακόμα":"Max level · 0 to go")
+              : gamification.next_level
+                ? (lang==="el"
+                  ? `${gamification.points_to_next} ακόμα για ${levelName(gamification.next_level, lang)}`
+                  : `${gamification.points_to_next} more to ${levelName(gamification.next_level, lang)}`)
+                : ""}
+          </div>
+        </div>
+      )}
 
       {/* BODY */}
       <div style={{flex:1,overflowY:"auto",padding:16}}>
@@ -2391,6 +2283,7 @@ export default function App() {
     try{return JSON.parse(localStorage.getItem(`hm_profile_${tk}`)||"null");}catch{return null;}
   });
   const [subActive, setSubActive] = useState<boolean|null>(null);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
 
@@ -2410,10 +2303,14 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) { setSubActive(null); return; }
+    if (!token) { setSubActive(null); setTrialEndsAt(null); return; }
     let cancelled = false;
     axios.get(`${API}/auth/status`, { headers: { "x-token": token } })
-      .then(res => { if (!cancelled) setSubActive(res.data.subscription_active !== false); })
+      .then(res => {
+        if (cancelled) return;
+        setSubActive(res.data.subscription_active !== false);
+        setTrialEndsAt(res.data.is_trial ? (res.data.trial_ends_at || null) : null);
+      })
       .catch(err => {
         if (cancelled) return;
         if (err.response?.status === 401) { handleLogout(); }
@@ -2423,9 +2320,9 @@ export default function App() {
   }, [token]);
 
   if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
-  if(!token)return <AuthScreen onSuccess={tk=>setToken(tk)}/>;
+  if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={profile?.lang||localStorage.getItem("hm_pre_lang")||"el"} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
-  if(subActive===false)return <SubscriptionExpired lang={profile?.lang||"en"} onLogout={handleLogout}/>;
+  if(subActive===false)return <Navigate to="/subscription" replace />;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(`hm_profile_${token}`,JSON.stringify(p));}}/>;
+  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(`hm_profile_${token}`,JSON.stringify(p));}} trialEndsAt={trialEndsAt}/>;
 }

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Database, RefreshCw, Search } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Database, RefreshCw, Search } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel } from '../components/ui'
 import { ValuePairs } from '../components/ValuePairs'
+import { pathForTab } from '../lib/constants'
 import { formatUserDataJson, parseUserDataValue } from '../lib/parseUserDataValue'
 import {
   orderedUserDataKeys,
@@ -11,6 +12,7 @@ import {
   userDataKeyLabel,
   USER_DATA_KEYS,
 } from '../lib/userDataKeys'
+import { userDataKeyCount } from '../lib/userDataKeyCount'
 import type { UserRow } from '../lib/types'
 
 type UserDataMeta = Record<string, { updated_at?: string | null }>
@@ -294,6 +296,7 @@ function KeyPanel({ keyId, value }: { keyId: string; value: unknown }) {
 
 export function UserDataTab() {
   const { adminFetch } = useAdmin()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [users, setUsers] = useState<UserRow[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
@@ -301,6 +304,7 @@ export function UserDataTab() {
   const [inviteToken, setInviteToken] = useState('')
   const [data, setData] = useState<Record<string, unknown>>({})
   const [meta, setMeta] = useState<UserDataMeta>({})
+  const [transactionCounts, setTransactionCounts] = useState<Record<string, number>>({})
   const [activeKey, setActiveKey] = useState<string>(USER_DATA_KEYS[0].id)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(false)
@@ -343,6 +347,7 @@ export function UserDataTab() {
     if (!userId && !token) {
       setData({})
       setMeta({})
+      setTransactionCounts({})
       return
     }
     setLoading(true)
@@ -355,12 +360,14 @@ export function UserDataTab() {
       const nextData = (d.data as Record<string, unknown>) || {}
       setData(nextData)
       setMeta((d.meta as UserDataMeta) || {})
+      setTransactionCounts((d.transaction_counts as Record<string, number>) || {})
       const keys = orderedUserDataKeys(Object.keys(nextData))
       setActiveKey((prev) => (keys.includes(prev) ? prev : keys[0] || USER_DATA_KEYS[0].id))
     } catch {
       setErr(true)
       setData({})
       setMeta({})
+      setTransactionCounts({})
     } finally {
       setLoading(false)
     }
@@ -395,17 +402,29 @@ export function UserDataTab() {
         <h2>
           <Database size={16} className="h-icon" /> User Data
         </h2>
-        <button
-          type="button"
-          className="sec sm"
-          onClick={() => {
-            void loadUsers()
-            void loadData()
-          }}
-          disabled={loading}
-        >
-          <RefreshCw size={14} />
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {userId && (
+            <button
+              type="button"
+              className="ghost sm"
+              onClick={() => navigate(pathForTab('users'))}
+            >
+              <ArrowLeft size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+              Back to users
+            </button>
+          )}
+          <button
+            type="button"
+            className="sec sm"
+            onClick={() => {
+              void loadUsers()
+              void loadData()
+            }}
+            disabled={loading}
+          >
+            <RefreshCw size={14} />
+          </button>
+        </div>
       </div>
 
       <p className="card-desc">
@@ -489,6 +508,9 @@ export function UserDataTab() {
           <div className="user-data-key-tabs" role="tablist">
             {tabKeys.map((keyId) => {
               const hasData = Object.prototype.hasOwnProperty.call(data, keyId)
+              const itemCount = hasData ? userDataKeyCount(keyId, data[keyId]) : 0
+              const txCount = transactionCounts[keyId] || 0
+              const badgeCount = Math.max(itemCount, txCount)
               return (
                 <button
                   key={keyId}
@@ -500,6 +522,20 @@ export function UserDataTab() {
                 >
                   <span className="user-data-key-icon">{userDataKeyIcon(keyId)}</span>
                   {userDataKeyLabel(keyId)}
+                  {badgeCount > 0 && (
+                    <span
+                      className="user-data-key-badge"
+                      title={
+                        txCount > 0 && itemCount !== txCount
+                          ? `${itemCount} items · ${txCount} point transactions`
+                          : txCount > 0
+                            ? `${txCount} point transactions`
+                            : `${itemCount} items`
+                      }
+                    >
+                      {badgeCount}
+                    </span>
+                  )}
                 </button>
               )
             })}

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
+import { HM_TOKEN_KEY } from "../lib/authApi";
 import {
   HOME_I18N_STORAGE_KEY,
   isHomeLocale,
@@ -13,6 +14,7 @@ import type {
   HomePlan,
   HomeSafetyItem,
 } from "../i18n/homeTypes";
+import { PlanCard } from "../components/PlanCard";
 import { LANGS, mf } from "./homeContent";
 import {
   fetchPublicOffers,
@@ -37,41 +39,6 @@ function offerBadgeClass(badge?: string): string {
 
 function FlagHtml({ html }: { html: string }) {
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-function PlanCard({ plan }: { plan: HomePlan }) {
-  return (
-    <div
-      className={`plan ${plan.variant}`}
-      style={{ marginTop: plan.badge ? "14px" : "0" }}
-    >
-      {plan.badge ? (
-        <div className="plan-badge" style={{ background: plan.badgeColor }}>
-          {plan.badge}
-        </div>
-      ) : null}
-      <div className="plan-ico">{plan.icon}</div>
-      <div className="plan-name">{plan.name}</div>
-      <div className="plan-price">{plan.price}</div>
-      <div className="plan-period">{plan.period}</div>
-      <div className="plan-save">{plan.save || "\u00a0"}</div>
-      <ul className="plan-feats">
-        {plan.features.map((feature) => (
-          <li key={feature}>
-            <i className="ti ti-check" />
-            {feature}
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        className={`plan-btn ${plan.buttonClass}`}
-        disabled={plan.variant === "current"}
-      >
-        {plan.button}
-      </button>
-    </div>
-  );
 }
 
 function FeedCard({
@@ -136,7 +103,10 @@ export default function Home() {
   const [promotions, setPromotions] = useState<PublicPromotion[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
 
-  const goToApp = useCallback(() => navigate(APP_ROUTE), [navigate]);
+  const goToApp = useCallback(() => {
+    if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
+    else navigate(`${APP_ROUTE}/auth`);
+  }, [navigate]);
 
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })

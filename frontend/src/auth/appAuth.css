@@ -1,0 +1,250 @@
+.app-auth-page {
+  min-height: 100vh;
+  background: #f5f0eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 40px;
+  font-family: 'DM Sans', sans-serif;
+  color: #2b3a67;
+  box-sizing: border-box;
+}
+
+.app-auth-logo-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(43, 58, 103, 0.08);
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.app-auth-logo-wrap img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
+
+.app-auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.app-auth-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  margin: 0 0 24px;
+  color: #2b3a67;
+}
+
+.app-auth-field {
+  margin-bottom: 14px;
+}
+
+.app-auth-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #2b3a67;
+}
+
+.app-auth-input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(43, 58, 103, 0.14);
+  background: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  color: #2b3a67;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.app-auth-input:focus {
+  border-color: rgba(74, 190, 170, 0.65);
+  box-shadow: 0 0 0 3px rgba(74, 190, 170, 0.12);
+}
+
+.app-auth-invite {
+  background: rgba(124, 92, 191, 0.08);
+  border: 1px solid rgba(124, 92, 191, 0.18);
+  border-radius: 14px;
+  padding: 14px;
+  margin: 18px 0;
+}
+
+.app-auth-invite-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #2b3a67;
+}
+
+.app-auth-invite-bonus {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7c5cbf;
+}
+
+.app-auth-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 20px;
+}
+
+.app-auth-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(43, 58, 103, 0.82);
+  cursor: pointer;
+}
+
+.app-auth-check input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: #2b3a67;
+  flex-shrink: 0;
+}
+
+.app-auth-check a {
+  color: #2b3a67;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.app-auth-error {
+  color: #e07b54;
+  font-size: 13px;
+  margin-bottom: 10px;
+  line-height: 1.45;
+}
+
+.app-auth-primary {
+  width: 100%;
+  padding: 15px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #2b3a67;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-auth-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: rgba(43, 58, 103, 0.45);
+  font-size: 13px;
+}
+
+.app-auth-divider::before,
+.app-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(43, 58, 103, 0.14);
+}
+
+.app-auth-google {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(43, 58, 103, 0.14);
+  background: #fff;
+  color: #2b3a67;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.app-auth-google:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.app-auth-google-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+}
+
+.app-auth-footer {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(43, 58, 103, 0.7);
+}
+
+.app-auth-footer button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  color: #7c5cbf;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.app-auth-forgot {
+  display: block;
+  width: 100%;
+  text-align: right;
+  margin: -4px 0 12px;
+  background: none;
+  border: none;
+  color: #7c5cbf;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.app-auth-lang {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(43, 58, 103, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2b3a67;
+  cursor: pointer;
+}

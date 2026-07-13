@@ -13,6 +13,7 @@ import {
   Bot,
   RefreshCw,
   ScrollText,
+  Trophy,
   Users,
   Wrench,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
+import { LevelsTab } from '../tabs/LevelsTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
 import { UserDataTab } from '../tabs/UserDataTab'
@@ -37,6 +39,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'testers', icon: MailPlus, tip: 'Testers' },
   { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
   { id: 'regions', icon: Globe2, tip: 'Regions' },
+  { id: 'levels', icon: Trophy, tip: 'Levels' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
@@ -167,6 +170,7 @@ export function AdminShell() {
             />
             <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
+            <Route path="levels" element={<LevelsTab key={`lv-${refreshKey}`} />} />
             <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
             <Route
               path="users"

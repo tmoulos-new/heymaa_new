@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "backToApp": "Back to app",
+    "signIn": "Sign in",
+    "logoAlt": "HeyMaa"
+  },
+  "hero": {
+    "expired": {
+      "badge": "Trial ended",
+      "title": "Your free trial has <em>ended</em>",
+      "subtitle": "To keep using HeyMaa, choose a subscription plan."
+    },
+    "trial": {
+      "badge": "Trial period",
+      "title": "Upgrade your <em>plan</em>",
+      "subtitle": "You still have free access. Choose a plan when you're ready."
+    },
+    "default": {
+      "badge": "Subscriptions",
+      "title": "Simple & transparent <em>plans</em>",
+      "subtitle": "Choose the plan that fits your needs."
+    },
+    "trialEnds": "Trial ends {{date}}"
+  },
+  "trial": {
+    "expiredBadge": "Expired",
+    "expiredButton": "Expired",
+    "signupButton": "With signup"
+  },
+  "plan": {
+    "currentBadge": "Current",
+    "currentButton": "Active"
+  }
+}

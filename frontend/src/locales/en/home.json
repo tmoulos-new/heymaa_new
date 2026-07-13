@@ -86,7 +86,7 @@
         "icon": "✨",
         "name": "Free Trial",
         "price": "Free",
-        "period": "3 days",
+        "period": "14 days",
         "badge": "Current",
         "badgeColor": "#2D9E6B",
         "variant": "current",
@@ -191,7 +191,7 @@
     "items": [
       {
         "question": "What does the free trial include?",
-        "answer": "3 days full access to all Premium features — unlimited chat, voice, full memory. No card needed."
+        "answer": "14 days full access to all Premium features — unlimited chat, voice, full memory. No card needed."
       },
       {
         "question": "Does HeyMaa give medical advice?",

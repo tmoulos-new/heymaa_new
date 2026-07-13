@@ -1,3 +1,5 @@
+import type { GamificationStatus } from "./userGamification";
+
 function getApiBase(): string {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL
   const h = window.location.hostname
@@ -15,12 +17,18 @@ export type UserActivityAction =
   | 'close'
   | 'change'
 
+export type UserActivityResult = {
+  ok: boolean;
+  points_awarded?: number;
+  gamification?: GamificationStatus;
+};
+
 export function appPath(...segments: string[]): string {
   const tail = segments.filter(Boolean).join('/').replace(/^\/+/, '')
   return tail ? `/app/${tail}` : '/app'
 }
 
-export function logUserActivity(
+export async function logUserActivity(
   token: string,
   payload: {
     action: UserActivityAction | string
@@ -28,12 +36,18 @@ export function logUserActivity(
     label?: string
     details?: Record<string, unknown>
   },
-): void {
-  if (!token || !payload.path) return
+): Promise<UserActivityResult | null> {
+  if (!token || !payload.path) return null
   const API = getApiBase()
-  void fetch(`${API}/user_activity`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-token': token },
-    body: JSON.stringify(payload),
-  }).catch(() => {})
+  try {
+    const res = await fetch(`${API}/user_activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-token': token },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as UserActivityResult
+  } catch {
+    return null
+  }
 }
