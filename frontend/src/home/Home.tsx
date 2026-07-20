@@ -16,12 +16,6 @@ import type {
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
 import { LANGS, mf } from "./homeContent";
-import {
-  fetchPublicOffers,
-  fetchPublicPromotions,
-  type PublicOffer,
-  type PublicPromotion,
-} from "./homeApi";
 import "./home.css";
 
 const TABLER_ICONS =
@@ -31,64 +25,8 @@ function asObjectArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-function offerBadgeClass(badge?: string): string {
-  if (badge === "promo") return "feed-badge-promo";
-  if (badge === "sponsored") return "feed-badge-sponsored";
-  return "feed-badge-offer";
-}
-
 function FlagHtml({ html }: { html: string }) {
   return <span dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-function FeedCard({
-  item,
-  badge,
-  badgeClass,
-  learnLabel,
-  getItLabel,
-  onGetIt,
-}: {
-  item: {
-    id: string | number;
-    title: string;
-    body?: string;
-    link?: string | null;
-    image_url?: string | null;
-  };
-  badge?: string;
-  badgeClass: string;
-  learnLabel: string;
-  getItLabel: string;
-  onGetIt: () => void;
-}) {
-  return (
-    <article className="feed-card">
-      {badge ? (
-        <span className={`feed-badge ${badgeClass}`}>{badge}</span>
-      ) : null}
-      {item.image_url ? (
-        <img src={item.image_url} alt="" className="feed-img" />
-      ) : null}
-      <div className="feed-title">{item.title}</div>
-      {item.body ? <div className="feed-body">{item.body}</div> : null}
-      {item.link ? (
-        <a
-          href={item.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="feed-link"
-        >
-          {learnLabel}
-        </a>
-      ) : null}
-      <div className="feed-card-overlay">
-        <button type="button" className="feed-get-btn" onClick={onGetIt}>
-          {getItLabel}
-        </button>
-      </div>
-    </article>
-  );
 }
 
 export default function Home() {
@@ -99,9 +37,6 @@ export default function Home() {
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
-  const [offers, setOffers] = useState<PublicOffer[]>([]);
-  const [promotions, setPromotions] = useState<PublicPromotion[]>([]);
-  const [feedLoading, setFeedLoading] = useState(true);
 
   const goToApp = useCallback(() => {
     if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
@@ -123,32 +58,6 @@ export default function Home() {
   const faqItems = asObjectArray<HomeFaqItem>(
     t("faq.items", { returnObjects: true })
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    setFeedLoading(true);
-    Promise.all([
-      fetchPublicOffers(contentLang),
-      fetchPublicPromotions(contentLang),
-    ])
-      .then(([o, p]) => {
-        if (cancelled) return;
-        setOffers(o);
-        setPromotions(p);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setOffers([]);
-          setPromotions([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setFeedLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contentLang]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -277,52 +186,6 @@ export default function Home() {
               </span>
             ))}
           </div>
-        </div>
-
-        <div className="section" style={{ paddingTop: 40 }}>
-          <div className="sec-title">{t("feed.offers")}</div>
-          {feedLoading ? (
-            <div className="feed-loading">{t("feed.loading")}</div>
-          ) : offers.length === 0 ? (
-            <div className="feed-empty">{t("feed.emptyOffers")}</div>
-          ) : (
-            <div className="feed-grid">
-              {offers.map((o) => (
-                <FeedCard
-                  key={String(o.id)}
-                  item={o}
-                  badge={o.badge || undefined}
-                  badgeClass={offerBadgeClass(o.badge)}
-                  learnLabel={t("feed.learnMore")}
-                  getItLabel={t("feed.getIt")}
-                  onGetIt={goToApp}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="section" style={{ paddingTop: 0 }}>
-          <div className="sec-title">{t("feed.promotions")}</div>
-          {feedLoading ? (
-            <div className="feed-loading">{t("feed.loading")}</div>
-          ) : promotions.length === 0 ? (
-            <div className="feed-empty">{t("feed.emptyPromotions")}</div>
-          ) : (
-            <div className="feed-grid">
-              {promotions.map((p) => (
-                <FeedCard
-                  key={String(p.id)}
-                  item={p}
-                  badge={t("feed.sponsored")}
-                  badgeClass="feed-badge-sponsored"
-                  learnLabel={t("feed.learnMore")}
-                  getItLabel={t("feed.getIt")}
-                  onGetIt={goToApp}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="section">

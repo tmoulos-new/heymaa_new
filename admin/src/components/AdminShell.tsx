@@ -11,6 +11,7 @@ import {
   Menu,
   MousePointerClick,
   Bot,
+  BookOpen,
   RefreshCw,
   ScrollText,
   Trophy,
@@ -32,6 +33,7 @@ import { ActivityLogTab } from '../tabs/ActivityLogTab'
 import { UserDataTab } from '../tabs/UserDataTab'
 import { UserActivityLogTab } from '../tabs/UserActivityLogTab'
 import { ChatPromptTab } from '../tabs/ChatPromptTab'
+import { RagSourcesTab } from '../tabs/RagSourcesTab'
 import { SidebarUser } from './SidebarUser'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
@@ -41,6 +43,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'regions', icon: Globe2, tip: 'Regions' },
   { id: 'levels', icon: Trophy, tip: 'Levels' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
+  { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
   { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
@@ -172,6 +175,7 @@ export function AdminShell() {
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
             <Route path="levels" element={<LevelsTab key={`lv-${refreshKey}`} />} />
             <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
+            <Route path="sources" element={<RagSourcesTab key={`rs-${refreshKey}`} />} />
             <Route
               path="users"
               element={<UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />}

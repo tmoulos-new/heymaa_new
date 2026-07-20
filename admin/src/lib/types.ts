@@ -192,3 +192,15 @@ export interface PromoFormData {
   image_key: string | null
   region_ids: string[] | null
 }
+
+export interface RagSourceRow {
+  id: string
+  title: string
+  source_type?: string
+  origin?: string | null
+  status?: string
+  chunk_count?: number
+  chunks_live?: number
+  created_at?: string | null
+  updated_at?: string | null
+}

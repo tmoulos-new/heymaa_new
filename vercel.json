@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "backend/main.py": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "rewrites": [
@@ -18,7 +18,7 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat$|tts$|offers$|public/offers|public/promotions|userdata$|user_activity$|webhooks(?:/|$)|checkout(?:/|$)|admin/(?:health|me|usage|upload|offers|promotions|regions|levels|invite_codes|profiles|users|user_data|user_activity|chat_prompt|activity_log|invite_tester)(?:/|$)|static/).*)",
+      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat$|tts$|offers$|public/offers|public/promotions|userdata$|user_activity$|webhooks(?:/|$)|checkout(?:/|$)|admin/(?:health|me|usage|upload|offers|promotions|regions|levels|rag_sources|invite_codes|profiles|users|user_data|user_activity|chat_prompt|activity_log|invite_tester)(?:/|$)|static/).*)",
       "destination": "/index.html"
     }
   ]

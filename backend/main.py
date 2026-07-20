@@ -3,7 +3,7 @@ import io
 import base64
 import asyncio
 import uuid
-from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Query
+from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -1764,6 +1764,9 @@ class LevelUpdate(BaseModel):
     name_el: Optional[str] = None
     name_en: Optional[str] = None
 
+class RagSourceUpdate(BaseModel):
+    title: Optional[str] = None
+
 class SeedBetaRequest(BaseModel):
     country: Optional[str] = "GR"
     pregnancy_active: Optional[bool] = True
@@ -3353,6 +3356,218 @@ async def admin_delete_level(level_id: int, x_token: Optional[str] = Header(None
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _rag_chunk_counts(source_ids: List[str]) -> dict:
+    counts = {sid: 0 for sid in source_ids}
+    if not sb or not source_ids:
+        return counts
+    try:
+        res = (
+            sb.table("rag_chunks")
+            .select("source_id")
+            .in_("source_id", source_ids)
+            .execute()
+        )
+        for row in res.data or []:
+            sid = row.get("source_id")
+            if sid in counts:
+                counts[sid] += 1
+    except Exception:
+        pass
+    return counts
+
+
+@app.get("/admin/rag_sources")
+async def admin_list_rag_sources(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        return {"sources": [], "error": "Database not configured"}
+    try:
+        result = (
+            sb.table("rag_sources")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        rows = result.data or []
+        live = _rag_chunk_counts([r["id"] for r in rows if r.get("id")])
+        for row in rows:
+            sid = row.get("id")
+            live_count = live.get(sid, 0)
+            row["chunks_live"] = live_count
+            # Prefer live count when stored value is stale
+            if int(row.get("chunk_count") or 0) != live_count:
+                row["chunk_count"] = live_count
+        return {"sources": rows}
+    except Exception as e:
+        return {"sources": [], "error": str(e)}
+
+
+@app.post("/admin/rag_sources/upload")
+async def admin_upload_rag_source(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    x_token: Optional[str] = Header(None),
+):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_ingest import create_source_and_ingest
+    except ImportError:
+        from rag_ingest import create_source_and_ingest
+
+    display_title = (title or "").strip() or (file.filename or "Untitled").rsplit(".", 1)[0]
+    data = await file.read()
+    try:
+        result = create_source_and_ingest(
+            sb,
+            title=display_title,
+            filename=file.filename or "upload.txt",
+            file_bytes=data,
+        )
+        source = result.get("source") or {}
+        _log_activity(
+            admin_id,
+            "insert",
+            "rag_source",
+            str(source.get("id")),
+            value_after={
+                "title": source.get("title"),
+                "origin": source.get("origin"),
+                "chunk_count": result.get("chunk_count"),
+                "status": result.get("status"),
+            },
+        )
+        return {"ok": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/admin/rag_sources/{source_id}/rechunk")
+async def admin_rechunk_rag_source(
+    source_id: str,
+    file: UploadFile = File(...),
+    x_token: Optional[str] = Header(None),
+):
+    """Replace chunks for an existing source by re-uploading the document."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_ingest import ingest_text_into_source, read_text_bytes, validate_upload_filename
+    except ImportError:
+        from rag_ingest import ingest_text_into_source, read_text_bytes, validate_upload_filename
+
+    try:
+        fetch = sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Source not found")
+        source = fetch.data[0]
+        before = int(source.get("chunk_count") or 0)
+        origin = validate_upload_filename(file.filename or source.get("origin") or "upload.txt")
+        data = await file.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="Empty file")
+        text = read_text_bytes(data, origin)
+        result = ingest_text_into_source(
+            sb,
+            source_id=source_id,
+            title=source.get("title") or origin,
+            text=text,
+            replace_existing=True,
+        )
+        sb.table("rag_sources").update({"origin": origin}).eq("id", source_id).execute()
+        refreshed = sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()
+        row = (refreshed.data or [source])[0]
+        _log_activity(
+            admin_id,
+            "update",
+            "rag_source",
+            source_id,
+            value_before={"chunk_count": before},
+            value_after={
+                "chunk_count": result.get("chunk_count"),
+                "status": result.get("status"),
+                "origin": origin,
+            },
+        )
+        return {"ok": True, "source": row, **result}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/admin/rag_sources/{source_id}")
+async def admin_update_rag_source(
+    source_id: str,
+    req: RagSourceUpdate,
+    x_token: Optional[str] = Header(None),
+):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    title = (req.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+    try:
+        fetch = sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Source not found")
+        before = fetch.data[0]
+        result = sb.table("rag_sources").update({"title": title}).eq("id", source_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Source not found")
+        row = result.data[0]
+        _log_activity(
+            admin_id,
+            "update",
+            "rag_source",
+            source_id,
+            value_before={"title": before.get("title")},
+            value_after={"title": row.get("title")},
+        )
+        return {"ok": True, "source": row}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/admin/rag_sources/{source_id}")
+async def admin_delete_rag_source(source_id: str, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        fetch = sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Source not found")
+        before = fetch.data[0]
+        # Delete chunks first in case FK cascade is missing
+        sb.table("rag_chunks").delete().eq("source_id", source_id).execute()
+        sb.table("rag_sources").delete().eq("id", source_id).execute()
+        _log_activity(
+            admin_id,
+            "delete",
+            "rag_source",
+            source_id,
+            value_before={
+                "title": before.get("title"),
+                "chunk_count": before.get("chunk_count"),
+            },
+        )
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/admin/regions")
 async def admin_list_regions(
     deleted_only: bool = False,
@@ -4352,7 +4567,7 @@ _register_public_root_files()
 _API_PATH_PREFIXES = (
     "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "webhooks/", "checkout/",
     "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
-    "admin/regions", "admin/levels", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
+    "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",
     "public/offers", "public/promotions", "healthz",
 )

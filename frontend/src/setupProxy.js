@@ -19,11 +19,13 @@ const ADMIN_API_PREFIXES = [
   '/admin/promotions',
   '/admin/regions',
   '/admin/levels',
+  '/admin/rag_sources',
   '/admin/invite_codes',
   '/admin/user_activity',
   '/admin/user_data',
   '/admin/users',
   '/admin/profiles/',
+  '/admin/chat_prompt',
 ]
 
 const ADMIN_UI_GET_PATHS = new Set([
@@ -33,9 +35,11 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/regions',
   '/admin/levels',
   '/admin/content',
+  '/admin/sources',
   '/admin/users',
   '/admin/user-data',
   '/admin/user-activity',
+  '/admin/chat-prompt',
   '/admin/tools',
   '/admin/activity-log',
 ])
