@@ -30,13 +30,15 @@ def _supabase_credentials():
         os.getenv("SUPABASE_URL")
         or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
         or os.getenv("VITE_SUPABASE_URL")
-    )
+        or ""
+    ).strip().strip('"').strip("'")
     key = (
         os.getenv("SUPABASE_SERVICE_KEY")
         or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         or os.getenv("SUPABASE_SECRET_KEY")
-    )
-    return url, key
+        or ""
+    ).strip().strip('"').strip("'")
+    return (url or None), (key or None)
 
 DB_UNCONFIGURED_MSG = (
     "Database unavailable. Set SUPABASE_URL and SUPABASE_SERVICE_KEY "
