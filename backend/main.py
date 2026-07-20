@@ -17,8 +17,10 @@ except ImportError:
 
 _backend_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
-load_dotenv(os.path.join(_root_dir, ".env"))
-load_dotenv(os.path.join(_backend_dir, ".env"))
+# On Vercel, use platform env only — never load a packaged .env that could blank secrets.
+if not os.getenv("VERCEL"):
+    load_dotenv(os.path.join(_root_dir, ".env"))
+    load_dotenv(os.path.join(_backend_dir, ".env"))
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -52,7 +54,27 @@ from supabase import create_client
 SUPABASE_URL, SUPABASE_KEY = _supabase_credentials()
 EMBED_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GEMINI_API_KEY}"
 
-sb = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+sb = None
+try:
+    if SUPABASE_URL and SUPABASE_KEY:
+        sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception:
+    sb = None
+
+
+def ensure_supabase():
+    """Lazy (re)init for serverless cold starts where env may appear after import."""
+    global sb, SUPABASE_URL, SUPABASE_KEY
+    if sb is not None:
+        return sb
+    SUPABASE_URL, SUPABASE_KEY = _supabase_credentials()
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    try:
+        sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        sb = None
+    return sb
 OFFERS_TABLE = os.getenv("OFFERS_TABLE") or os.getenv("OFFER_NEWS_TABLE", "offers")
 ACTIVITY_LOG_TABLE = "activity_log"
 USER_ACTIVITY_LOG_TABLE = "user_activity_log"
@@ -1063,6 +1085,14 @@ VALID_CODES = {
 }
 
 app = FastAPI(title="HeyMaa API")
+
+
+@app.middleware("http")
+async def _ensure_supabase_middleware(request: Request, call_next):
+    ensure_supabase()
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1799,7 +1829,7 @@ RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <hello@vdarpp.com>")
 
 def verify_admin(x_token: Optional[str]) -> str:
     """Require a logged-in user with role=admin (JWT via x-token)."""
-    if not sb:
+    if not ensure_supabase():
         raise HTTPException(status_code=503, detail=DB_UNCONFIGURED_MSG)
     auth = resolve_auth(x_token, context="admin")
     if auth["kind"] != "user" or not auth.get("user_id"):
@@ -1891,9 +1921,15 @@ def match_promotion(token: str):
 # Routes
 @app.get("/healthz")
 def root():
+    client = ensure_supabase()
+    url, key = _supabase_credentials()
     return {
         "status": "HeyMaa API is running!",
-        "database": "ok" if sb else "unconfigured",
+        "database": "ok" if client else "unconfigured",
+        "supabase_url_set": bool(url),
+        "supabase_key_set": bool(key),
+        "supabase_key_is_jwt": bool(key and key.count(".") == 2),
+        "vercel": bool(os.getenv("VERCEL")),
     }
 def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
     if not sb:
@@ -2045,7 +2081,7 @@ def register_user(req: RegisterRequest):
 
 @app.post('/auth/login')
 def login_user(req: LoginRequest):
-    if not sb:
+    if not ensure_supabase():
         raise HTTPException(status_code=500, detail=DB_UNCONFIGURED_MSG)
     try:
         email = req.email.lower().strip()
