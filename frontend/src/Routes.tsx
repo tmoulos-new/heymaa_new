@@ -33,6 +33,7 @@ export default function AppRoutes() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/checkout/success" element={<CheckoutResultPage outcome="success" />} />
         <Route path="/checkout/failure" element={<CheckoutResultPage outcome="failure" />} />
+        <Route path="/checkout/failed" element={<CheckoutResultPage outcome="failure" />} />
         <Route path="/" element={<PublicHome />} />
         <Route path="/home" element={<Home />} />
         <Route path={`${APP_ROUTE}/*`} element={<App />} />
