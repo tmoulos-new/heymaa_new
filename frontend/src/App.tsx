@@ -3,16 +3,48 @@ import { Navigate, Link } from "react-router-dom";
 import axios from "axios";
 import {
   EMPTY_FAMILY,
+  RELATED_TO_PARTNER,
+  RELATED_TO_SELF,
+  ensureFamilyMemberIds,
   getFamilyChildren,
+  memberDisplayLabel,
+  memberMemoryRef,
+  memoryBelongsToMember,
+  migrateRefsToMemberIds,
+  newFamilyMemberId,
   normalizeFamilyData,
-  parseFamilyData,
-  parseFamilyDataValue,
+  relatedToLabel,
   type FamilyData,
+  type FamilyMemberRecord,
 } from "./lib/familyData";
+import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
 import { API, HM_TOKEN_KEY, apiDetail } from "./lib/authApi";
 import { APP_ROUTE } from "./publicRoutes";
+import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
+import { FamilyTreePanel } from "./components/FamilyTreePanel";
+import {
+  compressImageDataUrl,
+  persistMemoriesDurable,
+  safeLocalSet,
+  pickRicherMemories,
+  memoriesForCloud,
+  localMemoriesRicherThanCloud,
+  memoriesHavePhotos,
+  parseMemoriesJson,
+} from "./lib/memoriesSync";
+import {
+  mergeCloudUserData,
+  pruneOrphanJwtMemoryKeys,
+  pruneOrphanJwtFamilyKeys,
+  recoverAllLocalUserData,
+  bootLocalScan,
+  rehomeRecoveredData,
+  stableSk,
+  loadFamilyForToken,
+  clearBootLocalScanCache,
+} from "./lib/userDataRecovery";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
@@ -53,13 +85,13 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<v
 }
 
 type ToastKind = "ok" | "err";
-type ToastItem = { id: number; text: string; kind: ToastKind };
+type ToastItem = { id: number; text: string; kind: ToastKind; undo?: () => void; undoLabel?: string };
 let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
 interface Message { role: "user" | "assistant"; content: string; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
-interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; } // ref = child name | "pregnancy" | family member name | undefined (general)
+interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; createdAt?: string; } // ref = child name | "pregnancy" | m:{memberId} | undefined (general)
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
@@ -1216,8 +1248,12 @@ const TR: Record<string,Record<string,string>> = {
   recentmem:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"추억",mr:"आठवणी",te:"జ్ఞాపకాలు"},
   addmemory:{el:"Γράψε μια ανάμνηση...",en:"Write a memory...",ar:"أضيفي ذكرى...",es:"Escribe un recuerdo...",fr:"Ajouter un souvenir...",de:"Erinnerung hinzufügen...",pt:"Adicionar memória...",it:"Aggiungi ricordo...",ru:"Добавить воспоминание...",tr:"Anı ekle...",hi:"याद लिखें...",ur:"یاد لکھیں...",zh:"写下回忆...",ja:"思い出を書く...",nl:"Herinnering schrijven...",pl:"Napisz wspomnienie...",ro:"Scrie amintire...",bn:"স্মৃতি লিখুন...",id:"Tulis kenangan...",sw:"Andika kumbukumbu...",fil:"추억 쓰기...",mr:"आठवण लिहा...",te:"జ్ఞాపకం రాయండి..."},
   nomemories:{el:"Δεν υπάρχουν αναμνήσεις ακόμα.",en:"No memories yet. Add your first!",ar:"لا توجد ذكريات بعد.",es:"Aún no hay recuerdos.",fr:"Pas encore de souvenirs.",de:"Noch keine Erinnerungen.",pt:"Ainda sem memórias.",it:"Ancora nessun ricordo.",ru:"Пока нет воспоминаний.",tr:"Henüz anı yok.",hi:"अभी यादें नहीं।",ur:"ابھی یادیں نہیں۔",zh:"还没有回忆。",ja:"まだ思い出がありません。",nl:"Nog geen herinneringen.",pl:"Brak wspomnień.",ro:"Nu există amintiri.",bn:"এখনও স্মৃতি নেই।",id:"Belum ada kenangan.",sw:"Bado hakuna kumbukumbu.",fil:"아직 추억 없어요.",mr:"अजून आठवणी नाहीत.",te:"ఇంకా జ్ఞాపకాలు లేవు."},
+  selectmem:{el:"Διάλεξε μέλος για να δεις τις αναμνήσεις του.",en:"Select a member to see their memories.",ar:"اختر فرداً لعرض ذكرياته.",es:"Elige un miembro para ver sus recuerdos.",fr:"Choisis un membre pour voir ses souvenirs.",de:"Wähle ein Mitglied, um Erinnerungen zu sehen.",pt:"Escolhe um membro para ver as memórias.",it:"Scegli un membro per vedere i ricordi.",ru:"Выберите члена семьи, чтобы увидеть воспоминания.",tr:"Anılarını görmek için bir üye seç.",hi:"यादें देखने के लिए सदस्य चुनें।",ur:"یادیں دیکھنے کے لیے رکن منتخب کریں۔",zh:"选择成员查看回忆。",ja:"思い出を見るメンバーを選んでください。",nl:"Kies een lid om herinneringen te zien.",pl:"Wybierz członka, aby zobaczyć wspomnienia.",ro:"Alege un membru pentru a vedea amintirile.",bn:"স্মৃতি দেখতে সদস্য বেছে নিন।",id:"Pilih anggota untuk melihat kenangan.",sw:"Chagua mwanachama kuona kumbukumbu.",fil:"멤버를 선택해 추억을 보세요.",mr:"आठवणी पाहण्यासाठी सदस्य निवडा.",te:"జ్ఞాపకాలు చూడటానికి సభ్యుని ఎంచుకోండి."},
   myfamily:{el:"Η Οικογένειά μου",en:"My Family",ar:"عائلتي",es:"Mi Familia",fr:"Ma Famille",de:"Meine Familie",pt:"Minha Família",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",hi:"मेरा परिवार",ur:"میرا خاندان",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",bn:"আমার পরিবার",id:"Keluargaku",sw:"Familia Yangu",fil:"나의 가족",mr:"माझे कुटुंब",te:"నా కుటుంబం"},
   addmember:{el:"＋ Πρόσθεσε μέλος",en:"＋ Add family member",ar:"＋ إضافة فرد",es:"＋ Agregar miembro",fr:"＋ Ajouter un membre",de:"＋ Mitglied hinzufügen",pt:"＋ Adicionar membro",it:"＋ Aggiungi membro",ru:"＋ Добавить члена",tr:"＋ Üye ekle",hi:"＋ सदस्य जोड़ें",ur:"＋ رکن شامل کریں",zh:"＋ 添加成员",ja:"＋ 家族を追加",nl:"＋ Lid toevoegen",pl:"＋ Dodaj członka",ro:"＋ Adaugă un membru",bn:"＋ সদস্য যোগ করুন",id:"＋ Tambah anggota",sw:"＋ Ongeza mwanafamilia",fil:"＋ 가족 추가",mr:"＋ सदस्य जोडा",te:"＋ సభ్యుని జోడించు"},
+  show:{el:"Εμφάνιση",en:"Show",ar:"إظهار",es:"Mostrar",fr:"Afficher",de:"Anzeigen",pt:"Mostrar",it:"Mostra",ru:"Показать",tr:"Göster",hi:"दिखाएं",ur:"دکھائیں",zh:"显示",ja:"表示",nl:"Tonen",pl:"Pokaż",ro:"Arată",bn:"দেখান",id:"Tampilkan",sw:"Onyesha",fil:"보기",mr:"दाखवा",te:"చూపించు"},
+  hide:{el:"Απόκρυψη",en:"Hide",ar:"إخفاء",es:"Ocultar",fr:"Masquer",de:"Ausblenden",pt:"Ocultar",it:"Nascondi",ru:"Скрыть",tr:"Gizle",hi:"छिपाएं",ur:"چھپائیں",zh:"隐藏",ja:"非表示",nl:"Verbergen",pl:"Ukryj",ro:"Ascunde",bn:"লুকান",id:"Sembunyikan",sw:"Ficha",fil:"숨기기",mr:"लपवा",te:"దాచు"},
+  addpet:{el:"＋ Πρόσθεσε κατοικίδιο",en:"＋ Add family pet",ar:"＋ إضافة حيوان أليف",es:"＋ Agregar mascota",fr:"＋ Ajouter un animal",de:"＋ Haustier hinzufügen",pt:"＋ Adicionar animal",it:"＋ Aggiungi pet",ru:"＋ Добавить питомца",tr:"＋ Evcil hayvan ekle",hi:"＋ पालतू जोड़ें",ur:"＋ پالتو شامل کریں",zh:"＋ 添加宠物",ja:"＋ ペットを追加",nl:"＋ Huisdier toevoegen",pl:"＋ Dodaj zwierzaka",ro:"＋ Adaugă animal",bn:"＋ পোষা প্রাণী যোগ করুন",id:"＋ Tambah hewan",sw:"＋ Ongeza mnyama",fil:"＋ 반려동물 추가",mr:"＋ पाळीव प्राणी जोडा",te:"＋ పెంపుడు జంతువు జోడించు"},
   products:{el:"Προϊόντα",en:"Products",ar:"المنتجات",es:"Productos",fr:"Produits",de:"Produkte",pt:"Produtos",it:"Prodotti",ru:"Товары",tr:"Ürünler",hi:"उत्पाद",ur:"مصنوعات",zh:"产品",ja:"製品",nl:"Producten",pl:"Produkty",ro:"Produse",bn:"পণ্য",id:"Produk",sw:"Bidhaa",fil:"제품",mr:"उत्पादने",te:"ఉత్పత్తులు"},
   supermarket:{el:"Σούπερ Μάρκετ",en:"Supermarket",ar:"سوبرماركت",es:"Supermercado",fr:"Supermarché",de:"Supermarkt",pt:"Supermercado",it:"Supermercato",ru:"Супермаркет",tr:"Süpermarket",hi:"सुपरमार्केट",ur:"سپر مارکیٹ",zh:"超市",ja:"スーパー",nl:"Supermarkt",pl:"Supermarket",ro:"Supermarket",bn:"সুপারমার্কেট",id:"Supermarket",sw:"Madukani",fil:"슈퍼마켓",mr:"सुपरमार्केट",te:"సూపర్‌మార్కెట్"},
   additem:{el:"Πρόσθεσε προϊόν...",en:"Add product...",ar:"أضيفي منتجاً...",es:"Agregar producto...",fr:"Ajouter produit...",de:"Produkt hinzufügen...",pt:"Adicionar produto...",it:"Aggiungi prodotto...",ru:"Добавить товар...",tr:"Ürün ekle...",hi:"उत्पाद जोड़ें...",ur:"مصنوع شامل کریں...",zh:"添加产品...",ja:"商品を追加...",nl:"Product toevoegen...",pl:"Dodaj produkt...",ro:"Adaugă produs...",bn:"পণ্য যোগ করুন...",id:"Tambah produk...",sw:"Ongeza bidhaa...",fil:"제품 추가...",mr:"उत्पादन जोडा...",te:"ఉత్పత్తి జోడించు..."},
@@ -1270,7 +1306,9 @@ function detectLang(text: string): string {
 }
 function t(key: string, lang: string): string { return TR[key]?.[lang] || TR[key]?.["el"] || TR[key]?.["en"] || key; }
 function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0]; }
-function sk(token: string, suffix: string) { return `hm_${suffix}_${token}`; }
+function sk(token: string, suffix: string) {
+  return stableSk(token, suffix);
+}
 const COLORS = ["#E07B54","#4ABEAA","#7C5CBF","#2B3A67","#2D9E6B","#E0845B","#5B7FE8"];
 
 // ── Password reset ─────────────────────────────────────────────
@@ -1414,14 +1452,17 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 // ── Main App ──────────────────────────────────────────────────
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; trialEndsAt?: string | null }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const showToast = (text: string, kind: ToastKind = "ok") => {
+  const showToast = (text: string, kind: ToastKind = "ok", undo?: () => void, undoLabel?: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const id = ++toastSeq;
-    setToasts(prev => [...prev, { id, text: trimmed, kind }]);
-    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+    setToasts(prev => [...prev, { id, text: trimmed, kind, undo, undoLabel }]);
+    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
   };
   const lang = profile.lang; const L = getLang(lang);
+  const showUndoToast = (text: string, undo: () => void) => {
+    showToast(text, "ok", undo, lang === "el" ? "Αναίρεση" : "Undo");
+  };
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
 
@@ -1442,33 +1483,40 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     }
   }, [token, lang]);
 
-  // Threads state
-  const [threads, setThreads] = useState<Thread[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"threads"))||"[]");}catch{return[];} });
-  const [messages, setMessages] = useState<Message[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"chat"))||"[]");}catch{return[];} });
+  // Threads state — bootstrap from full localStorage scan (all past JWT keys)
+  const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
+  const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan().chat as Message[]) || []);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveTitle, setArchiveTitle] = useState("");
   const [showThreads, setShowThreads] = useState(false);
 
-  const [memories, setMemories] = useState<Memory[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"memories"))||"[]");}catch{return[];} });
+  const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
   const [editingMemIdx, setEditingMemIdx] = useState<number|null>(null);
   const [memEditVal, setMemEditVal] = useState("");
   const [familyData, setFamilyData] = useState<FamilyData>(() => {
-    try {
-      return parseFamilyData(localStorage.getItem(sk(token, "family")), undefined);
-    } catch {
-      return EMPTY_FAMILY;
-    }
+    const recovered = loadFamilyForToken(token);
+    return recovered.children.length || recovered.members.length ? recovered : EMPTY_FAMILY;
   });
-  const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"milestones_map"))||"{}");}catch{return {};} });
+  /** Block cloud writes until local recovery + server hydrate finish. */
+  const [cloudReady, setCloudReady] = useState(false);
+  const [memoriesLocalReady, setMemoriesLocalReady] = useState(false);
+  const [memoriesSaving, setMemoriesSaving] = useState(false);
+  const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => bootLocalScan().milestones_map || {});
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
-  const [docs, setDocs] = useState<DocEntry[]>(() => { try{return JSON.parse(localStorage.getItem(sk(token,"docs"))||"[]");}catch{return[];} });
+  const [docs, setDocs] = useState<DocEntry[]>(() => (bootLocalScan().docs as DocEntry[]) || []);
   const [activeDocRef, setActiveDocRef] = useState<string>("");
   const [docTitle, setDocTitle] = useState("");
   const [docDate, setDocDate] = useState("");
   const [docCategory, setDocCategory] = useState("");
-  const [shopItems, setShopItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"shopitems")); return s?JSON.parse(s):["Silicone teether","Travel crib","High contrast books","Floor gym"];}catch{return[];} });
-  const [superItems, setSuperItems] = useState<string[]>(() => { try{const s=localStorage.getItem(sk(token,"superitems")); return s?JSON.parse(s):["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];}catch{return[];} });
+  const [shopItems, setShopItems] = useState<string[]>(() => {
+    const s = bootLocalScan().shopitems;
+    return s?.length ? s : ["Silicone teether","Travel crib","High contrast books","Floor gym"];
+  });
+  const [superItems, setSuperItems] = useState<string[]>(() => {
+    const s = bootLocalScan().superitems;
+    return s?.length ? s : ["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];
+  });
 
   const [tab, setTab] = useState<"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
 
@@ -1544,10 +1592,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     setShowAddressModal(false);
     setTab("shopping");
   };
-  const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState(""); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState("");
+  const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState("Partner"); const [newMemberRelatedTo, setNewMemberRelatedTo] = useState(RELATED_TO_SELF); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState(""); const [newMemberBirthDate, setNewMemberBirthDate] = useState(""); const [newMemberNote, setNewMemberNote] = useState("");
   const [showAddChild, setShowAddChild] = useState(false); const [newChildName, setNewChildName] = useState(""); const [newChildBirthDate, setNewChildBirthDate] = useState("");
-  const [activeMemRef, setActiveMemRef] = useState(undefined);
-  // Which person are we adding a memory for? undefined = general/user
+  const [showAddPet, setShowAddPet] = useState(false); const [newPetName, setNewPetName] = useState(""); const [newPetNote, setNewPetNote] = useState("");
+  const [showMyFamily, setShowMyFamily] = useState(true);
+  const [treeEdit, setTreeEdit] = useState<LaidOutNode | null>(null);
+  const [treeEditName, setTreeEditName] = useState("");
+  const [treeEditRole, setTreeEditRole] = useState("Family");
+  const [treeEditRelatedTo, setTreeEditRelatedTo] = useState(RELATED_TO_SELF);
+  const [treeEditBirthDate, setTreeEditBirthDate] = useState("");
+  const [treeEditNote, setTreeEditNote] = useState("");
+  const [familySaving, setFamilySaving] = useState(false);
+  const treePhotoRef = useRef<HTMLInputElement>(null);
+  /** null = no person selected (list hidden); "__general__" = self/general memories */
+  const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
   const profileChildren = useMemo(() => getAllChildren(profile), [profile]);
@@ -1555,12 +1613,51 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     () => getFamilyChildren(familyData, profileChildren),
     [familyData, profileChildren],
   );
+  const partnerMember = useMemo(
+    () => familyData.members.find((m) => /partner|spouse|husband|wife|σύζυγ|σύντροφ/i.test(m.relationship)),
+    [familyData.members],
+  );
+  const relatedToOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [
+      { value: RELATED_TO_SELF, label: lang === "el" ? `Εσύ (${profile.name || "You"})` : `You (${profile.name || "You"})` },
+    ];
+    if (partnerMember) {
+      opts.push({
+        value: RELATED_TO_PARTNER,
+        label: lang === "el" ? `Σύντροφος (${partnerMember.name})` : `Partner (${partnerMember.name})`,
+      });
+    } else {
+      opts.push({
+        value: RELATED_TO_PARTNER,
+        label: lang === "el" ? "Σύντροφος / Σύζυγος" : "Partner / Spouse",
+      });
+    }
+    familyChildren.forEach((c) => {
+      opts.push({ value: c.name, label: lang === "el" ? `Παιδί: ${c.name}` : `Child: ${c.name}` });
+    });
+    familyData.members.forEach((m) => {
+      if (/partner|spouse|husband|wife/i.test(m.relationship)) return;
+      opts.push({
+        value: memberMemoryRef(m.id),
+        label: memberDisplayLabel(m, familyData.members),
+      });
+    });
+    return opts;
+  }, [lang, profile.name, partnerMember, familyChildren, familyData.members]);
   const allChildren = familyChildren;
   const primaryChild = allChildren[0];
   const milestoneList = getMilestones(ageMonthsFromBirthDate(primaryChild?.birthDate) ?? parseAgeMonths(profile.childAge), lang);
   const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang) : profile.childAge;
   const primaryChildName = primaryChild?.name || "Baby";
   const pregnancyActive = !!profile.dueDate && !isDueDatePassed(profile.dueDate) && profile.pregnancyStatus !== "completed";
+  const memoryCountsByRef = useMemo(() => {
+    const counts: Record<string, number> = {};
+    memories.forEach((m) => {
+      const key = m.ref || "__general__";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [memories]);
   const pregWeek = pregnancyWeekFromDueDate(profile.dueDate) ?? 1;
   const pregMilestoneList = getPregnancyMilestones(pregWeek, lang);
 
@@ -1577,33 +1674,237 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   },[lang, token]);
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages,loading]);
-  const sbSave = useCallback(async (key: string, value: any) => {
-    localStorage.setItem(sk(token, key), JSON.stringify(value));
-    try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {}
+
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+
+  /** Write family to stable localStorage only (fast, no UI state). */
+  const saveFamilyLocal = useCallback((data: FamilyData) => {
+    const payload = normalizeFamilyData(data);
+    if (!payload.children.length && !payload.members.length && !payload.selfPhoto) return;
+    safeLocalSet(sk(token, "family"), JSON.stringify(payload));
+    clearBootLocalScanCache();
   }, [token]);
 
-  useEffect(() => {
-    axios.get(`${API}/userdata`, { headers: { "x-token": token } })
-      .then(res => {
-        const d = res.data?.data || {};
-        if (d.chat)           { try { setMessages(JSON.parse(d.chat)); } catch {} }
-        if (d.threads)        { try { setThreads(JSON.parse(d.threads)); } catch {} }
-        if (d.memories)       { try { setMemories(JSON.parse(d.memories)); } catch {} }
-        if (d.family) {
-          const fd = parseFamilyDataValue(d.family, profileChildren);
-          setFamilyData(fd);
+  /** Push family to cloud — used by explicit Save (sets saving indicator). */
+  const saveFamilyCloud = useCallback(async (data: FamilyData, showFeedback = false) => {
+    const payload = normalizeFamilyData(data);
+    if (!payload.children.length && !payload.members.length && !payload.selfPhoto) return;
+    if (!cloudReady) {
+      if (showFeedback) {
+        showToastRef.current(
+          lang === "el" ? "Αποθηκεύτηκε τοπικά — συγχρονίζεται στο cloud…" : "Saved locally — syncing to cloud…",
+          "ok",
+        );
+      }
+      return;
+    }
+    setFamilySaving(true);
+    try {
+      await axios.post(`${API}/userdata`, { key: "family", value: payload }, { headers: { "x-token": token } });
+      if (showFeedback) {
+        showToastRef.current(lang === "el" ? "Η οικογένεια αποθηκεύτηκε" : "Family saved", "ok");
+      }
+    } catch {
+      if (showFeedback) {
+        showToastRef.current(lang === "el" ? "Αποτυχία αποθήκευσης στο cloud" : "Cloud save failed", "err");
+      }
+    } finally {
+      setFamilySaving(false);
+    }
+  }, [token, cloudReady, lang]);
+
+  const saveFamilyNow = useCallback(() => {
+    saveFamilyLocal(familyData);
+    void saveFamilyCloud(familyData, true);
+  }, [familyData, saveFamilyLocal, saveFamilyCloud]);
+
+  /** Write memories to IndexedDB + local meta (fast, no UI state). */
+  const saveMemoriesLocal = useCallback((data: Memory[]) => {
+    void persistMemoriesDurable(token, data);
+  }, [token]);
+
+  /** Push memories to cloud (compressed photos included for cross-device). */
+  const saveMemoriesCloud = useCallback(async (data: Memory[], showFeedback = false) => {
+    if (!data.length) return;
+    if (!cloudReady) {
+      if (showFeedback) {
+        showToastRef.current(
+          lang === "el" ? "Αποθηκεύτηκαν τοπικά — συγχρονίζονται στο cloud…" : "Saved locally — syncing to cloud…",
+          "ok",
+        );
+      }
+      return;
+    }
+    setMemoriesSaving(true);
+    try {
+      const payload = await memoriesForCloud(data);
+      await axios.post(`${API}/userdata`, { key: "memories", value: payload }, { headers: { "x-token": token } });
+      if (showFeedback) {
+        showToastRef.current(lang === "el" ? "Οι αναμνήσεις αποθηκεύτηκαν" : "Memories saved", "ok");
+      }
+    } catch {
+      if (showFeedback) {
+        showToastRef.current(lang === "el" ? "Αποτυχία αποθήκευσης στο cloud" : "Cloud save failed", "err");
+      }
+    } finally {
+      setMemoriesSaving(false);
+    }
+  }, [token, cloudReady, lang]);
+
+  const saveMemoriesNow = useCallback(() => {
+    saveMemoriesLocal(memories);
+    void saveMemoriesCloud(memories, true);
+  }, [memories, saveMemoriesLocal, saveMemoriesCloud]);
+
+  const sbSave = useCallback(async (key: string, value: any) => {
+    // Memories use IndexedDB — never jam full photo payloads into localStorage
+    if (key !== "memories") {
+      const raw = JSON.stringify(value);
+      // Never overwrite a non-empty local blob with empty cloud-bound payload
+      if (raw === "[]" || raw === "{}") {
+        const existing = localStorage.getItem(sk(token, key));
+        if (existing && existing !== "[]" && existing !== "{}") {
+          /* keep existing local */
+        } else {
+          safeLocalSet(sk(token, key), raw);
         }
-        if (d.milestones_map) { try { setMilestoneChecksMap(JSON.parse(d.milestones_map)); } catch {} }
-        if (d.docs)           { try { setDocs(JSON.parse(d.docs)); } catch {} }
-        if (d.shopitems)      { try { setShopItems(JSON.parse(d.shopitems)); } catch {} }
-        if (d.superitems)     { try { setSuperItems(JSON.parse(d.superitems)); } catch {} }
-        if (d.ttsused)        { try { setTtsUsed(parseInt(d.ttsused) || 0); } catch {} }
-      }).catch(() => {});
+      } else {
+        safeLocalSet(sk(token, key), raw);
+      }
+    }
+    if (!cloudReady) return;
+    // Never push empty arrays/objects to cloud (would wipe recovered data)
+    if (value == null) return;
+    if (Array.isArray(value) && value.length === 0) return;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      if (
+        (key === "family" && !(value.children?.length || value.members?.length)) ||
+        (key === "milestones_map" && keys.length === 0)
+      ) {
+        return;
+      }
+    }
+    try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {}
+  }, [token, cloudReady]);
+
+  // Emergency restore: scan all local JWT keys + IDB, then merge cloud — then allow saves
+  useEffect(() => {
+    let cancelled = false;
+    setCloudReady(false);
+    setMemoriesLocalReady(false);
+
+    (async () => {
+      try {
+        const local = await recoverAllLocalUserData(token);
+        if (cancelled) return;
+
+        if (local.memories.length) setMemories(local.memories as Memory[]);
+        if (local.family.children.length || local.family.members.length) {
+          setFamilyData(ensureFamilyMemberIds(local.family));
+        }
+        if (local.chat.length) setMessages(local.chat as Message[]);
+        if (local.threads.length) setThreads(local.threads as Thread[]);
+        if (local.docs.length) setDocs(local.docs as DocEntry[]);
+        if (Object.keys(local.milestones_map).length) setMilestoneChecksMap(local.milestones_map);
+        if (local.shopitems?.length) setShopItems(local.shopitems);
+        if (local.superitems?.length) setSuperItems(local.superitems);
+        if (local.ttsused != null) setTtsUsed(local.ttsused);
+
+        let cloudRaw: Record<string, unknown> = {};
+        try {
+          const res = await axios.get(`${API}/userdata`, { headers: { "x-token": token } });
+          cloudRaw = res.data?.data || {};
+        } catch {
+          /* offline / auth — keep local */
+        }
+        if (cancelled) return;
+
+        const merged = mergeCloudUserData(local, cloudRaw);
+        const finalMemories = pickRicherMemories(
+          local.memories,
+          merged.memories,
+        ) as Memory[];
+        setMemories(finalMemories);
+        setFamilyData(ensureFamilyMemberIds(merged.family));
+        if (merged.chat.length) setMessages(merged.chat as Message[]);
+        if (merged.threads.length) setThreads(merged.threads as Thread[]);
+        if (merged.docs.length) setDocs(merged.docs as DocEntry[]);
+        if (Object.keys(merged.milestones_map).length) setMilestoneChecksMap(merged.milestones_map);
+        if (merged.shopitems?.length) setShopItems(merged.shopitems);
+        if (merged.superitems?.length) setSuperItems(merged.superitems);
+        if (merged.ttsused != null) setTtsUsed(merged.ttsused);
+
+        await rehomeRecoveredData(token, {
+          ...merged,
+          memories: finalMemories.length ? finalMemories : local.memories,
+          family:
+            merged.family.children.length + merged.family.members.length > 0
+              ? merged.family
+              : local.family,
+        });
+        // Only prune JWT memory keys after a successful non-empty re-home
+        if (finalMemories.length > 0 || local.memories.length > 0) {
+          pruneOrphanJwtMemoryKeys(token);
+        }
+        if (merged.family.children.length || merged.family.members.length) {
+          pruneOrphanJwtFamilyKeys(token);
+          safeLocalSet(sk(token, "family"), JSON.stringify(normalizeFamilyData(merged.family)));
+          clearBootLocalScanCache();
+        }
+
+        // Push photo memories to Supabase so Vercel / other devices get images
+        try {
+          let cloudMemories = parseMemoriesJson(
+            typeof cloudRaw.memories === "string" ? cloudRaw.memories : null,
+          );
+          if (!cloudMemories.length && Array.isArray(cloudRaw.memories)) {
+            cloudMemories = cloudRaw.memories as Memory[];
+          }
+          if (
+            memoriesHavePhotos(finalMemories) &&
+            localMemoriesRicherThanCloud(finalMemories, cloudMemories)
+          ) {
+            const payload = await memoriesForCloud(finalMemories);
+            await axios.post(
+              `${API}/userdata`,
+              { key: "memories", value: payload },
+              { headers: { "x-token": token } },
+            );
+          }
+        } catch (err) {
+          console.warn("Memory photo cloud seed failed", err);
+        }
+      } catch (err) {
+        console.error("User data recovery failed", err);
+      } finally {
+        if (!cancelled) {
+          setMemoriesLocalReady(true);
+          setCloudReady(true);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  // Deduplicate members once on load (fixes local+cloud id merge doubles)
+  useEffect(() => {
+    setFamilyData((prev) => ensureFamilyMemberIds(prev));
+  }, []);
+
+  useEffect(() => {
+    if (!familyData.members.length) return;
+    setMemories((prev) => migrateRefsToMemberIds(prev, familyData.members));
+    setDocs((prev) => migrateRefsToMemberIds(prev, familyData.members));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyData.members.map((m) => m.id).join("|")]);
+
   // Migrate legacy profile-only children into user_data.family.children
   useEffect(() => {
+    if (!cloudReady) return;
     setFamilyData((prev) => {
       if (prev.children.length > 0) return prev;
       if (profileChildren.length === 0) return prev;
@@ -1612,18 +1913,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
         children: profileChildren.map((c) => ({ name: c.name, birthDate: c.birthDate })),
       };
     });
-  }, [profileChildren]);
+  }, [profileChildren, cloudReady]);
 
-  useEffect(()=>{ void sbSave("chat", messages); },[messages, sbSave]);
-  useEffect(()=>{ void sbSave("threads", threads); },[threads, sbSave]);
-  useEffect(()=>{ void sbSave("memories", memories); },[memories, sbSave]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("chat", messages); },[messages, sbSave, cloudReady]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("threads", threads); },[threads, sbSave, cloudReady]);
+  // Always persist memories locally (IDB); also sync to cloud with compressed photos
   useEffect(() => {
-    void sbSave("family", normalizeFamilyData(familyData));
-  }, [familyData, sbSave]);
-  useEffect(()=>{ void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave]);
-  useEffect(()=>{localStorage.setItem(sk(token,"docs"),JSON.stringify(docs));},[docs, token]);
-  useEffect(()=>{ void sbSave("shopitems", shopItems); },[shopItems, sbSave]);
-  useEffect(()=>{ void sbSave("superitems", superItems); },[superItems, sbSave]);
+    if (!memoriesLocalReady) return;
+    saveMemoriesLocal(memories);
+  }, [memories, memoriesLocalReady, saveMemoriesLocal]);
+  useEffect(() => {
+    if (!cloudReady || !memoriesLocalReady || !memories.length) return;
+    const timer = window.setTimeout(() => {
+      void saveMemoriesCloud(memories, false);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [memories, cloudReady, memoriesLocalReady, saveMemoriesCloud]);
+  useEffect(() => {
+    saveFamilyLocal(familyData);
+  }, [familyData, saveFamilyLocal]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("family", normalizeFamilyData(familyData)); },[familyData, sbSave, cloudReady]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave, cloudReady]);
+  useEffect(()=>{ safeLocalSet(sk(token,"docs"), JSON.stringify(docs)); },[docs, token]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("shopitems", shopItems); },[shopItems, sbSave, cloudReady]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("superitems", superItems); },[superItems, sbSave, cloudReady]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -1655,7 +1968,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const TTS_QUOTA_BY_TIER: Record<string, number> = { starter: 30, premium: 100, annual: 100 };
   const ttsQuotaTotal = TTS_QUOTA_BY_TIER["starter"]; // test users default to Starter tier
   const [ttsUsed, setTtsUsed] = useState<number>(() => { try{return parseInt(localStorage.getItem(sk(token,"ttsused"))||"0");}catch{return 0;} });
-  useEffect(()=>{ void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave]);
+  useEffect(()=>{ if (!cloudReady) return; void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave, cloudReady]);
   const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsed);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
@@ -1681,10 +1994,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const addMemory = (imgData?: string) => {
     if(!memInput.trim()&&!imgData)return;
-    track("submit", appPath("memories", "add"), imgData ? "Add photo memory" : "Add memory", { ref: activeMemRef });
+    if(activeMemRef==null){
+      showToast(lang==="el"?"Διάλεξε πρώτα μέλος οικογένειας":"Select a family member first","err");
+      return;
+    }
+    const ref = activeMemRef === "__general__" ? undefined : activeMemRef;
+    track("submit", appPath("memories", "add"), imgData ? "Add photo memory" : "Add memory", { ref });
     const emojis=["😊","🍼","😎","🛁","❤️","🌟","🎉","🌸","🏆","✨"];
-    setMemories([{emoji:emojis[memories.length%emojis.length],text:memInput.trim()||"📷",date:new Date().toLocaleDateString(lang,{day:"numeric",month:"short"}),img:imgData,ref:activeMemRef},...memories]);
+    const textVal = memInput.trim() || "📷";
+    const date = new Date().toLocaleDateString(lang, { day: "numeric", month: "short" });
+    const createdAt = new Date().toISOString();
+    const emoji = emojis[memories.length % emojis.length];
     setMemInput("");
+    const commit = (img?: string) => {
+      setMemories((prev) => {
+        const next: Memory[] = [{ emoji, text: textVal, date, createdAt, img, ref }, ...prev];
+        void persistMemoriesDurable(token, next);
+        return next;
+      });
+    };
+    if (!imgData) {
+      commit(undefined);
+      return;
+    }
+    void compressImageDataUrl(imgData).then((img) => commit(img));
+  };
+
+  const deleteMemory = (index: number) => {
+    const removed = memories[index];
+    if (!removed) return;
+    setMemories(memories.filter((_, j) => j !== index));
+    if (editingMemIdx === index) setEditingMemIdx(null);
+    showUndoToast(
+      lang === "el" ? "Η ανάμνηση διαγράφηκε" : "Memory deleted",
+      () => setMemories((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, removed);
+        return next;
+      }),
+    );
   };
 
   const toggleMilestone = (ref: string, idx: number) => {
@@ -1697,14 +2045,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
     track("submit", appPath("family", "add-member"), "Add family member");
-    const member = {
+    const member: FamilyMemberRecord = {
+      id: newFamilyMemberId(),
       name: newMemberName.trim(),
       relationship: newMemberRole.trim() || "Family",
+      relatedTo: newMemberRelatedTo || RELATED_TO_SELF,
       ...(newMemberEmail.trim() ? { email: newMemberEmail.trim() } : {}),
       ...(newMemberPhone.trim() ? { phone: newMemberPhone.trim() } : {}),
+      ...(newMemberBirthDate.trim() ? { birthDate: newMemberBirthDate.trim() } : {}),
+      ...(newMemberNote.trim() ? { note: newMemberNote.trim() } : {}),
     };
     setFamilyData((prev) => ({ ...prev, members: [...prev.members, member] }));
-    setNewMemberName(""); setNewMemberRole(""); setNewMemberEmail(""); setNewMemberPhone(""); setShowAddMember(false);
+    setNewMemberName(""); setNewMemberRole("Partner"); setNewMemberRelatedTo(RELATED_TO_SELF); setNewMemberEmail(""); setNewMemberPhone(""); setNewMemberBirthDate(""); setNewMemberNote(""); setShowAddMember(false);
+  };
+
+  const addPet = () => {
+    if (!newPetName.trim()) return;
+    track("submit", appPath("family", "add-pet"), "Add family pet");
+    const member: FamilyMemberRecord = {
+      id: newFamilyMemberId(),
+      name: newPetName.trim(),
+      relationship: "Pet",
+      relatedTo: RELATED_TO_SELF,
+      ...(newPetNote.trim() ? { note: newPetNote.trim() } : {}),
+    };
+    setFamilyData((prev) => ({ ...prev, members: [...prev.members, member] }));
+    setNewPetName("");
+    setNewPetNote("");
+    setShowAddPet(false);
   };
 
   const addChild = () => {
@@ -1725,12 +2093,239 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     setNewChildName(""); setNewChildBirthDate(""); setShowAddChild(false);
   };
 
+  const deleteFamilyMember = (index: number) => {
+    const removed = familyData.members[index];
+    if (!removed) return;
+    setFamilyData((prev) => ({ ...prev, members: prev.members.filter((_, j) => j !== index) }));
+    showUndoToast(
+      lang === "el" ? `Διαγράφηκε: ${removed.name}` : `Deleted: ${removed.name}`,
+      () => setFamilyData((prev) => {
+        const next = [...prev.members];
+        next.splice(Math.min(index, next.length), 0, removed);
+        return { ...prev, members: next };
+      }),
+    );
+  };
+
+  const changeMemberRelationship = (index: number, relationship: string) => {
+    const prev = familyData.members[index];
+    if (!prev || prev.relationship === relationship) return;
+    const prevRel = prev.relationship;
+    const prevRelatedTo = prev.relatedTo || RELATED_TO_SELF;
+    const nextRelatedTo = defaultRelatedToForRelationship(relationship, familyData.members, prevRelatedTo);
+    setFamilyData((cur) => ({
+      ...cur,
+      members: cur.members.map((m, j) =>
+        j === index ? { ...m, relationship, relatedTo: nextRelatedTo } : m,
+      ),
+    }));
+    const label = RELATIONSHIP_PRESETS.find((p) => p.value === relationship);
+    showUndoToast(
+      lang === "el"
+        ? `Μετακινήθηκε ως ${label?.el || relationship}`
+        : `Moved as ${label?.en || relationship}`,
+      () => setFamilyData((cur) => ({
+        ...cur,
+        members: cur.members.map((m, j) =>
+          j === index ? { ...m, relationship: prevRel, relatedTo: prevRelatedTo } : m,
+        ),
+      })),
+    );
+  };
+
+  const changeMemberRelatedTo = (index: number, relatedTo: string) => {
+    const prev = familyData.members[index]?.relatedTo || RELATED_TO_SELF;
+    if (prev === relatedTo) return;
+    setFamilyData((cur) => ({
+      ...cur,
+      members: cur.members.map((m, j) => (j === index ? { ...m, relatedTo } : m)),
+    }));
+    const partnerName = familyData.members.find((m) => m.relationship === "Partner" || /partner|spouse|husband|wife/i.test(m.relationship))?.name;
+    showUndoToast(
+      lang === "el"
+        ? `Συγγενής του/της: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members })}`
+        : `Relative of: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members })}`,
+      () => setFamilyData((cur) => ({
+        ...cur,
+        members: cur.members.map((m, j) => (j === index ? { ...m, relatedTo: prev } : m)),
+      })),
+    );
+  };
+
+  const placeMembersOnTree = (nextMembers: typeof familyData.members) => {
+    const prev = familyData.members;
+    const nextFamily = { ...familyData, members: nextMembers };
+    setFamilyData(nextFamily);
+    showUndoToast(
+      lang === "el" ? "Η θέση στο δέντρο ενημερώθηκε" : "Tree position updated",
+      () => {
+        setFamilyData({ ...familyData, members: prev });
+      },
+    );
+  };
+
+  const openTreeEdit = (node: LaidOutNode) => {
+    if (node.kind === "pregnancy") return;
+    setTreeEdit(node);
+    setTreeEditName(node.name);
+    setTreeEditRole(node.kind === "self" || node.kind === "child" ? node.role : (node.role || "Family"));
+    if (node.memberIndex != null) {
+      const m = familyData.members[node.memberIndex];
+      setTreeEditRole(m?.relationship || node.role || "Family");
+      setTreeEditRelatedTo(m?.relatedTo || RELATED_TO_SELF);
+      setTreeEditBirthDate(m?.birthDate || "");
+      setTreeEditNote(m?.note || "");
+    } else if (node.childIndex != null) {
+      const c = familyChildren[node.childIndex];
+      setTreeEditBirthDate(c?.birthDate || "");
+      setTreeEditNote("");
+      setTreeEditRelatedTo(RELATED_TO_SELF);
+    } else {
+      setTreeEditBirthDate("");
+      setTreeEditNote("");
+      setTreeEditRelatedTo(RELATED_TO_SELF);
+    }
+  };
+
+  const currentTreeEditPhoto = (): string | undefined => {
+    if (!treeEdit) return undefined;
+    if (treeEdit.kind === "self") return familyData.selfPhoto;
+    if (treeEdit.childIndex != null) return familyChildren[treeEdit.childIndex]?.photo;
+    if (treeEdit.memberIndex != null) return familyData.members[treeEdit.memberIndex]?.photo;
+    return treeEdit.photo;
+  };
+
+  const readPhotoFile = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result || "");
+        const img = new Image();
+        img.onload = () => {
+          const max = 360;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(raw);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.onerror = () => resolve(raw);
+        img.src = raw;
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  const applyTreePhoto = async (file: File | null) => {
+    if (!file || !treeEdit) return;
+    try {
+      const photo = await readPhotoFile(file);
+      if (treeEdit.kind === "self") {
+        setFamilyData((cur) => ({ ...cur, selfPhoto: photo }));
+      } else if (treeEdit.childIndex != null) {
+        const idx = treeEdit.childIndex;
+        setFamilyData((cur) => ({
+          ...cur,
+          children: cur.children.map((c, i) => (i === idx ? { ...c, photo } : c)),
+        }));
+      } else if (treeEdit.memberIndex != null) {
+        const idx = treeEdit.memberIndex;
+        setFamilyData((cur) => ({
+          ...cur,
+          members: cur.members.map((m, i) => (i === idx ? { ...m, photo } : m)),
+        }));
+      }
+      setTreeEdit((n) => (n ? { ...n, photo } : n));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const saveTreeEdit = () => {
+    if (!treeEdit) return;
+    const name = treeEditName.trim();
+    if (!name) return;
+    let nextFamily = familyData;
+    if (treeEdit.kind === "self") {
+      onProfileUpdate({ ...profile, name });
+      void syncProfileToSupabase(token, { ...profile, name, consentMarketing: profile.consentMarketing });
+    } else if (treeEdit.childIndex != null) {
+      const idx = treeEdit.childIndex;
+      const birthDate = treeEditBirthDate || familyChildren[idx]?.birthDate;
+      if (!birthDate) return;
+      nextFamily = {
+        ...familyData,
+        children: familyData.children.map((c, i) => (i === idx ? { ...c, name, birthDate } : c)),
+      };
+      setFamilyData(nextFamily);
+    } else if (treeEdit.memberIndex != null) {
+      const idx = treeEdit.memberIndex;
+      const relationship = treeEditRole.trim() || "Family";
+      nextFamily = {
+        ...familyData,
+        members: familyData.members.map((m, j) =>
+          j === idx
+            ? {
+                ...m,
+                name,
+                relationship,
+                relatedTo: treeEditRelatedTo || RELATED_TO_SELF,
+                ...(treeEditBirthDate.trim() ? { birthDate: treeEditBirthDate.trim() } : {}),
+                ...(treeEditNote.trim() ? { note: treeEditNote.trim() } : {}),
+              }
+            : m,
+        ),
+      };
+      setFamilyData(nextFamily);
+    }
+    setTreeEdit(null);
+  };
+
+  const deleteChild = (index: number) => {
+    const removed = familyChildren[index];
+    if (!removed) return;
+    const updatedChildren = familyChildren.filter((_, j) => j !== index);
+    setFamilyData((prev) => ({ ...prev, children: updatedChildren }));
+    const updatedProfile: Profile = {
+      ...profile,
+      children: updatedChildren,
+      childName: updatedChildren[0]?.name || "",
+      childBirthDate: updatedChildren[0]?.birthDate || "",
+      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : "",
+    };
+    onProfileUpdate(updatedProfile);
+    void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
+    showUndoToast(
+      lang === "el" ? `Διαγράφηκε: ${removed.name}` : `Deleted: ${removed.name}`,
+      () => {
+        const restored = [...updatedChildren];
+        restored.splice(Math.min(index, restored.length), 0, removed);
+        setFamilyData((prev) => ({ ...prev, children: restored }));
+        const restoredProfile: Profile = {
+          ...profile,
+          children: restored,
+          childName: restored[0]?.name || profile.childName,
+          childBirthDate: restored[0]?.birthDate || profile.childBirthDate,
+          childAge: restored[0] ? formatChildAge(restored[0].birthDate, lang) : profile.childAge,
+        };
+        onProfileUpdate(restoredProfile);
+        void syncProfileToSupabase(token, { ...restoredProfile, consentMarketing: profile.consentMarketing });
+      },
+    );
+  };
+
   const buildShoppingList = () => {
     return `🛍️ Shopping:\n${shopItems.map(i=>`• ${i}`).join("\n")}\n\n🛒 Supermarket:\n${superItems.map(i=>`• ${i}`).join("\n")}`;
   };
 
   const dir=L.d as "ltr"|"rtl";
-  const card:React.CSSProperties={background:"#fff",borderRadius:14,padding:16,marginBottom:12,border:".5px solid rgba(43,58,103,.08)"};
+  const card:React.CSSProperties={background:"#fff",borderRadius:14,padding:16,marginBottom:12,border:".5px solid rgba(43,58,103,.08)",maxWidth:"100%",boxSizing:"border-box"};
   const tabs=[
     {id:"chat" as const,icon:"💬",label:t("chat",lang)},
     {id:"family" as const,icon:"👨‍👩‍👧",label:t("family",lang)},
@@ -1934,19 +2529,75 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
         {/* ── FAMILY ── */}
         {tab==="family"&&(<>
+          <FamilyTreePanel
+            userName={profile.name}
+            lang={lang}
+            familyChildren={familyChildren}
+            members={familyData.members}
+            pregnancyActive={pregnancyActive}
+            memoryCounts={memoryCountsByRef}
+            selfPhoto={familyData.selfPhoto}
+            onEditNode={openTreeEdit}
+            onNodeSelect={(ref) => { setActiveMemRef(ref ?? "__general__"); setTab("memories"); }}
+            onPlaceMembers={placeMembersOnTree}
+            onSave={saveFamilyNow}
+            saving={familySaving}
+          />
           <div style={card}>
-            <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("myfamily",lang)}</div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+              <div>
+                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {profile.name}! {t("chatgreet2",lang)}</div>
+                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "hi" ? `${displayAge} के बच्चे के विकास के बारे में बताएं` : lang === "ur" ? `${displayAge} کے بچے کی نشوونما کے بارے میں بتائیں` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+              </div>
+            </div>
+          </div>
+          <div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:showMyFamily?11:0}}>
+              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,fontWeight:600}}>{t("myfamily",lang)}</div>
+              <button
+                type="button"
+                onClick={()=>setShowMyFamily(v=>!v)}
+                style={{background:"none",border:"none",color:teal,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}}
+              >
+                {showMyFamily ? t("hide",lang) : t("show",lang)}
+              </button>
+            </div>
+            {showMyFamily && (<>
             {profile.dueDate&&<div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:"#fff",flexShrink:0}}>🤰</div>
-              <div><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
+              <div style={{minWidth:0,flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
             </div>}
             {familyChildren.map((child,i)=>{
               const age = formatChildAge(child.birthDate, lang);
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{child.name[0]?.toUpperCase()}</div>
+                <div
+                  onClick={() => {
+                    const nodeLike = {
+                      id: `child-${i}-${child.name}`,
+                      name: child.name,
+                      role: lang === "el" ? "Παιδί" : "Child",
+                      kind: "child" as const,
+                      side: "self" as const,
+                      generation: 1 as const,
+                      memoryCount: 0,
+                      color: "#4ABEAA",
+                      childIndex: i,
+                      ref: child.name,
+                      photo: child.photo,
+                      x: 0,
+                      y: 0,
+                    };
+                    openTreeEdit(nodeLike);
+                  }}
+                  style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                >
+                  {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
+                </div>
                 <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{age}</div></div>
                 <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
                 <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+coral,borderRadius:7,color:coral,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
+                <button onClick={()=>deleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
               </div>);
             })}
             {showAddChild&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
@@ -1958,25 +2609,141 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               </div>
             </div>}
             <div onClick={()=>setShowAddChild(!showAddChild)} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
-            {familyData.members.map((m,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0}}>{m.name[0]?.toUpperCase()}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
-                  <div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{m.relationship}</div>
-                  {(m.email || m.phone) && (
-                    <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4}}>
-                      {m.email}{m.email && m.phone ? " · " : ""}{m.phone}
-                    </div>
-                  )}
+            {familyData.members.filter(m=>classifyKinship(m.relationship)==="pet").map((m)=>{
+              const i = familyData.members.indexOf(m);
+              return (
+              <div key={`pet-${m.id}`} style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <div
+                    onClick={() => {
+                      openTreeEdit({
+                        id: `member-${m.id}`,
+                        name: m.name,
+                        role: m.relationship,
+                        kind: "pet",
+                        side: "self",
+                        generation: 1,
+                        memoryCount: 0,
+                        color: COLORS[i % COLORS.length],
+                        memberIndex: i,
+                        relatedTo: m.relatedTo,
+                        ref: memberMemoryRef(m.id),
+                        photo: m.photo,
+                        x: 0,
+                        y: 0,
+                      });
+                    }}
+                    style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                  >
+                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "🐾"}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
+                    <div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{lang==="el"?"Κατοικίδιο":"Family Pet"}</div>
+                    {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
+                  </div>
+                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
+                  <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
                 </div>
-                <button onClick={()=>{setActiveMemRef(m.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
-                <button onClick={()=>setFamilyData((prev)=>({...prev,members:prev.members.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
-            ))}
+            );})}
+            {showAddPet&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
+              <input value={newPetName} onChange={e=>setNewPetName(e.target.value)} placeholder={lang==="el"?"Όνομα κατοικιδίου":"Pet name"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              <input value={newPetNote} onChange={e=>setNewPetNote(e.target.value)} placeholder={lang==="el"?"Σημείωση (προαιρετικό)":"Note (optional)"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button type="button" onClick={addPet} disabled={!newPetName.trim()} style={{flex:1,padding:9,background:!newPetName.trim()?"#C8BFB8":navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:!newPetName.trim()?"default":"pointer"}}>{t("save",lang)}</button>
+                <button type="button" onClick={()=>{setShowAddPet(false);setNewPetName("");setNewPetNote("");}} style={{flex:1,padding:9,background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
+              </div>
+            </div>}
+            <div onClick={()=>{setShowAddPet(v=>!v);setShowAddMember(false);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addpet",lang)}</div>
+            {familyData.members.filter(m=>classifyKinship(m.relationship)!=="pet").map((m)=>{
+              const i = familyData.members.indexOf(m);
+              return (
+              <div key={m.id||i} style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <div
+                    onClick={() => {
+                      openTreeEdit({
+                        id: `member-${m.id}`,
+                        name: m.name,
+                        role: m.relationship,
+                        kind: "other",
+                        side: "self",
+                        generation: 0,
+                        memoryCount: 0,
+                        color: COLORS[i % COLORS.length],
+                        memberIndex: i,
+                        relatedTo: m.relatedTo,
+                        ref: memberMemoryRef(m.id),
+                        photo: m.photo,
+                        x: 0,
+                        y: 0,
+                      });
+                    }}
+                    style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                  >
+                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : m.name[0]?.toUpperCase()}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:13,color:navy}}>{memberDisplayLabel(m, familyData.members)}</div>
+                    {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
+                    {(m.email || m.phone) && (
+                      <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4}}>
+                        {m.email}{m.email && m.phone ? " · " : ""}{m.phone}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
+                  <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
+                </div>
+                <select
+                  value={RELATIONSHIP_PRESETS.some(p=>p.value===m.relationship)?m.relationship:"Family"}
+                  onChange={e=>changeMemberRelationship(i,e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",border:`1.5px solid #DDD7D0`,borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,outline:"none",background:"#fff",color:navy,boxSizing:"border-box" as any}}
+                >
+                  {!RELATIONSHIP_PRESETS.some(p=>p.value===m.relationship) && (
+                    <option value={m.relationship}>{m.relationship}</option>
+                  )}
+                  {RELATIONSHIP_PRESETS.map(p=>(
+                    <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
+                  ))}
+                </select>
+                <select
+                  value={m.relatedTo || RELATED_TO_SELF}
+                  onChange={e=>changeMemberRelatedTo(i,e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",border:`1.5px solid #DDD7D0`,borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,outline:"none",background:"#fff",color:navy,boxSizing:"border-box" as any}}
+                >
+                  {!relatedToOptions.some(o=>o.value===(m.relatedTo||RELATED_TO_SELF)) && (
+                    <option value={m.relatedTo || RELATED_TO_SELF}>
+                      {relatedToLabel(m.relatedTo, lang, { youName: profile.name, partnerName: partnerMember?.name, members: familyData.members })}
+                    </option>
+                  )}
+                  {relatedToOptions.filter(o=>o.value!==memberMemoryRef(m.id)).map(o=>(
+                    <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
+                  ))}
+                </select>
+              </div>
+            );})}
             {showAddMember&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
               <input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder={t("membername",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-              <input value={newMemberRole} onChange={e=>setNewMemberRole(e.target.value)} placeholder={t("memberrole",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              <select value={newMemberRole} onChange={e=>{
+                const role = e.target.value;
+                setNewMemberRole(role);
+                setNewMemberRelatedTo(
+                  defaultRelatedToForRelationship(role, familyData.members, newMemberRelatedTo),
+                );
+              }} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B2420"}}>
+                {RELATIONSHIP_PRESETS.map(p=>(
+                  <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
+                ))}
+              </select>
+              <select value={newMemberRelatedTo} onChange={e=>setNewMemberRelatedTo(e.target.value)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B2420"}}>
+                {relatedToOptions.map(o=>(
+                  <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
+                ))}
+              </select>
+              <input value={newMemberBirthDate} onChange={e=>setNewMemberBirthDate(e.target.value)} type="date" placeholder={lang==="el"?"Ημ. γέννησης (προαιρετικό)":"Birth date (optional)"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              <input value={newMemberNote} onChange={e=>setNewMemberNote(e.target.value)} placeholder={lang==="el"?"Σημείωση / ενδιαφέρον γεγονός":"Note / interesting fact"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <input value={newMemberEmail} onChange={e=>setNewMemberEmail(e.target.value)} type="email" placeholder={t("memberemail",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <input value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value)} type="tel" placeholder={t("memberphone",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <div style={{display:"flex",gap:8}}>
@@ -1984,56 +2751,217 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 <button onClick={()=>setShowAddMember(false)} style={{flex:1,padding:9,background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
               </div>
             </div>}
-            <div onClick={()=>setShowAddMember(!showAddMember)} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13}}>{t("addmember",lang)}</div>
+            <div onClick={()=>{setShowAddPet(false);setNewMemberRole("Partner");setShowAddMember(!showAddMember);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13}}>{t("addmember",lang)}</div>
+            </>)}
           </div>
-          <div style={card}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-              <div>
-                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {profile.name}! {t("chatgreet2",lang)}</div>
-                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "hi" ? `${displayAge} के बच्चे के विकास के बारे में बताएं` : lang === "ur" ? `${displayAge} کے بچے کی نشوونما کے بارے میں بتائیں` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+          {treeEdit && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(24,28,42,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}}
+              onClick={()=>setTreeEdit(null)}
+            >
+              <div
+                onClick={(e)=>e.stopPropagation()}
+                style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8}}
+              >
+                <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
+                  {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+                  <button
+                    type="button"
+                    onClick={()=>treePhotoRef.current?.click()}
+                    style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${teal}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
+                    title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
+                  >
+                    {currentTreeEditPhoto() ? (
+                      <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                    ) : (
+                      <span style={{fontSize:11,color:teal,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
+                    )}
+                  </button>
+                  <div style={{flex:1,fontSize:12,color:"#7A7068",lineHeight:1.45}}>
+                    {lang==="el"
+                      ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία στο δέντρο."
+                      : "Tap the circle to add or change their photo on the tree."}
+                  </div>
+                </div>
+                <input
+                  ref={treePhotoRef}
+                  type="file"
+                  accept="image/*"
+                  style={{display:"none"}}
+                  onChange={(e)=>{ void applyTreePhoto(e.target.files?.[0] || null); e.target.value=""; }}
+                />
+                <input
+                  value={treeEditName}
+                  onChange={(e)=>setTreeEditName(e.target.value)}
+                  placeholder={lang==="el"?"Όνομα":"Name"}
+                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}
+                />
+                {treeEdit.memberIndex != null && (
+                  <>
+                    <select
+                      value={RELATIONSHIP_PRESETS.some(p=>p.value===treeEditRole)?treeEditRole:"Family"}
+                      onChange={(e)=>{
+                        const role = e.target.value;
+                        setTreeEditRole(role);
+                        setTreeEditRelatedTo(defaultRelatedToForRelationship(role, familyData.members, treeEditRelatedTo));
+                      }}
+                      style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                    >
+                      {RELATIONSHIP_PRESETS.map(p=>(
+                        <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={treeEditRelatedTo}
+                      onChange={(e)=>setTreeEditRelatedTo(e.target.value)}
+                      style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                    >
+                      {relatedToOptions.filter(o=>o.value!==memberMemoryRef(familyData.members[treeEdit.memberIndex!]?.id || "")).map(o=>(
+                        <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
+                      ))}
+                    </select>
+                    <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+                    <input value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+                  </>
+                )}
+                {treeEdit.childIndex != null && (
+                  <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+                )}
+                <div style={{display:"flex",gap:8,marginTop:4}}>
+                  <button type="button" onClick={saveTreeEdit} style={{flex:1,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
+                  {(treeEdit.ref || treeEdit.kind === "self") && (
+                    <button
+                      type="button"
+                      onClick={()=>{
+                        setActiveMemRef(treeEdit.kind === "self" ? "__general__" : (treeEdit.ref ?? null));
+                        setTreeEdit(null);
+                        setTab("memories");
+                      }}
+                      style={{flex:1,padding:10,background:"#fff",color:teal,border:`1.5px solid ${teal}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                    >
+                      📝 {lang==="el"?"Αναμνήσεις":"Memories"}
+                    </button>
+                  )}
+                  <button type="button" onClick={()=>setTreeEdit(null)} style={{padding:"10px 12px",background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </>)}
 
         {/* ── MEMORIES ── */}
-        {tab==="memories"&&<div style={card}>
+        {tab==="memories"&&<div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("recentmem",lang)}</div>
-          {/* Person selector pills */}
+          <MemoriesBookletPanel
+            memories={memories}
+            userName={profile.name}
+            lang={lang}
+            familyChildren={familyChildren}
+            members={familyData.members}
+            onDownload={() => track("submit", appPath("memories", "export-booklet"), "Download memories booklet")}
+            onSave={saveMemoriesNow}
+            saving={memoriesSaving}
+          />
+          {/* Person selector pills — counts only; list opens after selection */}
           {(()=>{
-            const memRefs: {label:string,value:string|undefined}[] = [{label:"🌸 "+ (lang==="el"?"Γενικά":"General"),value:undefined}];
-            if(pregnancyActive) memRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-            familyChildren.forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name}));
-            familyData.members.forEach(m=>memRefs.push({label:"👤 "+m.name,value:m.name}));
-            if(memRefs.length>1) return (
+            const countFor = (ref: string) => {
+              if (ref === "__general__") {
+                return memories.filter((m) => !m.ref || m.ref === "__general__").length;
+              }
+              const member = familyData.members.find((fm) => memberMemoryRef(fm.id) === ref);
+              return memories.filter((m) => {
+                if (m.ref === ref) return true;
+                return member ? memoryBelongsToMember(m.ref, member, familyData.members) : false;
+              }).length;
+            };
+            const memRefs: {label:string,value:string,count:number}[] = [
+              {label:"🌸 "+(profile.name||(lang==="el"?"Εσύ":"You")),value:"__general__",count:countFor("__general__")},
+            ];
+            if(pregnancyActive) memRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy",count:countFor("pregnancy")});
+            familyChildren.forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name,count:countFor(c.name)}));
+            familyData.members.forEach(m=>{
+              const ref = memberMemoryRef(m.id);
+              const isPet = classifyKinship(m.relationship)==="pet";
+              memRefs.push({
+                label:(isPet?"🐾 ":"👤 ")+memberDisplayLabel(m, familyData.members),
+                value:ref,
+                count:countFor(ref),
+              });
+            });
+            return (
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-                {memRefs.map((r,i)=>(
-                  <button key={i} onClick={()=>setActiveMemRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:activeMemRef===r.value?navy:gl,color:activeMemRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
+                {memRefs.map((r)=>(
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={()=>setActiveMemRef(prev=>prev===r.value?null:r.value)}
+                    style={{
+                      padding:"5px 11px",
+                      borderRadius:999,
+                      border:"none",
+                      background:activeMemRef===r.value?navy:gl,
+                      color:activeMemRef===r.value?"#fff":"#7A7068",
+                      fontFamily:"'DM Sans',sans-serif",
+                      fontSize:12,
+                      fontWeight:600,
+                      cursor:"pointer",
+                      transition:"all .15s",
+                      display:"inline-flex",
+                      alignItems:"center",
+                      gap:6,
+                      maxWidth:"100%",
+                    }}
+                  >
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</span>
+                    <span style={{
+                      fontSize:10,
+                      fontWeight:700,
+                      minWidth:18,
+                      height:18,
+                      borderRadius:999,
+                      padding:"0 5px",
+                      display:"inline-flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      background:activeMemRef===r.value?"rgba(255,255,255,.22)":"rgba(43,58,103,.12)",
+                      color:activeMemRef===r.value?"#fff":navy,
+                      flexShrink:0,
+                    }}>{r.count}</span>
+                  </button>
                 ))}
               </div>
             );
-            return null;
           })()}
-          {/* Filtered memory list */}
-          {(()=>{
-            const filtered = memories.filter(m=>m.ref===activeMemRef);
+          {/* Filtered memory list — only when a member is selected */}
+          {activeMemRef==null ? (
+            <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("selectmem",lang)}</div>
+          ) : (()=>{
+            const filtered = memories.filter((m) => {
+              if (activeMemRef === "__general__") return !m.ref || m.ref === "__general__";
+              if (m.ref === activeMemRef) return true;
+              const member = familyData.members.find((fm) => memberMemoryRef(fm.id) === activeMemRef);
+              return member ? memoryBelongsToMember(m.ref, member, familyData.members) : false;
+            });
             if(filtered.length===0) return <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nomemories",lang)}</div>;
             return filtered.map((m,i)=>{
               const origIdx = memories.indexOf(m);
               return (
-                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none"}}>
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none",minWidth:0}}>
                   {m.img?<img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>:<span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>}
-                  <div style={{flex:1}}>{editingMemIdx===origIdx?(<div style={{display:"flex",gap:5,marginBottom:4}}><input value={memEditVal} onChange={e=>setMemEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}if(e.key==="Escape")setEditingMemIdx(null);}} autoFocus style={{flex:1,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}/><button onClick={()=>{setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}} style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}>✓</button></div>):<div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500}}>{m.text!=="📷"?m.text:""}</div>}<div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div></div>
-                  <div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button><button onClick={()=>{setMemories(memories.filter((_,j)=>j!==origIdx));if(editingMemIdx===origIdx)setEditingMemIdx(null);}} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button></div>
+                  <div style={{flex:1,minWidth:0}}>{editingMemIdx===origIdx?(<div style={{display:"flex",gap:5,marginBottom:4}}><input value={memEditVal} onChange={e=>setMemEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}if(e.key==="Escape")setEditingMemIdx(null);}} autoFocus style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}/><button onClick={()=>{setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}} style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}>✓</button></div>):<div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>{m.text!=="📷"?m.text:""}</div>}<div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div></div>
+                  <div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button><button onClick={()=>deleteMemory(origIdx)} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button></div>
                 </div>
               );
             });
           })()}
-          <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`}}>
-            <input value={memInput} onChange={e=>setMemInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMemory()} placeholder={t("addmemory",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#2B2420",background:"#fff",outline:"none"}}/>
-            <button onClick={()=>fileRef.current?.click()} style={{padding:"8px 11px",background:gl,color:navy,border:"none",borderRadius:9,fontSize:15,cursor:"pointer"}}>📷</button>
-            <button onClick={()=>addMemory()} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>＋</button>
+          <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`,minWidth:0}}>
+            <input value={memInput} onChange={e=>setMemInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMemory()} placeholder={t("addmemory",lang)} disabled={activeMemRef==null} style={{flex:1,minWidth:0,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#2B2420",background:"#fff",outline:"none",opacity:activeMemRef==null?0.55:1}}/>
+            <button onClick={()=>fileRef.current?.click()} disabled={activeMemRef==null} style={{padding:"8px 11px",background:gl,color:navy,border:"none",borderRadius:9,fontSize:15,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>📷</button>
+            <button onClick={()=>addMemory()} disabled={activeMemRef==null} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>＋</button>
           </div>
         </div>}
 
@@ -2132,7 +3060,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="hi"?"सामान्य":lang==="ja"?"一般":"General"),value:""}];
                 if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
                 familyChildren.forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
-                familyData.members.forEach(fm=>docRefs.push({label:"👤 "+fm.name,value:fm.name}));
+                familyData.members.forEach(fm=>docRefs.push({label:"👤 "+memberDisplayLabel(fm, familyData.members),value:memberMemoryRef(fm.id)}));
                 const effDocRef = activeDocRef;
                 const filteredDocs = docs.filter(d=>d.ref===effDocRef);
                 return (<>
@@ -2261,12 +3189,31 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       <div aria-live="polite" style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10,pointerEvents:"none",maxWidth:"min(420px, calc(100vw - 32px))"}}>
         {toasts.map(t => (
           <div key={t.id} role="status" style={{
-            pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"14px 18px", borderRadius:12,
+            pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"12px 14px", borderRadius:12,
             boxShadow:"0 8px 32px rgba(43,58,103,.18)",
             background:"#fff",
             color: t.kind === "ok" ? "#2D9E6B" : "#E07B54",
             border: t.kind === "ok" ? "1.5px solid rgba(45,158,107,.35)" : "1.5px solid rgba(224,123,84,.4)",
-          }}>{t.text}</div>
+            display:"flex", alignItems:"center", gap:12,
+          }}>
+            <span style={{flex:1}}>{t.text}</span>
+            {t.undo && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.undo?.();
+                  setToasts(prev => prev.filter(x => x.id !== t.id));
+                  showToast(lang === "el" ? "Αναιρέθηκε" : "Undone", "ok");
+                }}
+                style={{
+                  flexShrink:0, padding:"6px 10px", borderRadius:8, border:"none", cursor:"pointer",
+                  background:"#2B3A67", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:700,
+                }}
+              >
+                {t.undoLabel || (lang === "el" ? "Αναίρεση" : "Undo")}
+              </button>
+            )}
+          </div>
         ))}
       </div>
     )}

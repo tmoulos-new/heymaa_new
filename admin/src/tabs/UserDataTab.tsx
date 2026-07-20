@@ -21,14 +21,22 @@ interface FamilyChild {
   name: string
   birthDate?: string
   birth_date?: string
+  photo?: string
 }
 
 interface FamilyMember {
+  id?: string
   name: string
   relationship?: string
   role?: string
+  relatedTo?: string
+  related_to?: string
   email?: string
   phone?: string
+  birthDate?: string
+  birth_date?: string
+  note?: string
+  photo?: string
 }
 
 function formatWhen(iso?: string | null) {
@@ -48,21 +56,33 @@ function FamilyPanel({ value }: { value: unknown }) {
 
   let children: FamilyChild[] = []
   let members: FamilyMember[] = []
+  let selfPhoto: string | undefined
 
   if (Array.isArray(parsed)) {
     members = parsed as FamilyMember[]
   } else if (typeof parsed === 'object') {
-    const o = parsed as { children?: FamilyChild[]; members?: FamilyMember[] }
+    const o = parsed as {
+      children?: FamilyChild[]
+      members?: FamilyMember[]
+      selfPhoto?: string
+    }
     children = Array.isArray(o.children) ? o.children : []
     members = Array.isArray(o.members) ? o.members : []
+    if (typeof o.selfPhoto === 'string' && o.selfPhoto.trim()) selfPhoto = o.selfPhoto.trim()
   }
 
-  if (children.length === 0 && members.length === 0) {
+  if (children.length === 0 && members.length === 0 && !selfPhoto) {
     return <EmptyKey label="family" />
   }
 
   return (
     <div className="user-data-panels">
+      {selfPhoto && (
+        <section className="user-data-section">
+          <h3>Self photo</h3>
+          <FamilyPhotoThumb src={selfPhoto} />
+        </section>
+      )}
       {children.length > 0 && (
         <section className="user-data-section">
           <h3>Children</h3>
@@ -70,6 +90,7 @@ function FamilyPanel({ value }: { value: unknown }) {
             <table className="data-table user-data-table">
               <thead>
                 <tr>
+                  <th>Photo</th>
                   <th>Name</th>
                   <th>Birth date</th>
                 </tr>
@@ -77,6 +98,7 @@ function FamilyPanel({ value }: { value: unknown }) {
               <tbody>
                 {children.map((c, i) => (
                   <tr key={i}>
+                    <td><FamilyPhotoThumb src={c.photo} /></td>
                     <td>{c.name || '—'}</td>
                     <td>{c.birthDate || c.birth_date || '—'}</td>
                   </tr>
@@ -93,19 +115,29 @@ function FamilyPanel({ value }: { value: unknown }) {
             <table className="data-table user-data-table">
               <thead>
                 <tr>
+                  <th>Photo</th>
                   <th>Name</th>
                   <th>Relationship</th>
+                  <th>Related to</th>
+                  <th>Birth date</th>
+                  <th>Note</th>
                   <th>Email</th>
                   <th>Phone</th>
+                  <th>Id</th>
                 </tr>
               </thead>
               <tbody>
                 {members.map((m, i) => (
-                  <tr key={i}>
+                  <tr key={m.id || i}>
+                    <td><FamilyPhotoThumb src={m.photo} /></td>
                     <td>{m.name || '—'}</td>
                     <td>{m.relationship || m.role || '—'}</td>
+                    <td>{m.relatedTo || m.related_to || '—'}</td>
+                    <td>{m.birthDate || m.birth_date || '—'}</td>
+                    <td>{m.note || '—'}</td>
                     <td>{m.email || '—'}</td>
                     <td>{m.phone || '—'}</td>
+                    <td style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>{m.id || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -128,12 +160,23 @@ function isImageSrc(val: unknown): val is string {
   )
 }
 
+function FamilyPhotoThumb({ src }: { src?: string }) {
+  if (!isImageSrc(src)) return <span className="user-data-family-photo-empty">—</span>
+  return (
+    <span className="user-data-family-photo">
+      <img src={src} alt="" />
+    </span>
+  )
+}
+
+
 interface MemoryItem {
   emoji?: string
   text?: string
   date?: string
   img?: string
   ref?: string
+  createdAt?: string
 }
 
 function MemoriesPanel({ value }: { value: unknown }) {
@@ -160,6 +203,7 @@ function MemoriesPanel({ value }: { value: unknown }) {
                 {m.ref && <div className="user-data-memory-ref">{m.ref}</div>}
                 {displayText && <div className="user-data-memory-text">{displayText}</div>}
                 {m.date && <div className="user-data-memory-date">{m.date}</div>}
+                {m.createdAt && <div className="user-data-memory-date">{new Date(m.createdAt).toLocaleString()}</div>}
                 {!displayText && !hasImg && m.emoji && (
                   <div className="user-data-memory-emoji-only">{m.emoji}</div>
                 )}
