@@ -2,6 +2,7 @@
   "nav": {
     "signIn": "Σύνδεση",
     "demo": "Δες το Demo",
+    "demoShort": "Demo",
     "close": "Κλείσιμο",
     "logoAlt": "HeyMaa logo"
   },
@@ -140,7 +141,7 @@
         "price": "€199",
         "period": "/έτος",
         "badge": "Καλύτερη Αξία",
-        "badgeColor": "#E07B54",
+        "badgeColor": "#F5C5A3",
         "variant": "best",
         "save": "Εξοικονόμηση 57%",
         "features": [

@@ -21,6 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
 import { API, HM_TOKEN_KEY, apiDetail } from "./lib/authApi";
+import { displayUppercase } from "./lib/greekText";
 import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
@@ -2352,11 +2353,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {showProfileEdit&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:520,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)",maxHeight:"90vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</div>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Όνομα":"Name"}</label>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Όνομα":"Name", lang)}</label>
           <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Τηλέφωνο":"Phone"}</label>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Τηλέφωνο":"Phone", lang)}</label>
           <input value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+30 69..." style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",textTransform:"uppercase" as any,letterSpacing:0.5}}>{lang==="el"?"Διεύθυνση":"Address"}</label>
+          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Διεύθυνση":"Address", lang)}</label>
           <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={lang==="el"?"Πόλη":"City"} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
@@ -2511,7 +2512,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 </div>):(<div style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,margin:"8px 0 8px 40px",lineHeight:1.5}}>{msg.content}</div>)}
               {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 40px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
-                  {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{msg.promo.badge.toUpperCase()}</span>}
+                  {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{displayUppercase(msg.promo.badge, lang)}</span>}
                   <span style={{fontWeight:700,fontSize:12.5,color:"#2B3A67"}}>{msg.promo.title}</span>
                 </div>
                 <div style={{fontSize:11.5,color:"#4A3F35",lineHeight:1.55,marginBottom:msg.promo.link?8:0}}>{msg.promo.body}</div>
@@ -3151,7 +3152,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             {!offersLoading&&offers.length===0&&<div style={{textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("offers_empty",lang)}</div>}
             {offers.map((o:any)=>(
               <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
-                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{o.badge.toUpperCase()}</div>}
+                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
                 {o.image_url&&<img src={o.image_url} alt="" style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:10,marginBottom:8,display:"block"}}/>}
                 <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
                 <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:8}}>{o.body}</div>

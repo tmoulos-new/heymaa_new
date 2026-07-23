@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AUTH_LOGO_SRC } from './authLogo'
 import {
   apiDetail,
@@ -161,6 +162,10 @@ export function AppAuthScreen({
 
   return (
     <div className="app-auth-page">
+      <Link to="/" className="app-auth-close" aria-label={s.closeHome}>
+        ×
+      </Link>
+
       <button
         type="button"
         className="app-auth-lang"

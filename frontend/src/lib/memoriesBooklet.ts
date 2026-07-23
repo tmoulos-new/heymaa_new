@@ -1,6 +1,7 @@
 /** Memories Booklet — personalized, downloadable HTML/PDF export. */
 
 import type { FamilyChild, FamilyMemberRecord } from './familyData'
+import { displayUppercase } from './greekText'
 
 export const MIN_MEMORIES_FOR_BOOKLET = 0
 
@@ -440,7 +441,6 @@ function bookletStyles(): string {
       font-size: 11px;
       opacity: 0.7;
       letter-spacing: 0.14em;
-      text-transform: uppercase;
     }
     h2.section-title {
       font-family: 'Fraunces', Georgia, serif;
@@ -552,7 +552,6 @@ function bookletStyles(): string {
       color: var(--gold);
       font-weight: 600;
       letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
     .page-title {
       font-family: 'Fraunces', Georgia, serif;
@@ -698,11 +697,12 @@ export function buildBookletHtml(opts: {
   lang: string
   pages?: BookletFlipPage[]
 }): string {
-  const { userName, periodLabel, memoryCount, labels } = opts
+  const { userName, periodLabel, memoryCount, labels, lang } = opts
   const title = labels.bookletTitle.replace('{name}', escapeHtml(userName || 'HeyMaa'))
 
   const memoryArticleHtml = (m: BookletMemory): string => {
     const text = m.text && m.text !== '📷' ? escapeHtml(m.text) : ''
+    const date = escapeHtml(displayUppercase(m.date, lang))
     if (m.img) {
       const photoOnly = !text
       return `<article class="memory has-photo${photoOnly ? ' photo-only' : ''}">
@@ -711,13 +711,13 @@ export function buildBookletHtml(opts: {
           <img class="memory-img" src="${m.img}" alt="" />
         </div>
       </div>
-      <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${escapeHtml(m.date)}</div></div>
+      <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${date}</div></div>
     </article>`
     }
     return `<article class="memory">
     <div class="memory-row">
       <div class="memory-emoji">${m.emoji || '✦'}</div>
-      <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${escapeHtml(m.date)}</div></div>
+      <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${date}</div></div>
     </div>
   </article>`
   }
@@ -734,7 +734,7 @@ export function buildBookletHtml(opts: {
             <div class="cover-ornament"></div>
             <p class="period">${escapeHtml(page.periodLabel)}</p>
             <p class="count">${labels.memoriesCount.replace('{count}', String(page.memoryCount))}</p>
-            <p class="brand">${escapeHtml(page.madeWith)}</p>
+            <p class="brand">${escapeHtml(displayUppercase(page.madeWith, lang))}</p>
           </div>`
         }
         if (page.type === 'toc') {
@@ -797,7 +797,7 @@ export function buildBookletHtml(opts: {
     <div class="cover-ornament"></div>
     <p class="period">${escapeHtml(periodLabel)}</p>
     <p class="count">${labels.memoriesCount.replace('{count}', String(memoryCount))}</p>
-    <p class="brand">${escapeHtml(labels.madeWith)}</p>
+    <p class="brand">${escapeHtml(displayUppercase(labels.madeWith, lang))}</p>
   </div>
   <div class="page">
     <h1 class="page-title">${escapeHtml(labels.tableOfContents)}</h1>

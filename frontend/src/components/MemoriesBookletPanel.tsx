@@ -10,6 +10,7 @@ import {
   type BookletFlipPage,
   type BookletMemory,
 } from '../lib/memoriesBooklet'
+import { displayUppercase } from '../lib/greekText'
 
 const LINEN = '#F6F0E8'
 const LINEN_DEEP = '#E8DFD2'
@@ -38,9 +39,11 @@ function OrnamentLine({ light = false }: { light?: boolean }) {
 function FlipPageContent({
   page,
   labels,
+  lang,
 }: {
   page: BookletFlipPage
   labels: ReturnType<typeof bookletLabelsForLang>
+  lang: string
 }) {
   if (page.type === 'cover') {
     return (
@@ -123,11 +126,10 @@ function FlipPageContent({
             marginTop: 36,
             fontSize: 10,
             letterSpacing: 1.6,
-            textTransform: 'uppercase',
             opacity: 0.7,
           }}
         >
-          {page.madeWith}
+          {displayUppercase(page.madeWith, lang)}
         </p>
       </div>
     )
@@ -343,10 +345,9 @@ function FlipPageContent({
                     color: GOLD,
                     fontWeight: 600,
                     letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
                   }}
                 >
-                  {m.date}
+                  {displayUppercase(m.date, lang)}
                 </div>
               </div>
             </div>
@@ -362,11 +363,13 @@ function FlipPageContent({
 function BookletFlipbookModal({
   pages,
   labels,
+  lang,
   onClose,
   onDownload,
 }: {
   pages: BookletFlipPage[]
   labels: ReturnType<typeof bookletLabelsForLang>
+  lang: string
   onClose: () => void
   onDownload: () => void
 }) {
@@ -482,7 +485,7 @@ function BookletFlipbookModal({
               maxHeight: 'min(68vh, 560px)',
             }}
           >
-            {page && <FlipPageContent page={page} labels={labels} />}
+            {page && <FlipPageContent page={page} labels={labels} lang={lang} />}
           </div>
         </div>
 
@@ -741,13 +744,12 @@ export function MemoriesBookletPanel({
         style={{
           fontSize: 11,
           color: GOLD,
-          textTransform: 'uppercase',
           letterSpacing: 0.6,
           marginBottom: 8,
           fontWeight: 600,
         }}
       >
-        {labels.pickPeriod}
+        {displayUppercase(labels.pickPeriod, lang)}
       </div>
 
       <div
@@ -842,6 +844,7 @@ export function MemoriesBookletPanel({
         <BookletFlipbookModal
           pages={previewPages}
           labels={labels}
+          lang={lang}
           onClose={() => setPreviewOpen(false)}
           onDownload={() => {
             handleDownload()

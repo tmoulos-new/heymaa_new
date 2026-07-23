@@ -14,6 +14,7 @@ import {
   type SubscriptionSnapshot,
 } from '../lib/authApi'
 import { LANGS, mf } from '../home/homeContent'
+import { displayUppercase } from '../lib/greekText'
 import { APP_ROUTE } from '../publicRoutes'
 
 const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
@@ -325,7 +326,7 @@ export function SubscriptionPage() {
       </div>
 
       <div className="section" style={{ paddingTop: 0 }}>
-        <div className="sec-label">{tHome('pricing.label')}</div>
+        <div className="sec-label">{displayUppercase(tHome('pricing.label'), contentLang)}</div>
         <div className="sec-title">{tHome('pricing.title')}</div>
         <div className="pricing-grid">
           {plans.map((plan, index) => {
@@ -350,7 +351,7 @@ export function SubscriptionPage() {
 
       <div className="section" style={{ paddingTop: 0 }}>
         <div className="safety-wrap">
-          <div className="sec-label">{tHome('safety.label')}</div>
+          <div className="sec-label">{displayUppercase(tHome('safety.label'), contentLang)}</div>
           <div className="sec-title">{tHome('safety.title')}</div>
           <div className="sec-sub">{tHome('safety.subtitle')}</div>
           <div className="safety-grid">
@@ -371,7 +372,7 @@ export function SubscriptionPage() {
       </div>
 
       <div className="section">
-        <div className="sec-label">{tHome('faq.label')}</div>
+        <div className="sec-label">{displayUppercase(tHome('faq.label'), contentLang)}</div>
         <div className="sec-title">{tHome('faq.title')}</div>
         <div>
           {faqItems.map((item, i) => {

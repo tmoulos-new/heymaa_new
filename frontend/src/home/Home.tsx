@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
@@ -15,11 +15,17 @@ import type {
   HomeSafetyItem,
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
+import { AUTH_LOGO_SRC } from "../auth/authLogo";
+import { displayUppercase } from "../lib/greekText";
 import { LANGS, mf } from "./homeContent";
+import "../auth/appAuth.css";
 import "./home.css";
 
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
+
+const HERO_VIDEO_SRC =
+  "https://experience.babyspace.gr/wp-content/uploads/2024/05/homepage-hero-video.mp4";
 
 function asObjectArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
@@ -37,6 +43,8 @@ export default function Home() {
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
+  const navbarRef = useRef<HTMLElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   const goToApp = useCallback(() => {
     if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
@@ -69,11 +77,42 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const navbar = navbarRef.current;
+    if (!navbar) return;
+
+    const syncNavbarHeight = () => {
+      document.documentElement.style.setProperty(
+        "--navbar-height",
+        `${navbar.offsetHeight}px`,
+      );
+    };
+
+    syncNavbarHeight();
+    const observer = new ResizeObserver(syncNavbarHeight);
+    observer.observe(navbar);
+    window.addEventListener("resize", syncNavbarHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncNavbarHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.pause();
+      return;
+    }
+    video.play().catch(() => {});
+  }, []);
+
   const langMeta = useMemo(
     () => LANGS.find((l) => l.code === contentLang) || LANGS[0],
     [contentLang]
   );
-  const stripItems = useMemo(() => [...LANGS, ...LANGS], []);
 
   const selectLang = (code: string) => {
     setContentLang(code);
@@ -129,12 +168,11 @@ export default function Home() {
           </div>
         </div>
 
-        <nav className="navbar">
+        <nav className="navbar" ref={navbarRef}>
           <div className="nb-logo">
-            <img
-              src={`${process.env.PUBLIC_URL}/logo192.png`}
-              alt={t("nav.logoAlt")}
-            />
+            <div className="nb-logo-mark">
+              <img src={AUTH_LOGO_SRC} alt={t("nav.logoAlt")} />
+            </div>
             <span className="nb-logo-text">
               Hey<span>Maa</span>
             </span>
@@ -144,52 +182,56 @@ export default function Home() {
               type="button"
               className="lang-trigger"
               onClick={() => setLangOpen(true)}
+              aria-label={t("langPicker.title")}
             >
               <FlagHtml html={mf(contentLang, 22, 15)} />
-              <span>{langMeta.name}</span>
-              <i className="ti ti-chevron-down" style={{ fontSize: 11 }} />
+              <span className="nb-lang-label">{langMeta.name}</span>
+              <i className="ti ti-chevron-down nb-lang-chevron" style={{ fontSize: 11 }} />
             </button>
             <button type="button" className="nb-signin" onClick={goToApp}>
               {t("nav.signIn")}
             </button>
             <button type="button" className="nb-cta" onClick={goToApp}>
-              {t("nav.demo")}
+              <span className="nb-demo-long">{t("nav.demo")}</span>
+              <span className="nb-demo-short">{t("nav.demoShort")}</span>
             </button>
           </div>
         </nav>
 
-        <div className="hero">
-          <div className="hero-badge">
-            <span className="hero-badge-dot" />
-            <span>{t("hero.badge")}</span>
+        <section className="hero-section" aria-label="Hero">
+          <video
+            ref={heroVideoRef}
+            className="hero-video"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src={HERO_VIDEO_SRC} type="video/mp4" />
+          </video>
+          <div className="hero-overlay" aria-hidden="true" />
+          <div className="hero">
+            <div className="app-auth-logo-wrap hero-logo">
+              <img src={AUTH_LOGO_SRC} alt={t("nav.logoAlt")} />
+            </div>
+            <div className="hero-badge">
+              <span className="hero-badge-dot" />
+              <span>{t("hero.badge")}</span>
+            </div>
+            <h1 dangerouslySetInnerHTML={{ __html: t("hero.title") }} />
+            <p className="hero-sub">{t("hero.subtitle")}</p>
+            <div className="hero-btns">
+              <button type="button" className="btn-primary" onClick={goToApp}>
+                {t("hero.cta")}
+              </button>
+            </div>
           </div>
-          <h1 dangerouslySetInnerHTML={{ __html: t("hero.title") }} />
-          <p className="hero-sub">{t("hero.subtitle")}</p>
-          <div className="hero-btns">
-            <button type="button" className="btn-primary" onClick={goToApp}>
-              {t("hero.cta")}
-            </button>
-          </div>
-          <div className="hero-pills">
-            <span className="hero-pill">
-              <i className="ti ti-check" />
-              <span>{t("hero.pillLanguages")}</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="lang-strip">
-          <div className="lang-strip-track">
-            {stripItems.map((l, i) => (
-              <span className="strip-item" key={`${l.code}-${i}`}>
-                <FlagHtml html={mf(l.code, 22, 15)} /> {l.name}
-              </span>
-            ))}
-          </div>
-        </div>
+        </section>
 
         <div className="section">
-          <div className="sec-label">{t("how.label")}</div>
+          <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>
           <div className="sec-title">{t("how.title")}</div>
           <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">
@@ -205,7 +247,7 @@ export default function Home() {
 
         <div className="section" style={{ paddingTop: 0 }}>
           <div className="feat-wrap">
-            <div className="sec-label">{t("features.label")}</div>
+            <div className="sec-label">{displayUppercase(t("features.label"), contentLang)}</div>
             <div className="sec-title">{t("features.title")}</div>
             <div className="sec-sub">{t("features.subtitle")}</div>
             <div className="feat-grid">
@@ -228,7 +270,7 @@ export default function Home() {
         </div>
 
         <div className="section">
-          <div className="sec-label">{t("pricing.label")}</div>
+          <div className="sec-label">{displayUppercase(t("pricing.label"), contentLang)}</div>
           <div className="sec-title">{t("pricing.title")}</div>
           <div className="pricing-grid">
             {plans.map((plan) => (
@@ -239,7 +281,7 @@ export default function Home() {
 
         <div className="section" style={{ paddingTop: 0 }}>
           <div className="safety-wrap">
-            <div className="sec-label">{t("safety.label")}</div>
+            <div className="sec-label">{displayUppercase(t("safety.label"), contentLang)}</div>
             <div className="sec-title">{t("safety.title")}</div>
             <div className="sec-sub">{t("safety.subtitle")}</div>
             <div className="safety-grid">
@@ -260,7 +302,7 @@ export default function Home() {
         </div>
 
         <div className="section">
-          <div className="sec-label">{t("faq.label")}</div>
+          <div className="sec-label">{displayUppercase(t("faq.label"), contentLang)}</div>
           <div className="sec-title">{t("faq.title")}</div>
           <div>
             {faqItems.map((item, i) => {

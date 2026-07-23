@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { displayUppercase } from '../lib/greekText'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
   TREE_FOCUS_NODE_H,
@@ -465,8 +466,8 @@ export function FamilyTreePanel({
               letterSpacing={0.8}
             >
               {drag && hoverSlot === g.slot
-                ? `↓ ${copy.dropHere.toUpperCase()}`
-                : g.label.toUpperCase()}
+                ? `↓ ${displayUppercase(copy.dropHere, lang)}`
+                : displayUppercase(g.label, lang)}
             </text>
           ))}
 
@@ -593,8 +594,8 @@ export function FamilyTreePanel({
                     {ev.year}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: TEAL, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                      {ev.label}
+                    <div style={{ fontSize: 10, fontWeight: 700, color: TEAL, letterSpacing: 0.4 }}>
+                      {displayUppercase(ev.label, lang)}
                     </div>
                     <div style={{ fontSize: 12, color: NAVY, fontWeight: 500, lineHeight: 1.35 }}>{ev.detail}</div>
                   </div>

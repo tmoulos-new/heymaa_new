@@ -2,6 +2,7 @@
   "nav": {
     "signIn": "Sign in",
     "demo": "Start free",
+    "demoShort": "Demo",
     "close": "Close",
     "logoAlt": "HeyMaa logo"
   },
@@ -140,7 +141,7 @@
         "price": "€199",
         "period": "/year",
         "badge": "Best Value",
-        "badgeColor": "#E07B54",
+        "badgeColor": "#F5C5A3",
         "variant": "best",
         "save": "Save 57%",
         "features": [
