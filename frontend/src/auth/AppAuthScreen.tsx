@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AUTH_LOGO_SRC } from './authLogo'
 import {
   apiDetail,
   API,
@@ -155,7 +156,7 @@ export function AppAuthScreen({
     }
   }
 
-  const logoSrc = `${process.env.PUBLIC_URL}/logo192.png`
+  const logoSrc = AUTH_LOGO_SRC
   const canRegister = privacy && terms
 
   return (
@@ -253,7 +254,6 @@ export function AppAuthScreen({
                 placeholder={s.invitePh}
                 disabled={loading}
               />
-              <div className="app-auth-invite-bonus">{s.inviteBonus}</div>
             </div>
 
             <div className="app-auth-checks">

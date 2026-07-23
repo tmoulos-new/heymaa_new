@@ -12,7 +12,6 @@ const STRINGS = {
     passwordPh: 'Εισαγάγετε κωδικό πρόσβασης',
     inviteTitle: 'Έχεις κωδικό πρόσκλησης;',
     invitePh: 'π.χ. HEYMAA-ABC123',
-    inviteBonus: 'Η φίλη σου θα κερδίσει +50 πόντους!',
     wantChild: 'Θέλω να αποκτήσω παιδί',
     pregnantOrMom: 'Είμαι έγκυος ή μαμά',
     newsletter:
@@ -53,7 +52,6 @@ const STRINGS = {
     passwordPh: 'Enter your password',
     inviteTitle: 'Have an invite code?',
     invitePh: 'e.g. HEYMAA-ABC123',
-    inviteBonus: 'Your friend will earn +50 points!',
     wantChild: 'I want to have a child',
     pregnantOrMom: 'I am pregnant or a mom',
     newsletter: 'I want to receive updates and newsletters with useful motherhood tips.',

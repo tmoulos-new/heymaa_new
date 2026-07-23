@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createVivaCheckout, HM_TOKEN_KEY } from '../lib/authApi'
+import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { APP_ROUTE } from '../publicRoutes'
 import '../auth/appAuth.css'
 
@@ -56,7 +57,7 @@ export function CheckoutPage() {
     }
   }, [plan, lang, token, isEl])
 
-  const logoSrc = `${process.env.PUBLIC_URL}/logo192.png`
+  const logoSrc = AUTH_LOGO_SRC
 
   return (
     <div className="app-auth-page">

@@ -14,6 +14,8 @@
   width: 88px;
   height: 88px;
   border-radius: 50%;
+  border: 2px solid #fff;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,9 +25,11 @@
 }
 
 .app-auth-logo-wrap img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scale(1.05);
 }
 
 .app-auth-card {
@@ -89,13 +93,6 @@
   font-weight: 600;
   margin-bottom: 10px;
   color: #2b3a67;
-}
-
-.app-auth-invite-bonus {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #7c5cbf;
 }
 
 .app-auth-checks {

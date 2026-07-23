@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { HM_TOKEN_KEY } from '../lib/authApi'
+import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { APP_ROUTE } from '../publicRoutes'
 import '../auth/appAuth.css'
 import './checkoutResult.css'
@@ -17,7 +18,7 @@ export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure'
     search.get('transactionId') ||
     search.get('TransactionId') ||
     ''
-  const logoSrc = `${process.env.PUBLIC_URL}/logo192.png`
+  const logoSrc = AUTH_LOGO_SRC
   const isSuccess = outcome === 'success'
 
   useEffect(() => {
