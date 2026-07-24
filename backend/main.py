@@ -2610,7 +2610,7 @@ async def admin_health(x_token: Optional[str] = Header(None)):
         if GEMINI_API_KEY:
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
-            m = genai.GenerativeModel("gemini-flash-latest")
+            m = genai.GenerativeModel("gemini-2.0-flash")
             m.generate_content("hi", generation_config={"max_output_tokens":1})
             status["gemini"] = {"ok": True, "msg": "online"}
         else:
