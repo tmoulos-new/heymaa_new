@@ -9,17 +9,22 @@ import {
 } from "../i18n";
 import type {
   HomeFaqItem,
-  HomeFeatureItem,
   HomeHowItem,
   HomePlan,
   HomeSafetyItem,
+  HomeTestimonialItem,
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
+import { SiteFooter } from "../components/SiteFooter";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
+import whatIsImage from "../assets/heymaa-what-is.png";
 import { displayUppercase } from "../lib/greekText";
 import { LANGS, mf } from "./homeContent";
 import "../auth/appAuth.css";
 import "./home.css";
+
+const CTA_MOM_IMAGE = `${process.env.PUBLIC_URL}/heymaa-cta-mom.png`;
+const MOMENTS_IMAGE = `${process.env.PUBLIC_URL}/heymaa-moments-collage.png`;
 
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
@@ -43,6 +48,8 @@ export default function Home() {
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number | null>(null);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
   const navbarRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -54,9 +61,6 @@ export default function Home() {
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })
   );
-  const featureItems = asObjectArray<HomeFeatureItem>(
-    t("features.items", { returnObjects: true })
-  );
   const plans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
   );
@@ -66,6 +70,17 @@ export default function Home() {
   const faqItems = asObjectArray<HomeFaqItem>(
     t("faq.items", { returnObjects: true })
   );
+  const testimonialItems = asObjectArray<HomeTestimonialItem>(
+    t("testimonial.items", { returnObjects: true })
+  );
+  const activeTestimonial =
+    testimonialItems[testimonialIndex] ?? testimonialItems[0];
+
+  const handlePlanSelect = useCallback((index: number) => {
+    const plan = plans[index];
+    if (!plan || plan.variant === "current") return;
+    setSelectedPlanIndex(index);
+  }, [plans]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -216,12 +231,8 @@ export default function Home() {
             <div className="app-auth-logo-wrap hero-logo">
               <img src={AUTH_LOGO_SRC} alt={t("nav.logoAlt")} />
             </div>
-            <div className="hero-badge">
-              <span className="hero-badge-dot" />
-              <span>{t("hero.badge")}</span>
-            </div>
             <h1 dangerouslySetInnerHTML={{ __html: t("hero.title") }} />
-            <p className="hero-sub">{t("hero.subtitle")}</p>
+            <p className="hero-sub" dangerouslySetInnerHTML={{ __html: t("hero.subtitle") }} />
             <div className="hero-btns">
               <button type="button" className="btn-primary" onClick={goToApp}>
                 {t("hero.cta")}
@@ -230,81 +241,199 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="section">
+        <section className="hero-below section">
+          <p
+            className="hero-below-text"
+            dangerouslySetInnerHTML={{ __html: t("hero.belowVideoLead") }}
+          />
+          <div
+            className="hero-below-highlight"
+            dangerouslySetInnerHTML={{ __html: t("hero.belowVideoHighlight") }}
+          />
+        </section>
+
+        <section className="what-is section">
+          <div className="what-is-grid">
+            <div className="what-is-copy">
+              <h2 className="sec-title">{t("whatIs.title")}</h2>
+              <div
+                className="what-is-body"
+                dangerouslySetInnerHTML={{ __html: t("whatIs.body") }}
+              />
+            </div>
+            <div className="what-is-media">
+              <img src={whatIsImage} alt={t("whatIs.imageAlt")} />
+            </div>
+          </div>
+        </section>
+
+        <div className="section" id="how-section">
           <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>
           <div className="sec-title">{t("how.title")}</div>
           <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">
             {howItems.map((item) => (
               <div className="how-card" key={item.title}>
-                <div className="how-num">{item.icon}</div>
-                <div className="how-title">{item.title}</div>
-                <div className="how-body">{item.body}</div>
+                <div
+                  className="how-icon"
+                  style={{ background: item.bg, color: item.color }}
+                  aria-hidden="true"
+                >
+                  <i className={`ti ${item.icon}`} />
+                </div>
+                <div className="how-copy">
+                  <div className="how-title">{item.title}</div>
+                  <div className="how-lead">{item.lead}</div>
+                  <div className="how-body">{item.body}</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="section" style={{ paddingTop: 0 }}>
-          <div className="feat-wrap">
-            <div className="sec-label">{displayUppercase(t("features.label"), contentLang)}</div>
-            <div className="sec-title">{t("features.title")}</div>
-            <div className="sec-sub">{t("features.subtitle")}</div>
-            <div className="feat-grid">
-              {featureItems.map((item) => (
-                <div className="feat-card" key={item.title}>
-                  <div
-                    className="feat-icon"
-                    style={{ background: item.bg }}
-                  >
-                    {item.icon}
-                  </div>
-                  <div>
-                    <div className="feat-title">{item.title}</div>
-                    <div className="feat-body">{item.body}</div>
-                  </div>
+        <div className="section story-section">
+          <div className="moments-visual">
+            <img src={MOMENTS_IMAGE} alt={t("moments.imageAlt")} />
+          </div>
+          <div className="testimonial-carousel">
+            <button
+              type="button"
+              className="testimonial-nav testimonial-nav-prev"
+              aria-label={t("testimonial.prevLabel")}
+              onClick={() =>
+                setTestimonialIndex(
+                  (index) =>
+                    (index - 1 + testimonialItems.length) %
+                    testimonialItems.length
+                )
+              }
+            >
+              <i className="ti ti-chevron-left" aria-hidden="true" />
+            </button>
+            {activeTestimonial ? (
+              <blockquote className="testimonial-card">
+                <div
+                  className="testimonial-stars"
+                  aria-label={t("testimonial.ratingLabel")}
+                >
+                  ★★★★★
                 </div>
-              ))}
+                <p className="testimonial-quote">{activeTestimonial.quote}</p>
+                <footer className="testimonial-author">
+                  <span className="testimonial-avatar" aria-hidden="true">
+                    {activeTestimonial.initial}
+                  </span>
+                  <span className="testimonial-meta">
+                    <span className="testimonial-name">
+                      {activeTestimonial.name}
+                    </span>
+                    <span className="testimonial-location">
+                      {activeTestimonial.location}
+                    </span>
+                  </span>
+                </footer>
+              </blockquote>
+            ) : null}
+            <button
+              type="button"
+              className="testimonial-nav testimonial-nav-next"
+              aria-label={t("testimonial.nextLabel")}
+              onClick={() =>
+                setTestimonialIndex(
+                  (index) => (index + 1) % testimonialItems.length
+                )
+              }
+            >
+              <i className="ti ti-chevron-right" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <div className="section pricing-section">
+          <div className="pricing-panel">
+            <div className="pricing-panel-header">
+              <h2 className="sec-title pricing-panel-title">{t("pricing.title")}</h2>
+              <p className="pricing-panel-sub">{t("pricing.subtitle")}</p>
+            </div>
+            <div className="pricing-panel-body">
+              <div className="pricing-cards-layout">
+                <div className="pricing-trial-col">
+                  {plans.slice(0, 1).map((plan, index) => {
+                    const isCurrent = plan.variant === "current";
+                    const buttonState = isCurrent
+                      ? "current"
+                      : selectedPlanIndex === index
+                        ? "selected"
+                        : "idle";
+                    const radioSelected =
+                      selectedPlanIndex === index ||
+                      (selectedPlanIndex === null && isCurrent);
+                    return (
+                      <PlanCard
+                        plan={plan}
+                        key={plan.name}
+                        selectMode
+                        buttonState={buttonState}
+                        radioSelected={radioSelected}
+                        onSelect={() => handlePlanSelect(index)}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="pricing-paid-grid">
+                  {plans.slice(1).map((plan, offset) => {
+                    const index = offset + 1;
+                    const isCurrent = plan.variant === "current";
+                    const buttonState = isCurrent
+                      ? "current"
+                      : selectedPlanIndex === index
+                        ? "selected"
+                        : "idle";
+                    const radioSelected =
+                      selectedPlanIndex === index ||
+                      (selectedPlanIndex === null && isCurrent);
+                    return (
+                      <PlanCard
+                        plan={plan}
+                        key={plan.name}
+                        selectMode
+                        buttonState={buttonState}
+                        radioSelected={radioSelected}
+                        onSelect={() => handlePlanSelect(index)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="section">
-          <div className="sec-label">{displayUppercase(t("pricing.label"), contentLang)}</div>
-          <div className="sec-title">{t("pricing.title")}</div>
-          <div className="pricing-grid">
-            {plans.map((plan) => (
-              <PlanCard plan={plan} key={plan.name} />
-            ))}
-          </div>
-        </div>
-
-        <div className="section" style={{ paddingTop: 0 }}>
           <div className="safety-wrap">
-            <div className="sec-label">{displayUppercase(t("safety.label"), contentLang)}</div>
+            {t("safety.label") ? (
+              <div className="sec-label">
+                {displayUppercase(t("safety.label"), contentLang)}
+              </div>
+            ) : null}
             <div className="sec-title">{t("safety.title")}</div>
-            <div className="sec-sub">{t("safety.subtitle")}</div>
-            <div className="safety-grid">
+            <div className="sec-sub safety-sub">{t("safety.subtitle")}</div>
+            <div className="safety-cards">
               {safetyItems.map((item) => (
-                <div className="safety-card" key={item.title}>
-                  <div
-                    className="safety-card-icon"
-                    style={{ background: item.bg }}
-                  >
-                    {item.icon}
+                <div className="safety-card" key={item.text}>
+                  <div className="safety-card-icon" aria-hidden="true">
+                    <i className={`ti ${item.icon}`} />
                   </div>
-                  <div className="safety-card-title">{item.title}</div>
-                  <div className="safety-card-body">{item.body}</div>
+                  <div className="safety-card-text">{item.text}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="section">
-          <div className="sec-label">{displayUppercase(t("faq.label"), contentLang)}</div>
-          <div className="sec-title">{t("faq.title")}</div>
-          <div>
+        <div className="section faq-section">
+          <div className="sec-title">{t("faq.label")}</div>
+          <div className="faq-list">
             {faqItems.map((item, i) => {
               const open = !!openFaqs[i];
               return (
@@ -331,30 +460,27 @@ export default function Home() {
         </div>
 
         <div className="cta-wrap">
-          <h2>{t("cta.title")}</h2>
-          <p dangerouslySetInnerHTML={{ __html: t("cta.body") }} />
-          <button
-            type="button"
-            className="btn-primary"
-            style={{ fontSize: 15, padding: "14px 34px" }}
-            onClick={goToApp}
-          >
-            {t("cta.button")}
-          </button>
+          <img
+            className="cta-photo"
+            src={CTA_MOM_IMAGE}
+            alt={t("cta.imageAlt")}
+          />
+          <div className="cta-copy">
+            <p className="cta-line">{t("cta.line1")}</p>
+            <p
+              className="cta-headline"
+              dangerouslySetInnerHTML={{ __html: t("cta.headline") }}
+            />
+            <p className="cta-line">{t("cta.line3")}</p>
+          </div>
+          <div className="cta-actions">
+            <button type="button" className="cta-btn-primary" onClick={goToApp}>
+              {t("cta.button")}
+            </button>
+          </div>
         </div>
 
-        <div className="footer">
-          <div className="footer-logo">
-            <img
-              src={`${process.env.PUBLIC_URL}/logo192.png`}
-              alt={t("footer.logoAlt")}
-            />
-            <span className="footer-logo-text">
-              Hey<span>Maa</span>
-            </span>
-          </div>
-          <div className="footer-copy">{t("footer.copy")}</div>
-        </div>
+        <SiteFooter contentLang={contentLang} />
       </div>
     </div>
   );

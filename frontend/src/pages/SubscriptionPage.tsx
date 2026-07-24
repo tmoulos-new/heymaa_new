@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { PlanCard } from '../components/PlanCard'
+import { SiteFooter } from '../components/SiteFooter'
 import '../home/home.css'
 import {
   HOME_I18N_STORAGE_KEY,
@@ -42,6 +43,9 @@ function writeCachedSnapshot(token: string, data: SubscriptionSnapshot) {
     /* ignore quota errors */
   }
 }
+
+const TABLER_ICONS =
+  'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css'
 
 function asObjectArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
@@ -96,8 +100,8 @@ function applySubscriptionPlanState(
     if (hasToken) {
       return plans.map((plan) =>
         plan.variant === 'current'
-          ? { ...plan, variant: '', badge: '', badgeColor: '' }
-          : plan,
+          ? { ...plan, variant: '', badge: '', badgeColor: '', featured: false }
+          : { ...plan, featured: !!plan.featured },
       )
     }
     return plans.map((plan, index) => {
@@ -107,8 +111,9 @@ function applySubscriptionPlanState(
         variant: '',
         badge: '',
         badgeColor: '',
+        featured: false,
         button: labels.signupButton,
-        buttonClass: 'btn-ghost-p',
+        buttonClass: 'btn-plan-outline',
       }
     })
   }
@@ -131,10 +136,11 @@ function applySubscriptionPlanState(
       return {
         ...base,
         variant: '',
+        featured: false,
         badge: labels.expiredBadge,
         badgeColor: '#E07B54',
         button: labels.expiredButton,
-        buttonClass: 'btn-ghost-p',
+        buttonClass: 'btn-plan-outline',
       }
     }
 
@@ -142,14 +148,15 @@ function applySubscriptionPlanState(
       return {
         ...base,
         variant: 'current',
+        featured: true,
         badge: labels.currentBadge,
-        badgeColor: '#2D9E6B',
+        badgeColor: '#2B3A67',
         button: labels.currentButton,
-        buttonClass: 'btn-ghost-p',
+        buttonClass: 'btn-plan-current',
       }
     }
 
-    return base
+    return { ...base, featured: false }
   })
 }
 
@@ -201,6 +208,16 @@ export function SubscriptionPage() {
     if (snapshot.is_trial) return 'trial'
     return 'default'
   }, [token, snapshot])
+
+  useEffect(() => {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = TABLER_ICONS
+    document.head.appendChild(link)
+    return () => {
+      document.head.removeChild(link)
+    }
+  }, [])
 
   useEffect(() => {
     if (!token) {
@@ -325,56 +342,95 @@ export function SubscriptionPage() {
         ) : null}
       </div>
 
-      <div className="section" style={{ paddingTop: 0 }}>
-        <div className="sec-label">{displayUppercase(tHome('pricing.label'), contentLang)}</div>
-        <div className="sec-title">{tHome('pricing.title')}</div>
-        <div className="pricing-grid">
-          {plans.map((plan, index) => {
-              const slot = slotForPlanIndex(index)
-              const trialExpired =
-                slot === 'trial' &&
-                !!snapshot &&
-                !snapshot.subscription_active &&
-                snapshot.subscription_status === 'trial'
-              const trialSignup = slot === 'trial' && !token
-              return (
-                <PlanCard
-                  plan={plan}
-                  key={plan.name}
-                  disabled={trialExpired}
-                  onButtonClick={trialSignup ? () => navigate(`${APP_ROUTE}/auth`) : undefined}
-                />
-            )
-          })}
+      <div className="section pricing-section" style={{ paddingTop: 0 }}>
+        <div className="pricing-panel">
+          <div className="pricing-panel-header">
+            <h2 className="sec-title pricing-panel-title">{tHome('pricing.title')}</h2>
+            <p className="pricing-panel-sub">{tHome('pricing.subtitle')}</p>
+          </div>
+          <div className="pricing-panel-body">
+            <div className="pricing-cards-layout">
+              <div className="pricing-trial-col">
+                {plans.slice(0, 1).map((plan, index) => {
+                  const slot = slotForPlanIndex(index)
+                  const trialExpired =
+                    slot === 'trial' &&
+                    !!snapshot &&
+                    !snapshot.subscription_active &&
+                    snapshot.subscription_status === 'trial'
+                  const trialSignup = slot === 'trial' && !token
+                  const buttonState =
+                    plan.variant === 'current' ? 'current' : 'idle'
+                  return (
+                    <PlanCard
+                      plan={plan}
+                      key={plan.name}
+                      disabled={trialExpired}
+                      buttonState={buttonState}
+                      radioSelected={plan.variant === 'current'}
+                      onButtonClick={
+                        trialSignup ? () => navigate(`${APP_ROUTE}/auth`) : undefined
+                      }
+                    />
+                  )
+                })}
+              </div>
+              <div className="pricing-paid-grid">
+                {plans.slice(1).map((plan, offset) => {
+                  const index = offset + 1
+                  const slot = slotForPlanIndex(index)
+                  const trialExpired =
+                    slot === 'trial' &&
+                    !!snapshot &&
+                    !snapshot.subscription_active &&
+                    snapshot.subscription_status === 'trial'
+                  const trialSignup = slot === 'trial' && !token
+                  const buttonState =
+                    plan.variant === 'current' ? 'current' : 'idle'
+                  return (
+                    <PlanCard
+                      plan={plan}
+                      key={plan.name}
+                      disabled={trialExpired}
+                      buttonState={buttonState}
+                      radioSelected={plan.variant === 'current'}
+                      onButtonClick={
+                        trialSignup ? () => navigate(`${APP_ROUTE}/auth`) : undefined
+                      }
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="section" style={{ paddingTop: 0 }}>
         <div className="safety-wrap">
-          <div className="sec-label">{displayUppercase(tHome('safety.label'), contentLang)}</div>
+          {tHome('safety.label') ? (
+            <div className="sec-label">
+              {displayUppercase(tHome('safety.label'), contentLang)}
+            </div>
+          ) : null}
           <div className="sec-title">{tHome('safety.title')}</div>
-          <div className="sec-sub">{tHome('safety.subtitle')}</div>
-          <div className="safety-grid">
+          <div className="sec-sub safety-sub">{tHome('safety.subtitle')}</div>
+          <div className="safety-cards">
             {safetyItems.map((item) => (
-              <div className="safety-card" key={item.title}>
-                <div
-                  className="safety-card-icon"
-                  style={{ background: item.bg }}
-                >
-                  {item.icon}
+              <div className="safety-card" key={item.text}>
+                <div className="safety-card-icon" aria-hidden="true">
+                  <i className={`ti ${item.icon}`} />
                 </div>
-                <div className="safety-card-title">{item.title}</div>
-                <div className="safety-card-body">{item.body}</div>
+                <div className="safety-card-text">{item.text}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="section">
-        <div className="sec-label">{displayUppercase(tHome('faq.label'), contentLang)}</div>
-        <div className="sec-title">{tHome('faq.title')}</div>
-        <div>
+      <div className="section faq-section">
+        <div className="sec-title">{tHome('faq.label')}</div>
+        <div className="faq-list">
           {faqItems.map((item, i) => {
             const open = !!openFaqs[i]
             return (
@@ -400,18 +456,7 @@ export function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="footer">
-        <div className="footer-logo">
-          <img
-            src={`${process.env.PUBLIC_URL}/logo192.png`}
-            alt={tHome('footer.logoAlt')}
-          />
-          <span className="footer-logo-text">
-            Hey<span>Maa</span>
-          </span>
-        </div>
-        <div className="footer-copy">{tHome('footer.copy')}</div>
-      </div>
+      <SiteFooter contentLang={contentLang} />
     </div>
   )
 }
