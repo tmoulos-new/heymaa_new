@@ -2,11 +2,27 @@ import axios from 'axios'
 
 export const HM_TOKEN_KEY = 'hm_token'
 
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+}
+
+function isLocalApiUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return isLocalHost(u.hostname)
+  } catch {
+    return /localhost|127\.0\.0\.1/i.test(url)
+  }
+}
+
 export function getApiBase(): string {
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL
   const h = window.location.hostname
-  if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8000'
-  if (h.endsWith('.vercel.app')) return window.location.origin
+  const envUrl = (process.env.REACT_APP_API_URL || '').trim()
+  // Never bake a localhost API into production (www.heymaa.ai / Vercel).
+  if (envUrl && !(isLocalApiUrl(envUrl) && !isLocalHost(h))) {
+    return envUrl.replace(/\/$/, '')
+  }
+  if (isLocalHost(h)) return 'http://127.0.0.1:8000'
   return window.location.origin
 }
 

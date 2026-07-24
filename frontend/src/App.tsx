@@ -46,6 +46,7 @@ import {
   loadFamilyForToken,
   clearBootLocalScanCache,
 } from "./lib/userDataRecovery";
+import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
@@ -1198,14 +1199,14 @@ function getPregnancyMilestoneMsg(idx: number, total: number, lang: string): str
 
 
 const TR: Record<string,Record<string,string>> = {
-  welcome:{el:"Καλώς ήρθες στη HeyMaa!",en:"Welcome to HeyMaa!",ar:"مرحباً بك في HeyMaa!",es:"¡Bienvenida a HeyMaa!",fr:"Bienvenue sur HeyMaa!",de:"Willkommen bei HeyMaa!",pt:"Bem-vinda ao HeyMaa!",it:"Benvenuta su HeyMaa!",ru:"Добро пожаловать в HeyMaa!",tr:"HeyMaa'ya Hoş Geldiniz!",hi:"HeyMaa में स्वागत है!",ur:"HeyMaa میں خوش آمدید!",zh:"欢迎使用HeyMaa！",ja:"HeyMaaへようこそ！",nl:"Welkom bij HeyMaa!",pl:"Witaj w HeyMaa!",ro:"Bun venit la HeyMaa!",bn:"HeyMaa-তে স্বাগতম!",id:"Selamat Datang di HeyMaa!",sw:"Karibu HeyMaa!",fil:"HeyMaa에 오신 걸 환영해요!",mr:"HeyMaa मध्ये स्वागत आहे!",te:"Chào mừng đến HeyMaa!"},
-  setup:{el:"Ας στήσουμε τον λογαριασμό σου σε 2 λεπτά.",en:"Let's set up your account in 2 minutes.",ar:"لنقم بإعداد حسابك في دقيقتين.",es:"Configuremos tu cuenta en 2 minutos.",fr:"Configurons votre compte en 2 minutes.",de:"Lass uns dein Konto in 2 Minuten einrichten.",pt:"Vamos configurar a tua conta em 2 minutos.",it:"Configuriamo il tuo account in 2 minuti.",ru:"Настроим ваш аккаунт за 2 минуты.",tr:"Hesabını 2 dakikada ayarlayalım.",hi:"2 मिनट में खाता सेट करते हैं।",ur:"آئیں 2 منٹ میں آپ کا اکاؤنٹ ترتیب دیتے ہیں۔",zh:"2分钟设置账户。",ja:"2分で設定しましょう。",nl:"Account instellen in 2 minuten.",pl:"Konto w 2 minuty.",ro:"Cont în 2 minute.",bn:"২ মিনিটে সেটআপ।",id:"Siapkan akun 2 menit.",sw:"Dakika 2 kuanzisha.",fil:"2분 안에 설정.",mr:"2 मिनिटांत.",te:"2 నిమిషాల్లో."},
-  yourname:{el:"Το όνομά σου",en:"Your name",ar:"اسمك",es:"Tu nombre",fr:"Ton prénom",de:"Dein Name",pt:"O teu nome",it:"Il tuo nome",ru:"Ваше имя",tr:"Adın",hi:"आपका नाम",ur:"آپ کا نام",zh:"你的名字",ja:"お名前",nl:"Jouw naam",pl:"Twoje imię",ro:"Numele tău",bn:"আপনার নাম",id:"Nama Anda",sw:"Jina lako",fil:"이름",mr:"तुमचे नाव",te:"మీ పేరు"},
-  letsgo:{el:"Ξεκινάμε →",en:"Let's go →",ar:"هيا نبدأ ←",es:"Empezamos →",fr:"C'est parti →",de:"Los geht's →",pt:"Vamos lá →",it:"Iniziamo →",ru:"Начнём →",tr:"Başlayalım →",hi:"चलते हैं →",ur:"شروع کریں →",zh:"开始 →",ja:"はじめましょう →",nl:"Laten we gaan →",pl:"Zaczynamy →",ro:"Să începem →",bn:"শুরু করি →",id:"Ayo mulai →",sw:"Tuanze →",fil:"시작해요 →",mr:"चला सुरू करूया →",te:"ప్రారంభిద్దాం →"},
-  profile2:{el:"Ας ενημερώσουμε το προφίλ σου",en:"Tell us about your little one",ar:"أخبرينا عن طفلك",es:"Cuéntanos sobre tu bebé",fr:"Parlez-nous de votre bébé",de:"Erzähl uns von deinem Baby",pt:"Fala-nos do teu bebé",it:"Parlaci del tuo bambino",ru:"Расскажите о малыше",tr:"Bebeğin hakkında anlat",hi:"अपने बच्चे के बारे में बताएं",ur:"اپنے بچے کے بارے میں",zh:"告诉我们宝宝",ja:"赤ちゃんについて",nl:"Vertel over je baby",pl:"Opowiedz o dziecku",ro:"Spune-ne despre bebeluș",bn:"শিশু সম্পর্কে বলুন",id:"Ceritakan bayi Anda",sw:"Tuambie kuhusu mtoto",fil:"아기에 대해 알려주세요",mr:"Малюка розкажіть",te:"మీ బాబు గురించి"},
-  childname:{el:"Όνομα παιδιού",en:"Child's name",ar:"اسم الطفل",es:"Nombre del niño",fr:"Prénom de l'enfant",de:"Name des Kindes",pt:"Nome do filho",it:"Nome del bambino",ru:"Имя ребёнка",tr:"Çocuğun adı",hi:"बच्चे का नाम",ur:"بچے کا نام",zh:"孩子的名字",ja:"お子さんの名前",nl:"Naam kind",pl:"Imię dziecka",ro:"Numele copilului",bn:"শিশুর নাম",id:"Nama anak",sw:"Jina la mtoto",fil:"아이 이름",mr:"मुलाचे नाव",te:"పిల్లల పేరు"},
-  childage:{el:"Ηλικία (π.χ. 4 μήνες)",en:"Age (e.g. 4 months)",ar:"العمر (مثل: 4 أشهر)",es:"Edad (ej. 4 meses)",fr:"Âge (ex. 4 mois)",de:"Alter (z.B. 4 Monate)",pt:"Idade (ex. 4 meses)",it:"Età (es. 4 mesi)",ru:"Возраст (4 месяца)",tr:"Yaş (örn. 4 ay)",hi:"उम्र (4 महीने)",ur:"عمر (4 ماہ)",zh:"年龄（4个月）",ja:"年齢（4ヶ月）",nl:"Leeftijd (4 maanden)",pl:"Wiek (4 miesiące)",ro:"Vârsta (4 luni)",bn:"বয়স (৪ মাস)",id:"Usia (4 bulan)",sw:"Umri (miezi 4)",fil:"나이 (4개월)",mr:"वय (4 महिने)",te:"వయస్సు (4 నెలలు)"},
-  continue:{el:"Συνέχεια →",en:"Continue →",ar:"متابعة ←",es:"Continuar →",fr:"Continuer →",de:"Weiter →",pt:"Continuar →",it:"Continua →",ru:"Продолжить →",tr:"Devam et →",hi:"जारी रखें →",ur:"جاری رکھیں →",zh:"继续 →",ja:"続ける →",nl:"Doorgaan →",pl:"Dalej →",ro:"Continuă →",bn:"চালিয়ে যান →",id:"Lanjutkan →",sw:"Endelea →",fil:"계속 →",mr:"पुढे →",te:"కొనసాగించు →"},
+  welcome:{el:"Καλώς ήρθες στη HeyMaa!",en:"Welcome to HeyMaa!",ar:"مرحباً بك في HeyMaa!",es:"¡Bienvenida a HeyMaa!",fr:"Bienvenue sur HeyMaa!",de:"Willkommen bei HeyMaa!",pt:"Bem-vinda ao HeyMaa!",it:"Benvenuta su HeyMaa!",ru:"Добро пожаловать в HeyMaa!",tr:"HeyMaa'ya Hoş Geldiniz!",hi:"HeyMaa में स्वागत है!",ur:"HeyMaa میں خوش آمدید!",zh:"欢迎使用HeyMaa！",ja:"HeyMaaへようこそ！",nl:"Welkom bij HeyMaa!",pl:"Witaj w HeyMaa!",ro:"Bun venit la HeyMaa!",bn:"HeyMaa-তে স্বাগতম!",id:"Selamat Datang di HeyMaa!",sw:"Karibu HeyMaa!",fil:"Welcome to HeyMaa!",mr:"HeyMaa मध्ये स्वागत आहे!",te:"Chào mừng đến HeyMaa!"},
+  setup:{el:"Ας στήσουμε τον λογαριασμό σου σε 2 λεπτά.",en:"Let's set up your account in 2 minutes.",ar:"لنقم بإعداد حسابك في دقيقتين.",es:"Configuremos tu cuenta en 2 minutos.",fr:"Configurons votre compte en 2 minutes.",de:"Lass uns dein Konto in 2 Minuten einrichten.",pt:"Vamos configurar a tua conta em 2 minutos.",it:"Configuriamo il tuo account in 2 minuti.",ru:"Настроим ваш аккаунт за 2 минуты.",tr:"Hesabını 2 dakikada ayarlayalım.",hi:"2 मिनट में खाता सेट करते हैं।",ur:"آئیں 2 منٹ میں آپ کا اکاؤنٹ ترتیب دیتے ہیں۔",zh:"2分钟设置账户。",ja:"2分で設定しましょう。",nl:"Account instellen in 2 minuten.",pl:"Konto w 2 minuty.",ro:"Cont în 2 minute.",bn:"২ মিনিটে সেটআপ।",id:"Siapkan akun 2 menit.",sw:"Dakika 2 kuanzisha.",fil:"Let's set up your account in 2 minutes.",mr:"2 मिनिटांत.",te:"2 నిమిషాల్లో."},
+  yourname:{el:"Το όνομά σου",en:"Your name",ar:"اسمك",es:"Tu nombre",fr:"Ton prénom",de:"Dein Name",pt:"O teu nome",it:"Il tuo nome",ru:"Ваше имя",tr:"Adın",hi:"आपका नाम",ur:"آپ کا نام",zh:"你的名字",ja:"お名前",nl:"Jouw naam",pl:"Twoje imię",ro:"Numele tău",bn:"আপনার নাম",id:"Nama Anda",sw:"Jina lako",fil:"Your name",mr:"तुमचे नाव",te:"మీ పేరు"},
+  letsgo:{el:"Ξεκινάμε →",en:"Let's go →",ar:"هيا نبدأ ←",es:"Empezamos →",fr:"C'est parti →",de:"Los geht's →",pt:"Vamos lá →",it:"Iniziamo →",ru:"Начнём →",tr:"Başlayalım →",hi:"चलते हैं →",ur:"شروع کریں →",zh:"开始 →",ja:"はじめましょう →",nl:"Laten we gaan →",pl:"Zaczynamy →",ro:"Să începem →",bn:"শুরু করি →",id:"Ayo mulai →",sw:"Tuanze →",fil:"Let's go →",mr:"चला सुरू करूया →",te:"ప్రారంభిద్దాం →"},
+  profile2:{el:"Ας ενημερώσουμε το προφίλ σου",en:"Tell us about your little one",ar:"أخبرينا عن طفلك",es:"Cuéntanos sobre tu bebé",fr:"Parlez-nous de votre bébé",de:"Erzähl uns von deinem Baby",pt:"Fala-nos do teu bebé",it:"Parlaci del tuo bambino",ru:"Расскажите о малыше",tr:"Bebeğin hakkında anlat",hi:"अपने बच्चे के बारे में बताएं",ur:"اپنے بچے کے بارے میں",zh:"告诉我们宝宝",ja:"赤ちゃんについて",nl:"Vertel over je baby",pl:"Opowiedz o dziecku",ro:"Spune-ne despre bebeluș",bn:"শিশু সম্পর্কে বলুন",id:"Ceritakan bayi Anda",sw:"Tuambie kuhusu mtoto",fil:"Tell us about your little one",mr:"Малюка розкажіть",te:"మీ బాబు గురించి"},
+  childname:{el:"Όνομα παιδιού",en:"Child's name",ar:"اسم الطفل",es:"Nombre del niño",fr:"Prénom de l'enfant",de:"Name des Kindes",pt:"Nome do filho",it:"Nome del bambino",ru:"Имя ребёнка",tr:"Çocuğun adı",hi:"बच्चे का नाम",ur:"بچے کا نام",zh:"孩子的名字",ja:"お子さんの名前",nl:"Naam kind",pl:"Imię dziecka",ro:"Numele copilului",bn:"শিশুর নাম",id:"Nama anak",sw:"Jina la mtoto",fil:"Child's name",mr:"मुलाचे नाव",te:"పిల్లల పేరు"},
+  childage:{el:"Ηλικία (π.χ. 4 μήνες)",en:"Age (e.g. 4 months)",ar:"العمر (مثل: 4 أشهر)",es:"Edad (ej. 4 meses)",fr:"Âge (ex. 4 mois)",de:"Alter (z.B. 4 Monate)",pt:"Idade (ex. 4 meses)",it:"Età (es. 4 mesi)",ru:"Возраст (4 месяца)",tr:"Yaş (örn. 4 ay)",hi:"उम्र (4 महीने)",ur:"عمر (4 ماہ)",zh:"年龄（4个月）",ja:"年齢（4ヶ月）",nl:"Leeftijd (4 maanden)",pl:"Wiek (4 miesiące)",ro:"Vârsta (4 luni)",bn:"বয়স (৪ মাস)",id:"Usia (4 bulan)",sw:"Umri (miezi 4)",fil:"Age (e.g. 4 months)",mr:"वय (4 महिने)",te:"వయస్సు (4 నెలలు)"},
+  continue:{el:"Συνέχεια →",en:"Continue →",ar:"متابعة ←",es:"Continuar →",fr:"Continuer →",de:"Weiter →",pt:"Continuar →",it:"Continua →",ru:"Продолжить →",tr:"Devam et →",hi:"जारी रखें →",ur:"جاری رکھیں →",zh:"继续 →",ja:"続ける →",nl:"Doorgaan →",pl:"Dalej →",ro:"Continuă →",bn:"চালিয়ে যান →",id:"Lanjutkan →",sw:"Endelea →",fil:"Continue →",mr:"पुढे →",te:"కొనసాగించు →"},
   duedatelabel:{el:"Πιθανότερη ημερομηνία τοκετού",en:"Expected due date",ar:"تاريخ الولادة المتوقع",zh:"预产期",es:"Fecha probable de parto",fr:"Date d'accouchement prévue",ro:"Data probabilă a naşterii",pl:"Przewidywana data porodu",tr:"Tahmini doğum tarihi",hi:"संभावित प्रसव तिथि",ur:"متوقع تاریخ پیدائش",ja:"出産予定日",ru:"Предполагаемая дата родов",de:"Voraussichtlicher Geburtstermin",pt:"Data prevista do parto",it:"Data presunta del parto",nl:"Verwachte bevallingsdatum",bn:"প্রত্যাশিত প্রসবের তারিখ",id:"Tanggal perkiraan persalinan",sw:"Tarehe inayotarajiwa ya kujifungua",fil:"Inaasahang petsa ng panganganak",mr:"अपेक्षित प्रसूती तारीख",te:"ఆశించిన ప్రసవ తేదీ"},
   childbirthdate:{el:"Ημερομηνία γέννησης παιδιού",en:"Child's birth date",ar:"تاريخ ميلاد الطفل",zh:"孩子的出生日期",es:"Fecha de nacimiento del niño",fr:"Date de naissance de l'enfant",ro:"Data naşterii copilului",pl:"Data urodzenia dziecka",tr:"Çocuğun doğum tarihi",hi:"बच्चे की जन्म तिथि",ur:"بچے کی تاریخ پیدائش",ja:"お子さんの生年月日",ru:"Дата рождения ребёнка",de:"Geburtsdatum des Kindes",pt:"Data de nascimento do filho",it:"Data di nascita del bambino",nl:"Geboortedatum kind",bn:"শিশুর জন্ম তারিখ",id:"Tanggal lahir anak",sw:"Tarehe ya kuzaliwa ya mtoto",fil:"Petsa ng kapanganakan ng anak",mr:"मुलाची जन्म तारीख",te:"పిల్లల పుట్టిన తేదీ"},
   unit_days:{el:"ημέρες",en:"days",ar:"أيام",zh:"天",es:"días",fr:"jours",ro:"zile",pl:"dni",tr:"gün",hi:"दिन",ur:"دن",ja:"日",ru:"дней",de:"Tage",pt:"dias",it:"giorni",nl:"dagen",bn:"দিন",id:"hari",sw:"siku",fil:"araw",mr:"दिवस",te:"రోజులు"},
@@ -1225,58 +1226,60 @@ const TR: Record<string,Record<string,string>> = {
   have_baby:{el:"Έχω μωρό",en:"I have a baby",ar:"لدي طفل",zh:"我有宝宝",es:"Tengo un bebé",fr:"J'ai un bébé",ro:"Am un copil",pl:"Mam dziecko",tr:"Bebeğim var",hi:"मेरे पास बच्चा है",ur:"میرے پاس بچہ ہے",ja:"赤ちゃんがいます",ru:"У меня малыш",de:"Ich habe ein Baby",pt:"Tenho um bebé",it:"Ho un bambino",nl:"Ik heb een baby",bn:"আমার একটি শিশু আছে",id:"Saya sudah punya bayi",sw:"Nina mtoto",fil:"May bata na ako",mr:"माझे बाळ आहे",te:"నాకు శిశువు ఉంది"},
   babyinfo_q:{el:"Πες μας για το παιδί σου.",en:"Tell us about your child.",ar:"أخبرينا عن طفلك.",zh:"告诉我们关于您孩子的信息。",es:"Cuéntanos sobre tu hijo/a.",fr:"Parlez-nous de votre enfant.",ro:"Spune-ne despre copilul tău.",pl:"Opowiedz nam o swoim dziecku.",tr:"Çocuğun hakkında anlat.",hi:"अपने बच्चे के बारे में बताएं।",ur:"اپنے بچے کے بارے میں بتائیں۔",ja:"お子さんについて教えてください。",ru:"Расскажите о своём ребёнке.",de:"Erzähl uns von deinem Kind.",pt:"Fala-nos do teu filho/a.",it:"Parlaci del tuo bambino.",nl:"Vertel ons over je kind.",bn:"আপনার শিশু সম্পর্কে বলুন।",id:"Ceritakan tentang anak Anda.",sw:"Tuambie kuhusu mtoto wako.",fil:"Sabihin mo sa amin ang tungkol sa iyong anak.",mr:"तुमच्या मुलाबद्दल सांगा.",te:"మీ పిల్లల గురించి చెప్పండి."},
   subexpiredtitle:{el:"Η συνδρομή σου έχει λήξει",en:"Your subscription has expired",ar:"انتهت صلاحية اشتراكك",es:"Tu suscripción ha caducado",fr:"Votre abonnement a expiré",de:"Dein Abo ist abgelaufen",pt:"A tua subscrição expirou",it:"Il tuo abbonamento è scaduto",ru:"Ваша подписка истекла",tr:"Aboneliğinizin süresi doldu",hi:"आपकी सदस्यता समाप्त हो गई है",ur:"آپ کی سبسکرپشن ختم ہو گئی ہے",zh:"您的订阅已过期",ja:"サブスクリプションの期限が切れました",nl:"Je abonnement is verlopen",pl:"Twoja subskrypcja wygasła",ro:"Abonamentul tău a expirat",bn:"আপনার সাবস্ক্রিপশন শেষ হয়ে গেছে",id:"Langganan Anda telah berakhir",sw:"Usajili wako umeisha muda",fil:"Nag-expire na ang subscription mo",mr:"तुमची सदस्यता संपली आहे",te:"మీ సభ్యత్వం గడువు ముగిసింది"},
-  subexpiredbody:{el:"Για να συνεχίσεις να χρησιμοποιείς την HeyMaa, ανανέωσε τη συνδρομή σου.",en:"To keep using HeyMaa, please renew your subscription.",ar:"لمواصلة استخدام HeyMaa، يرجى تجديد اشتراكك.",es:"Para seguir usando HeyMaa, renueva tu suscripción.",fr:"Pour continuer à utiliser HeyMaa, renouvelez votre abonnement.",de:"Um HeyMaa weiterhin zu nutzen, erneuere bitte dein Abo.",pt:"Para continuar a usar a HeyMaa, renova a tua subscrição.",it:"Per continuare a usare HeyMaa, rinnova il tuo abbonamento.",ru:"Чтобы продолжить использовать HeyMaa, продлите подписку.",tr:"HeyMaa'yı kullanmaya devam etmek için aboneliğini yenile.",hi:"HeyMaa का उपयोग जारी रखने के लिए, कृपया अपनी सदस्यता रिन्यू करें।",ur:"HeyMaa کا استعمال جاری رکھنے کے لیے، اپنی سبسکرپشن کی تجدید کریں۔",zh:"要继续使用HeyMaa，请续订您的订阅。",ja:"HeyMaaを使い続けるには、サブスクリプションを更新してください。",nl:"Om HeyMaa te blijven gebruiken, vernieuw je abonnement.",pl:"Aby dalej korzystać z HeyMaa, odnów subskrypcję.",ro:"Pentru a continua să folosești HeyMaa, reînnoiește abonamentul.",bn:"HeyMaa ব্যবহার চালিয়ে যেতে, আপনার সাবস্ক্রিপশন রিনিউ করুন।",id:"Untuk terus menggunakan HeyMaa, perpanjang langganan Anda.",sw:"Kuendelea kutumia HeyMaa, tafadhali sasisha usajili wako.",fil:"이용을 계속하려면 구독을 갱신해 주세요.",mr:"HeyMaa वापरणे सुरू ठेवण्यासाठी, तुमची सदस्यता रिन्यू करा.",te:"HeyMaa ఉపయోగించడం కొనసాగించడానికి, మీ సభ్యత్వాన్ని పునరుద్ధరించండి."},
-  renewbtn:{el:"Ανανέωση συνδρομής →",en:"Renew subscription →",ar:"تجديد الاشتراك ←",es:"Renovar suscripción →",fr:"Renouveler l'abonnement →",de:"Abo erneuern →",pt:"Renovar subscrição →",it:"Rinnova abbonamento →",ru:"Продлить подписку →",tr:"Aboneliği yenile →",hi:"सदस्यता रिन्यू करें →",ur:"سبسکرپشن کی تجدید کریں →",zh:"续订订阅 →",ja:"サブスクリプションを更新 →",nl:"Abonnement vernieuwen →",pl:"Odnów subskrypcję →",ro:"Reînnoiește abonamentul →",bn:"সাবস্ক্রিপশন রিনিউ করুন →",id:"Perpanjang langganan →",sw:"Sasisha usajili →",fil:"갱신하기 →",mr:"सदस्यता रिन्यू करा →",te:"సభ్యత్వాన్ని పునరుద్ధరించండి →"},
-  back:{el:"← Πίσω",en:"← Back",ar:"→ رجوع",es:"← Atrás",fr:"← Retour",de:"← Zurück",pt:"← Voltar",it:"← Indietro",ru:"← Назад",tr:"← Geri",hi:"← वापस",ur:"← پیچھے",zh:"← 返回",ja:"← 戻る",nl:"← Terug",pl:"← Wstecz",ro:"← Înapoi",bn:"← ফিরে",id:"← Kembali",sw:"← Rudi",fil:"← 뒤로",mr:"← मागे",te:"← వెనక్కి"},
-  ready:{el:"Είσαι έτοιμη!",en:"You're all set!",ar:"أنت جاهزة!",es:"¡Ya estás lista!",fr:"Vous êtes prête!",de:"Du bist bereit!",pt:"Estás pronta!",it:"Sei pronta!",ru:"Вы готовы!",tr:"Hazırsın!",hi:"आप तैयार हैं!",ur:"آپ تیار ہیں!",zh:"你准备好了！",ja:"準備完了！",nl:"Je bent er klaar voor!",pl:"Jesteś gotowa!",ro:"Ești gata!",bn:"আপনি প্রস্তুত!",id:"Kamu siap!",sw:"Uko tayari!",fil:"준비됐어요!",mr:"तुम्ही तयार आहात!",te:"మీరు సిద్ధంగా ఉన్నారు!"},
-  readysub:{el:"Ο λογαριασμός σου στήθηκε.",en:"Your account is ready.",ar:"حسابك جاهز.",es:"Cuenta lista.",fr:"Compte prêt.",de:"Konto bereit.",pt:"Conta pronta.",it:"Account pronto.",ru:"Аккаунт готов.",tr:"Hesabın hazır.",hi:"खाता तैयार है।",ur:"اکاؤنٹ تیار ہے۔",zh:"账户已准备好。",ja:"準備完了。",nl:"Account klaar.",pl:"Konto gotowe.",ro:"Cont gata.",bn:"অ্যাকাউন্ট প্রস্তুত।",id:"Akun siap.",sw:"Akaunti iko tayari.",fil:"계정 준비됐어요.",mr:"Акаунт готовий.",te:"ఖాతా సిద్ధంగా ఉంది."},
+  subexpiredbody:{el:"Για να συνεχίσεις να χρησιμοποιείς την HeyMaa, ανανέωσε τη συνδρομή σου.",en:"To keep using HeyMaa, please renew your subscription.",ar:"لمواصلة استخدام HeyMaa، يرجى تجديد اشتراكك.",es:"Para seguir usando HeyMaa, renueva tu suscripción.",fr:"Pour continuer à utiliser HeyMaa, renouvelez votre abonnement.",de:"Um HeyMaa weiterhin zu nutzen, erneuere bitte dein Abo.",pt:"Para continuar a usar a HeyMaa, renova a tua subscrição.",it:"Per continuare a usare HeyMaa, rinnova il tuo abbonamento.",ru:"Чтобы продолжить использовать HeyMaa, продлите подписку.",tr:"HeyMaa'yı kullanmaya devam etmek için aboneliğini yenile.",hi:"HeyMaa का उपयोग जारी रखने के लिए, कृपया अपनी सदस्यता रिन्यू करें।",ur:"HeyMaa کا استعمال جاری رکھنے کے لیے، اپنی سبسکرپشن کی تجدید کریں۔",zh:"要继续使用HeyMaa，请续订您的订阅。",ja:"HeyMaaを使い続けるには、サブスクリプションを更新してください。",nl:"Om HeyMaa te blijven gebruiken, vernieuw je abonnement.",pl:"Aby dalej korzystać z HeyMaa, odnów subskrypcję.",ro:"Pentru a continua să folosești HeyMaa, reînnoiește abonamentul.",bn:"HeyMaa ব্যবহার চালিয়ে যেতে, আপনার সাবস্ক্রিপশন রিনিউ করুন।",id:"Untuk terus menggunakan HeyMaa, perpanjang langganan Anda.",sw:"Kuendelea kutumia HeyMaa, tafadhali sasisha usajili wako.",fil:"To keep using HeyMaa, please renew your subscription.",mr:"HeyMaa वापरणे सुरू ठेवण्यासाठी, तुमची सदस्यता रिन्यू करा.",te:"HeyMaa ఉపయోగించడం కొనసాగించడానికి, మీ సభ్యత్వాన్ని పునరుద్ధరించండి."},
+  renewbtn:{el:"Ανανέωση συνδρομής →",en:"Renew subscription →",ar:"تجديد الاشتراك ←",es:"Renovar suscripción →",fr:"Renouveler l'abonnement →",de:"Abo erneuern →",pt:"Renovar subscrição →",it:"Rinnova abbonamento →",ru:"Продлить подписку →",tr:"Aboneliği yenile →",hi:"सदस्यता रिन्यू करें →",ur:"سبسکرپشن کی تجدید کریں →",zh:"续订订阅 →",ja:"サブスクリプションを更新 →",nl:"Abonnement vernieuwen →",pl:"Odnów subskrypcję →",ro:"Reînnoiește abonamentul →",bn:"সাবস্ক্রিপশন রিনিউ করুন →",id:"Perpanjang langganan →",sw:"Sasisha usajili →",fil:"Renew subscription →",mr:"सदस्यता रिन्यू करा →",te:"సభ్యత్వాన్ని పునరుద్ధరించండి →"},
+  back:{el:"← Πίσω",en:"← Back",ar:"→ رجوع",es:"← Atrás",fr:"← Retour",de:"← Zurück",pt:"← Voltar",it:"← Indietro",ru:"← Назад",tr:"← Geri",hi:"← वापस",ur:"← پیچھے",zh:"← 返回",ja:"← 戻る",nl:"← Terug",pl:"← Wstecz",ro:"← Înapoi",bn:"← ফিরে",id:"← Kembali",sw:"← Rudi",fil:"← Back",mr:"← मागे",te:"← వెనక్కి"},
+  ready:{el:"Είσαι έτοιμη!",en:"You're all set!",ar:"أنت جاهزة!",es:"¡Ya estás lista!",fr:"Vous êtes prête!",de:"Du bist bereit!",pt:"Estás pronta!",it:"Sei pronta!",ru:"Вы готовы!",tr:"Hazırsın!",hi:"आप तैयार हैं!",ur:"آپ تیار ہیں!",zh:"你准备好了！",ja:"準備完了！",nl:"Je bent er klaar voor!",pl:"Jesteś gotowa!",ro:"Ești gata!",bn:"আপনি প্রস্তুত!",id:"Kamu siap!",sw:"Uko tayari!",fil:"You're all set!",mr:"तुम्ही तयार आहात!",te:"మీరు సిద్ధంగా ఉన్నారు!"},
+  readysub:{el:"Ο λογαριασμός σου στήθηκε.",en:"Your account is ready.",ar:"حسابك جاهز.",es:"Cuenta lista.",fr:"Compte prêt.",de:"Konto bereit.",pt:"Conta pronta.",it:"Account pronto.",ru:"Аккаунт готов.",tr:"Hesabın hazır.",hi:"खाता तैयार है।",ur:"اکاؤنٹ تیار ہے۔",zh:"账户已准备好。",ja:"準備完了。",nl:"Account klaar.",pl:"Konto gotowe.",ro:"Cont gata.",bn:"অ্যাকাউন্ট প্রস্তুত।",id:"Akun siap.",sw:"Akaunti iko tayari.",fil:"Your account is ready.",mr:"Акаунт готовий.",te:"ఖాతా సిద్ధంగా ఉంది."},
   country_label:{el:"Χώρα",en:"Country",ar:"البلد",zh:"国家",es:"País",fr:"Pays",ro:"Țara",pl:"Kraj",tr:"Ülke",hi:"देश",ur:"ملک",ja:"国",ru:"Страна",de:"Land",pt:"País",it:"Paese",nl:"Land",bn:"দেশ",id:"Negara",sw:"Nchi",fil:"Bansa",mr:"देश",te:"దేశం"},
   country_ph:{el:"Επίλεξε χώρα...",en:"Select your country...",ar:"اختر بلدك...",zh:"选择国家...",es:"Selecciona tu país...",fr:"Sélectionnez votre pays...",ro:"Selectează țara...",pl:"Wybierz kraj...",tr:"Ülkeni seç...",hi:"देश चुनें...",ur:"ملک منتخب کریں...",ja:"国を選択...",ru:"Выберите страну...",de:"Land wählen...",pt:"Seleciona o teu país...",it:"Seleziona il tuo paese...",nl:"Selecteer land...",bn:"দেশ নির্বাচন করুন...",id:"Pilih negara...",sw:"Chagua nchi...",fil:"Pumili ng bansa...",mr:"देश निवडा...",te:"దేశం ఎంచుకోండి..."},
   consent_gdpr:{el:"Συναινώ σε εξατομικευμένες προσφορές από την Care Direct (GDPR)",en:"I agree to receive personalised offers from Care Direct (GDPR)",ar:"أوافق على العروض المخصصة من Care Direct (GDPR)",zh:"同意接收Care Direct个性化优惠 (GDPR)",es:"Acepto recibir ofertas personalizadas de Care Direct (GDPR)",fr:"Accepter les offres personnalisées Care Direct (RGPD)",ro:"Accept oferte personalizate de la Care Direct (GDPR)",pl:"Zgadzam się na oferty spersonalizowane od Care Direct (RODO)",tr:"Care Direct kişisel teklifler onayı (GDPR)",hi:"Care Direct से व्यक्तिगत ऑफ़र पाने की सहमति (GDPR)",ur:"Care Direct سے ذاتی آفرز قبول کرتا/کرتی ہوں (GDPR)",ja:"Care Directからのパーソナライズ特典に同意 (GDPR)",ru:"Согласен/а на предложения Care Direct (GDPR)",de:"Personalisierte Angebote von Care Direct zustimmen (DSGVO)",pt:"Aceito ofertas personalizadas da Care Direct (RGPD)",it:"Acconsento alle offerte di Care Direct (GDPR)",nl:"Akkoord met aanbiedingen van Care Direct (AVG)",bn:"Care Direct থেকে অফার পেতে সম্মতি (GDPR)",id:"Setuju menerima penawaran dari Care Direct (GDPR)",sw:"Nakubali ofa kutoka Care Direct (GDPR)",fil:"Sumasang-ayon sa alok mula sa Care Direct (GDPR)",mr:"Care Direct कडून ऑफर मिळवण्यास संमती (GDPR)",te:"Care Direct నుండి ఆఫర్‌లకు అంగీకరిస్తున్నాను (GDPR)"},
-  enterbtn:{el:"Μπες στην εφαρμογή →",en:"Enter the app →",ar:"← ادخل التطبيق",es:"Entrar →",fr:"Entrer →",de:"App öffnen →",pt:"Entrar →",it:"Entra →",ru:"Войти →",tr:"Gir →",hi:"प्रवेश करें →",ur:"داخل ہوں →",zh:"进入 →",ja:"入る →",nl:"Ga naar de app →",pl:"Wejdź →",ro:"Intră →",bn:"প্রবেশ করুন →",id:"Masuk →",sw:"Ingia →",fil:"앱으로 →",mr:"Увійти →",te:"ప్రవేశించు →"},
-  greeting:{el:"Καλημέρα,",en:"Good morning,",ar:"صباح الخير،",es:"Buenos días,",fr:"Bonjour,",de:"Guten Morgen,",pt:"Bom dia,",it:"Buongiorno,",ru:"Доброе утро,",tr:"Günaydın,",hi:"शुभ प्रभात,",ur:"صبح بخیر،",zh:"早上好，",ja:"おはようございます、",nl:"Goedemorgen,",pl:"Dzień dobry,",ro:"Bună dimineața,",bn:"শুভ সকাল,",id:"Selamat pagi,",sw:"Habari,",fil:"좋은 아침이에요,",mr:"शुभ सकाळ,",te:"శుభోదయం,"},
-  chat:{el:"Συνομιλία",en:"Chat",ar:"المحادثة",es:"Chat",fr:"Discussion",de:"Chat",pt:"Chat",it:"Chat",ru:"Чат",tr:"Sohbet",hi:"चैट",ur:"چیٹ",zh:"聊天",ja:"チャット",nl:"Chat",pl:"Czat",ro:"Chat",bn:"চ্যাট",id:"Obrolan",sw:"Mazungumzo",fil:"채팅",mr:"संवाद",te:"చాట్"},
-  family:{el:"Οικογένεια",en:"Family",ar:"العائلة",es:"Familia",fr:"Famille",de:"Familie",pt:"Família",it:"Famiglia",ru:"Семья",tr:"Aile",hi:"परिवार",ur:"خاندان",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",bn:"পরিবার",id:"Keluarga",sw:"Familia",fil:"가족",mr:"कुटुंब",te:"కుటుంబం"},
-  memories:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"추억",mr:"आठवणी",te:"జ్ఞాపకాలు"},
-  milestones:{el:"Milestones",en:"Milestones",ar:"الإنجازات",es:"Hitos",fr:"Étapes",de:"Meilensteine",pt:"Marcos",it:"Tappe",ru:"Вехи",tr:"Aşamalar",hi:"माइलस्टोन",ur:"سنگ میل",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Etapy",ro:"Etape",bn:"মাইলফলক",id:"Tonggak",sw:"Hatua",fil:"이정표",mr:"टप्पे",te:"మైలురాళ్ళు"},
-  shopping:{el:"Shopping",en:"Shopping",ar:"التسوق",es:"Compras",fr:"Achats",de:"Einkaufen",pt:"Compras",it:"Shopping",ru:"Покупки",tr:"Alışveriş",hi:"शॉपिंग",ur:"شاپنگ",zh:"购物",ja:"ショッピング",nl:"Winkelen",pl:"Zakupy",ro:"Cumpărături",bn:"কেনাকাটা",id:"Belanja",sw:"Ununuzi",fil:"쇼핑",mr:"खरेदी",te:"షాపింగ్"},
+  enterbtn:{el:"Μπες στην εφαρμογή →",en:"Enter the app →",ar:"← ادخل التطبيق",es:"Entrar →",fr:"Entrer →",de:"App öffnen →",pt:"Entrar →",it:"Entra →",ru:"Войти →",tr:"Gir →",hi:"प्रवेश करें →",ur:"داخل ہوں →",zh:"进入 →",ja:"入る →",nl:"Ga naar de app →",pl:"Wejdź →",ro:"Intră →",bn:"প্রবেশ করুন →",id:"Masuk →",sw:"Ingia →",fil:"Enter the app →",mr:"Увійти →",te:"ప్రవేశించు →"},
+  greeting:{el:"Καλημέρα,",en:"Good morning,",ar:"صباح الخير،",es:"Buenos días,",fr:"Bonjour,",de:"Guten Morgen,",pt:"Bom dia,",it:"Buongiorno,",ru:"Доброе утро,",tr:"Günaydın,",hi:"शुभ प्रभात,",ur:"صبح بخیر،",zh:"早上好，",ja:"おはようございます、",nl:"Goedemorgen,",pl:"Dzień dobry,",ro:"Bună dimineața,",bn:"শুভ সকাল,",id:"Selamat pagi,",sw:"Habari,",fil:"Good morning,",mr:"शुभ सकाळ,",te:"శుభోదయం,"},
+  chat:{el:"Συνομιλία",en:"Chat",ar:"المحادثة",es:"Chat",fr:"Discussion",de:"Chat",pt:"Chat",it:"Chat",ru:"Чат",tr:"Sohbet",hi:"चैट",ur:"چیٹ",zh:"聊天",ja:"チャット",nl:"Chat",pl:"Czat",ro:"Chat",bn:"চ্যাট",id:"Obrolan",sw:"Mazungumzo",fil:"Chat",mr:"संवाद",te:"చాట్"},
+  family:{el:"Οικογένεια",en:"Family",ar:"العائلة",es:"Familia",fr:"Famille",de:"Familie",pt:"Família",it:"Famiglia",ru:"Семья",tr:"Aile",hi:"परिवार",ur:"خاندان",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",bn:"পরিবার",id:"Keluarga",sw:"Familia",fil:"Family",mr:"कुटुंब",te:"కుటుంబం"},
+  memories:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"Memories",mr:"आठवणी",te:"జ్ఞాపకాలు"},
+  milestones:{el:"Milestones",en:"Milestones",ar:"الإنجازات",es:"Hitos",fr:"Étapes",de:"Meilensteine",pt:"Marcos",it:"Tappe",ru:"Вехи",tr:"Aşamalar",hi:"माइलस्टोन",ur:"سنگ میل",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Etapy",ro:"Etape",bn:"মাইলফলক",id:"Tonggak",sw:"Hatua",fil:"Milestones",mr:"टप्पे",te:"మైలురాళ్ళు"},
+  shopping:{el:"Shopping",en:"Shopping",ar:"التسوق",es:"Compras",fr:"Achats",de:"Einkaufen",pt:"Compras",it:"Shopping",ru:"Покупки",tr:"Alışveriş",hi:"शॉपिंग",ur:"شاپنگ",zh:"购物",ja:"ショッピング",nl:"Winkelen",pl:"Zakupy",ro:"Cumpărături",bn:"কেনাকাটা",id:"Belanja",sw:"Ununuzi",fil:"Shopping",mr:"खरेदी",te:"షాపింగ్"},
   offers:{el:"Προσφορές",en:"Offers",ar:"العروض",zh:"优惠",es:"Ofertas",fr:"Offres",ro:"Oferte",pl:"Oferty",tr:"Teklifler",hi:"ऑफर्स",ur:"پیشکشیں",ja:"お得情報",ru:"Предложения",de:"Angebote",pt:"Ofertas",it:"Offerte",nl:"Aanbiedingen",bn:"অফার",id:"Penawaran",sw:"Matoleo",fil:"Mga Alok",mr:"ऑफर्स",te:"ఆఫర్‌లు"},
   offers_sub:{el:"Ενημερώσεις, νέα και προσφορές από την ομάδα της HeyMaa.",en:"Updates, news and offers from the HeyMaa team.",ar:"تحديثات وأخبار وعروض من فريق HeyMaa.",zh:"来自HeyMaa团队的更新、新闻和优惠。",es:"Novedades, noticias y ofertas del equipo de HeyMaa.",fr:"Mises à jour, actualités et offres de l'équipe HeyMaa.",ro:"Actualizări, știri și oferte de la echipa HeyMaa.",pl:"Aktualizacje, wiadomości i oferty od zespołu HeyMaa.",tr:"HeyMaa ekibinden güncellemeler, haberler ve teklifler.",hi:"HeyMaa टीम से अपडेट, समाचार और ऑफर।",ur:"HeyMaa ٹیم سے اپڈیٹس، خبریں اور پیشکشیں۔",ja:"HeyMaaチームからの最新情報、ニュース、お得情報。",ru:"Обновления, новости и предложения от команды HeyMaa.",de:"Updates, Neuigkeiten und Angebote vom HeyMaa-Team.",pt:"Atualizações, novidades e ofertas da equipa HeyMaa.",it:"Aggiornamenti, novità e offerte dal team HeyMaa.",nl:"Updates, nieuws en aanbiedingen van het HeyMaa-team.",bn:"HeyMaa টিমের আপডেট, খবর এবং অফার।",id:"Pembaruan, berita, dan penawaran dari tim HeyMaa.",sw:"Habari, masasisho na matoleo kutoka timu ya HeyMaa.",fil:"Mga update, balita, at alok mula sa HeyMaa team.",mr:"HeyMaa टीमकडून अपडेट्स, बातम्या आणि ऑफर्स.",te:"HeyMaa టీమ్ నుండి అప్‌డేట్‌లు, వార్తలు మరియు ఆఫర్‌లు."},
   offers_empty:{el:"Δεν υπάρχουν νέες ενημερώσεις προς το παρόν.",en:"No new updates at the moment.",ar:"لا توجد تحديثات جديدة في الوقت الحالي.",zh:"目前没有新的更新。",es:"No hay novedades por el momento.",fr:"Aucune nouvelle mise à jour pour le moment.",ro:"Nu există actualizări noi momentan.",pl:"Brak nowych aktualizacji w tej chwili.",tr:"Şu anda yeni güncelleme yok.",hi:"फिलहाल कोई नया अपडेट नहीं है।",ur:"اس وقت کوئی نئی اپڈیٹ نہیں ہے۔",ja:"現在、新しいお知らせはありません。",ru:"Сейчас нет новых обновлений.",de:"Derzeit keine neuen Updates.",pt:"Sem novidades por agora.",it:"Nessun aggiornamento al momento.",nl:"Momenteel geen nieuwe updates.",bn:"এই মুহূর্তে নতুন কোনো আপডেট নেই।",id:"Belum ada pembaruan baru saat ini.",sw:"Hakuna masasisho mapya kwa sasa.",fil:"Walang bagong update sa ngayon.",mr:"सध्या कोणतेही नवीन अपडेट्स नाहीत.",te:"ఇప్పుడు కొత్త అప్‌డేట్‌లు లేవు."},
   loading:{el:"Φόρτωση...",en:"Loading...",ar:"جار التحميل...",zh:"加载中...",es:"Cargando...",fr:"Chargement...",ro:"Se încarcă...",pl:"Wczytywanie...",tr:"Yükleniyor...",hi:"लोड हो रहा है...",ur:"لوڈ ہو رہا ہے...",ja:"読み込み中...",ru:"Загрузка...",de:"Lädt...",pt:"A carregar...",it:"Caricamento...",nl:"Laden...",bn:"লোড হচ্ছে...",id:"Memuat...",sw:"Inapakia...",fil:"Naglo-load...",mr:"लोड होत आहे...",te:"లోడ్ అవుతోంది..."},
   learnmore:{el:"Μάθε περισσότερα",en:"Learn more",ar:"معرفة المزيد",zh:"了解更多",es:"Saber más",fr:"En savoir plus",ro:"Află mai multe",pl:"Dowiedz się więcej",tr:"Daha fazla bilgi",hi:"अधिक जानें",ur:"مزید جانیں",ja:"もっと見る",ru:"Подробнее",de:"Mehr erfahren",pt:"Saber mais",it:"Scopri di più",nl:"Meer informatie",bn:"আরও জানুন",id:"Pelajari lebih lanjut",sw:"Jifunze zaidi",fil:"Alamin pa",mr:"अधिक जाणून घ्या",te:"మరింత తెలుసుకోండి"},
-  typehere:{el:"Γράψε κάτι...",en:"Type something...",ar:"اكتبي شيئاً...",es:"Escribe algo...",fr:"Écris quelque chose...",de:"Schreib etwas...",pt:"Escreve algo...",it:"Scrivi qualcosa...",ru:"Напишите что-нибудь...",tr:"Bir şey yaz...",hi:"कुछ लिखें...",ur:"کچھ لکھیں...",zh:"输入点什么...",ja:"何か入力...",nl:"Typ iets...",pl:"Napisz coś...",ro:"Scrie ceva...",bn:"কিছু লিখুন...",id:"Tulis sesuatu...",sw:"Andika kitu...",fil:"입력하세요...",mr:"काहीतरी लिहा...",te:"ఏదైనా టైప్ చేయండి..."},
-  recentmem:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"추억",mr:"आठवणी",te:"జ్ఞాపకాలు"},
-  addmemory:{el:"Γράψε μια ανάμνηση...",en:"Write a memory...",ar:"أضيفي ذكرى...",es:"Escribe un recuerdo...",fr:"Ajouter un souvenir...",de:"Erinnerung hinzufügen...",pt:"Adicionar memória...",it:"Aggiungi ricordo...",ru:"Добавить воспоминание...",tr:"Anı ekle...",hi:"याद लिखें...",ur:"یاد لکھیں...",zh:"写下回忆...",ja:"思い出を書く...",nl:"Herinnering schrijven...",pl:"Napisz wspomnienie...",ro:"Scrie amintire...",bn:"স্মৃতি লিখুন...",id:"Tulis kenangan...",sw:"Andika kumbukumbu...",fil:"추억 쓰기...",mr:"आठवण लिहा...",te:"జ్ఞాపకం రాయండి..."},
-  nomemories:{el:"Δεν υπάρχουν αναμνήσεις ακόμα.",en:"No memories yet. Add your first!",ar:"لا توجد ذكريات بعد.",es:"Aún no hay recuerdos.",fr:"Pas encore de souvenirs.",de:"Noch keine Erinnerungen.",pt:"Ainda sem memórias.",it:"Ancora nessun ricordo.",ru:"Пока нет воспоминаний.",tr:"Henüz anı yok.",hi:"अभी यादें नहीं।",ur:"ابھی یادیں نہیں۔",zh:"还没有回忆。",ja:"まだ思い出がありません。",nl:"Nog geen herinneringen.",pl:"Brak wspomnień.",ro:"Nu există amintiri.",bn:"এখনও স্মৃতি নেই।",id:"Belum ada kenangan.",sw:"Bado hakuna kumbukumbu.",fil:"아직 추억 없어요.",mr:"अजून आठवणी नाहीत.",te:"ఇంకా జ్ఞాపకాలు లేవు."},
-  selectmem:{el:"Διάλεξε μέλος για να δεις τις αναμνήσεις του.",en:"Select a member to see their memories.",ar:"اختر فرداً لعرض ذكرياته.",es:"Elige un miembro para ver sus recuerdos.",fr:"Choisis un membre pour voir ses souvenirs.",de:"Wähle ein Mitglied, um Erinnerungen zu sehen.",pt:"Escolhe um membro para ver as memórias.",it:"Scegli un membro per vedere i ricordi.",ru:"Выберите члена семьи, чтобы увидеть воспоминания.",tr:"Anılarını görmek için bir üye seç.",hi:"यादें देखने के लिए सदस्य चुनें।",ur:"یادیں دیکھنے کے لیے رکن منتخب کریں۔",zh:"选择成员查看回忆。",ja:"思い出を見るメンバーを選んでください。",nl:"Kies een lid om herinneringen te zien.",pl:"Wybierz członka, aby zobaczyć wspomnienia.",ro:"Alege un membru pentru a vedea amintirile.",bn:"স্মৃতি দেখতে সদস্য বেছে নিন।",id:"Pilih anggota untuk melihat kenangan.",sw:"Chagua mwanachama kuona kumbukumbu.",fil:"멤버를 선택해 추억을 보세요.",mr:"आठवणी पाहण्यासाठी सदस्य निवडा.",te:"జ్ఞాపకాలు చూడటానికి సభ్యుని ఎంచుకోండి."},
-  myfamily:{el:"Η Οικογένειά μου",en:"My Family",ar:"عائلتي",es:"Mi Familia",fr:"Ma Famille",de:"Meine Familie",pt:"Minha Família",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",hi:"मेरा परिवार",ur:"میرا خاندان",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",bn:"আমার পরিবার",id:"Keluargaku",sw:"Familia Yangu",fil:"나의 가족",mr:"माझे कुटुंब",te:"నా కుటుంబం"},
-  addmember:{el:"＋ Πρόσθεσε μέλος",en:"＋ Add family member",ar:"＋ إضافة فرد",es:"＋ Agregar miembro",fr:"＋ Ajouter un membre",de:"＋ Mitglied hinzufügen",pt:"＋ Adicionar membro",it:"＋ Aggiungi membro",ru:"＋ Добавить члена",tr:"＋ Üye ekle",hi:"＋ सदस्य जोड़ें",ur:"＋ رکن شامل کریں",zh:"＋ 添加成员",ja:"＋ 家族を追加",nl:"＋ Lid toevoegen",pl:"＋ Dodaj członka",ro:"＋ Adaugă un membru",bn:"＋ সদস্য যোগ করুন",id:"＋ Tambah anggota",sw:"＋ Ongeza mwanafamilia",fil:"＋ 가족 추가",mr:"＋ सदस्य जोडा",te:"＋ సభ్యుని జోడించు"},
-  show:{el:"Εμφάνιση",en:"Show",ar:"إظهار",es:"Mostrar",fr:"Afficher",de:"Anzeigen",pt:"Mostrar",it:"Mostra",ru:"Показать",tr:"Göster",hi:"दिखाएं",ur:"دکھائیں",zh:"显示",ja:"表示",nl:"Tonen",pl:"Pokaż",ro:"Arată",bn:"দেখান",id:"Tampilkan",sw:"Onyesha",fil:"보기",mr:"दाखवा",te:"చూపించు"},
-  hide:{el:"Απόκρυψη",en:"Hide",ar:"إخفاء",es:"Ocultar",fr:"Masquer",de:"Ausblenden",pt:"Ocultar",it:"Nascondi",ru:"Скрыть",tr:"Gizle",hi:"छिपाएं",ur:"چھپائیں",zh:"隐藏",ja:"非表示",nl:"Verbergen",pl:"Ukryj",ro:"Ascunde",bn:"লুকান",id:"Sembunyikan",sw:"Ficha",fil:"숨기기",mr:"लपवा",te:"దాచు"},
-  addpet:{el:"＋ Πρόσθεσε κατοικίδιο",en:"＋ Add family pet",ar:"＋ إضافة حيوان أليف",es:"＋ Agregar mascota",fr:"＋ Ajouter un animal",de:"＋ Haustier hinzufügen",pt:"＋ Adicionar animal",it:"＋ Aggiungi pet",ru:"＋ Добавить питомца",tr:"＋ Evcil hayvan ekle",hi:"＋ पालतू जोड़ें",ur:"＋ پالتو شامل کریں",zh:"＋ 添加宠物",ja:"＋ ペットを追加",nl:"＋ Huisdier toevoegen",pl:"＋ Dodaj zwierzaka",ro:"＋ Adaugă animal",bn:"＋ পোষা প্রাণী যোগ করুন",id:"＋ Tambah hewan",sw:"＋ Ongeza mnyama",fil:"＋ 반려동물 추가",mr:"＋ पाळीव प्राणी जोडा",te:"＋ పెంపుడు జంతువు జోడించు"},
-  products:{el:"Προϊόντα",en:"Products",ar:"المنتجات",es:"Productos",fr:"Produits",de:"Produkte",pt:"Produtos",it:"Prodotti",ru:"Товары",tr:"Ürünler",hi:"उत्पाद",ur:"مصنوعات",zh:"产品",ja:"製品",nl:"Producten",pl:"Produkty",ro:"Produse",bn:"পণ্য",id:"Produk",sw:"Bidhaa",fil:"제품",mr:"उत्पादने",te:"ఉత్పత్తులు"},
-  supermarket:{el:"Σούπερ Μάρκετ",en:"Supermarket",ar:"سوبرماركت",es:"Supermercado",fr:"Supermarché",de:"Supermarkt",pt:"Supermercado",it:"Supermercato",ru:"Супермаркет",tr:"Süpermarket",hi:"सुपरमार्केट",ur:"سپر مارکیٹ",zh:"超市",ja:"スーパー",nl:"Supermarkt",pl:"Supermarket",ro:"Supermarket",bn:"সুপারমার্কেট",id:"Supermarket",sw:"Madukani",fil:"슈퍼마켓",mr:"सुपरमार्केट",te:"సూపర్‌మార్కెట్"},
-  additem:{el:"Πρόσθεσε προϊόν...",en:"Add product...",ar:"أضيفي منتجاً...",es:"Agregar producto...",fr:"Ajouter produit...",de:"Produkt hinzufügen...",pt:"Adicionar produto...",it:"Aggiungi prodotto...",ru:"Добавить товар...",tr:"Ürün ekle...",hi:"उत्पाद जोड़ें...",ur:"مصنوع شامل کریں...",zh:"添加产品...",ja:"商品を追加...",nl:"Product toevoegen...",pl:"Dodaj produkt...",ro:"Adaugă produs...",bn:"পণ্য যোগ করুন...",id:"Tambah produk...",sw:"Ongeza bidhaa...",fil:"제품 추가...",mr:"उत्पादन जोडा...",te:"ఉత్పత్తి జోడించు..."},
-  addtolist:{el:"Πρόσθεσε στη λίστα...",en:"Add to list...",ar:"أضيفي إلى القائمة...",es:"Agregar a lista...",fr:"Ajouter à la liste...",de:"Zur Liste hinzufügen...",pt:"Adicionar à lista...",it:"Aggiungi alla lista...",ru:"Добавить в список...",tr:"Listeye ekle...",hi:"सूची में जोड़ें...",ur:"فہرست میں شامل کریں...",zh:"添加到清单...",ja:"リストに追加...",nl:"Toevoegen aan lijst...",pl:"Dodaj do listy...",ro:"Adaugă la listă...",bn:"তালিকায় যোগ করুন...",id:"Tambah ke daftar...",sw:"Ongeza kwenye orodha...",fil:"목록에 추가...",mr:"यादीत जोडा...",te:"జాబితాకు జోడించు..."},
-  sendlist:{el:"Αποστολή:",en:"Send via:",ar:"إرسال:",es:"Enviar:",fr:"Envoyer:",de:"Senden:",pt:"Enviar:",it:"Invia:",ru:"Отправить:",tr:"Gönder:",hi:"भेजें:",ur:"بھیجیں:",zh:"发送：",ja:"送る：",nl:"Versturen:",pl:"Wyślij:",ro:"Trimite:",bn:"পাঠান:",id:"Kirim:",sw:"Tuma:",fil:"전송:",mr:"Надіслати:",te:"పంపు:"},
-  selectlang:{el:"Επέλεξε γλώσσα",en:"Select language",ar:"اختر اللغة",es:"Seleccionar idioma",fr:"Choisir la langue",de:"Sprache wählen",pt:"Selecionar idioma",it:"Seleziona lingua",ru:"Выбрать язык",tr:"Dil seç",hi:"भाषा चुनें",ur:"زبان منتخب کریں",zh:"选择语言",ja:"言語を選択",nl:"Taal kiezen",pl:"Wybierz język",ro:"Selectați limba",bn:"ভাষা নির্বাচন",id:"Pilih bahasa",sw:"Chagua lugha",fil:"언어 선택",mr:"भाषा निवडा",te:"భాష ఎంచుకోండి"},
-  chatgreet:{el:"Γεια σου",en:"Hi",ar:"مرحباً",es:"Hola",fr:"Bonjour",de:"Hallo",pt:"Olá",it:"Ciao",ru:"Привет",tr:"Merhaba",hi:"नमस्ते",ur:"ہائے",zh:"你好",ja:"こんにちは",nl:"Hallo",pl:"Cześć",ro:"Bună",bn:"হ্যালো",id:"Halo",sw:"Habari",fil:"안녕하세요",mr:"नमस्कार",te:"హలో"},
-  chatgreet2:{el:"χαίρομαι που βρίσκεσαι εδώ. Πώς μπορώ να σε βοηθήσω;",en:"glad you're here. How can I help you today?",ar:"يسعدني وجودك. كيف أساعدك؟",es:"alegría tenerte. ¿En qué te ayudo?",fr:"content que tu sois là. Comment t'aider?",de:"schön, dass du hier bist. Wie helfe ich dir?",pt:"fico feliz. Como posso ajudar?",it:"felice che tu sia qui. Come aiutarti?",ru:"рад что ты здесь. Как помочь?",tr:"burada olduğuna sevindim. Nasıl yardım edebilirim?",hi:"खुशी है। कैसे मदद करूँ?",ur:"خوشی ہے۔ کیسے مدد کروں؟",zh:"很高兴你来了。今天我能帮什么？",ja:"来てくれて嬉しい。どう手伝えますか？",nl:"blij dat je er bent. Hoe kan ik helpen?",pl:"cieszę się. Jak pomóc?",ro:"mă bucur că ești. Cum te ajut?",bn:"আনন্দিত। কীভাবে সাহায্য করব?",id:"senang kamu ada. Bagaimana aku membantumu?",sw:"nafurahi uko. Ninakusaidiaje?",fil:"반가워요. 어떻게 도와드릴까요?",mr:"радий що ти тут. Як допомогти?",te:"మీరు ఇక్కడ ఉన్నందుకు సంతోషం. నేను ఎలా సహాయపడను?"},
-  listen:{el:"🔊 Άκουσε",en:"🔊 Listen",ar:"🔊 استمع",es:"🔊 Escuchar",fr:"🔊 Écouter",de:"🔊 Anhören",pt:"🔊 Ouvir",it:"🔊 Ascolta",ru:"🔊 Слушать",tr:"🔊 Dinle",hi:"🔊 सुनें",ur:"🔊 سنیں",zh:"🔊 收听",ja:"🔊 聞く",nl:"🔊 Luisteren",pl:"🔊 Słuchaj",ro:"🔊 Ascultă",bn:"🔊 শুনুন",id:"🔊 Dengar",sw:"🔊 Sikiliza",fil:"🔊 듣기",mr:"🔊 ऐका",te:"🔊 వినండి"},
-  playing:{el:"⏸ Παίζει...",en:"⏸ Playing...",ar:"⏸ يعزف...",es:"⏸ Reproduciendo...",fr:"⏸ Lecture...",de:"⏸ Spielt...",pt:"⏸ A reproduzir...",it:"⏸ In riproduzione...",ru:"⏸ Воспроизводится...",tr:"⏸ Oynatılıyor...",hi:"⏸ चल रहा है...",ur:"⏸ چل رہا ہے...",zh:"⏸ 播放中...",ja:"⏸ 再生中...",nl:"⏸ Afspelen...",pl:"⏸ Gra...",ro:"⏸ Se redă...",bn:"⏸ বাজছে...",id:"⏸ Memutar...",sw:"⏸ Inacheza...",fil:"⏸ 재생 중...",mr:"⏸ वाजत आहे...",te:"⏸ ప్లేయవుతోంది..."},
+  typehere:{el:"Γράψε κάτι...",en:"Type something...",ar:"اكتبي شيئاً...",es:"Escribe algo...",fr:"Écris quelque chose...",de:"Schreib etwas...",pt:"Escreve algo...",it:"Scrivi qualcosa...",ru:"Напишите что-нибудь...",tr:"Bir şey yaz...",hi:"कुछ लिखें...",ur:"کچھ لکھیں...",zh:"输入点什么...",ja:"何か入力...",nl:"Typ iets...",pl:"Napisz coś...",ro:"Scrie ceva...",bn:"কিছু লিখুন...",id:"Tulis sesuatu...",sw:"Andika kitu...",fil:"Type something...",mr:"काहीतरी लिहा...",te:"ఏదైనా టైప్ చేయండి..."},
+  recentmem:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"Memories",mr:"आठवणी",te:"జ్ఞాపకాలు"},
+  addmemory:{el:"Γράψε μια ανάμνηση...",en:"Write a memory...",ar:"أضيفي ذكرى...",es:"Escribe un recuerdo...",fr:"Ajouter un souvenir...",de:"Erinnerung hinzufügen...",pt:"Adicionar memória...",it:"Aggiungi ricordo...",ru:"Добавить воспоминание...",tr:"Anı ekle...",hi:"याद लिखें...",ur:"یاد لکھیں...",zh:"写下回忆...",ja:"思い出を書く...",nl:"Herinnering schrijven...",pl:"Napisz wspomnienie...",ro:"Scrie amintire...",bn:"স্মৃতি লিখুন...",id:"Tulis kenangan...",sw:"Andika kumbukumbu...",fil:"Write a memory...",mr:"आठवण लिहा...",te:"జ్ఞాపకం రాయండి..."},
+  nomemories:{el:"Δεν υπάρχουν αναμνήσεις ακόμα.",en:"No memories yet. Add your first!",ar:"لا توجد ذكريات بعد.",es:"Aún no hay recuerdos.",fr:"Pas encore de souvenirs.",de:"Noch keine Erinnerungen.",pt:"Ainda sem memórias.",it:"Ancora nessun ricordo.",ru:"Пока нет воспоминаний.",tr:"Henüz anı yok.",hi:"अभी यादें नहीं।",ur:"ابھی یادیں نہیں۔",zh:"还没有回忆。",ja:"まだ思い出がありません。",nl:"Nog geen herinneringen.",pl:"Brak wspomnień.",ro:"Nu există amintiri.",bn:"এখনও স্মৃতি নেই।",id:"Belum ada kenangan.",sw:"Bado hakuna kumbukumbu.",fil:"No memories yet. Add your first!",mr:"अजून आठवणी नाहीत.",te:"ఇంకా జ్ఞాపకాలు లేవు."},
+  selectmem:{el:"Διάλεξε μέλος για να δεις τις αναμνήσεις του.",en:"Select a member to see their memories.",ar:"اختر فرداً لعرض ذكرياته.",es:"Elige un miembro para ver sus recuerdos.",fr:"Choisis un membre pour voir ses souvenirs.",de:"Wähle ein Mitglied, um Erinnerungen zu sehen.",pt:"Escolhe um membro para ver as memórias.",it:"Scegli un membro per vedere i ricordi.",ru:"Выберите члена семьи, чтобы увидеть воспоминания.",tr:"Anılarını görmek için bir üye seç.",hi:"यादें देखने के लिए सदस्य चुनें।",ur:"یادیں دیکھنے کے لیے رکن منتخب کریں۔",zh:"选择成员查看回忆。",ja:"思い出を見るメンバーを選んでください。",nl:"Kies een lid om herinneringen te zien.",pl:"Wybierz członka, aby zobaczyć wspomnienia.",ro:"Alege un membru pentru a vedea amintirile.",bn:"স্মৃতি দেখতে সদস্য বেছে নিন।",id:"Pilih anggota untuk melihat kenangan.",sw:"Chagua mwanachama kuona kumbukumbu.",fil:"Select a member to see their memories.",mr:"आठवणी पाहण्यासाठी सदस्य निवडा.",te:"జ్ఞాపకాలు చూడటానికి సభ్యుని ఎంచుకోండి."},
+  myfamily:{el:"Η Οικογένειά μου",en:"My Family",ar:"عائلتي",es:"Mi Familia",fr:"Ma Famille",de:"Meine Familie",pt:"Minha Família",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",hi:"मेरा परिवार",ur:"میرا خاندان",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",bn:"আমার পরিবার",id:"Keluargaku",sw:"Familia Yangu",fil:"My Family",mr:"माझे कुटुंब",te:"నా కుటుంబం"},
+  addmember:{el:"＋ Πρόσθεσε μέλος",en:"＋ Add family member",ar:"＋ إضافة فرد",es:"＋ Agregar miembro",fr:"＋ Ajouter un membre",de:"＋ Mitglied hinzufügen",pt:"＋ Adicionar membro",it:"＋ Aggiungi membro",ru:"＋ Добавить члена",tr:"＋ Üye ekle",hi:"＋ सदस्य जोड़ें",ur:"＋ رکن شامل کریں",zh:"＋ 添加成员",ja:"＋ 家族を追加",nl:"＋ Lid toevoegen",pl:"＋ Dodaj członka",ro:"＋ Adaugă un membru",bn:"＋ সদস্য যোগ করুন",id:"＋ Tambah anggota",sw:"＋ Ongeza mwanafamilia",fil:"＋ Add family member",mr:"＋ सदस्य जोडा",te:"＋ సభ్యుని జోడించు"},
+  show:{el:"Εμφάνιση",en:"Show",ar:"إظهار",es:"Mostrar",fr:"Afficher",de:"Anzeigen",pt:"Mostrar",it:"Mostra",ru:"Показать",tr:"Göster",hi:"दिखाएं",ur:"دکھائیں",zh:"显示",ja:"表示",nl:"Tonen",pl:"Pokaż",ro:"Arată",bn:"দেখান",id:"Tampilkan",sw:"Onyesha",fil:"Show",mr:"दाखवा",te:"చూపించు"},
+  hide:{el:"Απόκρυψη",en:"Hide",ar:"إخفاء",es:"Ocultar",fr:"Masquer",de:"Ausblenden",pt:"Ocultar",it:"Nascondi",ru:"Скрыть",tr:"Gizle",hi:"छिपाएं",ur:"چھپائیں",zh:"隐藏",ja:"非表示",nl:"Verbergen",pl:"Ukryj",ro:"Ascunde",bn:"লুকান",id:"Sembunyikan",sw:"Ficha",fil:"Hide",mr:"लपवा",te:"దాచు"},
+  addpet:{el:"＋ Πρόσθεσε κατοικίδιο",en:"＋ Add family pet",ar:"＋ إضافة حيوان أليف",es:"＋ Agregar mascota",fr:"＋ Ajouter un animal",de:"＋ Haustier hinzufügen",pt:"＋ Adicionar animal",it:"＋ Aggiungi pet",ru:"＋ Добавить питомца",tr:"＋ Evcil hayvan ekle",hi:"＋ पालतू जोड़ें",ur:"＋ پالتو شامل کریں",zh:"＋ 添加宠物",ja:"＋ ペットを追加",nl:"＋ Huisdier toevoegen",pl:"＋ Dodaj zwierzaka",ro:"＋ Adaugă animal",bn:"＋ পোষা প্রাণী যোগ করুন",id:"＋ Tambah hewan",sw:"＋ Ongeza mnyama",fil:"＋ Add family pet",mr:"＋ पाळीव प्राणी जोडा",te:"＋ పెంపుడు జంతువు జోడించు"},
+  products:{el:"Προϊόντα",en:"Products",ar:"المنتجات",es:"Productos",fr:"Produits",de:"Produkte",pt:"Produtos",it:"Prodotti",ru:"Товары",tr:"Ürünler",hi:"उत्पाद",ur:"مصنوعات",zh:"产品",ja:"製品",nl:"Producten",pl:"Produkty",ro:"Produse",bn:"পণ্য",id:"Produk",sw:"Bidhaa",fil:"Products",mr:"उत्पादने",te:"ఉత్పత్తులు"},
+  supermarket:{el:"Σούπερ Μάρκετ",en:"Supermarket",ar:"سوبرماركت",es:"Supermercado",fr:"Supermarché",de:"Supermarkt",pt:"Supermercado",it:"Supermercato",ru:"Супермаркет",tr:"Süpermarket",hi:"सुपरमार्केट",ur:"سپر مارکیٹ",zh:"超市",ja:"スーパー",nl:"Supermarkt",pl:"Supermarket",ro:"Supermarket",bn:"সুপারমার্কেট",id:"Supermarket",sw:"Madukani",fil:"Supermarket",mr:"सुपरमार्केट",te:"సూపర్‌మార్కెట్"},
+  additem:{el:"Πρόσθεσε προϊόν...",en:"Add product...",ar:"أضيفي منتجاً...",es:"Agregar producto...",fr:"Ajouter produit...",de:"Produkt hinzufügen...",pt:"Adicionar produto...",it:"Aggiungi prodotto...",ru:"Добавить товар...",tr:"Ürün ekle...",hi:"उत्पाद जोड़ें...",ur:"مصنوع شامل کریں...",zh:"添加产品...",ja:"商品を追加...",nl:"Product toevoegen...",pl:"Dodaj produkt...",ro:"Adaugă produs...",bn:"পণ্য যোগ করুন...",id:"Tambah produk...",sw:"Ongeza bidhaa...",fil:"Add product...",mr:"उत्पादन जोडा...",te:"ఉత్పత్తి జోడించు..."},
+  addtolist:{el:"Πρόσθεσε στη λίστα...",en:"Add to list...",ar:"أضيفي إلى القائمة...",es:"Agregar a lista...",fr:"Ajouter à la liste...",de:"Zur Liste hinzufügen...",pt:"Adicionar à lista...",it:"Aggiungi alla lista...",ru:"Добавить в список...",tr:"Listeye ekle...",hi:"सूची में जोड़ें...",ur:"فہرست میں شامل کریں...",zh:"添加到清单...",ja:"リストに追加...",nl:"Toevoegen aan lijst...",pl:"Dodaj do listy...",ro:"Adaugă la listă...",bn:"তালিকায় যোগ করুন...",id:"Tambah ke daftar...",sw:"Ongeza kwenye orodha...",fil:"Add to list...",mr:"यादीत जोडा...",te:"జాబితాకు జోడించు..."},
+  sendlist:{el:"Αποστολή:",en:"Send via:",ar:"إرسال:",es:"Enviar:",fr:"Envoyer:",de:"Senden:",pt:"Enviar:",it:"Invia:",ru:"Отправить:",tr:"Gönder:",hi:"भेजें:",ur:"بھیجیں:",zh:"发送：",ja:"送る：",nl:"Versturen:",pl:"Wyślij:",ro:"Trimite:",bn:"পাঠান:",id:"Kirim:",sw:"Tuma:",fil:"Send via:",mr:"Надіслати:",te:"పంపు:"},
+  selectlang:{el:"Επέλεξε γλώσσα",en:"Select language",ar:"اختر اللغة",es:"Seleccionar idioma",fr:"Choisir la langue",de:"Sprache wählen",pt:"Selecionar idioma",it:"Seleziona lingua",ru:"Выбрать язык",tr:"Dil seç",hi:"भाषा चुनें",ur:"زبان منتخب کریں",zh:"选择语言",ja:"言語を選択",nl:"Taal kiezen",pl:"Wybierz język",ro:"Selectați limba",bn:"ভাষা নির্বাচন",id:"Pilih bahasa",sw:"Chagua lugha",fil:"Select language",mr:"भाषा निवडा",te:"భాష ఎంచుకోండి"},
+  chatgreet:{el:"Γεια σου",en:"Hi",ar:"مرحباً",es:"Hola",fr:"Bonjour",de:"Hallo",pt:"Olá",it:"Ciao",ru:"Привет",tr:"Merhaba",hi:"नमस्ते",ur:"ہائے",zh:"你好",ja:"こんにちは",nl:"Hallo",pl:"Cześć",ro:"Bună",bn:"হ্যালো",id:"Halo",sw:"Habari",fil:"Hi",mr:"नमस्कार",te:"హలో"},
+  chatgreet2:{el:"χαίρομαι που βρίσκεσαι εδώ. Πώς μπορώ να σε βοηθήσω;",en:"glad you're here. How can I help you today?",ar:"يسعدني وجودك. كيف أساعدك؟",es:"alegría tenerte. ¿En qué te ayudo?",fr:"content que tu sois là. Comment t'aider?",de:"schön, dass du hier bist. Wie helfe ich dir?",pt:"fico feliz. Como posso ajudar?",it:"felice che tu sia qui. Come aiutarti?",ru:"рад что ты здесь. Как помочь?",tr:"burada olduğuna sevindim. Nasıl yardım edebilirim?",hi:"खुशी है। कैसे मदद करूँ?",ur:"خوشی ہے۔ کیسے مدد کروں؟",zh:"很高兴你来了。今天我能帮什么？",ja:"来てくれて嬉しい。どう手伝えますか？",nl:"blij dat je er bent. Hoe kan ik helpen?",pl:"cieszę się. Jak pomóc?",ro:"mă bucur că ești. Cum te ajut?",bn:"আনন্দিত। কীভাবে সাহায্য করব?",id:"senang kamu ada. Bagaimana aku membantumu?",sw:"nafurahi uko. Ninakusaidiaje?",fil:"glad you're here. How can I help you today?",mr:"радий що ти тут. Як допомогти?",te:"మీరు ఇక్కడ ఉన్నందుకు సంతోషం. నేను ఎలా సహాయపడను?"},
+  listen:{el:"🔊 Άκουσε",en:"🔊 Listen",ar:"🔊 استمع",es:"🔊 Escuchar",fr:"🔊 Écouter",de:"🔊 Anhören",pt:"🔊 Ouvir",it:"🔊 Ascolta",ru:"🔊 Слушать",tr:"🔊 Dinle",hi:"🔊 सुनें",ur:"🔊 سنیں",zh:"🔊 收听",ja:"🔊 聞く",nl:"🔊 Luisteren",pl:"🔊 Słuchaj",ro:"🔊 Ascultă",bn:"🔊 শুনুন",id:"🔊 Dengar",sw:"🔊 Sikiliza",fil:"🔊 Listen",mr:"🔊 ऐका",te:"🔊 వినండి"},
+  playing:{el:"⏸ Παίζει...",en:"⏸ Playing...",ar:"⏸ يعزف...",es:"⏸ Reproduciendo...",fr:"⏸ Lecture...",de:"⏸ Spielt...",pt:"⏸ A reproduzir...",it:"⏸ In riproduzione...",ru:"⏸ Воспроизводится...",tr:"⏸ Oynatılıyor...",hi:"⏸ चल रहा है...",ur:"⏸ چل رہا ہے...",zh:"⏸ 播放中...",ja:"⏸ 再生中...",nl:"⏸ Afspelen...",pl:"⏸ Gra...",ro:"⏸ Se redă...",bn:"⏸ বাজছে...",id:"⏸ Memutar...",sw:"⏸ Inacheza...",fil:"⏸ Playing...",mr:"⏸ वाजत आहे...",te:"⏸ ప్లేయవుతోంది..."},
+  thinking:{el:"Σκέφτομαι…",en:"Thinking…",ar:"أفكر…",es:"Pensando…",fr:"Je réfléchis…",de:"Denke nach…",pt:"A pensar…",it:"Sto pensando…",ru:"Думаю…",tr:"Düşünüyorum…",hi:"सोच रही हूँ…",ur:"سوچ رہی ہوں…",zh:"思考中…",ja:"考え中…",nl:"Even nadenken…",pl:"Myślę…",ro:"Mă gândesc…",bn:"ভাবছি…",id:"Sedang berpikir…",sw:"Nafikiri…",fil:"Thinking…",mr:"विचार करत आहे…",te:"ఆలోచిస్తున్నాను…"},
+  chat_error:{el:"Κάτι πήγε στραβά. Δοκίμασε ξανά σε λίγο.",en:"Something went wrong. Please try again in a moment.",ar:"حدث خطأ. حاولي مرة أخرى بعد قليل.",es:"Algo salió mal. Inténtalo de nuevo en un momento.",fr:"Un problème est survenu. Réessaie dans un instant.",de:"Etwas ist schiefgelaufen. Bitte versuche es gleich noch einmal.",pt:"Algo correu mal. Tenta novamente daqui a pouco.",it:"Qualcosa è andato storto. Riprova tra un momento.",ru:"Что-то пошло не так. Попробуйте ещё раз чуть позже.",tr:"Bir şeyler ters gitti. Biraz sonra tekrar dene.",hi:"कुछ गलत हो गया। थोड़ी देर बाद फिर कोशिश करें।",ur:"کچھ غلط ہو گیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔",zh:"出了点问题。请稍后再试。",ja:"問題が発生しました。しばらくしてからもう一度お試しください。",nl:"Er ging iets mis. Probeer het zo opnieuw.",pl:"Coś poszło nie tak. Spróbuj ponownie za chwilę.",ro:"Ceva nu a mers. Încearcă din nou imediat.",bn:"কিছু ভুল হয়েছে। একটু পরে আবার চেষ্টা করুন।",id:"Ada yang salah. Coba lagi sebentar.",sw:"Hitilafu imetokea. Jaribu tena baadaye kidogo.",fil:"Something went wrong. Please try again in a moment.",mr:"काहीतरी चुकले. थोड्या वेळाने पुन्हा प्रयत्न करा.",te:"ఏదో తప్పు జరిగింది. కాసేపటి తర్వాత మళ్లీ ప్రయత్నించండి."},
   voicequota:{el:"Φωνητικά μηνύματα",en:"Voice messages",ar:"الرسائل الصوتية",zh:"语音消息",es:"Mensajes de voz",fr:"Messages vocaux",ro:"Mesaje vocale",pl:"Wiadomości głosowe",tr:"Sesli mesajlar",hi:"वॉइस मैसेज",ur:"وائس میسجز",ja:"音声メッセージ",ru:"Голосовые сообщения",de:"Sprachnachrichten",pt:"Mensagens de voz",it:"Messaggi vocali",nl:"Spraakberichten",bn:"ভয়েস মেসেজ",id:"Pesan suara",sw:"Ujumbe wa sauti",fil:"Mga voice message",mr:"व्हॉइस मेसेज",te:"వాయిస్ సందేశాలు"},
-  askmaa:{el:"Ρώτα τη Maa →",en:"Ask Maa →",ar:"اسأل Maa →",es:"Preguntar a Maa →",fr:"Demander à Maa →",de:"Maa fragen →",pt:"Perguntar à Maa →",it:"Chiedi a Maa →",ru:"Спросить Maa →",tr:"Maa'ya sor →",hi:"Maa से पूछें →",ur:"Maa سے پوچھیں →",zh:"问Maa →",ja:"Maaに聞く →",nl:"Vraag Maa →",pl:"Zapytaj Maa →",ro:"Întreabă Maa →",bn:"Maa-কে জিজ্ঞেস করুন →",id:"Tanya Maa →",sw:"Uliza Maa →",fil:"Maa에게 물어보기 →",mr:"Maa ला विचारा →",te:"Maa ని అడగండి →"},
-  tickall:{el:"Τίκαρε τα milestones που έχει πετύχει!",en:"Tick the milestones your baby has reached!",ar:"ضعي علامة على الإنجازات!",es:"¡Marca los hitos logrados!",fr:"Cochez les étapes atteintes!",de:"Meilensteine abhaken!",pt:"Assinala os marcos alcançados!",it:"Spunta i traguardi raggiunti!",ru:"Отметьте достигнутые вехи!",tr:"Ulaşılan aşamaları işaretle!",hi:"पूरे माइलस्टोन चुनें!",ur:"سنگ میل نشان لگائیں!",zh:"勾选宝宝达到的里程碑！",ja:"達成したマイルストーンをチェック！",nl:"Vink de behaalde mijlpalen aan!",pl:"Zaznacz osiągnięte etapy!",ro:"Bifează etapele atinse!",bn:"মাইলফলক টিক করুন!",id:"Centang tonggak yang dicapai!",sw:"Weka alama kwa hatua!",fil:"이정표 체크해요!",mr:"पूर्ण झालेले टप्पे निवडा!",te:"మైలురాళ్ళను టిక్ చేయండి!"},
-  askaboutmile:{el:"Θέλεις να μάθεις περισσότερα για τα επόμενα milestones;",en:"Want to know more about upcoming milestones?",ar:"تريدين معرفة المزيد عن الإنجازات القادمة؟",es:"¿Quieres saber más sobre los próximos hitos?",fr:"Vous voulez en savoir plus sur les prochaines étapes?",de:"Mehr über kommende Meilensteine erfahren?",pt:"Quer saber mais sobre os próximos marcos?",it:"Vuoi sapere di più sui prossimi traguardi?",ru:"Хочешь узнать больше о следующих вехах?",tr:"Yaklaşan dönüm noktaları hakkında daha fazla bilgi ister misin?",hi:"अगले माइलस्टोन के बारे में जानना चाहती हैं?",ur:"آنے والے سنگ میلوں کے بارے میں جاننا چاہتی ہیں؟",zh:"想了解即将到来的里程碑吗？",ja:"次のマイルストーンについて知りたいですか？",nl:"Meer weten over aankomende mijlpalen?",pl:"Chcesz wiedzieć więcej o nadchodzących etapach?",ro:"Vrei să afli mai multe despre etapele viitoare?",bn:"পরবর্তী মাইলফলক সম্পর্কে জানতে চান?",id:"Ingin tahu lebih tentang tonggak berikutnya?",sw:"Unataka kujua zaidi kuhusu hatua zinazokuja?",fil:"다음 이정표에 대해 더 알고 싶으세요?",mr:"पुढील टप्प्यांबद्दल अधिक जाणून घ्यायचे आहे?",te:"రాబోయే మైలురాళ్ళ గురించి తెలుసుకోవాలా?"},
-  save:{el:"Αποθήκευση",en:"Save",ar:"حفظ",es:"Guardar",fr:"Enregistrer",de:"Speichern",pt:"Guardar",it:"Salva",ru:"Сохранить",tr:"Kaydet",hi:"सहेजें",ur:"محفوظ",zh:"保存",ja:"保存",nl:"Opslaan",pl:"Zapisz",ro:"Salvează",bn:"সংরক্ষণ",id:"Simpan",sw:"Hifadhi",fil:"저장",mr:"जतन करा",te:"సేవ్ చేయి"},
-  cancel:{el:"Ακύρωση",en:"Cancel",ar:"إلغاء",es:"Cancelar",fr:"Annuler",de:"Abbrechen",pt:"Cancelar",it:"Annulla",ru:"Отмена",tr:"İptal",hi:"रद्द करें",ur:"منسوخ",zh:"取消",ja:"キャンセル",nl:"Annuleren",pl:"Anuluj",ro:"Anulează",bn:"বাতিল",id:"Batal",sw:"Ghairi",fil:"취소",mr:"रद्द करा",te:"రద్దు చేయి"},
-  newthread:{el:"Νέα συνομιλία",en:"New conversation",ar:"محادثة جديدة",es:"Nueva conversación",fr:"Nouvelle conversation",de:"Neues Gespräch",pt:"Nova conversa",it:"Nuova conversazione",ru:"Новый разговор",tr:"Yeni konuşma",hi:"नई बातचीत",ur:"نئی بات",zh:"新对话",ja:"新しい会話",nl:"Nieuw gesprek",pl:"Nowa rozmowa",ro:"Conversație nouă",bn:"নতুন কথোপকথন",id:"Percakapan baru",sw:"Mazungumzo mapya",fil:"새 대화",mr:"नवीन संवाद",te:"కొత్త సంభాషణ"},
-  archivethread:{el:"Αρχειοθέτηση",en:"Archive",ar:"أرشفة",es:"Archivar",fr:"Archiver",de:"Archivieren",pt:"Arquivar",it:"Archivia",ru:"Архивировать",tr:"Arşivle",hi:"संग्रहीत करें",ur:"آرکائیو",zh:"归档",ja:"アーカイブ",nl:"Archiveren",pl:"Archiwizuj",ro:"Arhivează",bn:"আর্কাইভ করুন",id:"Arsipkan",sw:"Hifadhi",fil:"보관",mr:"संग्रहित करा",te:"ఆర్కైవ్ చేయి"},
-  pastthreads:{el:"Παλαιές συνομιλίες",en:"Past conversations",ar:"المحادثات السابقة",es:"Conversaciones anteriores",fr:"Conversations passées",de:"Vergangene Gespräche",pt:"Conversas anteriores",it:"Conversazioni passate",ru:"Прошлые разговоры",tr:"Geçmiş konuşmalar",hi:"पुरानी बातचीत",ur:"پرانی باتیں",zh:"过去的对话",ja:"過去の会話",nl:"Eerdere gesprekken",pl:"Poprzednie rozmowy",ro:"Conversații vechi",bn:"পুরানো কথোপকথন",id:"Percakapan lama",sw:"Mazungumzo ya zamani",fil:"이전 대화",mr:"जुने संवाद",te:"పాత సంభాషణలు"},
-  nameyourthread:{el:"Δώσε τίτλο στη συνομιλία",en:"Name this conversation",ar:"سمّي هذه المحادثة",es:"Nombra esta conversación",fr:"Nommez cette conversation",de:"Gespräch benennen",pt:"Nomeia esta conversa",it:"Dai un nome alla conversazione",ru:"Назовите разговор",tr:"Konuşmayı adlandır",hi:"बातचीत का नाम दें",ur:"بات کا نام دیں",zh:"为对话命名",ja:"会話に名前をつけて",nl:"Gesprek een naam geven",pl:"Nazwij rozmowę",ro:"Denumește conversația",bn:"কথোপকথনের নাম দিন",id:"Beri nama percakapan",sw:"Ipe jina mazungumzo",fil:"대화 이름 지정",mr:"संवादाला नाव द्या",te:"సంభాషణకు పేరు పెట్టండి"},
-  membername:{el:"Όνομα",en:"Name",ar:"الاسم",es:"Nombre",fr:"Prénom",de:"Name",pt:"Nome",it:"Nome",ru:"Имя",tr:"Ad",hi:"नाम",ur:"نام",zh:"姓名",ja:"名前",nl:"Naam",pl:"Imię",ro:"Nume",bn:"নাম",id:"Nama",sw:"Jina",fil:"이름",mr:"नाव",te:"పేరు"},
-  memberrole:{el:"Σχέση (π.χ. Μπαμπάς)",en:"Relationship (e.g. Dad)",ar:"الصلة (مثل: أب)",es:"Relación (ej. Papá)",fr:"Lien (ex. Papa)",de:"Beziehung (z.B. Papa)",pt:"Relação (ex. Pai)",it:"Relazione (es. Papà)",ru:"Отношение (напр. Папа)",tr:"İlişki (örn. Baba)",hi:"रिश्ता (जैसे पापा)",ur:"رشتہ (مثلاً ابو)",zh:"关系（如爸爸）",ja:"関係（例：パパ）",nl:"Relatie (bijv. Papa)",pl:"Relacja (np. Tata)",ro:"Relație (ex. Tată)",bn:"সম্পর্ক",id:"Hubungan",sw:"Uhusiano",fil:"관계",mr:"नाते (उदा. बाबा)",te:"సంబంధం"},
+  askmaa:{el:"Ρώτα τη Maa →",en:"Ask Maa →",ar:"اسأل Maa →",es:"Preguntar a Maa →",fr:"Demander à Maa →",de:"Maa fragen →",pt:"Perguntar à Maa →",it:"Chiedi a Maa →",ru:"Спросить Maa →",tr:"Maa'ya sor →",hi:"Maa से पूछें →",ur:"Maa سے پوچھیں →",zh:"问Maa →",ja:"Maaに聞く →",nl:"Vraag Maa →",pl:"Zapytaj Maa →",ro:"Întreabă Maa →",bn:"Maa-কে জিজ্ঞেস করুন →",id:"Tanya Maa →",sw:"Uliza Maa →",fil:"Ask Maa →",mr:"Maa ला विचारा →",te:"Maa ని అడగండి →"},
+  tickall:{el:"Τίκαρε τα milestones που έχει πετύχει!",en:"Tick the milestones your baby has reached!",ar:"ضعي علامة على الإنجازات!",es:"¡Marca los hitos logrados!",fr:"Cochez les étapes atteintes!",de:"Meilensteine abhaken!",pt:"Assinala os marcos alcançados!",it:"Spunta i traguardi raggiunti!",ru:"Отметьте достигнутые вехи!",tr:"Ulaşılan aşamaları işaretle!",hi:"पूरे माइलस्टोन चुनें!",ur:"سنگ میل نشان لگائیں!",zh:"勾选宝宝达到的里程碑！",ja:"達成したマイルストーンをチェック！",nl:"Vink de behaalde mijlpalen aan!",pl:"Zaznacz osiągnięte etapy!",ro:"Bifează etapele atinse!",bn:"মাইলফলক টিক করুন!",id:"Centang tonggak yang dicapai!",sw:"Weka alama kwa hatua!",fil:"Tick the milestones your baby has reached!",mr:"पूर्ण झालेले टप्पे निवडा!",te:"మైలురాళ్ళను టిక్ చేయండి!"},
+  askaboutmile:{el:"Θέλεις να μάθεις περισσότερα για τα επόμενα milestones;",en:"Want to know more about upcoming milestones?",ar:"تريدين معرفة المزيد عن الإنجازات القادمة؟",es:"¿Quieres saber más sobre los próximos hitos?",fr:"Vous voulez en savoir plus sur les prochaines étapes?",de:"Mehr über kommende Meilensteine erfahren?",pt:"Quer saber mais sobre os próximos marcos?",it:"Vuoi sapere di più sui prossimi traguardi?",ru:"Хочешь узнать больше о следующих вехах?",tr:"Yaklaşan dönüm noktaları hakkında daha fazla bilgi ister misin?",hi:"अगले माइलस्टोन के बारे में जानना चाहती हैं?",ur:"آنے والے سنگ میلوں کے بارے میں جاننا چاہتی ہیں؟",zh:"想了解即将到来的里程碑吗？",ja:"次のマイルストーンについて知りたいですか？",nl:"Meer weten over aankomende mijlpalen?",pl:"Chcesz wiedzieć więcej o nadchodzących etapach?",ro:"Vrei să afli mai multe despre etapele viitoare?",bn:"পরবর্তী মাইলফলক সম্পর্কে জানতে চান?",id:"Ingin tahu lebih tentang tonggak berikutnya?",sw:"Unataka kujua zaidi kuhusu hatua zinazokuja?",fil:"Want to know more about upcoming milestones?",mr:"पुढील टप्प्यांबद्दल अधिक जाणून घ्यायचे आहे?",te:"రాబోయే మైలురాళ్ళ గురించి తెలుసుకోవాలా?"},
+  save:{el:"Αποθήκευση",en:"Save",ar:"حفظ",es:"Guardar",fr:"Enregistrer",de:"Speichern",pt:"Guardar",it:"Salva",ru:"Сохранить",tr:"Kaydet",hi:"सहेजें",ur:"محفوظ",zh:"保存",ja:"保存",nl:"Opslaan",pl:"Zapisz",ro:"Salvează",bn:"সংরক্ষণ",id:"Simpan",sw:"Hifadhi",fil:"Save",mr:"जतन करा",te:"సేవ్ చేయి"},
+  cancel:{el:"Ακύρωση",en:"Cancel",ar:"إلغاء",es:"Cancelar",fr:"Annuler",de:"Abbrechen",pt:"Cancelar",it:"Annulla",ru:"Отмена",tr:"İptal",hi:"रद्द करें",ur:"منسوخ",zh:"取消",ja:"キャンセル",nl:"Annuleren",pl:"Anuluj",ro:"Anulează",bn:"বাতিল",id:"Batal",sw:"Ghairi",fil:"Cancel",mr:"रद्द करा",te:"రద్దు చేయి"},
+  newthread:{el:"Νέα συνομιλία",en:"New conversation",ar:"محادثة جديدة",es:"Nueva conversación",fr:"Nouvelle conversation",de:"Neues Gespräch",pt:"Nova conversa",it:"Nuova conversazione",ru:"Новый разговор",tr:"Yeni konuşma",hi:"नई बातचीत",ur:"نئی بات",zh:"新对话",ja:"新しい会話",nl:"Nieuw gesprek",pl:"Nowa rozmowa",ro:"Conversație nouă",bn:"নতুন কথোপকথন",id:"Percakapan baru",sw:"Mazungumzo mapya",fil:"New conversation",mr:"नवीन संवाद",te:"కొత్త సంభాషణ"},
+  archivethread:{el:"Αρχειοθέτηση",en:"Archive",ar:"أرشفة",es:"Archivar",fr:"Archiver",de:"Archivieren",pt:"Arquivar",it:"Archivia",ru:"Архивировать",tr:"Arşivle",hi:"संग्रहीत करें",ur:"آرکائیو",zh:"归档",ja:"アーカイブ",nl:"Archiveren",pl:"Archiwizuj",ro:"Arhivează",bn:"আর্কাইভ করুন",id:"Arsipkan",sw:"Hifadhi",fil:"Archive",mr:"संग्रहित करा",te:"ఆర్కైవ్ చేయి"},
+  pastthreads:{el:"Παλαιές συνομιλίες",en:"Past conversations",ar:"المحادثات السابقة",es:"Conversaciones anteriores",fr:"Conversations passées",de:"Vergangene Gespräche",pt:"Conversas anteriores",it:"Conversazioni passate",ru:"Прошлые разговоры",tr:"Geçmiş konuşmalar",hi:"पुरानी बातचीत",ur:"پرانی باتیں",zh:"过去的对话",ja:"過去の会話",nl:"Eerdere gesprekken",pl:"Poprzednie rozmowy",ro:"Conversații vechi",bn:"পুরানো কথোপকথন",id:"Percakapan lama",sw:"Mazungumzo ya zamani",fil:"Past conversations",mr:"जुने संवाद",te:"పాత సంభాషణలు"},
+  nameyourthread:{el:"Δώσε τίτλο στη συνομιλία",en:"Name this conversation",ar:"سمّي هذه المحادثة",es:"Nombra esta conversación",fr:"Nommez cette conversation",de:"Gespräch benennen",pt:"Nomeia esta conversa",it:"Dai un nome alla conversazione",ru:"Назовите разговор",tr:"Konuşmayı adlandır",hi:"बातचीत का नाम दें",ur:"بات کا نام دیں",zh:"为对话命名",ja:"会話に名前をつけて",nl:"Gesprek een naam geven",pl:"Nazwij rozmowę",ro:"Denumește conversația",bn:"কথোপকথনের নাম দিন",id:"Beri nama percakapan",sw:"Ipe jina mazungumzo",fil:"Name this conversation",mr:"संवादाला नाव द्या",te:"సంభాషణకు పేరు పెట్టండి"},
+  membername:{el:"Όνομα",en:"Name",ar:"الاسم",es:"Nombre",fr:"Prénom",de:"Name",pt:"Nome",it:"Nome",ru:"Имя",tr:"Ad",hi:"नाम",ur:"نام",zh:"姓名",ja:"名前",nl:"Naam",pl:"Imię",ro:"Nume",bn:"নাম",id:"Nama",sw:"Jina",fil:"Name",mr:"नाव",te:"పేరు"},
+  memberrole:{el:"Σχέση (π.χ. Μπαμπάς)",en:"Relationship (e.g. Dad)",ar:"الصلة (مثل: أب)",es:"Relación (ej. Papá)",fr:"Lien (ex. Papa)",de:"Beziehung (z.B. Papa)",pt:"Relação (ex. Pai)",it:"Relazione (es. Papà)",ru:"Отношение (напр. Папа)",tr:"İlişki (örn. Baba)",hi:"रिश्ता (जैसे पापा)",ur:"رشتہ (مثلاً ابو)",zh:"关系（如爸爸）",ja:"関係（例：パパ）",nl:"Relatie (bijv. Papa)",pl:"Relacja (np. Tata)",ro:"Relație (ex. Tată)",bn:"সম্পর্ক",id:"Hubungan",sw:"Uhusiano",fil:"Relationship (e.g. Dad)",mr:"नाते (उदा. बाबा)",te:"సంబంధం"},
   addchild:{el:"＋ Πρόσθεσε παιδί",en:"＋ Add child",ar:"＋ إضافة طفل",es:"＋ Agregar hijo/a",fr:"＋ Ajouter un enfant",de:"＋ Kind hinzufügen",pt:"＋ Adicionar filho/a",it:"＋ Aggiungi bambino",ru:"＋ Добавить ребёнка",tr:"＋ Çocuk ekle",hi:"＋ बच्चा जोड़ें",ur:"＋ بچہ شامل کریں",zh:"＋ 添加孩子",ja:"＋ 子どもを追加",nl:"＋ Kind toevoegen",pl:"＋ Dodaj dziecko",ro:"＋ Adaugă copil",bn:"＋ শিশু যুক্ত করুন",id:"＋ Tambah anak",sw:"＋ Ongeza mtoto",fil:"＋ Magdagdag ng anak",mr:"＋ मूल जोडा",te:"＋ పిల్లలను జోడించండి"},
   memberemail:{el:"Email (προαιρετικό)",en:"Email (optional)",ar:"البريد الإلكتروني (اختياري)",es:"Correo (opcional)",fr:"E-mail (facultatif)",de:"E-Mail (optional)",pt:"E-mail (opcional)",it:"Email (opzionale)",ru:"Email (необязательно)",tr:"E-posta (isteğe bağlı)",hi:"ईमेल (वैकल्पिक)",ur:"ای میل (اختیاری)",zh:"电子邮箱（选填）",ja:"メール（任意）",nl:"E-mail (optioneel)",pl:"E-mail (opcjonalnie)",ro:"E-mail (opțional)",bn:"ইমেল (ঐচ্ছিক)",id:"Email (opsional)",sw:"Barua pepe (si lazima)",fil:"Email (opsyonal)",mr:"ईमेल (पर्यायी)",te:"ఇమెయిల్ (ఐచ్ఛికం)"},
   memberphone:{el:"Κινητό τηλέφωνο (προαιρετικό)",en:"Phone number (optional)",ar:"رقم الهاتف (اختياري)",es:"Teléfono (opcional)",fr:"Téléphone (facultatif)",de:"Telefonnummer (optional)",pt:"Telefone (opcional)",it:"Telefono (opzionale)",ru:"Телефон (необязательно)",tr:"Telefon numarası (isteğe bağlı)",hi:"फ़ोन नंबर (वैकल्पिक)",ur:"فون نمبر (اختیاری)",zh:"电话号码（选填）",ja:"電話番号（任意）",nl:"Telefoonnummer (optioneel)",pl:"Numer telefonu (opcjonalnie)",ro:"Număr de telefon (opțional)",bn:"ফোন নম্বর (ঐচ্ছিক)",id:"Nomor telepon (opsional)",sw:"Nambari ya simu (si lazima)",fil:"Numero ng telepono (opsyonal)",mr:"फोन नंबर (पर्यायी)",te:"ఫోన్ నంబర్ (ఐచ్ఛికం)"},
@@ -1291,6 +1294,48 @@ const TR: Record<string,Record<string,string>> = {
   add_to_products:{el:"＋ Στα Προϊόντα",en:"＋ To Products",ar:"＋ للمنتجات",zh:"＋ 加入商品",es:"＋ A Productos",fr:"＋ Aux Produits",de:"＋ Zu Produkten",pt:"＋ Para Produtos",it:"＋ Ai Prodotti",ru:"＋ В Товары",tr:"＋ Ürünlere",hi:"＋ उत्पादों में",ur:"＋ مصنوعات میں",ja:"＋ 商品へ",nl:"＋ Naar Producten",pl:"＋ Do Produktów",ro:"＋ La Produse",bn:"＋ পণ্যে যোগ",id:"＋ Ke Produk",sw:"＋ Kwenye Bidhaa",fil:"＋ Sa Produkto",mr:"＋ उत्पादनात",te:"＋ ఉత్పత్తులకు"},
   add_to_super:{el:"＋ Στο Σούπερ",en:"＋ To Supermarket",ar:"＋ للسوبرماركت",zh:"＋ 加入超市",es:"＋ Al Supermercado",fr:"＋ Au Supermarché",de:"＋ Zum Supermarkt",pt:"＋ Para Supermercado",it:"＋ Al Supermercato",ru:"＋ В Супермаркет",tr:"＋ Süpermarkete",hi:"＋ सुपरमार्केट में",ur:"＋ سپر مارکیٹ میں",ja:"＋ スーパーへ",nl:"＋ Naar Supermarkt",pl:"＋ Do Supermarketu",ro:"＋ La Supermarket",bn:"＋ সুপারমার্কেটে",id:"＋ Ke Supermarket",sw:"＋ Madukani",fil:"＋ Sa Supermarket",mr:"＋ सुपरमार्केटमध्ये",te:"＋ సూపర్‌మార్కెట్‌కు"},
   lang_mismatch:{el:"Γράφεις σε άλλη γλώσσα. Η φωνητική ανάγνωση χρησιμοποιεί τη γλώσσα της σημαίας ({flag}). Άλλαξε τη σημαία πάνω δεξιά για ανάγνωση σε αυτή τη γλώσσα.",en:"You're typing in another language. Voice playback uses your selected language ({flag}). Change the flag top-right to listen in this language.",ar:"أنتِ تكتبين بلغة أخرى. تستخدم القراءة الصوتية لغتك المختارة ({flag}). غيّري العلم في الأعلى للاستماع بهذه اللغة.",zh:"您正在用另一种语言输入。语音朗读使用您所选的语言（{flag}）。更改右上角的旗帜以用此语言收听。",es:"Estás escribiendo en otro idioma. La lectura de voz usa tu idioma seleccionado ({flag}). Cambia la bandera arriba a la derecha para escuchar en este idioma.",fr:"Vous écrivez dans une autre langue. La lecture vocale utilise votre langue sélectionnée ({flag}). Changez le drapeau en haut à droite pour écouter dans cette langue.",de:"Du schreibst in einer anderen Sprache. Die Sprachausgabe verwendet deine gewählte Sprache ({flag}). Ändere die Flagge oben rechts, um in dieser Sprache zu hören.",pt:"Estás a escrever noutro idioma. A leitura por voz usa o teu idioma selecionado ({flag}). Muda a bandeira no canto superior direito para ouvir neste idioma.",it:"Stai scrivendo in un'altra lingua. La lettura vocale usa la lingua selezionata ({flag}). Cambia la bandiera in alto a destra per ascoltare in questa lingua.",ru:"Вы пишете на другом языке. Озвучивание использует выбранный вами язык ({flag}). Измените флаг вверху справа, чтобы слушать на этом языке.",tr:"Başka bir dilde yazıyorsun. Sesli okuma seçtiğin dili kullanır ({flag}). Bu dilde dinlemek için sağ üstteki bayrağı değiştir.",hi:"आप दूसरी भाषा में लिख रही हैं। आवाज़ आपकी चुनी हुई भाषा ({flag}) का उपयोग करती है। इस भाषा में सुनने के लिए ऊपर दाईं ओर का झंडा बदलें।",ur:"آپ دوسری زبان میں لکھ رہی ہیں۔ آواز آپ کی منتخب زبان ({flag}) استعمال کرتی ہے۔ اس زبان میں سننے کے لیے اوپر دائیں طرف کا جھنڈا تبدیل کریں۔",ja:"別の言語で入力しています。音声読み上げは選択中の言語（{flag}）を使用します。この言語で聞くには右上の旗を変更してください。",nl:"Je typt in een andere taal. Spraakweergave gebruikt je geselecteerde taal ({flag}). Wijzig de vlag rechtsboven om in deze taal te luisteren.",pl:"Piszesz w innym języku. Odczyt głosowy używa wybranego języka ({flag}). Zmień flagę w prawym górnym rogu, aby słuchać w tym języku.",ro:"Scrii în altă limbă. Redarea vocală folosește limba selectată ({flag}). Schimbă steagul din dreapta sus pentru a asculta în această limbă.",bn:"আপনি অন্য ভাষায় লিখছেন। ভয়েস প্লেব্যাক আপনার নির্বাচিত ভাষা ({flag}) ব্যবহার করে। এই ভাষায় শুনতে উপরে ডানদিকের পতাকা পরিবর্তন করুন।",id:"Anda mengetik dalam bahasa lain. Pemutaran suara menggunakan bahasa pilihan Anda ({flag}). Ubah bendera di kanan atas untuk mendengarkan dalam bahasa ini.",sw:"Unaandika kwa lugha nyingine. Usomaji wa sauti hutumia lugha uliyochagua ({flag}). Badilisha bendera juu kulia kusikiliza kwa lugha hii.",fil:"Nagta-type ka sa ibang wika. Ginagamit ng voice playback ang napili mong wika ({flag}). Palitan ang watawat sa kanang itaas para makinig sa wikang ito.",mr:"तुम्ही दुसऱ्या भाषेत लिहित आहात. आवाज वाचन तुमची निवडलेली भाषा ({flag}) वापरते. या भाषेत ऐकण्यासाठी वरच्या उजव्या बाजूचा ध्वज बदला.",te:"మీరు మరో భాషలో టైప్ చేస్తున్నారు. వాయిస్ ప్లేబ్యాక్ మీరు ఎంచుకున్న భాష ({flag})ని ఉపయోగిస్తుంది. ఈ భాషలో వినడానికి కుడి ఎగువన ఉన్న జెండాను మార్చండి."},
+  label_name:{el:"Όνομα",en:"Name",ar:"الاسم",zh:"姓名",es:"Nombre",fr:"Prénom",de:"Name",pt:"Nome",it:"Nome",ru:"Имя",tr:"Ad",hi:"नाम",ur:"نام",ja:"名前",nl:"Naam",pl:"Imię",ro:"Nume",bn:"নাম",id:"Nama",sw:"Jina",fil:"Pangalan",mr:"नाव",te:"పేరు"},
+  label_phone:{el:"Τηλέφωνο",en:"Phone",ar:"الهاتف",zh:"电话",es:"Teléfono",fr:"Téléphone",de:"Telefon",pt:"Telefone",it:"Telefono",ru:"Телефон",tr:"Telefon",hi:"फ़ोन",ur:"فون",ja:"電話",nl:"Telefoon",pl:"Telefon",ro:"Telefon",bn:"ফোন",id:"Telepon",sw:"Simu",fil:"Telepono",mr:"फोन",te:"ఫోన్"},
+  label_address:{el:"Διεύθυνση",en:"Address",ar:"العنوان",zh:"地址",es:"Dirección",fr:"Adresse",de:"Adresse",pt:"Morada",it:"Indirizzo",ru:"Адрес",tr:"Adres",hi:"पता",ur:"پتہ",ja:"住所",nl:"Adres",pl:"Adres",ro:"Adresă",bn:"ঠিকানা",id:"Alamat",sw:"Anwani",fil:"Address",mr:"पत्ता",te:"చిరునామా"},
+  street_ph:{el:"Οδός και αριθμός",en:"Street & number",ar:"الشارع والرقم",zh:"街道和门牌",es:"Calle y número",fr:"Rue et numéro",de:"Straße und Hausnummer",pt:"Rua e número",it:"Via e numero",ru:"Улица и номер",tr:"Sokak ve numara",hi:"सड़क और नंबर",ur:"گلی اور نمبر",ja:"番地と番地番号",nl:"Straat en nummer",pl:"Ulica i numer",ro:"Stradă și număr",bn:"রাস্তা ও নম্বর",id:"Jalan & nomor",sw:"Barabara na namba",fil:"Kalye at numero",mr:"रस्ता आणि क्रमांक",te:"వీధి & నంబర్"},
+  city_ph:{el:"Πόλη",en:"City",ar:"المدينة",zh:"城市",es:"Ciudad",fr:"Ville",de:"Stadt",pt:"Cidade",it:"Città",ru:"Город",tr:"Şehir",hi:"शहर",ur:"شہر",ja:"市区町村",nl:"Stad",pl:"Miasto",ro:"Oraș",bn:"শহর",id:"Kota",sw:"Jiji",fil:"Lungsod",mr:"शहर",te:"నగరం"},
+  post_ph:{el:"ΤΚ",en:"Postcode",ar:"الرمز البريدي",zh:"邮编",es:"C.P.",fr:"Code postal",de:"PLZ",pt:"Cód. postal",it:"CAP",ru:"Индекс",tr:"Posta kodu",hi:"पिन कोड",ur:"پوسٹل کوڈ",ja:"郵便番号",nl:"Postcode",pl:"Kod",ro:"Cod poștal",bn:"পোস্টাল",id:"Kode pos",sw:"Msimbo",fil:"Zip code",mr:"पिनकोड",te:"పిన్‌కోడ్"},
+  saving:{el:"Αποθήκευση...",en:"Saving...",ar:"جاري الحفظ...",zh:"保存中...",es:"Guardando...",fr:"Enregistrement...",de:"Speichern...",pt:"A guardar...",it:"Salvataggio...",ru:"Сохранение...",tr:"Kaydediliyor...",hi:"सहेजा जा रहा है...",ur:"محفوظ ہو رہا ہے...",ja:"保存中...",nl:"Opslaan...",pl:"Zapisywanie...",ro:"Se salvează...",bn:"সংরক্ষণ হচ্ছে...",id:"Menyimpan...",sw:"Inahifadhi...",fil:"Sineseve...",mr:"जतन होत आहे...",te:"సేవ్ అవుతోంది..."},
+  save_ok:{el:"Αποθήκευση ✓",en:"Save ✓",ar:"حفظ ✓",zh:"保存 ✓",es:"Guardar ✓",fr:"Enregistrer ✓",de:"Speichern ✓",pt:"Guardar ✓",it:"Salva ✓",ru:"Сохранить ✓",tr:"Kaydet ✓",hi:"सहेजें ✓",ur:"محفوظ ✓",ja:"保存 ✓",nl:"Opslaan ✓",pl:"Zapisz ✓",ro:"Salvează ✓",bn:"সংরক্ষণ ✓",id:"Simpan ✓",sw:"Hifadhi ✓",fil:"I-save ✓",mr:"जतन ✓",te:"సేవ్ ✓"},
+  delivery_addr:{el:"Διεύθυνση Παράδοσης",en:"Delivery Address",ar:"عنوان التوصيل",zh:"配送地址",es:"Dirección de entrega",fr:"Adresse de livraison",de:"Lieferadresse",pt:"Morada de entrega",it:"Indirizzo di consegna",ru:"Адрес доставки",tr:"Teslimat adresi",hi:"डिलीवरी पता",ur:"ڈیلیوری پتہ",ja:"お届け先住所",nl:"Bezorgadres",pl:"Adres dostawy",ro:"Adresă de livrare",bn:"ডেলিভারি ঠিকানা",id:"Alamat pengiriman",sw:"Anwani ya uwasilishaji",fil:"Delivery address",mr:"डिलिव्हरी पत्ता",te:"డెలివరీ చిరునామా"},
+  delivery_hint:{el:"Για να δούμε προσφορές στην περιοχή σου, χρειαζόμαστε τη διεύθυνσή σου.",en:"To show you local offers and delivery options, we need your address.",ar:"لعرض العروض المحلية نحتاج عنوانك.",zh:"为向你展示本地优惠，我们需要你的地址。",es:"Para mostrarte ofertas locales necesitamos tu dirección.",fr:"Pour afficher les offres locales, nous avons besoin de votre adresse.",de:"Für lokale Angebote brauchen wir deine Adresse.",pt:"Para mostrar ofertas locais precisamos da tua morada.",it:"Per mostrarti le offerte locali ci serve il tuo indirizzo.",ru:"Чтобы показать местные предложения, нужен ваш адрес.",tr:"Yerel teklifleri göstermek için adresine ihtiyacımız var.",hi:"स्थानीय ऑफ़र दिखाने के लिए पता चाहिए।",ur:"مقامی آفرز دکھانے کے لیے پتہ درکار ہے۔",ja:"地域のオファー表示には住所が必要です。",nl:"Voor lokale aanbiedingen hebben we je adres nodig.",pl:"Aby pokazać lokalne oferty, potrzebujemy adresu.",ro:"Pentru oferte locale avem nevoie de adresa ta.",bn:"স্থানীয় অফার দেখাতে ঠিকানা দরকার।",id:"Untuk menampilkan penawaran lokal, kami butuh alamatmu.",sw:"Kuonyesha ofa za eneo, tunahitaji anwani yako.",fil:"Para makita ang local offers, kailangan namin ang address mo.",mr:"स्थानिक ऑफर दाखवण्यासाठी पत्ता हवा.",te:"స్థానిక ఆఫర్లు చూపించడానికి చిరునామా కావాలి."},
+  save_continue:{el:"Αποθήκευση και συνέχεια →",en:"Save & continue →",ar:"حفظ ومتابعة →",zh:"保存并继续 →",es:"Guardar y continuar →",fr:"Enregistrer et continuer →",de:"Speichern und weiter →",pt:"Guardar e continuar →",it:"Salva e continua →",ru:"Сохранить и продолжить →",tr:"Kaydet ve devam →",hi:"सहेजें और जारी रखें →",ur:"محفوظ کریں اور جاری رکھیں →",ja:"保存して続ける →",nl:"Opslaan en doorgaan →",pl:"Zapisz i kontynuuj →",ro:"Salvează și continuă →",bn:"সংরক্ষণ করে চালিয়ে যান →",id:"Simpan & lanjut →",sw:"Hifadhi na endelea →",fil:"I-save at magpatuloy →",mr:"जतन करा आणि पुढे →",te:"సేవ్ చేసి కొనసాగించు →"},
+  skip_now:{el:"Παράλειψη προς τώρα",en:"Skip for now",ar:"تخطي الآن",zh:"暂时跳过",es:"Omitir por ahora",fr:"Passer pour l'instant",de:"Vorerst überspringen",pt:"Ignorar por agora",it:"Salta per ora",ru:"Пропустить пока",tr:"Şimdilik atla",hi:"अभी छोड़ें",ur:"ابھی چھوڑیں",ja:"今はスキップ",nl:"Nu overslaan",pl:"Pomiń na razie",ro:"Omite deocamdată",bn:"এখন এড়িয়ে যান",id:"Lewati dulu",sw:"Ruka kwa sasa",fil:"Laktawan muna",mr:"आता वगळा",te:"ఇప్పుడు దాటవేయి"},
+  you_label:{el:"Εσύ",en:"You",ar:"أنتِ",zh:"你",es:"Tú",fr:"Toi",de:"Du",pt:"Tu",it:"Tu",ru:"Вы",tr:"Sen",hi:"आप",ur:"آپ",ja:"あなた",nl:"Jij",pl:"Ty",ro:"Tu",bn:"আপনি",id:"Anda",sw:"Wewe",fil:"Ikaw",mr:"तुम्ही",te:"మీరు"},
+  select_member_first:{el:"Διάλεξε πρώτα μέλος οικογένειας",en:"Select a family member first",ar:"اختاري فرداً من العائلة أولاً",zh:"请先选择一位家人",es:"Elige primero un miembro de la familia",fr:"Choisissez d'abord un membre de la famille",de:"Wähle zuerst ein Familienmitglied",pt:"Escolhe primeiro um membro da família",it:"Seleziona prima un membro della famiglia",ru:"Сначала выберите члена семьи",tr:"Önce bir aile üyesi seç",hi:"पहले परिवार के सदस्य चुनें",ur:"پہلے خاندان کا رکن منتخب کریں",ja:"先に家族を選んでください",nl:"Kies eerst een gezinslid",pl:"Najpierw wybierz członka rodziny",ro:"Alege mai întâi un membru al familiei",bn:"আগে পরিবারের সদস্য বেছে নিন",id:"Pilih anggota keluarga dulu",sw:"Chagua mwanafamilia kwanza",fil:"Pumili muna ng miyembro ng pamilya",mr:"आधी कुटुंबातील सदस्य निवडा",te:"ముందుగా కుటుంబ సభ్యుడిని ఎంచుకోండి"},
+  mem_deleted:{el:"Η ανάμνηση διαγράφηκε",en:"Memory deleted",ar:"تم حذف الذكرى",zh:"回忆已删除",es:"Recuerdo eliminado",fr:"Souvenir supprimé",de:"Erinnerung gelöscht",pt:"Memória eliminada",it:"Ricordo eliminato",ru:"Воспоминание удалено",tr:"Anı silindi",hi:"याद हटा दी गई",ur:"یاد حذف ہو گئی",ja:"思い出を削除しました",nl:"Herinnering verwijderd",pl:"Wspomnienie usunięte",ro:"Amintire ștearsă",bn:"স্মৃতি মুছে ফেলা হয়েছে",id:"Kenangan dihapus",sw:"Kumbukumbu imefutwa",fil:"Na-delete ang memory",mr:"आठवण हटवली",te:"జ్ఞాపకం తొలగించబడింది"},
+  change_photo:{el:"Αλλαγή φωτο",en:"Change photo",ar:"تغيير الصورة",zh:"更换照片",es:"Cambiar foto",fr:"Changer la photo",de:"Foto ändern",pt:"Mudar foto",it:"Cambia foto",ru:"Сменить фото",tr:"Fotoğrafı değiştir",hi:"फ़ोटो बदलें",ur:"تصویر بدلیں",ja:"写真を変更",nl:"Foto wijzigen",pl:"Zmień zdjęcie",ro:"Schimbă foto",bn:"ছবি বদলান",id:"Ganti foto",sw:"Badilisha picha",fil:"Palitan ang larawan",mr:"फोटो बदला",te:"ఫోటో మార్చు"},
+  add_photo:{el:"Προσθήκη φωτο",en:"Add photo",ar:"إضافة صورة",zh:"添加照片",es:"Añadir foto",fr:"Ajouter une photo",de:"Foto hinzufügen",pt:"Adicionar foto",it:"Aggiungi foto",ru:"Добавить фото",tr:"Fotoğraf ekle",hi:"फ़ोटो जोड़ें",ur:"تصویر شامل کریں",ja:"写真を追加",nl:"Foto toevoegen",pl:"Dodaj zdjęcie",ro:"Adaugă foto",bn:"ছবি যোগ করুন",id:"Tambah foto",sw:"Ongeza picha",fil:"Magdagdag ng larawan",mr:"फोटो जोडा",te:"ఫోటో జోడించు"},
+  remove_photo:{el:"Αφαίρεση",en:"Remove",ar:"إزالة",zh:"移除",es:"Quitar",fr:"Retirer",de:"Entfernen",pt:"Remover",it:"Rimuovi",ru:"Убрать",tr:"Kaldır",hi:"हटाएँ",ur:"ہٹائیں",ja:"削除",nl:"Verwijderen",pl:"Usuń",ro:"Elimină",bn:"সরান",id:"Hapus",sw:"Ondoa",fil:"Alisin",mr:"काढा",te:"తొలగించు"},
+  move_memory:{el:"Μετακίνηση σε",en:"Move to",ar:"نقل إلى",zh:"移动到",es:"Mover a",fr:"Déplacer vers",de:"Verschieben nach",pt:"Mover para",it:"Sposta a",ru:"Переместить к",tr:"Taşı",hi:"यहाँ ले जाएँ",ur:"منتقل کریں",ja:"移動先",nl:"Verplaats naar",pl:"Przenieś do",ro:"Mută la",bn:"সরান",id:"Pindah ke",sw:"Hamisha kwa",fil:"Ilipat sa",mr:"येथे हलवा",te:"తరలించు"},
+  edit_memory:{el:"Επεξεργασία",en:"Edit",ar:"تعديل",zh:"编辑",es:"Editar",fr:"Modifier",de:"Bearbeiten",pt:"Editar",it:"Modifica",ru:"Изменить",tr:"Düzenle",hi:"संपादित करें",ur:"ترمیم",ja:"編集",nl:"Bewerken",pl:"Edytuj",ro:"Editează",bn:"সম্পাদনা",id:"Edit",sw:"Hariri",fil:"I-edit",mr:"संपादित करा",te:"సవరించు"},
+  delete_memory:{el:"Διαγραφή",en:"Delete",ar:"حذف",zh:"删除",es:"Eliminar",fr:"Supprimer",de:"Löschen",pt:"Eliminar",it:"Elimina",ru:"Удалить",tr:"Sil",hi:"हटाएँ",ur:"حذف",ja:"削除",nl:"Verwijderen",pl:"Usuń",ro:"Șterge",bn:"মুছুন",id:"Hapus",sw:"Futa",fil:"I-delete",mr:"हटवा",te:"తొలగించు"},
+  mem_moved:{el:"Η ανάμνηση μετακινήθηκε",en:"Memory moved",ar:"تم نقل الذكرى",zh:"回忆已移动",es:"Recuerdo movido",fr:"Souvenir déplacé",de:"Erinnerung verschoben",pt:"Memória movida",it:"Ricordo spostato",ru:"Воспоминание перемещено",tr:"Anı taşındı",hi:"याद स्थानांतरित",ur:"یاد منتقل ہو گئی",ja:"思い出を移動しました",nl:"Herinnering verplaatst",pl:"Wspomnienie przeniesione",ro:"Amintire mutată",bn:"স্মৃতি সরানো হয়েছে",id:"Kenangan dipindahkan",sw:"Kumbukumbu imehamishwa",fil:"Nailipat ang memory",mr:"आठवण हलवली",te:"జ్ఞాపకం తరలించబడింది"},
+  archive_hint:{el:"Δώσε τίτλο στη συνομιλία ή άφησε κενό για αυτόματο τίτλο από την πρώτη ερώτηση.",en:"Name the conversation or leave blank for an automatic title from the first message.",ar:"سمّي المحادثة أو اتركيها فارغة لعنوان تلقائي.",zh:"为对话命名，或留空以用第一条消息自动命名。",es:"Pon un título o déjalo en blanco para un título automático.",fr:"Donnez un titre ou laissez vide pour un titre automatique.",de:"Gib einen Titel oder lass leer für automatischen Titel.",pt:"Dá um título ou deixa em branco para título automático.",it:"Dai un titolo o lascia vuoto per un titolo automatico.",ru:"Назовите разговор или оставьте пустым для автозаголовка.",tr:"Başlık ver veya otomatik başlık için boş bırak.",hi:"शीर्षक दें या स्वतः शीर्षक के लिए खाली छोड़ें।",ur:"عنوان دیں یا خودکار عنوان کے لیے خالی چھوڑیں۔",ja:"タイトルを入力するか、空欄で自動タイトルにします。",nl:"Geef een titel of laat leeg voor automatische titel.",pl:"Podaj tytuł lub zostaw puste dla automatycznego.",ro:"Dă un titlu sau lasă gol pentru titlu automat.",bn:"শিরোনাম দিন বা স্বয়ংক্রিয় শিরোনামের জন্য খালি রাখুন।",id:"Beri judul atau biarkan kosong untuk judul otomatis.",sw:"Toa kichwa au acha tupu kwa kichwa kiotomatiki.",fil:"Maglagay ng pamagat o iwanang blangko para sa automatic title.",mr:"शीर्षक द्या किंवा स्वयंचलितसाठी रिकामे ठेवा.",te:"శీర్షిక ఇవ్వండి లేదా ఆటోమేటిక్ కోసం ఖాళీగా ఉంచండి."},
+  no_archived:{el:"Δεν υπάρχουν αρχειοθετημένες συνομιλίες.",en:"No archived conversations.",ar:"لا توجد محادثات مؤرشفة.",zh:"没有已归档的对话。",es:"No hay conversaciones archivadas.",fr:"Aucune conversation archivée.",de:"Keine archivierten Gespräche.",pt:"Sem conversas arquivadas.",it:"Nessuna conversazione archiviata.",ru:"Нет архивных разговоров.",tr:"Arşivlenmiş konuşma yok.",hi:"कोई संग्रहीत बातचीत नहीं।",ur:"کوئی محفوظ بات چیت نہیں۔",ja:"アーカイブされた会話はありません。",nl:"Geen gearchiveerde gesprekken.",pl:"Brak zarchiwizowanych rozmów.",ro:"Nicio conversație arhivată.",bn:"কোনো আর্কাইভড কথোপকথন নেই।",id:"Tidak ada percakapan terarsip.",sw:"Hakuna mazungumzo yaliyohifadhiwa.",fil:"Walang naka-archive na usapan.",mr:"संग्रहित संवाद नाहीत.",te:"ఆర్కైవ్ చేసిన సంభాషణలు లేవు."},
+  mem_saved:{el:"Οι αναμνήσεις αποθηκεύτηκαν",en:"Memories saved",ar:"تم حفظ الذكريات",zh:"回忆已保存",es:"Recuerdos guardados",fr:"Souvenirs enregistrés",de:"Erinnerungen gespeichert",pt:"Memórias guardadas",it:"Ricordi salvati",ru:"Воспоминания сохранены",tr:"Anılar kaydedildi",hi:"यादें सहेजी गईं",ur:"یادیں محفوظ ہو گئیں",ja:"思い出を保存しました",nl:"Herinneringen opgeslagen",pl:"Wspomnienia zapisane",ro:"Amintiri salvate",bn:"স্মৃতি সংরক্ষিত",id:"Kenangan disimpan",sw:"Kumbukumbu zimehifadhiwa",fil:"Na-save ang mga memory",mr:"आठवणी जतन झाल्या",te:"జ్ఞాపకాలు సేవ్ అయ్యాయి"},
+  mem_save_fail:{el:"Αποτυχία αποθήκευσης στο cloud",en:"Cloud save failed",ar:"فشل الحفظ السحابي",zh:"云端保存失败",es:"Error al guardar en la nube",fr:"Échec de l'enregistrement cloud",de:"Cloud-Speichern fehlgeschlagen",pt:"Falha ao guardar na cloud",it:"Salvataggio cloud non riuscito",ru:"Не удалось сохранить в облако",tr:"Bulut kaydı başarısız",hi:"क्लाउड सेव विफल",ur:"کلاؤڈ محفوظ ناکام",ja:"クラウド保存に失敗",nl:"Cloud opslaan mislukt",pl:"Zapis w chmurze nieudany",ro:"Salvare cloud eșuată",bn:"ক্লাউড সংরক্ষণ ব্যর্থ",id:"Gagal simpan cloud",sw:"Hifadhi ya wingu imeshindwa",fil:"Nabigo ang cloud save",mr:"क्लाउड जतन अयशस्वी",te:"క్లౌడ్ సేవ్ విఫలమైంది"},
+  undo:{el:"Αναίρεση",en:"Undo",ar:"تراجع",zh:"撤销",es:"Deshacer",fr:"Annuler",de:"Rückgängig",pt:"Anular",it:"Annulla",ru:"Отменить",tr:"Geri al",hi:"पूर्ववत",ur:"واپس",ja:"元に戻す",nl:"Ongedaan",pl:"Cofnij",ro:"Anulează",bn:"পূর্বাবস্থা",id:"Urungkan",sw:"Tendua",fil:"I-undo",mr:"पूर्ववत",te:"అన్డు"},
+  undone:{el:"Αναιρέθηκε",en:"Undone",ar:"تم التراجع",zh:"已撤销",es:"Deshecho",fr:"Annulé",de:"Rückgängig gemacht",pt:"Anulado",it:"Annullato",ru:"Отменено",tr:"Geri alındı",hi:"पूर्ववत किया",ur:"واپس کر دیا",ja:"元に戻しました",nl:"Ongedaan gemaakt",pl:"Cofnięto",ro:"Anulat",bn:"পূর্বাবস্থায়",id:"Dibatalkan",sw:"Imetenduliwa",fil:"Na-undo",mr:"पूर्ववत केले",te:"అన్డు అయింది"},
+  points:{el:"πόντοι",en:"points",ar:"نقاط",zh:"积分",es:"puntos",fr:"points",de:"Punkte",pt:"pontos",it:"punti",ru:"очки",tr:"puan",hi:"अंक",ur:"پوائنٹس",ja:"ポイント",nl:"punten",pl:"punkty",ro:"puncte",bn:"পয়েন্ট",id:"poin",sw:"pointi",fil:"points",mr:"गुण",te:"పాయింట్లు"},
+  profile_saved:{el:"Τα στοιχεία αποθηκεύτηκαν",en:"Profile saved",ar:"تم حفظ الملف",zh:"资料已保存",es:"Perfil guardado",fr:"Profil enregistré",de:"Profil gespeichert",pt:"Perfil guardado",it:"Profilo salvato",ru:"Профиль сохранён",tr:"Profil kaydedildi",hi:"प्रोफ़ाइल सहेजी गई",ur:"پروفائل محفوظ",ja:"プロフィールを保存しました",nl:"Profiel opgeslagen",pl:"Profil zapisany",ro:"Profil salvat",bn:"প্রোফাইল সংরক্ষিত",id:"Profil disimpan",sw:"Wasifu umehifadhiwa",fil:"Na-save ang profile",mr:"प्रोफाइल जतन",te:"ప్రొఫైల్ సేవ్ అయింది"},
+  save_failed:{el:"Αποτυχία αποθήκευσης",en:"Could not save",ar:"تعذر الحفظ",zh:"无法保存",es:"No se pudo guardar",fr:"Échec de l'enregistrement",de:"Speichern fehlgeschlagen",pt:"Não foi possível guardar",it:"Salvataggio non riuscito",ru:"Не удалось сохранить",tr:"Kaydedilemedi",hi:"सहेजा नहीं जा सका",ur:"محفوظ نہیں ہو سکا",ja:"保存できませんでした",nl:"Opslaan mislukt",pl:"Nie udało się zapisać",ro:"Nu s-a putut salva",bn:"সংরক্ষণ করা যায়নি",id:"Tidak bisa menyimpan",sw:"Imeshindwa kuhifadhi",fil:"Hindi ma-save",mr:"जतन करता आले नाही",te:"సేవ్ చేయలేకపోయాం"},
+  address_saved:{el:"Η διεύθυνση αποθηκεύτηκε",en:"Address saved",ar:"تم حفظ العنوان",zh:"地址已保存",es:"Dirección guardada",fr:"Adresse enregistrée",de:"Adresse gespeichert",pt:"Morada guardada",it:"Indirizzo salvato",ru:"Адрес сохранён",tr:"Adres kaydedildi",hi:"पता सहेजा गया",ur:"پتہ محفوظ",ja:"住所を保存しました",nl:"Adres opgeslagen",pl:"Adres zapisany",ro:"Adresă salvată",bn:"ঠিকানা সংরক্ষিত",id:"Alamat disimpan",sw:"Anwani imehifadhiwa",fil:"Na-save ang address",mr:"पत्ता जतन",te:"చిరునామా సేవ్ అయింది"},
+  family_saved:{el:"Η οικογένεια αποθηκεύτηκε",en:"Family saved",ar:"تم حفظ العائلة",zh:"家庭已保存",es:"Familia guardada",fr:"Famille enregistrée",de:"Familie gespeichert",pt:"Família guardada",it:"Famiglia salvata",ru:"Семья сохранена",tr:"Aile kaydedildi",hi:"परिवार सहेजा गया",ur:"خاندان محفوظ",ja:"家族を保存しました",nl:"Gezin opgeslagen",pl:"Rodzina zapisana",ro:"Familie salvată",bn:"পরিবার সংরক্ষিত",id:"Keluarga disimpan",sw:"Familia imehifadhiwa",fil:"Na-save ang pamilya",mr:"कुटुंब जतन",te:"కుటుంబం సేవ్ అయింది"},
+  deleted_named:{el:"Διαγράφηκε: {name}",en:"Deleted: {name}",ar:"تم الحذف: {name}",zh:"已删除：{name}",es:"Eliminado: {name}",fr:"Supprimé : {name}",de:"Gelöscht: {name}",pt:"Eliminado: {name}",it:"Eliminato: {name}",ru:"Удалено: {name}",tr:"Silindi: {name}",hi:"हटाया गया: {name}",ur:"حذف: {name}",ja:"削除しました: {name}",nl:"Verwijderd: {name}",pl:"Usunięto: {name}",ro:"Șters: {name}",bn:"মুছে ফেলা: {name}",id:"Dihapus: {name}",sw:"Imefutwa: {name}",fil:"Na-delete: {name}",mr:"हटवले: {name}",te:"తొలగించబడింది: {name}"},
+  tree_updated:{el:"Η θέση στο δέντρο ενημερώθηκε",en:"Tree position updated",ar:"تم تحديث موضع الشجرة",zh:"家谱位置已更新",es:"Posición del árbol actualizada",fr:"Position dans l'arbre mise à jour",de:"Baumposition aktualisiert",pt:"Posição na árvore atualizada",it:"Posizione nell'albero aggiornata",ru:"Позиция на дереве обновлена",tr:"Ağaç konumu güncellendi",hi:"वृक्ष स्थिति अपडेट",ur:"درخت کی پوزیشن اپڈیٹ",ja:"家系図の位置を更新しました",nl:"Boompositie bijgewerkt",pl:"Pozycja na drzewie zaktualizowana",ro:"Poziția în arbore actualizată",bn:"গাছের অবস্থান আপডেট",id:"Posisi pohon diperbarui",sw:"Nafasi ya mti imesasishwa",fil:"Na-update ang tree position",mr:"वृक्षातील स्थान अपडेट",te:"ట్రీ స్థానం అప్‌డేట్ అయింది"},
+  choose_plan:{el:"Επίλεξε πακέτο",en:"Choose a plan",ar:"اختاري باقة",zh:"选择套餐",es:"Elige un plan",fr:"Choisissez une offre",de:"Wähle ein Abo",pt:"Escolhe um plano",it:"Scegli un piano",ru:"Выберите тариф",tr:"Plan seç",hi:"प्लान चुनें",ur:"پلان منتخب کریں",ja:"プランを選ぶ",nl:"Kies een abonnement",pl:"Wybierz plan",ro:"Alege un plan",bn:"প্ল্যান বেছে নিন",id:"Pilih paket",sw:"Chagua mpango",fil:"Pumili ng plan",mr:"प्लॅन निवडा",te:"ప్లాన్ ఎంచుకోండి"},
+  role_child:{el:"Παιδί",en:"Child",ar:"طفل",zh:"孩子",es:"Hijo/a",fr:"Enfant",de:"Kind",pt:"Filho/a",it:"Bambino/a",ru:"Ребёнок",tr:"Çocuk",hi:"बच्चा",ur:"بچہ",ja:"子ども",nl:"Kind",pl:"Dziecko",ro:"Copil",bn:"শিশু",id:"Anak",sw:"Mtoto",fil:"Anak",mr:"मूल",te:"పిల్లవాడు"},
+  partner_of:{el:"Σύντροφος ({name})",en:"Partner ({name})",ar:"الشريك ({name})",zh:"伴侣（{name}）",es:"Pareja ({name})",fr:"Partenaire ({name})",de:"Partner ({name})",pt:"Parceiro/a ({name})",it:"Partner ({name})",ru:"Партнёр ({name})",tr:"Partner ({name})",hi:"साथी ({name})",ur:"ساتھی ({name})",ja:"パートナー（{name}）",nl:"Partner ({name})",pl:"Partner ({name})",ro:"Partener ({name})",bn:"সঙ্গী ({name})",id:"Pasangan ({name})",sw:"Mwenza ({name})",fil:"Partner ({name})",mr:"जोडीदार ({name})",te:"భాగస్వామి ({name})"},
+  partner_spouse:{el:"Σύντροφος / Σύζυγος",en:"Partner / Spouse",ar:"شريك / زوج",zh:"伴侣 / 配偶",es:"Pareja / Cónyuge",fr:"Partenaire / Conjoint",de:"Partner / Ehepartner",pt:"Parceiro/a / Cônjuge",it:"Partner / Coniuge",ru:"Партнёр / Супруг(а)",tr:"Partner / Eş",hi:"साथी / जीवनसाथी",ur:"ساتھی / شریک حیات",ja:"パートナー / 配偶者",nl:"Partner / Echtgenoot",pl:"Partner / Małżonek",ro:"Partener / Soț",bn:"সঙ্গী / স্বামী-স্ত্রী",id:"Pasangan / Suami-istri",sw:"Mwenza / Mwenzi",fil:"Partner / Asawa",mr:"जोडीदार / पती-पत्नी",te:"భాగస్వామి / జీవిత భాగస్వామి"},
+  child_of:{el:"Παιδί: {name}",en:"Child: {name}",ar:"طفل: {name}",zh:"孩子：{name}",es:"Hijo/a: {name}",fr:"Enfant : {name}",de:"Kind: {name}",pt:"Filho/a: {name}",it:"Bambino/a: {name}",ru:"Ребёнок: {name}",tr:"Çocuk: {name}",hi:"बच्चा: {name}",ur:"بچہ: {name}",ja:"子ども: {name}",nl:"Kind: {name}",pl:"Dziecko: {name}",ro:"Copil: {name}",bn:"শিশু: {name}",id:"Anak: {name}",sw:"Mtoto: {name}",fil:"Anak: {name}",mr:"मूल: {name}",te:"పిల్లవాడు: {name}"},
+  you_named:{el:"Εσύ ({name})",en:"You ({name})",ar:"أنتِ ({name})",zh:"你（{name}）",es:"Tú ({name})",fr:"Toi ({name})",de:"Du ({name})",pt:"Tu ({name})",it:"Tu ({name})",ru:"Вы ({name})",tr:"Sen ({name})",hi:"आप ({name})",ur:"آپ ({name})",ja:"あなた（{name}）",nl:"Jij ({name})",pl:"Ty ({name})",ro:"Tu ({name})",bn:"আপনি ({name})",id:"Anda ({name})",sw:"Wewe ({name})",fil:"Ikaw ({name})",mr:"तुम्ही ({name})",te:"మీరు ({name})"},
+  syncing_local:{el:"Αποθηκεύτηκε τοπικά — συγχρονίζεται στο cloud…",en:"Saved locally — syncing to cloud…",ar:"حُفظ محلياً — جارٍ المزامنة…",zh:"已本地保存 — 正在同步到云端…",es:"Guardado localmente — sincronizando…",fr:"Enregistré localement — synchronisation…",de:"Lokal gespeichert — Cloud-Sync…",pt:"Guardado localmente — a sincronizar…",it:"Salvato in locale — sincronizzazione…",ru:"Сохранено локально — синхронизация…",tr:"Yerelde kaydedildi — buluta senkronize…",hi:"स्थानीय रूप से सहेजा — क्लाउड सिंक…",ur:"مقامی طور پر محفوظ — کلاؤڈ سنک…",ja:"ローカル保存 — クラウド同期中…",nl:"Lokaal opgeslagen — cloud sync…",pl:"Zapisano lokalnie — synchronizacja…",ro:"Salvat local — sincronizare…",bn:"স্থানীয়ভাবে সংরক্ষিত — ক্লাউড সিঙ্ক…",id:"Disimpan lokal — sinkron cloud…",sw:"Imehifadhiwa lokal — sync wingu…",fil:"Na-save locally — sine-sync sa cloud…",mr:"स्थानिक जतन — क्लाउड सिंक…",te:"లోకల్‌గా సేవ్ — క్లౌడ్ సింక్…"},
 };
 
 function detectLang(text: string): string {
@@ -1305,8 +1350,13 @@ function detectLang(text: string): string {
   if(/[\u0370-\u03FF\u1F00-\u1FFF]/.test(text)) return "el";
   return ""; // Latin script — cannot reliably distinguish, no hint shown
 }
-function t(key: string, lang: string): string { return TR[key]?.[lang] || TR[key]?.["el"] || TR[key]?.["en"] || key; }
-function getLang(code: string) { return LANGS.find(l => l.c === code) || LANGS[0]; }
+function t(key: string, lang: string): string {
+  return pickTranslated(TR[key], lang, key);
+}
+function getLang(code: string) {
+  const normalized = normalizeAppLang(code, "en");
+  return LANGS.find((l) => l.c === normalized) || LANGS.find((l) => l.c === "en") || LANGS[0];
+}
 function sk(token: string, suffix: string) {
   return stableSk(token, suffix);
 }
@@ -1402,9 +1452,9 @@ function ChangePasswordScreen({
 
 // ── Onboarding ────────────────────────────────────────────────
 function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => void }) {
-  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => localStorage.getItem("hm_pre_lang") || "el"); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
+  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
   const L = getLang(lang);
-  const save = () => { localStorage.setItem("hm_pre_lang", lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,lang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
+  const save = () => { const nextLang = writeStoredAppLang(lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
   const s: React.CSSProperties = {minHeight:"100vh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
@@ -1413,7 +1463,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
       {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
         <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:"#2B3A67",fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:"1px solid #F0EBE6",marginBottom:4}}>🌐 {t("selectlang",lang)}</div>
-          {LANGS.map(l=><div key={l.c} onClick={()=>{setLang(l.c);setShowLang(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?"#F0EBE6":"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:"#2B3A67"}}>{l.n}</span>{l.c===lang&&<span style={{color:"#4ABEAA",fontWeight:700}}>✓</span>}</div>)}
+          {LANGS.map(l=><div key={l.c} onClick={()=>{setLang(normalizeAppLang(l.c));setShowLang(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?"#F0EBE6":"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:"#2B3A67"}}>{l.n}</span>{l.c===lang&&<span style={{color:"#4ABEAA",fontWeight:700}}>✓</span>}</div>)}
         </div>
       </div>}
       <div style={{maxWidth:420,width:"100%"}}>
@@ -1443,7 +1493,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button onClick={()=>setStep(0)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(l.c)} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
         {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
@@ -1460,9 +1510,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     setToasts(prev => [...prev, { id, text: trimmed, kind, undo, undoLabel }]);
     window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
   };
-  const lang = profile.lang; const L = getLang(lang);
+  const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
   const showUndoToast = (text: string, undo: () => void) => {
-    showToast(text, "ok", undo, lang === "el" ? "Αναίρεση" : "Undo");
+    showToast(text, "ok", undo, t("undo", lang));
   };
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
@@ -1479,7 +1529,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     const result = await logUserActivity(token, { action, path, label, details });
     if (result?.gamification) setGamification(result.gamification);
     if (result?.points_awarded) {
-      const ptsLabel = lang === "el" ? "πόντοι" : "points";
+      const ptsLabel = t("points", lang);
       showToast(`+${result.points_awarded} ${ptsLabel}`, "ok");
     }
   }, [token, lang]);
@@ -1493,6 +1543,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
   const [editingMemIdx, setEditingMemIdx] = useState<number|null>(null);
+  const [photoEditMemIdx, setPhotoEditMemIdx] = useState<number | null>(null);
   const [memEditVal, setMemEditVal] = useState("");
   const [familyData, setFamilyData] = useState<FamilyData>(() => {
     const recovered = loadFamilyForToken(token);
@@ -1548,14 +1599,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     };
     try {
       await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
-      localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated));
+      localStorage.setItem(sk(token,"profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
-      showToast(lang === "el" ? "Τα στοιχεία αποθηκεύτηκαν" : "Profile saved", "ok");
+      showToast(t("profile_saved", lang), "ok");
       track("submit", appPath("profile", "save"), "Save profile");
       setShowProfileEdit(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
-      showToast(msg || (lang === "el" ? "Αποτυχία αποθήκευσης" : "Could not save profile"), "err");
+      showToast(msg || t("save_failed", lang), "err");
     } finally {
       setEditSaving(false);
     }
@@ -1579,14 +1630,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     };
     try {
       await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
-      localStorage.setItem(`hm_profile_${token}`, JSON.stringify(updated));
+      localStorage.setItem(sk(token,"profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
-      showToast(lang === "el" ? "Η διεύθυνση αποθηκεύτηκε" : "Address saved", "ok");
+      showToast(t("address_saved", lang), "ok");
       setShowAddressModal(false);
       setTab("shopping");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
-      showToast(msg || (lang === "el" ? "Αποτυχία αποθήκευσης διεύθυνσης" : "Could not save address"), "err");
+      showToast(msg || t("save_failed", lang), "err");
     }
   };
   const skipAddress = () => {
@@ -1620,21 +1671,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   );
   const relatedToOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [
-      { value: RELATED_TO_SELF, label: lang === "el" ? `Εσύ (${profile.name || "You"})` : `You (${profile.name || "You"})` },
+      { value: RELATED_TO_SELF, label: t("you_named", lang).replace("{name}", profile.name || "You") },
     ];
     if (partnerMember) {
       opts.push({
         value: RELATED_TO_PARTNER,
-        label: lang === "el" ? `Σύντροφος (${partnerMember.name})` : `Partner (${partnerMember.name})`,
+        label: t("partner_of", lang).replace("{name}", partnerMember.name),
       });
     } else {
       opts.push({
         value: RELATED_TO_PARTNER,
-        label: lang === "el" ? "Σύντροφος / Σύζυγος" : "Partner / Spouse",
+        label: t("partner_spouse", lang),
       });
     }
     familyChildren.forEach((c) => {
-      opts.push({ value: c.name, label: lang === "el" ? `Παιδί: ${c.name}` : `Child: ${c.name}` });
+      opts.push({ value: c.name, label: t("child_of", lang).replace("{name}", c.name) });
     });
     familyData.members.forEach((m) => {
       if (/partner|spouse|husband|wife/i.test(m.relationship)) return;
@@ -1694,7 +1745,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     if (!cloudReady) {
       if (showFeedback) {
         showToastRef.current(
-          lang === "el" ? "Αποθηκεύτηκε τοπικά — συγχρονίζεται στο cloud…" : "Saved locally — syncing to cloud…",
+          t("syncing_local", lang),
           "ok",
         );
       }
@@ -1704,11 +1755,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     try {
       await axios.post(`${API}/userdata`, { key: "family", value: payload }, { headers: { "x-token": token } });
       if (showFeedback) {
-        showToastRef.current(lang === "el" ? "Η οικογένεια αποθηκεύτηκε" : "Family saved", "ok");
+        showToastRef.current(t("family_saved", lang), "ok");
       }
     } catch {
       if (showFeedback) {
-        showToastRef.current(lang === "el" ? "Αποτυχία αποθήκευσης στο cloud" : "Cloud save failed", "err");
+        showToastRef.current(t("mem_save_fail", lang), "err");
       }
     } finally {
       setFamilySaving(false);
@@ -1727,26 +1778,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   /** Push memories to cloud (compressed photos included for cross-device). */
   const saveMemoriesCloud = useCallback(async (data: Memory[], showFeedback = false) => {
-    if (!data.length) return;
     if (!cloudReady) {
       if (showFeedback) {
-        showToastRef.current(
-          lang === "el" ? "Αποθηκεύτηκαν τοπικά — συγχρονίζονται στο cloud…" : "Saved locally — syncing to cloud…",
-          "ok",
-        );
+        showToastRef.current(t("saving", lang), "ok");
       }
       return;
     }
     setMemoriesSaving(true);
     try {
-      const payload = await memoriesForCloud(data);
+      const payload = data.length ? await memoriesForCloud(data) : [];
       await axios.post(`${API}/userdata`, { key: "memories", value: payload }, { headers: { "x-token": token } });
       if (showFeedback) {
-        showToastRef.current(lang === "el" ? "Οι αναμνήσεις αποθηκεύτηκαν" : "Memories saved", "ok");
+        showToastRef.current(t("mem_saved", lang), "ok");
       }
     } catch {
       if (showFeedback) {
-        showToastRef.current(lang === "el" ? "Αποτυχία αποθήκευσης στο cloud" : "Cloud save failed", "err");
+        showToastRef.current(t("mem_save_fail", lang), "err");
       }
     } finally {
       setMemoriesSaving(false);
@@ -1947,9 +1994,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    try { const res = await axios.post(`${API}/chat`,{message:text,history:messages,profile:{childName:profile.childName,childAge:profile.childAge,childBirthDate:profile.childBirthDate||null,dueDate:profile.dueDate||null,lang:lang,children:familyChildren.map(c=>({name:c.name,birthDate:c.birthDate||null})),pregnancyStatus:profile.pregnancyStatus||(profile.dueDate?(isDueDatePassed(profile.dueDate)?"awaiting_update":"active"):undefined)},recentMemories,recentDocs},{headers:{"x-token":token}}); setMessages([...next,{role:"assistant",content:res.data.reply,promo:res.data.promo||null}]); }
-    catch(err:any) { if(err.response?.status===401)onLogout(); else if(err.response?.status===402)onExpired(); else setMessages([...next,{role:"assistant",content:"..."}]); }
-    finally { setLoading(false); }
+    try {
+      const res = await axios.post(
+        `${API}/chat`,
+        {
+          message: text,
+          history: messages.slice(-12),
+          profile: {
+            childName: profile.childName,
+            childAge: profile.childAge,
+            childBirthDate: profile.childBirthDate || null,
+            dueDate: profile.dueDate || null,
+            lang: lang,
+            children: familyChildren.map((c) => ({ name: c.name, birthDate: c.birthDate || null })),
+            pregnancyStatus:
+              profile.pregnancyStatus ||
+              (profile.dueDate ? (isDueDatePassed(profile.dueDate) ? "awaiting_update" : "active") : undefined),
+          },
+          recentMemories,
+          recentDocs: recentDocs.slice(0, 10),
+        },
+        { headers: { "x-token": token }, timeout: 60000 },
+      );
+      setMessages([...next, { role: "assistant", content: res.data.reply, promo: res.data.promo || null }]);
+    } catch (err: any) {
+      if (err.response?.status === 401) onLogout();
+      else if (err.response?.status === 402) onExpired();
+      else setMessages([...next, { role: "assistant", content: t("chat_error", lang) }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Prefill input and switch to chat without sending
@@ -1996,7 +2070,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const addMemory = (imgData?: string) => {
     if(!memInput.trim()&&!imgData)return;
     if(activeMemRef==null){
-      showToast(lang==="el"?"Διάλεξε πρώτα μέλος οικογένειας":"Select a family member first","err");
+      showToast(t("select_member_first", lang),"err");
       return;
     }
     const ref = activeMemRef === "__general__" ? undefined : activeMemRef;
@@ -2027,13 +2101,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     setMemories(memories.filter((_, j) => j !== index));
     if (editingMemIdx === index) setEditingMemIdx(null);
     showUndoToast(
-      lang === "el" ? "Η ανάμνηση διαγράφηκε" : "Memory deleted",
+      t("mem_deleted", lang),
       () => setMemories((prev) => {
         const next = [...prev];
         next.splice(Math.min(index, next.length), 0, removed);
         return next;
       }),
     );
+  };
+
+  const removeMemoryPhoto = (index: number) => {
+    setMemories((prev) => prev.map((m, i) => (i === index ? { ...m, img: undefined } : m)));
+  };
+
+  const moveMemory = (index: number, newRefRaw: string) => {
+    const newRef = newRefRaw === "__general__" ? undefined : newRefRaw;
+    setMemories((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, ref: newRef } : m)),
+    );
+    showToast(t("mem_moved", lang));
+    if (newRefRaw && newRefRaw !== activeMemRef) {
+      setActiveMemRef(newRefRaw);
+    }
+  };
+
+  const saveMemoryText = (index: number, text: string) => {
+    const nextText = text.trim();
+    setMemories((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, text: nextText || m.text } : m)),
+    );
+    setEditingMemIdx(null);
   };
 
   const toggleMilestone = (ref: string, idx: number) => {
@@ -2099,7 +2196,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     if (!removed) return;
     setFamilyData((prev) => ({ ...prev, members: prev.members.filter((_, j) => j !== index) }));
     showUndoToast(
-      lang === "el" ? `Διαγράφηκε: ${removed.name}` : `Deleted: ${removed.name}`,
+      t("deleted_named", lang).replace("{name}", removed.name),
       () => setFamilyData((prev) => {
         const next = [...prev.members];
         next.splice(Math.min(index, next.length), 0, removed);
@@ -2158,7 +2255,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     const nextFamily = { ...familyData, members: nextMembers };
     setFamilyData(nextFamily);
     showUndoToast(
-      lang === "el" ? "Η θέση στο δέντρο ενημερώθηκε" : "Tree position updated",
+      t("tree_updated", lang),
       () => {
         setFamilyData({ ...familyData, members: prev });
       },
@@ -2303,7 +2400,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     onProfileUpdate(updatedProfile);
     void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
     showUndoToast(
-      lang === "el" ? `Διαγράφηκε: ${removed.name}` : `Deleted: ${removed.name}`,
+      t("deleted_named", lang).replace("{name}", removed.name),
       () => {
         const restored = [...updatedChildren];
         restored.splice(Math.min(index, restored.length), 0, removed);
@@ -2360,26 +2457,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Διεύθυνση":"Address", lang)}</label>
           <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
-            <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={lang==="el"?"Πόλη":"City"} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
-            <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={lang==="el"?"ΤΚ":"Post"} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
           </div>
-          <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:editSaving?0.6:1}}>{editSaving?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Αποθήκευση ✓":"Save ✓")}</button>
-          <button onClick={()=>setShowProfileEdit(false)} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{lang==="el"?"Ακύρωση":"Cancel"}</button>
+          <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:editSaving?0.6:1}}>{editSaving?t("saving",lang):t("save_ok",lang)}</button>
+          <button onClick={()=>setShowProfileEdit(false)} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
         </div>
       </div>}
 
       {/* ADDRESS MODAL */}
       {showAddressModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:510,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {lang==="el"?"Διεύθυνση Παράδοσης":"Delivery Address"}</div>
-          <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{lang==="el"?"Για να δούμε προσφορές στην περιοχή σου, χρειαζόμαστε τη διεύθυνσή σου.":"To show you local offers and delivery options, we need your address."}</p>
-          <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
+          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
+          <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
+          <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
-            <input value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={lang==="el"?"Πόλη":"City"} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
-            <input value={addrPostal} onChange={e=>setAddrPostal(e.target.value)} placeholder={lang==="el"?"ΤΚ":"Postcode"} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            <input value={addrPostal} onChange={e=>setAddrPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
           </div>
-          <button onClick={saveAddress} disabled={!addrStreet.trim()||!addrCity.trim()} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:(!addrStreet.trim()||!addrCity.trim())?0.45:1}}>{lang==="el"?"Αποθήκευση και συνέχεια →":"Save & continue →"}</button>
-          <button onClick={skipAddress} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{lang==="el"?"Παράλειψη προς τώρα":"Skip for now"}</button>
+          <button onClick={saveAddress} disabled={!addrStreet.trim()||!addrCity.trim()} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:(!addrStreet.trim()||!addrCity.trim())?0.45:1}}>{t("save_continue",lang)}</button>
+          <button onClick={skipAddress} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("skip_now",lang)}</button>
         </div>
       </div>}
 
@@ -2387,7 +2484,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
         <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:4}}>🌐 {t("selectlang",lang)}</div>
-          {LANGS.map(l=><div key={l.c} onClick={()=>{const u={...profile,lang:l.c};localStorage.setItem(sk(token,"profile"),JSON.stringify(u));window.location.reload();}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?gl:"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:navy}}>{l.n}</span>{l.c===lang&&<span style={{color:teal,fontWeight:700}}>✓</span>}</div>)}
+          {LANGS.map(l=><div key={l.c} onClick={()=>{const nextLang=writeStoredAppLang(l.c);const u={...profile,lang:nextLang};localStorage.setItem(sk(token,"profile"),JSON.stringify(u));void syncProfileToSupabase(token,u);onProfileUpdate(u);setShowLang(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?gl:"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:navy}}>{l.n}</span>{l.c===lang&&<span style={{color:teal,fontWeight:700}}>✓</span>}</div>)}
         </div>
       </div>}
 
@@ -2395,7 +2492,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {showArchiveModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:18,padding:24,width:"100%",maxWidth:380}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
-          <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>Δώσε τίτλο στη συνομιλία ή άφησε κενό για αυτόματο τίτλο από την πρώτη ερώτηση.</p>
+          <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
           <input value={archiveTitle} onChange={e=>setArchiveTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doArchive()} placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."} style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${gl}`,borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12}} autoFocus/>
           <div style={{display:"flex",gap:8}}>
             <button onClick={doArchive} style={{flex:1,padding:11,background:navy,color:"#fff",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer"}}>{t("archivethread",lang)} ✓</button>
@@ -2408,18 +2505,42 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {showThreads&&<div onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
         <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"70vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
-          {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>Δεν υπάρχουν αρχειοθετημένες συνομιλίες.</div>}
+          {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
           {threads.map(th=>(
             <div key={th.id} style={{padding:"11px 12px",borderRadius:10,background:gl,marginBottom:8,cursor:"pointer"}} onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
               <div style={{fontSize:13,fontWeight:600,color:navy,marginBottom:2}}>{th.title}</div>
-              <div style={{fontSize:11,color:"#7A7068"}}>{th.date} · {th.messages.length} messages</div>
+              <div style={{fontSize:11,color:"#7A7068"}}>{th.date} · {th.messages.length} {t("messages_count",lang)}</div>
             </div>
           ))}
         </div>
       </div>}
 
       {/* FILE INPUT */}
-      <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>addMemory(ev.target?.result as string);r.readAsDataURL(f);e.target.value="";}}/>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = (ev) => {
+            const dataUrl = ev.target?.result as string;
+            if (photoEditMemIdx != null) {
+              const targetIdx = photoEditMemIdx;
+              setPhotoEditMemIdx(null);
+              void compressImageDataUrl(dataUrl).then((img) => {
+                setMemories((prev) => prev.map((m, i) => (i === targetIdx ? { ...m, img } : m)));
+              });
+            } else {
+              addMemory(dataUrl);
+            }
+          };
+          r.readAsDataURL(f);
+          e.target.value = "";
+        }}
+      />
 
       {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
       {trialEndLabel && (
@@ -2428,7 +2549,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             ? `Δωρεάν δοκιμή — λήγει ${trialEndLabel}. `
             : `Free trial — ends ${trialEndLabel}. `}
           <Link to="/subscription" style={{color:"#fff",fontWeight:700,textDecoration:"underline"}}>
-            {lang === "el" ? "Επίλεξε πακέτο" : "Choose a plan"}
+            {t("choose_plan", lang)}
           </Link>
         </div>
       )}
@@ -2520,9 +2641,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               </div>)}
               </div>
             ))}
-            {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+            {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true">
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-              <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"12px 16px",fontSize:18}}>···</div>
+              <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 14px",display:"flex",alignItems:"center",gap:10,minHeight:40}}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    border: "2.5px solid rgba(43,58,103,.18)",
+                    borderTopColor: navy,
+                    display: "inline-block",
+                    animation: "hmThinkSpin .75s linear infinite",
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{fontSize:13,color:"#5A5048",fontFamily:"'DM Sans',sans-serif"}}>{t("thinking", lang)}</span>
+              </div>
+              <style>{`@keyframes hmThinkSpin{to{transform:rotate(360deg)}}`}</style>
             </div>}
             <div ref={bottomRef}/>
           </div>
@@ -2538,6 +2675,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             pregnancyActive={pregnancyActive}
             memoryCounts={memoryCountsByRef}
             selfPhoto={familyData.selfPhoto}
+            selectedNodeId={treeEdit?.id}
             onEditNode={openTreeEdit}
             onNodeSelect={(ref) => { setActiveMemRef(ref ?? "__general__"); setTab("memories"); }}
             onPlaceMembers={placeMembersOnTree}
@@ -2577,7 +2715,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                     const nodeLike = {
                       id: `child-${i}-${child.name}`,
                       name: child.name,
-                      role: lang === "el" ? "Παιδί" : "Child",
+                      role: t("role_child", lang),
                       kind: "child" as const,
                       side: "self" as const,
                       generation: 1 as const,
@@ -2803,12 +2941,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 />
                 {treeEdit.memberIndex != null && (
                   <>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7A7068",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                      {lang==="el"?"Ρόλος / μετακίνηση στο δέντρο":"Role / move on tree"}
+                    </div>
                     <select
                       value={RELATIONSHIP_PRESETS.some(p=>p.value===treeEditRole)?treeEditRole:"Family"}
                       onChange={(e)=>{
                         const role = e.target.value;
                         setTreeEditRole(role);
-                        setTreeEditRelatedTo(defaultRelatedToForRelationship(role, familyData.members, treeEditRelatedTo));
+                        const nextRelated = defaultRelatedToForRelationship(role, familyData.members, treeEditRelatedTo);
+                        setTreeEditRelatedTo(nextRelated);
+                        if (treeEdit.memberIndex != null) {
+                          changeMemberRelationship(treeEdit.memberIndex, role);
+                        }
                       }}
                       style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
                     >
@@ -2816,9 +2961,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                         <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
                       ))}
                     </select>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7A7068",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                      {lang==="el"?"Συγγενής του / της":"Relative of"}
+                    </div>
                     <select
                       value={treeEditRelatedTo}
-                      onChange={(e)=>setTreeEditRelatedTo(e.target.value)}
+                      onChange={(e)=>{
+                        const next = e.target.value;
+                        setTreeEditRelatedTo(next);
+                        if (treeEdit.memberIndex != null) {
+                          changeMemberRelatedTo(treeEdit.memberIndex, next);
+                        }
+                      }}
                       style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
                     >
                       {relatedToOptions.filter(o=>o.value!==memberMemoryRef(familyData.members[treeEdit.memberIndex!]?.id || "")).map(o=>(
@@ -2832,8 +2986,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 {treeEdit.childIndex != null && (
                   <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
                 )}
-                <div style={{display:"flex",gap:8,marginTop:4}}>
-                  <button type="button" onClick={saveTreeEdit} style={{flex:1,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
+                <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap" as any}}>
+                  <button type="button" onClick={saveTreeEdit} style={{flex:1,minWidth:90,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
                   {(treeEdit.ref || treeEdit.kind === "self") && (
                     <button
                       type="button"
@@ -2842,9 +2996,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                         setTreeEdit(null);
                         setTab("memories");
                       }}
-                      style={{flex:1,padding:10,background:"#fff",color:teal,border:`1.5px solid ${teal}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                      style={{flex:1,minWidth:90,padding:10,background:"#fff",color:teal,border:`1.5px solid ${teal}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
                     >
-                      📝 {lang==="el"?"Αναμνήσεις":"Memories"}
+                      📝 {t("recentmem",lang)}
+                    </button>
+                  )}
+                  {(treeEdit.memberIndex != null || treeEdit.childIndex != null) && (
+                    <button
+                      type="button"
+                      onClick={()=>{
+                        if (treeEdit.memberIndex != null) deleteFamilyMember(treeEdit.memberIndex);
+                        else if (treeEdit.childIndex != null) deleteChild(treeEdit.childIndex);
+                        setTreeEdit(null);
+                      }}
+                      style={{flex:1,minWidth:90,padding:10,background:"rgba(224,123,84,.12)",color:"#E07B54",border:`1.5px solid rgba(224,123,84,.45)`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                    >
+                      🗑 {t("delete_memory",lang)}
                     </button>
                   )}
                   <button type="button" onClick={()=>setTreeEdit(null)} style={{padding:"10px 12px",background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
@@ -2866,6 +3033,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             onDownload={() => track("submit", appPath("memories", "export-booklet"), "Download memories booklet")}
             onSave={saveMemoriesNow}
             saving={memoriesSaving}
+            onRemovePhoto={(m) => {
+              const idx = memories.findIndex((x) =>
+                (x.createdAt && m.createdAt && x.createdAt === m.createdAt) ||
+                (x.img && m.img && x.img === m.img) ||
+                (x.date === m.date && x.text === m.text && (x.ref || "") === (m.ref || "") && !!x.img === !!m.img),
+              );
+              if (idx >= 0) removeMemoryPhoto(idx);
+            }}
+            onDeleteMemory={(m) => {
+              const idx = memories.findIndex((x) =>
+                (x.createdAt && m.createdAt && x.createdAt === m.createdAt) ||
+                (x.img && m.img && x.img === m.img) ||
+                (x.date === m.date && x.text === m.text && (x.ref || "") === (m.ref || "") && !!x.img === !!m.img),
+              );
+              if (idx >= 0) deleteMemory(idx);
+            }}
           />
           {/* Person selector pills — counts only; list opens after selection */}
           {(()=>{
@@ -2880,7 +3063,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               }).length;
             };
             const memRefs: {label:string,value:string,count:number}[] = [
-              {label:"🌸 "+(profile.name||(lang==="el"?"Εσύ":"You")),value:"__general__",count:countFor("__general__")},
+              {label:"🌸 "+(profile.name||t("you_label",lang)),value:"__general__",count:countFor("__general__")},
             ];
             if(pregnancyActive) memRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy",count:countFor("pregnancy")});
             familyChildren.forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name,count:countFor(c.name)}));
@@ -2950,11 +3133,87 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             if(filtered.length===0) return <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nomemories",lang)}</div>;
             return filtered.map((m,i)=>{
               const origIdx = memories.indexOf(m);
+              const moveOptions: {label:string,value:string}[] = [
+                {label:"🌸 "+(profile.name||t("you_label",lang)),value:"__general__"},
+              ];
+              if(pregnancyActive) moveOptions.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
+              familyChildren.forEach(c=>moveOptions.push({label:"👶 "+c.name,value:c.name}));
+              familyData.members.forEach(mem=>{
+                const isPet = classifyKinship(mem.relationship)==="pet";
+                moveOptions.push({
+                  label:(isPet?"🐾 ":"👤 ")+memberDisplayLabel(mem, familyData.members),
+                  value:memberMemoryRef(mem.id),
+                });
+              });
+              const currentMoveValue = !m.ref || m.ref === "__general__" ? "__general__" : m.ref;
               return (
                 <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none",minWidth:0}}>
                   {m.img?<img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>:<span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>}
-                  <div style={{flex:1,minWidth:0}}>{editingMemIdx===origIdx?(<div style={{display:"flex",gap:5,marginBottom:4}}><input value={memEditVal} onChange={e=>setMemEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}if(e.key==="Escape")setEditingMemIdx(null);}} autoFocus style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}/><button onClick={()=>{setMemories(memories.map((x,j)=>j===origIdx?{...x,text:memEditVal.trim()||x.text}:x));setEditingMemIdx(null);}} style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}>✓</button></div>):<div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>{m.text!=="📷"?m.text:""}</div>}<div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div></div>
-                  <div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button><button onClick={()=>deleteMemory(origIdx)} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button></div>
+                  <div style={{flex:1,minWidth:0}}>
+                    {editingMemIdx===origIdx?(
+                      <div style={{display:"flex",flexDirection:"column" as any,gap:6,marginBottom:4}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          {m.img ? (
+                            <img src={m.img} alt="" style={{width:48,height:48,borderRadius:10,objectFit:"cover",flexShrink:0}}/>
+                          ) : (
+                            <div style={{width:48,height:48,borderRadius:10,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                              📷
+                            </div>
+                          )}
+                          <div style={{display:"flex",flexDirection:"column" as any,gap:5}}>
+                            <button
+                              onClick={() => { setPhotoEditMemIdx(origIdx); fileRef.current?.click(); }}
+                              style={{padding:"5px 10px",background:"rgba(124,92,191,0.12)",border:"none",borderRadius:8,color:"#7C5CBF",cursor:"pointer",fontSize:12,fontWeight:700}}
+                            >
+                              {m.img ? t("change_photo",lang) : t("add_photo",lang)}
+                            </button>
+                            {m.img && (
+                              <button
+                                onClick={() => removeMemoryPhoto(origIdx)}
+                                style={{padding:"5px 10px",background:"rgba(224,123,84,0.12)",border:"none",borderRadius:8,color:"#E07B54",cursor:"pointer",fontSize:12,fontWeight:700}}
+                              >
+                                {t("remove_photo",lang)} 🗑️
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <label style={{fontSize:11,color:"#7A7068",fontWeight:600}}>{t("move_memory",lang)}</label>
+                        <select
+                          value={currentMoveValue}
+                          onChange={(e)=>moveMemory(origIdx, e.target.value)}
+                          style={{width:"100%",padding:"7px 8px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:navy,background:"#fff"}}
+                        >
+                          {moveOptions.map(opt=>(
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <div style={{display:"flex",gap:5}}>
+                          <input
+                            value={memEditVal}
+                            onChange={e=>setMemEditVal(e.target.value)}
+                            onKeyDown={e=>{if(e.key==="Enter"){saveMemoryText(origIdx, memEditVal);}if(e.key==="Escape")setEditingMemIdx(null);}}
+                            autoFocus
+                            style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}
+                          />
+                          <button
+                            onClick={()=>saveMemoryText(origIdx, memEditVal)}
+                            style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>
+                        {m.text!=="📷"?m.text:""}
+                      </div>
+                    )}
+                    <div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div>
+                  </div>
+                  <div style={{display:"flex",gap:3,flexShrink:0}}>
+                    <button title={t("edit_memory",lang)} onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button>
+                    <button title={t("delete_memory",lang)} onClick={()=>deleteMemory(origIdx)} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
+                  </div>
                 </div>
               );
             });
@@ -3188,30 +3447,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     </div>
     {toasts.length > 0 && (
       <div aria-live="polite" style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10,pointerEvents:"none",maxWidth:"min(420px, calc(100vw - 32px))"}}>
-        {toasts.map(t => (
-          <div key={t.id} role="status" style={{
+        {toasts.map(toastItem => (
+          <div key={toastItem.id} role="status" style={{
             pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"12px 14px", borderRadius:12,
             boxShadow:"0 8px 32px rgba(43,58,103,.18)",
             background:"#fff",
-            color: t.kind === "ok" ? "#2D9E6B" : "#E07B54",
-            border: t.kind === "ok" ? "1.5px solid rgba(45,158,107,.35)" : "1.5px solid rgba(224,123,84,.4)",
+            color: toastItem.kind === "ok" ? "#2D9E6B" : "#E07B54",
+            border: toastItem.kind === "ok" ? "1.5px solid rgba(45,158,107,.35)" : "1.5px solid rgba(224,123,84,.4)",
             display:"flex", alignItems:"center", gap:12,
           }}>
-            <span style={{flex:1}}>{t.text}</span>
-            {t.undo && (
+            <span style={{flex:1}}>{toastItem.text}</span>
+            {toastItem.undo && (
               <button
                 type="button"
                 onClick={() => {
-                  t.undo?.();
-                  setToasts(prev => prev.filter(x => x.id !== t.id));
-                  showToast(lang === "el" ? "Αναιρέθηκε" : "Undone", "ok");
+                  toastItem.undo?.();
+                  setToasts(prev => prev.filter(x => x.id !== toastItem.id));
+                  showToast(t("undone", lang), "ok");
                 }}
                 style={{
                   flexShrink:0, padding:"6px 10px", borderRadius:8, border:"none", cursor:"pointer",
                   background:"#2B3A67", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:700,
                 }}
               >
-                {t.undoLabel || (lang === "el" ? "Αναίρεση" : "Undo")}
+                {toastItem.undoLabel || t("undo", lang)}
               </button>
             )}
           </div>
@@ -3228,7 +3487,12 @@ export default function App() {
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
     const tk=localStorage.getItem(TOKEN_KEY); if(!tk)return null;
-    try{return JSON.parse(localStorage.getItem(`hm_profile_${tk}`)||"null");}catch{return null;}
+    try{
+      const stableRaw = localStorage.getItem(sk(tk,"profile"));
+      if (stableRaw) return JSON.parse(stableRaw);
+      const legacyRaw = localStorage.getItem(`hm_profile_${tk}`);
+      return legacyRaw ? JSON.parse(legacyRaw) : null;
+    }catch{return null;}
   });
   const [subActive, setSubActive] = useState<boolean|null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
@@ -3237,14 +3501,31 @@ export default function App() {
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
-    const cached = (() => { try { return JSON.parse(localStorage.getItem(`hm_profile_${token}`) || "null"); } catch { return null; } })();
+    const cached = (() => {
+      try {
+        const stableRaw = localStorage.getItem(sk(token,"profile"));
+        const legacyRaw = !stableRaw ? localStorage.getItem(`hm_profile_${token}`) : null;
+        const raw = stableRaw || legacyRaw;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Profile;
+        const lang = normalizeAppLang(parsed.lang || localStorage.getItem("hm_pre_lang") || "en", "en");
+        if (parsed.lang !== lang) {
+          const fixed = { ...parsed, lang };
+          localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
+          writeStoredAppLang(lang);
+          return fixed;
+        }
+        writeStoredAppLang(lang);
+        return { ...parsed, lang };
+      } catch { return null; }
+    })();
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
       .then(res => {
         const u = res.data;
         setMustChangePassword(!!u.must_change_password);
         if (cached) { setProfile(cached); return; }
-        const p: Profile = { name: u.name || "Mama", childName: "", childAge: "", lang: localStorage.getItem("hm_pre_lang") || "el" };
-        localStorage.setItem(`hm_profile_${token}`, JSON.stringify(p));
+        const p: Profile = { name: u.name || "Mama", childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en") };
+        localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
         setProfile(p);
       })
       .catch(() => { setProfile(null); setMustChangePassword(false); });
@@ -3269,8 +3550,8 @@ export default function App() {
 
   if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
-  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={profile?.lang||localStorage.getItem("hm_pre_lang")||"el"} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
+  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <Navigate to="/subscription" replace />;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(`hm_profile_${token}`,JSON.stringify(p));}} trialEndsAt={trialEndsAt}/>;
+  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} trialEndsAt={trialEndsAt}/>;
 }

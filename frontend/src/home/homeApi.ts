@@ -21,9 +21,12 @@ export interface PublicPromotion {
 }
 
 function getApiBase(): string {
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
   const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return "http://127.0.0.1:8000";
+  const envUrl = (process.env.REACT_APP_API_URL || "").trim();
+  const envIsLocal = /localhost|127\.0\.0\.1/i.test(envUrl);
+  const pageIsLocal = h === "localhost" || h === "127.0.0.1";
+  if (envUrl && !(envIsLocal && !pageIsLocal)) return envUrl.replace(/\/$/, "");
+  if (pageIsLocal) return "http://127.0.0.1:8000";
   return window.location.origin;
 }
 
