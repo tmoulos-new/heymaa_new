@@ -2020,7 +2020,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     } catch (err: any) {
       if (err.response?.status === 401) onLogout();
       else if (err.response?.status === 402) onExpired();
-      else setMessages([...next, { role: "assistant", content: t("chat_error", lang) }]);
+      else {
+        const detail = apiDetail(err.response?.data, "");
+        const network = !err.response && (err.code === "ECONNABORTED" || /timeout/i.test(String(err.message || "")));
+        const msg = network
+          ? (lang === "el" ? "Η απάντηση άργησε πολύ. Δοκίμασε ξανά." : "The reply took too long. Please try again.")
+          : (detail || t("chat_error", lang));
+        console.error("chat failed", err.response?.status, detail || err.message);
+        setMessages([...next, { role: "assistant", content: msg }]);
+      }
     } finally {
       setLoading(false);
     }

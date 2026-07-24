@@ -32,6 +32,12 @@ export function apiDetail(data: unknown, fallback: string): string {
   if (!data || typeof data !== 'object') return fallback
   const d = (data as { detail?: unknown }).detail
   if (typeof d === 'string') return d
+  if (d && typeof d === 'object' && !Array.isArray(d)) {
+    const obj = d as { friendly_message?: unknown; detail?: unknown; message?: unknown }
+    if (typeof obj.friendly_message === 'string' && obj.friendly_message.trim()) return obj.friendly_message
+    if (typeof obj.detail === 'string' && obj.detail.trim()) return obj.detail
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message
+  }
   if (Array.isArray(d)) {
     return (
       d

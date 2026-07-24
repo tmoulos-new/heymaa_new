@@ -1165,13 +1165,18 @@ def _fetch_chat_prompt_row():
     except Exception:
         return None
 
+_MAX_SYSTEM_PROMPT_CHARS = 12000
+
 def get_system_prompt_content() -> str:
     global _system_prompt_cache
     if _system_prompt_cache is not None:
         return _system_prompt_cache
     row = _fetch_chat_prompt_row()
     if row and (row.get("content") or "").strip():
-        _system_prompt_cache = row["content"].strip()
+        content = row["content"].strip()
+        if len(content) > _MAX_SYSTEM_PROMPT_CHARS:
+            content = content[:_MAX_SYSTEM_PROMPT_CHARS].rstrip() + "\n…"
+        _system_prompt_cache = content
         return _system_prompt_cache
     _system_prompt_cache = DEFAULT_SYSTEM_PROMPT
     return _system_prompt_cache
@@ -1670,10 +1675,12 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
         return False
     return code in get_active_invite_codes() or code in VALID_CODES
 
-async def call_groq(message, history, system_prompt):
+_CHAT_MAX_TOKENS = 160
+
+async def call_groq(message, history, system_prompt, api_key: str):
     from groq import Groq
     def _run():
-        client = Groq(api_key=GROQ_API_KEY)
+        client = Groq(api_key=api_key)
         messages = [{"role": "system", "content": system_prompt}]
         for h in (history or [])[-6:]:
             messages.append({"role": h["role"], "content": (h.get("content") or "")[:1500]})
@@ -1681,20 +1688,20 @@ async def call_groq(message, history, system_prompt):
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
-            max_tokens=110,
+            max_tokens=_CHAT_MAX_TOKENS,
             temperature=0.6,
         )
-        return response.choices[0].message.content
+        return (response.choices[0].message.content or "").strip()
     return await asyncio.to_thread(_run)
 
-async def call_gemini(message, history, system_prompt):
+async def call_gemini(message, history, system_prompt, api_key: str):
     import google.generativeai as genai
     def _run():
-        genai.configure(api_key=GEMINI_API_KEY)
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name="gemini-flash-latest",
             system_instruction=system_prompt,
-            generation_config={"max_output_tokens": 110, "temperature": 0.6},
+            generation_config={"max_output_tokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
         )
         hist = (history or [])[-6:]
         chat_history = [
@@ -1702,13 +1709,21 @@ async def call_gemini(message, history, system_prompt):
             for h in hist
         ]
         chat = model.start_chat(history=chat_history)
-        return chat.send_message((message or "")[:2000]).text
+        resp = chat.send_message((message or "")[:2000])
+        try:
+            text = (resp.text or "").strip()
+        except Exception as e:
+            # Blocked / empty candidates often raise on .text
+            raise RuntimeError(f"gemini empty/blocked response: {e}") from e
+        if not text:
+            raise RuntimeError("gemini returned empty text")
+        return text
     return await asyncio.to_thread(_run)
 
-async def call_claude(message, history, system_prompt):
+async def call_claude(message, history, system_prompt, api_key: str):
     import anthropic
     def _run():
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=api_key)
         messages = [
             {"role": h["role"], "content": (h.get("content") or "")[:1500]}
             for h in (history or [])[-6:]
@@ -1716,11 +1731,11 @@ async def call_claude(message, history, system_prompt):
         messages.append({"role": "user", "content": (message or "")[:2000]})
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=110,
+            max_tokens=_CHAT_MAX_TOKENS,
             system=system_prompt,
             messages=messages,
         )
-        return response.content[0].text
+        return (response.content[0].text or "").strip()
     return await asyncio.to_thread(_run)
 class InviteRequest(BaseModel):
     code: str
@@ -1990,10 +2005,19 @@ def match_promotion(token: str):
         return None
     return None
 # Routes
+def _llm_api_keys():
+    """Re-read provider keys each call (Vercel may inject env after import)."""
+    return {
+        "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
+        "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
+        "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
+    }
+
 @app.get("/healthz")
 def root():
     client = ensure_supabase()
     url, key = _supabase_credentials()
+    llm = _llm_api_keys()
     return {
         "status": "HeyMaa API is running!",
         "database": "ok" if client else "unconfigured",
@@ -2001,6 +2025,7 @@ def root():
         "supabase_key_set": bool(key),
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
         "vercel": bool(os.getenv("VERCEL")),
+        "llm": {name: bool(val) for name, val in llm.items()},
     }
 def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
     if not sb:
@@ -2305,66 +2330,79 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
     verify_token(x_token)
     if not check_subscription(x_token):
         raise HTTPException(status_code=402, detail="Subscription expired")
-    complex_query = is_complex(req.message)
-    rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
-    rag_context = build_rag_context(rag_chunks)
-    family_context = build_profile_context(req.profile)
-    memories_context = ""
-    if req.recentMemories:
-        mem_lines = []
-        for m in req.recentMemories[:5]:
-            line = m.text
-            if m.date: line += f" ({m.date})"
-            if m.ref: line += f" [re: {m.ref}]"
-            mem_lines.append(line)
-        memories_context = "\n".join(mem_lines)
-    docs_context = ""
-    if req.recentDocs:
-        doc_lines = []
-        for d in req.recentDocs[:10]:
-            line = d.title
-            if d.category: line += f" [{d.category}]"
-            if d.date: line += f" ({d.date})"
-            if d.ref: line += f" — ref: {d.ref}"
-            doc_lines.append(line)
-        docs_context = "\n".join(doc_lines)
-    promo = match_promotion(x_token)
-    promotion_context = ""
-    if promo:
-        promotion_context = promo.get("body", "")
-        if promo.get("link"):
-            promotion_context += f" {promo['link']}"
-    system_prompt = build_system_prompt(rag_context, family_context, memories_context, docs_context, promotion_context)
-    profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
-    msg_lang = detect_msg_lang(req.message, profile_lang)
-    errors = []
-    if msg_lang in GEMINI_FIRST_LANGS:
-        providers = ["gemini", "groq", "claude"]
-    elif complex_query:
-        providers = ["groq", "gemini", "claude"]
-    else:
-        providers = ["groq", "gemini", "claude"]
-    _prov_keys = {"groq": GROQ_API_KEY, "gemini": GEMINI_API_KEY, "claude": ANTHROPIC_API_KEY}
-    providers = [p for p in providers if _prov_keys.get(p)]
-    for provider in providers:
-        try:
-            if provider == "groq":
-                reply = await call_groq(req.message, req.history, system_prompt)
-                USAGE_LOG["groq"] += 1
-            elif provider == "gemini":
-                reply = await call_gemini(req.message, req.history, system_prompt)
-                USAGE_LOG["gemini"] += 1
-            else:
-                reply = await call_claude(req.message, req.history, system_prompt)
-                USAGE_LOG["claude"] += 1
-            promo_data = None
-            if promo:
-                promo_data = {"title": promo.get("title",""), "body": promo.get("body",""), "link": promo.get("link"), "badge": promo.get("badge","sponsored"), "cta": promo.get("cta")}
-            return {"reply": reply, "provider": provider, "promo": promo_data}
-        except Exception as e:
-            errors.append(f"{provider}: {e}")
-            continue
-    raise HTTPException(status_code=503, detail="All providers failed: " + " | ".join(errors))
+    try:
+        complex_query = is_complex(req.message)
+        rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
+        rag_context = build_rag_context(rag_chunks)
+        family_context = build_profile_context(req.profile)
+        memories_context = ""
+        if req.recentMemories:
+            mem_lines = []
+            for m in req.recentMemories[:5]:
+                line = m.text
+                if m.date: line += f" ({m.date})"
+                if m.ref: line += f" [re: {m.ref}]"
+                mem_lines.append(line)
+            memories_context = "\n".join(mem_lines)
+        docs_context = ""
+        if req.recentDocs:
+            doc_lines = []
+            for d in req.recentDocs[:10]:
+                line = d.title
+                if d.category: line += f" [{d.category}]"
+                if d.date: line += f" ({d.date})"
+                if d.ref: line += f" — ref: {d.ref}"
+                doc_lines.append(line)
+            docs_context = "\n".join(doc_lines)
+        promo = match_promotion(x_token)
+        promotion_context = ""
+        if promo:
+            promotion_context = promo.get("body", "")
+            if promo.get("link"):
+                promotion_context += f" {promo['link']}"
+        system_prompt = build_system_prompt(rag_context, family_context, memories_context, docs_context, promotion_context)
+        profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
+        msg_lang = detect_msg_lang(req.message, profile_lang)
+        errors = []
+        if msg_lang in GEMINI_FIRST_LANGS:
+            providers = ["gemini", "groq", "claude"]
+        elif complex_query:
+            providers = ["groq", "gemini", "claude"]
+        else:
+            providers = ["groq", "gemini", "claude"]
+        _prov_keys = _llm_api_keys()
+        providers = [p for p in providers if _prov_keys.get(p)]
+        if not providers:
+            raise HTTPException(
+                status_code=503,
+                detail="No LLM providers configured (missing GROQ/GEMINI/ANTHROPIC API keys on the server).",
+            )
+        for provider in providers:
+            try:
+                key = _prov_keys[provider]
+                if provider == "groq":
+                    reply = await call_groq(req.message, req.history, system_prompt, key)
+                    USAGE_LOG["groq"] += 1
+                elif provider == "gemini":
+                    reply = await call_gemini(req.message, req.history, system_prompt, key)
+                    USAGE_LOG["gemini"] += 1
+                else:
+                    reply = await call_claude(req.message, req.history, system_prompt, key)
+                    USAGE_LOG["claude"] += 1
+                if not reply:
+                    raise RuntimeError(f"{provider} returned empty reply")
+                promo_data = None
+                if promo:
+                    promo_data = {"title": promo.get("title",""), "body": promo.get("body",""), "link": promo.get("link"), "badge": promo.get("badge","sponsored"), "cta": promo.get("cta")}
+                return {"reply": reply, "provider": provider, "promo": promo_data}
+            except Exception as e:
+                errors.append(f"{provider}: {e}")
+                continue
+        raise HTTPException(status_code=503, detail="All providers failed: " + " | ".join(errors))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
 
 @app.post("/tts")
 async def tts(req: TTSRequest):
