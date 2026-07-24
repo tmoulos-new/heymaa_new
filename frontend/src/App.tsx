@@ -2641,23 +2641,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               </div>)}
               </div>
             ))}
-            {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true">
+            {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true" aria-label="…">
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-              <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 14px",display:"flex",alignItems:"center",gap:10,minHeight:40}}>
+              <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"center",minHeight:40,minWidth:52}}>
                 <span
                   aria-hidden="true"
                   style={{
-                    width: 16,
-                    height: 16,
+                    width: 18,
+                    height: 18,
                     borderRadius: "50%",
                     border: "2.5px solid rgba(43,58,103,.18)",
                     borderTopColor: navy,
                     display: "inline-block",
                     animation: "hmThinkSpin .75s linear infinite",
-                    flexShrink: 0,
                   }}
                 />
-                <span style={{fontSize:13,color:"#5A5048",fontFamily:"'DM Sans',sans-serif"}}>{t("thinking", lang)}</span>
               </div>
               <style>{`@keyframes hmThinkSpin{to{transform:rotate(360deg)}}`}</style>
             </div>}
