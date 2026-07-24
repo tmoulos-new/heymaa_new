@@ -1183,10 +1183,10 @@ def get_system_prompt_content() -> str:
 
 _SHORT_DIALOGUE_RULE = (
     "\n\n--- Reply length (always follow) ---\n"
-    "HARD LIMIT: 2 short sentences maximum; never exceed 3. "
-    "Each sentence must be brief. Answer only what was asked. "
-    "If a follow-up fits, put one short question in the last sentence. "
-    "No paragraphs, bullets, or long explanations — dialogue only."
+    "Write a complete answer in 2 short sentences (3 only if needed). "
+    "Use full natural sentences the user can understand immediately. "
+    "Never output writing rules, labels, markdown, asterisks, or instruction fragments. "
+    "Never answer with a single word or a cut-off phrase."
 )
 
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context=""):
@@ -1675,7 +1675,34 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
         return False
     return code in get_active_invite_codes() or code in VALID_CODES
 
-_CHAT_MAX_TOKENS = 160
+_CHAT_MAX_TOKENS = 512
+
+def _is_usable_reply(text: str) -> bool:
+    """Reject empty, truncated, or instruction-leakage replies."""
+    t = (text or "").strip()
+    if len(t) < 18:
+        return False
+    letters = sum(1 for c in t if c.isalpha())
+    if letters < 12:
+        return False
+    low = t.lower()
+    leak_markers = (
+        "third person",
+        "hard limit",
+        "writing rules",
+        "reply length",
+        "always follow",
+        "system prompt",
+        "knowledge base",
+        "(εσύ)",
+        "εσύ).",
+    )
+    if any(m in low for m in leak_markers):
+        return False
+    if t.count("*") >= 2 or t.startswith(":") or t.startswith("("):
+        return False
+    return True
+
 
 async def call_groq(message, history, system_prompt, api_key: str):
     from groq import Groq
@@ -1699,7 +1726,7 @@ async def call_gemini(message, history, system_prompt, api_key: str):
     def _run():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-flash-latest",
+            model_name="gemini-2.0-flash",
             system_instruction=system_prompt,
             generation_config={"max_output_tokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
         )
@@ -2434,6 +2461,8 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     USAGE_LOG["claude"] += 1
                 if not reply:
                     raise RuntimeError(f"{provider} returned empty reply")
+                if not _is_usable_reply(reply):
+                    raise RuntimeError(f"{provider} returned unusable reply: {reply[:80]!r}")
                 promo_data = None
                 if promo:
                     promo_data = {"title": promo.get("title",""), "body": promo.get("body",""), "link": promo.get("link"), "badge": promo.get("badge","sponsored"), "cta": promo.get("cta")}
