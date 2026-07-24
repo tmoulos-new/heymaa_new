@@ -8,7 +8,7 @@ import {
   HOME_I18N_STORAGE_KEY,
   isHomeLocale,
 } from '../i18n'
-import type { HomeFaqItem, HomePlan, HomeSafetyItem } from '../i18n/homeTypes'
+import type { HomeFaqItem, HomePlan } from '../i18n/homeTypes'
 import {
   fetchSubscriptionStatus,
   HM_TOKEN_KEY,
@@ -180,9 +180,6 @@ export function SubscriptionPage() {
 
   const basePlans = asObjectArray<HomePlan>(
     tHome('pricing.plans', { returnObjects: true }),
-  )
-  const safetyItems = asObjectArray<HomeSafetyItem>(
-    tHome('safety.items', { returnObjects: true }),
   )
   const faqItems = asObjectArray<HomeFaqItem>(
     tHome('faq.items', { returnObjects: true }),
@@ -402,28 +399,6 @@ export function SubscriptionPage() {
                 })}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="section" style={{ paddingTop: 0 }}>
-        <div className="safety-wrap">
-          {tHome('safety.label') ? (
-            <div className="sec-label">
-              {displayUppercase(tHome('safety.label'), contentLang)}
-            </div>
-          ) : null}
-          <div className="sec-title">{tHome('safety.title')}</div>
-          <div className="sec-sub safety-sub">{tHome('safety.subtitle')}</div>
-          <div className="safety-cards">
-            {safetyItems.map((item) => (
-              <div className="safety-card" key={item.text}>
-                <div className="safety-card-icon" aria-hidden="true">
-                  <i className={`ti ${item.icon}`} />
-                </div>
-                <div className="safety-card-text">{item.text}</div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

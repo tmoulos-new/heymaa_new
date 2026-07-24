@@ -11,7 +11,6 @@ import type {
   HomeFaqItem,
   HomeHowItem,
   HomePlan,
-  HomeSafetyItem,
   HomeTestimonialItem,
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
@@ -63,9 +62,6 @@ export default function Home() {
   );
   const plans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
-  );
-  const safetyItems = asObjectArray<HomeSafetyItem>(
-    t("safety.items", { returnObjects: true })
   );
   const faqItems = asObjectArray<HomeFaqItem>(
     t("faq.items", { returnObjects: true })
@@ -405,28 +401,6 @@ export default function Home() {
                   })}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="section">
-          <div className="safety-wrap">
-            {t("safety.label") ? (
-              <div className="sec-label">
-                {displayUppercase(t("safety.label"), contentLang)}
-              </div>
-            ) : null}
-            <div className="sec-title">{t("safety.title")}</div>
-            <div className="sec-sub safety-sub">{t("safety.subtitle")}</div>
-            <div className="safety-cards">
-              {safetyItems.map((item) => (
-                <div className="safety-card" key={item.text}>
-                  <div className="safety-card-icon" aria-hidden="true">
-                    <i className={`ti ${item.icon}`} />
-                  </div>
-                  <div className="safety-card-text">{item.text}</div>
-                </div>
-              ))}
             </div>
           </div>
         </div>

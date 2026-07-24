@@ -91,7 +91,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);}
 .testimonial-meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .testimonial-name{font-size:14px;font-weight:600;color:var(--navy);line-height:1.3;}
 .testimonial-location{font-size:12px;color:rgba(43,58,103,0.55);line-height:1.3;}
-.pricing-section.section{max-width:1200px;}
+.pricing-section.section{max-width:1200px;margin-bottom:0;}
+.pricing-section + .faq-section{padding-top:24px;}
 .pricing-panel{border-radius:18px;overflow:hidden;box-shadow:0 14px 32px rgba(43,58,103,0.11);}
 .pricing-panel-header{background:var(--navy);padding:22px 20px 18px;text-align:center;}
 .pricing-panel-title{color:#fff;margin-bottom:6px;}
@@ -156,15 +157,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);}
 .btn-purple{background:var(--purple);color:#fff;}
 .btn-coral{background:var(--beige);color:var(--navy);}
 .btn-ghost-p{background:rgba(43,58,103,0.07);color:var(--navy);}
-.safety-wrap{background:transparent;padding:0;text-align:center;}
-.safety-wrap .safety-sub{color:rgba(43,58,103,0.65);margin-bottom:28px;}
 .faq-section .sec-title{text-align:center;margin-bottom:24px;}
 .faq-list{width:100%;max-width:480px;margin:0 auto;}
-.safety-cards{display:flex;flex-direction:column;gap:12px;max-width:420px;margin:0 auto;text-align:left;}
-.safety-card{display:flex;align-items:center;gap:14px;background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 4px 18px rgba(43,58,103,0.08);border:1px solid rgba(43,58,103,0.06);}
-.safety-card-icon{width:44px;height:44px;border-radius:50%;background:rgba(124,92,191,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.safety-card-icon i{font-size:22px;color:rgba(124,92,191,0.9);line-height:1;}
-.safety-card-text{font-size:14px;font-weight:500;color:var(--navy);line-height:1.45;}
 .faq-item{background:#fff;border-radius:12px;border:.5px solid rgba(43,58,103,0.08);overflow:hidden;margin-bottom:8px;}
 .faq-q{display:flex;align-items:center;justify-content:space-between;padding:14px 12px;cursor:pointer;font-size:13px;font-weight:500;color:var(--navy);gap:10px;transition:background .15s;}
 .faq-q span{flex:1;min-width:0;}
