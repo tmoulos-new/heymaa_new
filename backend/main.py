@@ -1178,9 +1178,10 @@ def get_system_prompt_content() -> str:
 
 _SHORT_DIALOGUE_RULE = (
     "\n\n--- Reply length (always follow) ---\n"
-    "Keep every reply short: usually 1–3 short sentences (~40–80 words). "
-    "Answer only what was asked, then ask one gentle follow-up when natural. "
-    "Do not dump long guides; prefer back-and-forth dialogue."
+    "HARD LIMIT: 2 short sentences maximum; never exceed 3. "
+    "Each sentence must be brief. Answer only what was asked. "
+    "If a follow-up fits, put one short question in the last sentence. "
+    "No paragraphs, bullets, or long explanations — dialogue only."
 )
 
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context=""):
@@ -1680,7 +1681,7 @@ async def call_groq(message, history, system_prompt):
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
-            max_tokens=220,
+            max_tokens=110,
             temperature=0.6,
         )
         return response.choices[0].message.content
@@ -1693,7 +1694,7 @@ async def call_gemini(message, history, system_prompt):
         model = genai.GenerativeModel(
             model_name="gemini-flash-latest",
             system_instruction=system_prompt,
-            generation_config={"max_output_tokens": 220, "temperature": 0.6},
+            generation_config={"max_output_tokens": 110, "temperature": 0.6},
         )
         hist = (history or [])[-6:]
         chat_history = [
@@ -1715,7 +1716,7 @@ async def call_claude(message, history, system_prompt):
         messages.append({"role": "user", "content": (message or "")[:2000]})
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=220,
+            max_tokens=110,
             system=system_prompt,
             messages=messages,
         )
