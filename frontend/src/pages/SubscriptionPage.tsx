@@ -15,7 +15,6 @@ import {
   type SubscriptionSnapshot,
 } from '../lib/authApi'
 import { LANGS, mf } from '../home/homeContent'
-import { displayUppercase } from '../lib/greekText'
 import { APP_ROUTE } from '../publicRoutes'
 
 const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
