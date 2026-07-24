@@ -40,10 +40,16 @@ function FlipPageContent({
   page,
   labels,
   lang,
+  editing,
+  onRemovePhoto,
+  onDeleteMemory,
 }: {
   page: BookletFlipPage
   labels: ReturnType<typeof bookletLabelsForLang>
   lang: string
+  editing?: boolean
+  onRemovePhoto?: (m: BookletMemory) => void
+  onDeleteMemory?: (m: BookletMemory) => void
 }) {
   if (page.type === 'cover') {
     return (
@@ -291,6 +297,7 @@ function FlipPageContent({
                   justifyContent: 'center',
                   overflow: 'hidden',
                   flexShrink: 0,
+                  position: 'relative',
                 }}
               >
                 <div
@@ -316,6 +323,68 @@ function FlipPageContent({
                     }}
                   />
                 </div>
+                {editing && (onRemovePhoto || onDeleteMemory) && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 10,
+                      right: 10,
+                      display: 'flex',
+                      gap: 6,
+                      zIndex: 2,
+                    }}
+                  >
+                    {onRemovePhoto && (
+                      <button
+                        type="button"
+                        title={labels.removePhoto}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemovePhoto(m)
+                        }}
+                        style={{
+                          border: 'none',
+                          borderRadius: 999,
+                          padding: '6px 10px',
+                          background: 'rgba(44,36,33,.82)',
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          fontFamily: "'DM Sans',sans-serif",
+                          boxShadow: '0 4px 12px rgba(0,0,0,.2)',
+                        }}
+                      >
+                        📷✕
+                      </button>
+                    )}
+                    {onDeleteMemory && (
+                      <button
+                        type="button"
+                        title={labels.deleteMemory}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDeleteMemory(m)
+                        }}
+                        style={{
+                          border: 'none',
+                          borderRadius: 999,
+                          width: 32,
+                          height: 32,
+                          background: 'rgba(224,123,84,.95)',
+                          color: '#fff',
+                          fontSize: 16,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          lineHeight: 1,
+                          boxShadow: '0 4px 12px rgba(0,0,0,.2)',
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
@@ -350,6 +419,26 @@ function FlipPageContent({
                   {displayUppercase(m.date, lang)}
                 </div>
               </div>
+              {editing && !m.img && onDeleteMemory && (
+                <button
+                  type="button"
+                  title={labels.deleteMemory}
+                  onClick={() => onDeleteMemory(m)}
+                  style={{
+                    border: 'none',
+                    borderRadius: 8,
+                    padding: '4px 8px',
+                    background: 'rgba(224,123,84,.15)',
+                    color: '#E07B54',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  ×
+                </button>
+              )}
             </div>
           </article>
           )
@@ -366,18 +455,29 @@ function BookletFlipbookModal({
   lang,
   onClose,
   onDownload,
+  onRemovePhoto,
+  onDeleteMemory,
 }: {
   pages: BookletFlipPage[]
   labels: ReturnType<typeof bookletLabelsForLang>
   lang: string
   onClose: () => void
   onDownload: () => void
+  onRemovePhoto?: (m: BookletMemory) => void
+  onDeleteMemory?: (m: BookletMemory) => void
 }) {
   const [index, setIndex] = useState(0)
   const [dir, setDir] = useState<'next' | 'prev'>('next')
   const [animKey, setAnimKey] = useState(0)
+  const [editing, setEditing] = useState(false)
   const total = pages.length
-  const page = pages[index]
+  const safeIndex = total === 0 ? 0 : Math.min(index, total - 1)
+  const page = pages[safeIndex]
+  const canEdit = Boolean(onRemovePhoto || onDeleteMemory)
+
+  useEffect(() => {
+    if (index !== safeIndex) setIndex(safeIndex)
+  }, [index, safeIndex])
 
   const go = (next: number, d: 'next' | 'prev') => {
     if (next < 0 || next >= total) return
@@ -389,13 +489,13 @@ function BookletFlipbookModal({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowRight') go(index + 1, 'next')
-      if (e.key === 'ArrowLeft') go(index - 1, 'prev')
+      if (e.key === 'ArrowRight') go(safeIndex + 1, 'next')
+      if (e.key === 'ArrowLeft') go(safeIndex - 1, 'prev')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, total])
+  }, [safeIndex, total])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -406,7 +506,7 @@ function BookletFlipbookModal({
   }, [])
 
   const pageLabel = labels.pageOf
-    .replace('{current}', String(index + 1))
+    .replace('{current}', String(total === 0 ? 0 : safeIndex + 1))
     .replace('{total}', String(total))
 
   return (
@@ -485,7 +585,16 @@ function BookletFlipbookModal({
               maxHeight: 'min(68vh, 560px)',
             }}
           >
-            {page && <FlipPageContent page={page} labels={labels} lang={lang} />}
+            {page && (
+              <FlipPageContent
+                page={page}
+                labels={labels}
+                lang={lang}
+                editing={editing}
+                onRemovePhoto={onRemovePhoto}
+                onDeleteMemory={onDeleteMemory}
+              />
+            )}
           </div>
         </div>
 
@@ -503,18 +612,18 @@ function BookletFlipbookModal({
         >
           <button
             type="button"
-            disabled={index <= 0}
-            onClick={() => go(index - 1, 'prev')}
+            disabled={safeIndex <= 0}
+            onClick={() => go(safeIndex - 1, 'prev')}
             style={{
               padding: '9px 12px',
               borderRadius: 10,
               border: 'none',
-              background: index <= 0 ? LINEN_DEEP : INK,
-              color: index <= 0 ? '#A89F98' : '#fff',
+              background: safeIndex <= 0 ? LINEN_DEEP : INK,
+              color: safeIndex <= 0 ? '#A89F98' : '#fff',
               fontFamily: "'DM Sans',sans-serif",
               fontSize: 12.5,
               fontWeight: 700,
-              cursor: index <= 0 ? 'default' : 'pointer',
+              cursor: safeIndex <= 0 ? 'default' : 'pointer',
               minWidth: 88,
             }}
           >
@@ -525,18 +634,18 @@ function BookletFlipbookModal({
           </div>
           <button
             type="button"
-            disabled={index >= total - 1}
-            onClick={() => go(index + 1, 'next')}
+            disabled={safeIndex >= total - 1}
+            onClick={() => go(safeIndex + 1, 'next')}
             style={{
               padding: '9px 12px',
               borderRadius: 10,
               border: 'none',
-              background: index >= total - 1 ? LINEN_DEEP : ROSE,
-              color: index >= total - 1 ? '#A89F98' : '#fff',
+              background: safeIndex >= total - 1 ? LINEN_DEEP : ROSE,
+              color: safeIndex >= total - 1 ? '#A89F98' : '#fff',
               fontFamily: "'DM Sans',sans-serif",
               fontSize: 12.5,
               fontWeight: 700,
-              cursor: index >= total - 1 ? 'default' : 'pointer',
+              cursor: safeIndex >= total - 1 ? 'default' : 'pointer',
               minWidth: 88,
             }}
           >
@@ -544,7 +653,33 @@ function BookletFlipbookModal({
           </button>
         </div>
 
+        {editing && canEdit && (
+          <div style={{ fontSize: 12, color: '#fff', textAlign: 'center', opacity: 0.9, fontFamily: "'DM Sans',sans-serif" }}>
+            {labels.editHint}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 8 }}>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              style={{
+                flex: 1,
+                padding: '11px 12px',
+                borderRadius: 12,
+                border: editing ? 'none' : '1.5px solid rgba(255,255,255,.35)',
+                background: editing ? ROSE : 'rgba(255,255,255,.14)',
+                color: '#fff',
+                fontFamily: "'DM Sans',sans-serif",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {editing ? labels.doneEditing : `✏️ ${labels.editAlbum}`}
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -597,6 +732,8 @@ export function MemoriesBookletPanel({
   onDownload,
   onSave,
   saving,
+  onRemovePhoto,
+  onDeleteMemory,
 }: {
   memories: BookletMemory[]
   userName: string
@@ -606,6 +743,8 @@ export function MemoriesBookletPanel({
   onDownload?: () => void
   onSave?: () => void
   saving?: boolean
+  onRemovePhoto?: (m: BookletMemory) => void
+  onDeleteMemory?: (m: BookletMemory) => void
 }) {
   const el = lang === 'el'
   const saveLabel = el ? 'Αποθήκευση' : 'Save'
@@ -850,6 +989,8 @@ export function MemoriesBookletPanel({
             handleDownload()
             setPreviewOpen(false)
           }}
+          onRemovePhoto={onRemovePhoto}
+          onDeleteMemory={onDeleteMemory}
         />
       )}
     </div>

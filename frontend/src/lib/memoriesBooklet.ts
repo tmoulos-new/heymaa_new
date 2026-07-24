@@ -39,6 +39,11 @@ export interface BookletLabels {
   nextPage: string
   prevPage: string
   pageOf: string
+  editAlbum: string
+  doneEditing: string
+  removePhoto: string
+  deleteMemory: string
+  editHint: string
   notEnough: string
   period: string
   month1: string
@@ -56,6 +61,13 @@ export interface BookletLabels {
   pickPeriod: string
   dateFrom: string
   dateTo: string
+}
+
+/** Stable-ish identity for matching booklet entries back to the live memories array. */
+export function bookletMemoryKey(m: BookletMemory): string {
+  if (m.createdAt) return `ca:${m.createdAt}`
+  const imgHint = m.img ? m.img.slice(0, 48) : ''
+  return `d:${m.date}|r:${m.ref || ''}|t:${m.text || ''}|i:${imgHint.length}|h:${imgHint}`
 }
 
 const MONTH_NAMES: Record<string, string[]> = {
@@ -872,6 +884,13 @@ export function bookletLabelsForLang(lang: string): BookletLabels {
     nextPage: el ? 'Επόμενη' : 'Next',
     prevPage: el ? 'Προηγούμενη' : 'Previous',
     pageOf: el ? 'Σελίδα {current} από {total}' : 'Page {current} of {total}',
+    editAlbum: el ? 'Επεξεργασία' : 'Edit',
+    doneEditing: el ? 'Τέλος' : 'Done',
+    removePhoto: el ? 'Αφαίρεση φωτο' : 'Remove photo',
+    deleteMemory: el ? 'Διαγραφή' : 'Delete',
+    editHint: el
+      ? 'Πάτα × για διαγραφή ή 📷 για αφαίρεση μόνο της φωτογραφίας'
+      : 'Tap × to delete, or 📷 to remove only the photo',
     notEnough: el
       ? 'Πρόσθεσε αναμνήσεις για να γεμίσει το βιβλίο σου.'
       : 'Add memories to fill your booklet.',

@@ -202,6 +202,7 @@ export function FamilyTreePanel({
   onPlaceMembers,
   onSave,
   saving,
+  selectedNodeId,
 }: {
   userName: string
   lang: string
@@ -215,6 +216,7 @@ export function FamilyTreePanel({
   onPlaceMembers?: (nextMembers: FamilyMemberRecord[]) => void
   onSave?: () => void
   saving?: boolean
+  selectedNodeId?: string | null
 }) {
   const el = lang === 'el'
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -226,8 +228,8 @@ export function FamilyTreePanel({
     () => ({
       title: el ? 'Οικογενειακό Δέντρο' : 'Family Tree',
       subtitle: el
-        ? 'Εσύ, σύντροφος και παιδιά στο κέντρο — πάτα για επεξεργασία / φωτο · σύρε για θέση'
-        : 'You, partner & kids at the center — tap to edit / photo · drag to place',
+        ? 'Επίλεξε, μετακίνησε ή διέγραψε μέλη, κατοικίδια και συγγενείς'
+        : 'Choose, move, or delete members, pets, and relatives',
       you: el ? 'Εσύ' : 'You',
       pregnancy: el ? 'Εγκυμοσύνη' : 'Pregnancy',
       child: el ? 'Παιδί' : 'Child',
@@ -235,8 +237,8 @@ export function FamilyTreePanel({
       hideHistory: el ? 'Απόκρυψη' : 'Hide',
       showHistory: el ? 'Εμφάνιση' : 'Show',
       tapHint: el
-        ? 'Πάτα κάποιον για φωτο & επεξεργασία · σύρε μέλη στις γραμμές'
-        : 'Tap someone for photo & edit · drag members onto rows',
+        ? 'Πάτα για επιλογή & επεξεργασία · σύρε για μετακίνηση · διέγραψε από το φύλλο'
+        : 'Tap to select & edit · drag to move · delete from the edit sheet',
       empty: el
         ? 'Πρόσθεσε σύντροφο, παιδιά ή μέλη για να γεμίσει το δέντρο'
         : 'Add a partner, kids, or members to grow the tree',
@@ -506,7 +508,7 @@ export function FamilyTreePanel({
               key={n.id}
               node={n}
               dragging={drag?.memberIndex === n.memberIndex}
-              highlight={false}
+              highlight={selectedNodeId === n.id}
               onPointerDown={onPointerDown}
             />
           ))}
