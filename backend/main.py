@@ -2005,12 +2005,55 @@ def match_promotion(token: str):
         return None
     return None
 # Routes
+_LLM_SECRET_KEYS = {
+    "groq": "llm_groq",
+    "gemini": "llm_gemini",
+    "claude": "llm_claude",
+}
+_llm_secret_cache: Optional[dict] = None
+_llm_secret_cache_at = 0.0
+
+def _llm_secrets_from_db() -> dict:
+    """Fallback provider keys stored in chat_prompt_settings (service-role only)."""
+    global _llm_secret_cache, _llm_secret_cache_at
+    import time as _t
+    now = _t.time()
+    if _llm_secret_cache is not None and (now - _llm_secret_cache_at) < 60:
+        return _llm_secret_cache
+    out = {"groq": "", "gemini": "", "claude": ""}
+    client = ensure_supabase()
+    if not client:
+        return out
+    try:
+        keys = list(_LLM_SECRET_KEYS.values())
+        res = (
+            client.table(CHAT_PROMPT_SETTINGS_TABLE)
+            .select("key,content")
+            .in_("key", keys)
+            .execute()
+        )
+        by_key = {row.get("key"): (row.get("content") or "").strip() for row in (res.data or [])}
+        for provider, setting_key in _LLM_SECRET_KEYS.items():
+            out[provider] = by_key.get(setting_key, "")
+    except Exception:
+        pass
+    _llm_secret_cache = out
+    _llm_secret_cache_at = now
+    return out
+
 def _llm_api_keys():
-    """Re-read provider keys each call (Vercel may inject env after import)."""
-    return {
+    """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
+    env_keys = {
         "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
         "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
+    }
+    if all(env_keys.values()):
+        return env_keys
+    db_keys = _llm_secrets_from_db()
+    return {
+        name: env_keys[name] or db_keys.get(name, "")
+        for name in env_keys
     }
 
 @app.get("/healthz")
