@@ -17,13 +17,12 @@ import { PlanCard } from "../components/PlanCard";
 import { SiteFooter } from "../components/SiteFooter";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
 import whatIsImage from "../assets/heymaa-what-is.png";
+import ctaMomImage from "../assets/heymaa-cta-mom.png";
+import momentsImage from "../assets/heymaa-moments-collage.png";
 import { displayUppercase } from "../lib/greekText";
 import { LANGS, mf } from "./homeContent";
 import "../auth/appAuth.css";
 import "./home.css";
-
-const CTA_MOM_IMAGE = `${process.env.PUBLIC_URL}/heymaa-cta-mom.png`;
-const MOMENTS_IMAGE = `${process.env.PUBLIC_URL}/heymaa-moments-collage.png`;
 
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
@@ -289,7 +288,7 @@ export default function Home() {
 
         <div className="section story-section">
           <div className="moments-visual">
-            <img src={MOMENTS_IMAGE} alt={t("moments.imageAlt")} />
+            <img src={momentsImage} alt={t("moments.imageAlt")} />
           </div>
           <div className="testimonial-carousel">
             <button
@@ -436,7 +435,7 @@ export default function Home() {
         <div className="cta-wrap">
           <img
             className="cta-photo"
-            src={CTA_MOM_IMAGE}
+            src={ctaMomImage}
             alt={t("cta.imageAlt")}
           />
           <div className="cta-copy">
