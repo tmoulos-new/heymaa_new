@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Optional
 
@@ -111,6 +112,7 @@ def ingest_text_into_source(
     text: str,
     replace_existing: bool = True,
     sleep_seconds: float = 0.15,
+    metadata_extra: Optional[dict] = None,
 ) -> dict:
     """Chunk + embed + store. Updates rag_sources status/chunk_count."""
     if not _gemini_api_key():
@@ -142,22 +144,27 @@ def ingest_text_into_source(
 
     success = 0
     errors: list[str] = []
+    extra = dict(metadata_extra or {})
     for i, chunk in enumerate(chunks):
         try:
             embedding = get_document_embedding(chunk)
+            meta = {"chunk_index": i + 1, "title": title, **extra}
             sb.table("rag_chunks").insert(
                 {
                     "source_id": source_id,
                     "content": chunk,
                     "embedding": embedding,
-                    "metadata": {"chunk_index": i + 1, "title": title},
+                    "metadata": meta,
                 }
             ).execute()
             success += 1
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
         except Exception as e:
-            errors.append(f"chunk {i + 1}: {e}")
+            msg = str(e)
+            # Never leak API keys that may appear in exception URLs
+            msg = re.sub(r"(key=)[^&\s]+", r"\1***", msg, flags=re.I)
+            errors.append(f"chunk {i + 1}: {msg}")
 
     status = "ready" if success > 0 else "error"
     sb.table("rag_sources").update({"status": status, "chunk_count": success}).eq(
@@ -221,3 +228,124 @@ def create_source_and_ingest(
     )
     row = (refreshed.data or [source])[0]
     return {"source": row, **result}
+
+
+def _find_source_by_url(sb, source_url: str):
+    try:
+        res = (
+            sb.table("rag_sources")
+            .select("*")
+            .eq("source_url", source_url)
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            return res.data[0]
+    except Exception:
+        pass
+    res = sb.table("rag_sources").select("*").eq("origin", source_url).limit(1).execute()
+    return (res.data or [None])[0]
+
+
+def create_or_update_url_source_and_ingest(
+    sb,
+    *,
+    url: str,
+    title: Optional[str] = None,
+    source_key: Optional[str] = None,
+    language: Optional[str] = None,
+    replace_existing: bool = True,
+    sleep_seconds: float = 0.12,
+) -> dict:
+    """Fetch a URL, upsert rag_sources row, chunk + embed into rag_chunks."""
+    try:
+        from .url_acquire import acquire_url
+    except ImportError:
+        from url_acquire import acquire_url
+
+    acquired = acquire_url(url)
+    source_url = acquired["source_reference"]
+    page_title = (title or acquired.get("title") or source_url).strip()
+    text = acquired["content"]
+    lang = language or acquired.get("language") or "el"
+
+    existing = _find_source_by_url(sb, source_url)
+    payload = {
+        "title": page_title,
+        "source_type": "url",
+        "origin": source_url,
+        "status": "processing",
+        "chunk_count": 0,
+    }
+    # Optional columns from migration rag_url_sources.sql
+    for key, value in (
+        ("source_url", source_url),
+        ("source_key", source_key),
+        ("language", lang),
+        ("enabled", True),
+    ):
+        if value is not None:
+            payload[key] = value
+
+    if existing:
+        source_id = existing["id"]
+        try:
+            sb.table("rag_sources").update(payload).eq("id", source_id).execute()
+        except Exception:
+            # Columns may not exist yet — fall back to core fields only
+            core = {
+                "title": page_title,
+                "source_type": "url",
+                "origin": source_url,
+                "status": "processing",
+                "chunk_count": 0,
+            }
+            sb.table("rag_sources").update(core).eq("id", source_id).execute()
+    else:
+        try:
+            inserted = sb.table("rag_sources").insert(payload).execute()
+        except Exception:
+            inserted = (
+                sb.table("rag_sources")
+                .insert(
+                    {
+                        "title": page_title,
+                        "source_type": "url",
+                        "origin": source_url,
+                        "status": "processing",
+                        "chunk_count": 0,
+                    }
+                )
+                .execute()
+            )
+        if not inserted.data:
+            raise ValueError("Failed to create rag source for URL.")
+        source_id = inserted.data[0]["id"]
+
+    try:
+        result = ingest_text_into_source(
+            sb,
+            source_id=source_id,
+            title=page_title,
+            text=text,
+            replace_existing=replace_existing,
+            sleep_seconds=sleep_seconds,
+            metadata_extra={
+                "source_url": source_url,
+                "source_key": source_key,
+                "language": lang,
+                "source_type": "url",
+            },
+        )
+    except Exception:
+        sb.table("rag_sources").update({"status": "error"}).eq("id", source_id).execute()
+        raise
+
+    refreshed = sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()
+    row = (refreshed.data or [{"id": source_id}])[0]
+    return {
+        "source": row,
+        "url": source_url,
+        "word_count": acquired.get("metadata", {}).get("word_count"),
+        **result,
+    }

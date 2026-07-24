@@ -1,19 +1,27 @@
 ﻿# Env
+.env
+.env.local
+.env.vercel.local
 backend/.env
 backend/.env.bak
 
 # Logs & backups
 logs/
+*.log
+*.log.err
+uvicorn-local.log*
 backups/
 .DS_Store
 
 # Python cache
 backend/.venv/
+.venv/
 backend/__pycache__/
 *.pyc
 
 # RAG data
 data/
+backend/knowledge_seed/
 
 # One-off patch scripts
 Patch*.ps1
@@ -25,6 +33,8 @@ patch_app.py
 patch_campaign_fix.py
 patch_forgot_pw.py
 patch_reset_ui.py
+frontend/scripts/fix_*.py
+frontend/scripts/replace_*.py
 
 # Test files
 test_body.json

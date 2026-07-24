@@ -81,6 +81,10 @@ export function RagSourcesTab() {
   const [uploadTitle, setUploadTitle] = useState('')
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [urlTitle, setUrlTitle] = useState('')
+  const [urlIngesting, setUrlIngesting] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   const [editRow, setEditRow] = useState<RagSourceRow | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -149,6 +153,52 @@ export function RagSourcesTab() {
       show(e instanceof Error ? e.message : 'Upload failed', 'err')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const ingestUrl = async () => {
+    const url = urlInput.trim()
+    if (!url) {
+      show('Enter a URL to ingest', 'err')
+      return
+    }
+    setUrlIngesting(true)
+    try {
+      const d = await adminFetch('/admin/rag_sources/ingest_url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          title: urlTitle.trim() || undefined,
+        }),
+      })
+      const chunks = Number(d.chunk_count || 0)
+      if (chunks < 1) throw new Error('URL ingested but no chunks were created')
+      show(`URL ingested — ${chunks} chunks`, 'ok')
+      setUrlInput('')
+      setUrlTitle('')
+      await loadSources()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'URL ingest failed', 'err')
+    } finally {
+      setUrlIngesting(false)
+    }
+  }
+
+  const seedParenthood = async () => {
+    setSeeding(true)
+    try {
+      const d = await adminFetch('/admin/rag_sources/seed_parenthood', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_per_source: 20 }),
+      })
+      show(`Seeded parenthood sources — ${d.ingested}/${d.total} pages`, 'ok')
+      await loadSources()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Seed failed', 'err')
+    } finally {
+      setSeeding(false)
     }
   }
 
@@ -235,7 +285,7 @@ export function RagSourcesTab() {
               Knowledge sources
             </h2>
             <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
-              Upload documents for chat RAG. Chunks are created on upload.
+              Upload documents or ingest public URLs for chat RAG. Chunks are created on ingest.
             </p>
           </div>
           <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
@@ -275,6 +325,43 @@ export function RagSourcesTab() {
             >
               <Upload size={14} />
               {uploading ? 'Uploading & chunking…' : 'Upload & create chunks'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 12, marginBottom: 20, paddingTop: 8, borderTop: '1px solid var(--border, #e8e2dc)' }}>
+          <div className="field">
+            <FieldLabel>Ingest URL</FieldLabel>
+            <input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="https://example.com/article"
+            />
+          </div>
+          <div className="field">
+            <FieldLabel>Title (optional)</FieldLabel>
+            <input
+              value={urlTitle}
+              onChange={(e) => setUrlTitle(e.target.value)}
+              placeholder="Overrides page title"
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => void ingestUrl()}
+              disabled={urlIngesting || !urlInput.trim()}
+            >
+              {urlIngesting ? 'Fetching & chunking…' : 'Ingest URL'}
+            </button>
+            <button
+              type="button"
+              className="sec"
+              onClick={() => void seedParenthood()}
+              disabled={seeding}
+              title="Babyspace + My Parenthood seed crawl"
+            >
+              {seeding ? 'Seeding parenthood sources…' : 'Seed Babyspace + My Parenthood'}
             </button>
           </div>
         </div>

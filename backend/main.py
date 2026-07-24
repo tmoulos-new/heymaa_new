@@ -988,20 +988,43 @@ def get_embedding(text):
     r.raise_for_status()
     return r.json()["embedding"]["values"]
 
-def retrieve_context(query, top_k=4, threshold=0.3):
+def retrieve_context(query, top_k=6, threshold=0.28):
+    """Hybrid-ready vector retrieval over rag_chunks (includes URL sources)."""
     if not sb:
         return []
     try:
         emb = get_embedding(query)
-        result = sb.rpc("match_chunks", {"query_embedding": emb, "match_count": top_k, "match_threshold": threshold}).execute()
-        return result.data or []
+        result = sb.rpc(
+            "match_chunks",
+            {
+                "query_embedding": emb,
+                "match_count": top_k,
+                "match_threshold": threshold,
+            },
+        ).execute()
+        rows = result.data or []
+        # Prefer chunks from ready/enabled sources when metadata is present
+        filtered = []
+        for row in rows:
+            meta = row.get("metadata") or {}
+            # Drop empty content
+            if not (row.get("content") or "").strip():
+                continue
+            filtered.append(row)
+        return filtered
     except Exception:
         return []
 
 def build_rag_context(chunks):
     if not chunks:
         return ""
-    parts = [f"[{c.get('metadata', {}).get('title', '?')}]\n{c['content']}" for c in chunks]
+    parts = []
+    for c in chunks:
+        meta = c.get("metadata") or {}
+        title = meta.get("title") or "?"
+        source_url = meta.get("source_url")
+        header = f"[{title}]" + (f" ({source_url})" if source_url else "")
+        parts.append(f"{header}\n{c['content']}")
     return "\n---\n".join(parts)
 
 def _describe_child_age(birth_date_str):
@@ -3494,6 +3517,125 @@ async def admin_upload_rag_source(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class RagUrlIngestRequest(BaseModel):
+    url: str
+    title: Optional[str] = None
+    source_key: Optional[str] = None
+    language: Optional[str] = None
+
+
+class RagSeedIngestRequest(BaseModel):
+    max_per_source: int = 20
+    source_keys: Optional[List[str]] = None
+
+
+@app.post("/admin/rag_sources/ingest_url")
+async def admin_ingest_rag_url(req: RagUrlIngestRequest, x_token: Optional[str] = Header(None)):
+    """Fetch a public URL, extract text, chunk + embed into the knowledge base."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_ingest import create_or_update_url_source_and_ingest
+    except ImportError:
+        from rag_ingest import create_or_update_url_source_and_ingest
+
+    url = (req.url or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    try:
+        result = create_or_update_url_source_and_ingest(
+            sb,
+            url=url,
+            title=(req.title or "").strip() or None,
+            source_key=(req.source_key or "").strip() or None,
+            language=(req.language or "").strip() or None,
+        )
+        source = result.get("source") or {}
+        _log_activity(
+            admin_id,
+            "insert",
+            "rag_source",
+            str(source.get("id")),
+            value_after={
+                "title": source.get("title"),
+                "origin": source.get("origin") or result.get("url"),
+                "source_type": "url",
+                "chunk_count": result.get("chunk_count"),
+                "status": result.get("status"),
+            },
+        )
+        return {"ok": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/admin/rag_sources/seed_parenthood")
+async def admin_seed_parenthood_sources(
+    req: RagSeedIngestRequest,
+    x_token: Optional[str] = Header(None),
+):
+    """Discover + ingest Babyspace / My Parenthood seed URLs into rag_sources/rag_chunks."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .url_acquire import SEED_SOURCES, discover_source_urls
+        from .rag_ingest import create_or_update_url_source_and_ingest
+    except ImportError:
+        from url_acquire import SEED_SOURCES, discover_source_urls
+        from rag_ingest import create_or_update_url_source_and_ingest
+
+    max_per = max(1, min(int(req.max_per_source or 20), 50))
+    wanted = set(req.source_keys or [])
+    results = []
+    for src in SEED_SOURCES:
+        if wanted and src["source_key"] not in wanted:
+            continue
+        urls = discover_source_urls(
+            base_url=src["base_url"],
+            sitemap_url=src.get("sitemap_url"),
+            max_urls=max_per,
+        )
+        for u in urls:
+            try:
+                item = create_or_update_url_source_and_ingest(
+                    sb,
+                    url=u,
+                    source_key=src["source_key"],
+                    language=src.get("language") or "el",
+                )
+                results.append(
+                    {
+                        "ok": True,
+                        "source_key": src["source_key"],
+                        "url": item.get("url") or u,
+                        "chunk_count": item.get("chunk_count"),
+                        "status": item.get("status"),
+                    }
+                )
+            except Exception as e:
+                results.append(
+                    {
+                        "ok": False,
+                        "source_key": src["source_key"],
+                        "url": u,
+                        "error": str(e),
+                    }
+                )
+    ok_n = sum(1 for r in results if r.get("ok"))
+    _log_activity(
+        admin_id,
+        "seed",
+        "rag_source",
+        "parenthood_seeds",
+        details={"ok": ok_n, "total": len(results), "max_per_source": max_per},
+    )
+    return {"ok": True, "ingested": ok_n, "total": len(results), "results": results}
 
 
 @app.post("/admin/rag_sources/{source_id}/rechunk")
