@@ -1723,28 +1723,45 @@ async def call_groq(message, history, system_prompt, api_key: str):
 
 async def call_gemini(message, history, system_prompt, api_key: str):
     import google.generativeai as genai
+    # Prefer models that still have free-tier quota; 2.0-flash often reports limit:0 on free keys.
+    model_candidates = (
+        "gemini-flash-latest",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+    )
     def _run():
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=system_prompt,
-            generation_config={"max_output_tokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
-        )
         hist = (history or [])[-6:]
         chat_history = [
             {"role": "user" if h["role"] == "user" else "model", "parts": [(h.get("content") or "")[:1500]]}
             for h in hist
         ]
-        chat = model.start_chat(history=chat_history)
-        resp = chat.send_message((message or "")[:2000])
-        try:
-            text = (resp.text or "").strip()
-        except Exception as e:
-            # Blocked / empty candidates often raise on .text
-            raise RuntimeError(f"gemini empty/blocked response: {e}") from e
-        if not text:
-            raise RuntimeError("gemini returned empty text")
-        return text
+        last_err = None
+        for model_name in model_candidates:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    system_instruction=system_prompt,
+                    generation_config={"max_output_tokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
+                )
+                chat = model.start_chat(history=chat_history)
+                resp = chat.send_message((message or "")[:2000])
+                try:
+                    text = (resp.text or "").strip()
+                except Exception as e:
+                    raise RuntimeError(f"gemini empty/blocked response: {e}") from e
+                if not text:
+                    raise RuntimeError("gemini returned empty text")
+                return text
+            except Exception as e:
+                last_err = e
+                msg = str(e).lower()
+                # Try next model on quota/not-found; otherwise fail fast.
+                if any(x in msg for x in ("429", "quota", "rate", "not found", "not supported", "404")):
+                    continue
+                raise
+        raise RuntimeError(f"gemini all models failed: {last_err}")
     return await asyncio.to_thread(_run)
 
 async def call_claude(message, history, system_prompt, api_key: str):
@@ -2470,7 +2487,14 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             except Exception as e:
                 errors.append(f"{provider}: {e}")
                 continue
-        raise HTTPException(status_code=503, detail="All providers failed: " + " | ".join(errors))
+        joined = " | ".join(errors)
+        low = joined.lower()
+        if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
+            raise HTTPException(
+                status_code=503,
+                detail="HeyMaa is busy right now. Please try again in a minute.",
+            )
+        raise HTTPException(status_code=503, detail="All providers failed: " + joined)
     except HTTPException:
         raise
     except Exception as e:
