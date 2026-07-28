@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { PlanCard } from '../components/PlanCard'
 import { SiteFooter } from '../components/SiteFooter'
+import { SiteNavbarLogo } from '../components/SiteNavbarLogo'
 import '../home/home.css'
+import './subscription.css'
 import {
   HOME_I18N_STORAGE_KEY,
   isHomeLocale,
@@ -98,7 +100,7 @@ function applySubscriptionPlanState(
   if (!snapshot) {
     if (hasToken) {
       return plans.map((plan) =>
-        plan.variant === 'current'
+        plan.variant === 'current' || plan.variant === 'trial'
           ? { ...plan, variant: '', badge: '', badgeColor: '', featured: false }
           : { ...plan, featured: !!plan.featured },
       )
@@ -129,7 +131,13 @@ function applySubscriptionPlanState(
 
   return plans.map((plan, index) => {
     const slot = slotForPlanIndex(index)
-    const base = { ...plan, variant: plan.variant === 'current' ? '' : plan.variant }
+    const base = {
+      ...plan,
+      variant:
+        plan.variant === 'current' || plan.variant === 'trial'
+          ? ''
+          : plan.variant,
+    }
 
     if (slot === 'trial' && trialExpired) {
       return {
@@ -252,7 +260,7 @@ export function SubscriptionPage() {
   const goApp = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
 
   return (
-    <div>
+    <div className="subscription-page">
       <div
         className={`lang-overlay${langOpen ? ' open' : ''}`}
         onClick={(e) => {
@@ -291,15 +299,7 @@ export function SubscriptionPage() {
       </div>
 
       <nav className="navbar">
-        <div className="nb-logo">
-          <img
-            src={`${process.env.PUBLIC_URL}/logo192.png`}
-            alt={tSub('nav.logoAlt')}
-          />
-          <span className="nb-logo-text">
-            Hey<span>Maa</span>
-          </span>
-        </div>
+        <SiteNavbarLogo alt={tSub('nav.logoAlt')} />
         <div className="nb-right">
           <button
             type="button"
@@ -322,15 +322,19 @@ export function SubscriptionPage() {
         </div>
       </nav>
 
-      <div className="hero" style={{ paddingBottom: 32 }}>
+      <div className="hero subscription-hero">
         <div className="hero-badge">
           <span className="hero-badge-dot" />
           <span>{tSub(`hero.${heroKey}.badge`)}</span>
         </div>
-        <h1 dangerouslySetInnerHTML={{ __html: tSub(`hero.${heroKey}.title`) }} />
-        <p className="hero-sub">{tSub(`hero.${heroKey}.subtitle`)}</p>
+        {tSub(`hero.${heroKey}.title`) ? (
+          <h1 dangerouslySetInnerHTML={{ __html: tSub(`hero.${heroKey}.title`) }} />
+        ) : null}
+        {tSub(`hero.${heroKey}.subtitle`) ? (
+          <p className="hero-sub">{tSub(`hero.${heroKey}.subtitle`)}</p>
+        ) : null}
         {snapshot?.is_trial && snapshot.trial_ends_at ? (
-          <p className="hero-sub" style={{ marginTop: -12, fontSize: 13 }}>
+          <p className="subscription-trial-ends">
             {tSub('hero.trialEnds', {
               date: formatTrialEnd(snapshot.trial_ends_at, contentLang),
             })}

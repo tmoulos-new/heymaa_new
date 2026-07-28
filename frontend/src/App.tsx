@@ -2457,6 +2457,48 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       })
     : null;
 
+  const trialDaysLeft = trialEndsAt
+    ? (new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    : null;
+  /** Day 12 of a 14-day trial → 2 days remaining */
+  const trialEndingSoon =
+    trialDaysLeft != null && trialDaysLeft <= 2 && trialDaysLeft > 0;
+
+  const trialNudgeStorageKey =
+    trialEndsAt && token
+      ? `hm_trial_ending_nudge_${token}_${trialEndsAt}`
+      : null;
+  const [trialNudgeOpen, setTrialNudgeOpen] = useState(() => {
+    if (!trialNudgeStorageKey) return false;
+    try {
+      return localStorage.getItem(trialNudgeStorageKey) !== "1";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    if (!trialEndingSoon || !trialNudgeStorageKey) {
+      setTrialNudgeOpen(false);
+      return;
+    }
+    try {
+      setTrialNudgeOpen(localStorage.getItem(trialNudgeStorageKey) !== "1");
+    } catch {
+      setTrialNudgeOpen(true);
+    }
+  }, [trialEndingSoon, trialNudgeStorageKey]);
+
+  const dismissTrialNudge = () => {
+    setTrialNudgeOpen(false);
+    if (!trialNudgeStorageKey) return;
+    try {
+      localStorage.setItem(trialNudgeStorageKey, "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <>
     <div dir={dir} style={{fontFamily:"'DM Sans',sans-serif",height:"100vh",display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto",background:cream}}>
@@ -2558,13 +2600,101 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       />
 
       {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
+      {trialEndingSoon && trialNudgeOpen && (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            left: 12,
+            right: 12,
+            bottom: 72,
+            maxWidth: 456,
+            margin: "0 auto",
+            zIndex: 580,
+            background: "#2A2A5A",
+            color: "#fff",
+            borderRadius: 14,
+            padding: "14px 16px",
+            boxShadow: "0 12px 32px rgba(43,58,103,0.28)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ flex: 1, fontSize: 13.5, lineHeight: 1.5, fontWeight: 500 }}>
+              {lang === "el"
+                ? "Η δοκιμή σου λήγει σε 2 ημέρες! Επίλεξε ένα από τα διαθέσιμα πακέτα συνδρομής για να συνεχίσεις"
+                : "Your trial ends in 2 days! Choose one of the available subscription plans to continue"}
+            </div>
+            <button
+              type="button"
+              onClick={dismissTrialNudge}
+              aria-label={lang === "el" ? "Κλείσιμο" : "Close"}
+              style={{
+                background: "rgba(255,255,255,0.12)",
+                border: "none",
+                color: "#fff",
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                cursor: "pointer",
+                flexShrink: 0,
+                fontSize: 14,
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          <Link
+            to="/subscription"
+            onClick={dismissTrialNudge}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              boxSizing: "border-box",
+              background: "#FCECDD",
+              color: "#2A2A5A",
+              textDecoration: "none",
+              fontFamily: "'DM Sans',sans-serif",
+              fontWeight: 600,
+              fontSize: 14,
+              borderRadius: 10,
+              padding: "12px 18px",
+              border: "none",
+            }}
+          >
+            {lang === "el" ? "Επιλογή Πακέτου" : "Select plan"}
+          </Link>
+        </div>
+      )}
       {trialEndLabel && (
-        <div style={{background:"#C62828",color:"#fff",padding:"10px 14px",fontSize:12.5,lineHeight:1.45,flexShrink:0,textAlign:"center"}}>
-          {lang === "el"
-            ? `Δωρεάν δοκιμή — λήγει ${trialEndLabel}. `
-            : `Free trial — ends ${trialEndLabel}. `}
-          <Link to="/subscription" style={{color:"#fff",fontWeight:700,textDecoration:"underline"}}>
-            {t("choose_plan", lang)}
+        <div style={{background:"#C62828",color:"#fff",padding:"10px 14px",fontSize:12.5,lineHeight:1.45,flexShrink:0,textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+          <span>
+            {lang === "el"
+              ? `Δωρεάν δοκιμή — λήγει ${trialEndLabel}.`
+              : `Free trial — ends ${trialEndLabel}.`}
+          </span>
+          <Link
+            to="/subscription"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fff",
+              color: "#C62828",
+              textDecoration: "none",
+              fontFamily: "'DM Sans',sans-serif",
+              fontWeight: 600,
+              fontSize: 13,
+              borderRadius: 999,
+              padding: "8px 18px",
+            }}
+          >
+            {lang === "el" ? "Επιλογή Πακέτου" : "Select plan"}
           </Link>
         </div>
       )}

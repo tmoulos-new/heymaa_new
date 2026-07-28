@@ -17,8 +17,8 @@
     },
     "default": {
       "badge": "Subscriptions",
-      "title": "Simple & transparent <em>plans</em>",
-      "subtitle": "Choose the plan that fits your needs."
+      "title": "",
+      "subtitle": ""
     },
     "trialEnds": "Trial ends {{date}}"
   },

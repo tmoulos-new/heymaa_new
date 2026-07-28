@@ -2,7 +2,7 @@ export type VivaPlanKey = 'starter' | 'premium' | 'annual'
 
 /** Map pricing card variant to Viva plan key. */
 export function vivaPlanForVariant(variant: string): VivaPlanKey | null {
-  if (variant === 'current') return null
+  if (variant === 'current' || variant === 'trial') return null
   if (variant === 'starter' || variant === '') return 'starter'
   if (variant === 'premium' || variant === 'popular') return 'premium'
   if (variant === 'annual' || variant === 'best') return 'annual'

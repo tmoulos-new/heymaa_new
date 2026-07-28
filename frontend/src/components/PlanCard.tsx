@@ -25,6 +25,8 @@ export function PlanCard({
   radioSelected?: boolean
 }) {
   const isCurrent = plan.variant === 'current'
+  const isTrial = plan.variant === 'trial'
+  const hidePrice = isCurrent || isTrial
   const productKey = vivaPlanForVariant(plan.variant)
   const isDisabled = disabled ?? (isCurrent && !selectMode)
   const resolvedButtonState: PlanButtonState =
@@ -35,7 +37,6 @@ export function PlanCard({
 
   const handleClick = () => {
     if (selectMode) {
-      if (isCurrent || isSelected) return
       onSelect?.()
       return
     }
@@ -93,7 +94,7 @@ export function PlanCard({
     isCurrent ? 'current' : '',
     plan.featured || plan.badge ? 'highlighted' : '',
     plan.badge ? 'has-badge' : '',
-    selectMode && !isCurrent && !isSelected ? 'selectable' : '',
+    selectMode ? 'selectable' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -101,11 +102,7 @@ export function PlanCard({
   return (
     <div
       className={planClassName}
-      onClick={
-        selectMode && !isCurrent && !isSelected
-          ? () => onSelect?.()
-          : undefined
-      }
+      onClick={selectMode ? () => onSelect?.() : undefined}
     >
       {plan.badge ? (
         <div
@@ -131,7 +128,7 @@ export function PlanCard({
           <div className="plan-name">{plan.name}</div>
         </div>
         <div className="plan-price-row">
-          {!isCurrent && plan.price ? (
+          {!hidePrice && plan.price ? (
             <span className="plan-price">{plan.price}</span>
           ) : null}
           {plan.period ? (
@@ -157,8 +154,11 @@ export function PlanCard({
       <button
         type="button"
         className={`plan-btn btn-plan-${resolvedButtonState}`}
-        disabled={selectMode ? isCurrent || isSelected : isDisabled}
-        onClick={handleClick}
+        disabled={selectMode ? false : isDisabled}
+        onClick={(e) => {
+          e.stopPropagation()
+          handleClick()
+        }}
       >
         {plan.button}
       </button>

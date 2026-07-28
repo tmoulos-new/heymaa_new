@@ -47,16 +47,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);}
 .hero h1 em{font-style:normal;color:var(--beige);}
 .hero-sub{font-size:clamp(14px,2vw,16px);color:rgba(255,255,255,0.88);line-height:1.7;max-width:580px;margin:0 auto 28px;text-shadow:0 1px 10px rgba(0,0,0,0.2);}
 .hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:0;}
-.hero .btn-primary{background:#2A2A5A;color:#fff;}
-.hero .btn-primary:hover{opacity:.92;}
-.btn-primary{padding:13px 28px;border-radius:999px;background:var(--navy);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
-.btn-primary:hover{opacity:.88;}
+.hero .btn-primary,.hero .cta-btn-primary{background:#2A2A5A;color:#fff;}
+.hero .btn-primary:hover,.hero .cta-btn-primary:hover{opacity:.92;}
+.btn-primary{padding:13px 28px;border-radius:999px;background:#2A2A5A;color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s,background .15s;}
+.btn-primary:hover{opacity:.92;}
 .btn-ghost{padding:12px 26px;border-radius:999px;background:transparent;color:var(--navy);border:1.5px solid rgba(43,58,103,0.22);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
 .btn-ghost:hover{border-color:var(--navy);}
-.hero-below{text-align:center;}
-.hero-below-text{font-family:var(--font-serif);font-size:clamp(18px,2.8vw,24px);color:rgba(43,58,103,0.72);line-height:1.65;max-width:640px;margin:0 auto;}
-.hero-below-text .hero-below-emphasis{font-weight:600;color:var(--navy);}
-.hero-below-highlight{max-width:640px;margin:20px auto 0;padding:22px 20px;border-radius:16px;background:rgba(124,92,191,0.11);border:.5px solid rgba(124,92,191,0.18);font-family:var(--font-serif);font-size:clamp(18px,2.8vw,24px);color:var(--navy);line-height:1.65;}
 .what-is-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:center;}
 .what-is-copy .sec-title{margin-bottom:16px;}
 .what-is-body{font-size:15px;color:rgba(43,58,103,0.72);line-height:1.75;}
@@ -111,7 +107,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);}
 .plan-stack.selected{border-color:var(--navy);border-width:2px;box-shadow:0 6px 18px rgba(43,58,103,0.07);}
 .plan-stack.highlighted:not(.selected){border-color:rgba(42,42,90,0.35);box-shadow:0 4px 14px rgba(43,58,103,0.08);}
 .plan-stack.selectable{cursor:pointer;}
-.plan-stack.current{border-color:rgba(43,58,103,0.12);}
+.plan-stack.current:not(.selected){border-color:rgba(43,58,103,0.12);}
 .plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
 .plan-icon-wrap{width:36px;height:36px;border-radius:10px;background:rgba(245,197,163,0.42);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
 .plan-radio{width:20px;height:20px;border:2px solid rgba(43,58,103,0.22);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;box-sizing:border-box;background:transparent;transition:border-color .15s,background .15s;}
@@ -173,7 +169,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);}
 .cta-line{font-size:14px;color:rgba(43,58,103,0.72);line-height:1.55;margin:0;}
 .cta-headline{font-family:var(--font-serif);font-size:clamp(22px,5vw,28px);font-weight:600;color:var(--navy);line-height:1.25;margin:6px 0;}
 .cta-actions{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;margin-top:4px;}
-.cta-btn-outline,.cta-btn-primary{width:100%;padding:13px 28px;border-radius:999px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s,background .15s;}
+.cta-btn-outline,.cta-btn-primary{padding:13px 28px;border-radius:999px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s,background .15s;}
+.cta-actions .cta-btn-outline,.cta-actions .cta-btn-primary{width:100%;}
 .cta-btn-outline{background:#fff;color:var(--navy);border:1.5px solid rgba(43,58,103,0.18);}
 .cta-btn-outline:hover{background:rgba(255,255,255,0.92);}
 .cta-btn-primary{background:#2A2A5A;color:#fff;border:none;}

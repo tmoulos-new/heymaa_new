@@ -14,9 +14,7 @@
     "title": "Θυμάσαι την αρχή;<br>Την ώρα. Το βάρος. Την πρώτη μέρα.",
     "subtitle": "Έπειτα, οι μέρες περνούν γρήγορα.<br>Το HeyMaa σε βοηθά να κρατήσεις όσα θεωρείς σημαντικά.",
     "cta": "Ξεκίνα δωρεάν",
-    "pillLanguages": "23 γλώσσες",
-    "belowVideoLead": "Οι μέρες είναι γεμάτες.<br>Οι νύχτες χωρίς ξεκούραση.<br><span class=\"hero-below-emphasis\">Και πολλά μικρά αλλά σημαντικά πράγματα περνούν χωρίς να μείνουν.</span>",
-    "belowVideoHighlight": "Δεν χρειάζεσαι περισσότερη προσπάθεια.<br>Χρειάζεσαι μια έξυπνη λύση που δουλεύει για εσένα."
+    "pillLanguages": "23 γλώσσες"
   },
   "whatIs": {
     "title": "Τι είναι το HeyMaa",
@@ -105,7 +103,7 @@
         "period": "14 ημέρες",
         "badge": "",
         "badgeColor": "",
-        "variant": "current",
+        "variant": "trial",
         "featured": false,
         "save": "",
         "features": [
@@ -113,8 +111,8 @@
           "Φωνητικά με όρια χρήσης",
           "Βασική Μνήμη"
         ],
-        "button": "Ενεργό",
-        "buttonClass": "btn-plan-current"
+        "button": "Επιλογή Πακέτου",
+        "buttonClass": "btn-plan-idle"
       },
       {
         "icon": "⚡",

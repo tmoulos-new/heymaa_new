@@ -3,15 +3,44 @@
 }
 
 .subscription-hero {
-  padding-top: 48px;
-  padding-bottom: 32px;
+  padding-top: 40px;
+  padding-bottom: 28px;
+  text-shadow: none;
+}
+
+.subscription-hero .hero-badge {
+  background: rgba(43, 58, 103, 0.1);
+  color: var(--navy);
+  font-weight: 600;
+  backdrop-filter: none;
+}
+
+.subscription-hero .hero-badge-dot {
+  background: var(--navy);
+}
+
+.subscription-hero h1 {
+  color: var(--navy);
+  text-shadow: none;
+}
+
+.subscription-hero h1 em {
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.subscription-hero .hero-sub {
+  color: rgba(43, 58, 103, 0.78);
+  text-shadow: none;
+  font-weight: 500;
+  margin-bottom: 12px;
 }
 
 .subscription-trial-ends {
   font-size: 13px;
-  color: var(--coral);
-  font-weight: 500;
-  margin-top: -12px;
+  color: #c0392b;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 .subscription-loading {
