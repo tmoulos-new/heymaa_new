@@ -14,6 +14,7 @@ import { AppAuthPage } from "./pages/AppAuthPage";
 import { SubscriptionPage } from "./pages/SubscriptionPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { CheckoutResultPage } from "./pages/CheckoutResultPage";
+import { BrandFavicon } from "./components/BrandFavicon";
 import { APP_ROUTE } from "./publicRoutes";
 import { HM_TOKEN_KEY } from "./lib/authApi";
 
@@ -41,6 +42,7 @@ function PublicHome() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <BrandFavicon />
       <ScrollToTop />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
