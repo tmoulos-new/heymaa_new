@@ -1,5 +1,12 @@
-import React from "react";
-import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import React, { useEffect } from "react";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import App from "./App";
 import Home from "./home/Home";
 import { AuthPage } from "./pages/AuthPage";
@@ -9,6 +16,14 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { CheckoutResultPage } from "./pages/CheckoutResultPage";
 import { APP_ROUTE } from "./publicRoutes";
 import { HM_TOKEN_KEY } from "./lib/authApi";
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 function PublicHome() {
   const [search] = useSearchParams();
@@ -26,6 +41,7 @@ function PublicHome() {
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         <Route path={`${APP_ROUTE}/auth`} element={<AppAuthPage />} />
