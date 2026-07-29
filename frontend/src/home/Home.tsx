@@ -345,40 +345,21 @@ export default function Home() {
               <p className="pricing-panel-sub">{t("pricing.subtitle")}</p>
             </div>
             <div className="pricing-panel-body">
-              <div className="pricing-cards-layout">
-                <div className="pricing-trial-col">
-                  {plans.slice(0, 1).map((plan, index) => {
-                    const radioSelected = selectedPlanIndex === index;
-                    const buttonState = radioSelected ? "selected" : "idle";
-                    return (
-                      <PlanCard
-                        plan={plan}
-                        key={plan.name}
-                        selectMode
-                        buttonState={buttonState}
-                        radioSelected={radioSelected}
-                        onSelect={() => handlePlanSelect(index)}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="pricing-paid-grid">
-                  {plans.slice(1).map((plan, offset) => {
-                    const index = offset + 1;
-                    const radioSelected = selectedPlanIndex === index;
-                    const buttonState = radioSelected ? "selected" : "idle";
-                    return (
-                      <PlanCard
-                        plan={plan}
-                        key={plan.name}
-                        selectMode
-                        buttonState={buttonState}
-                        radioSelected={radioSelected}
-                        onSelect={() => handlePlanSelect(index)}
-                      />
-                    );
-                  })}
-                </div>
+              <div className="pricing-cards-grid">
+                {plans.map((plan, index) => {
+                  const radioSelected = selectedPlanIndex === index;
+                  const buttonState = radioSelected ? "selected" : "idle";
+                  return (
+                    <PlanCard
+                      plan={plan}
+                      key={plan.name}
+                      selectMode
+                      buttonState={buttonState}
+                      radioSelected={radioSelected}
+                      onSelect={() => handlePlanSelect(index)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -424,7 +405,10 @@ export default function Home() {
               className="cta-headline"
               dangerouslySetInnerHTML={{ __html: t("cta.headline") }}
             />
-            <p className="cta-line">{t("cta.line3")}</p>
+            <p
+              className="cta-line cta-line-end"
+              dangerouslySetInnerHTML={{ __html: t("cta.line3") }}
+            />
           </div>
           <div className="cta-actions">
             <button type="button" className="cta-btn-primary" onClick={goToApp}>
