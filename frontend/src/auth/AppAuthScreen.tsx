@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AUTH_LOGO_SRC } from './authLogo'
 import {
@@ -9,7 +9,8 @@ import {
   loginUser,
   registerUser,
 } from '../lib/authApi'
-import { authStrings, PRIVACY_URL, TERMS_URL, type AuthLang } from './authStrings'
+import { authStrings, PRIVACY_URL, TERMS_URL, localizeAuthApiMessage, type AuthLang } from './authStrings'
+import { EyeIcon, EyeOffIcon } from './passwordVisibilityIcons'
 import './appAuth.css'
 
 function GoogleIcon() {
@@ -53,15 +54,20 @@ export function AppAuthScreen({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
-  const [wantChild, setWantChild] = useState(false)
-  const [pregnantOrMom, setPregnantOrMom] = useState(false)
   const [newsletter, setNewsletter] = useState(false)
   const [privacy, setPrivacy] = useState(false)
   const [terms, setTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+
+  useEffect(() => {
+    document.title = 'HeyMaa'
+  }, [])
 
   const persistLang = (next: AuthLang) => {
     setLang(next)
@@ -75,8 +81,20 @@ export function AppAuthScreen({
       setError(s.errName)
       return
     }
+    if (!trimmedEmail) {
+      setError(s.errEmail)
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError(s.errEmailInvalid)
+      return
+    }
     if (password.length < 6) {
       setError(s.errPasswordMin)
+      return
+    }
+    if (password !== confirmPassword) {
+      setError(s.errPasswordMismatch)
       return
     }
     if (!privacy) {
@@ -101,8 +119,8 @@ export function AppAuthScreen({
         password,
         name: trimmedName,
         invite_code: inviteCode.trim() || undefined,
-        want_child: wantChild,
-        pregnancy_or_mom: pregnantOrMom,
+        want_child: false,
+        pregnancy_or_mom: false,
         consent_marketing: newsletter,
         consent_privacy: privacy,
         consent_terms: terms,
@@ -112,7 +130,8 @@ export function AppAuthScreen({
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }
-      setError(apiDetail(err.response?.data, s.errRegister))
+      const raw = apiDetail(err.response?.data, s.errRegister)
+      setError(localizeAuthApiMessage(raw, lang))
     } finally {
       setLoading(false)
     }
@@ -120,7 +139,14 @@ export function AppAuthScreen({
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase()
-    if (!trimmedEmail || password.length < 1) return
+    if (!trimmedEmail) {
+      setError(s.errEmail)
+      return
+    }
+    if (password.length < 1) {
+      setError(s.errLogin)
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -129,7 +155,8 @@ export function AppAuthScreen({
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }
-      setError(apiDetail(err.response?.data, s.errLogin))
+      const raw = apiDetail(err.response?.data, s.errLogin)
+      setError(localizeAuthApiMessage(raw, lang))
     } finally {
       setLoading(false)
     }
@@ -218,20 +245,63 @@ export function AppAuthScreen({
           <label className="app-auth-label" htmlFor="auth-password">
             {s.password}
           </label>
-          <input
-            id="auth-password"
-            className="app-auth-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={s.passwordPh}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            disabled={loading}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void (mode === 'signup' ? handleSignup() : handleLogin())
-            }}
-          />
+          <div className="app-auth-password-wrap">
+            <input
+              id="auth-password"
+              className="app-auth-input"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={s.passwordPh}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              disabled={loading}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void (mode === 'signup' ? handleSignup() : handleLogin())
+              }}
+            />
+            <button
+              type="button"
+              className="app-auth-password-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? (lang === 'el' ? 'Απόκρυψη κωδικού' : 'Hide password') : (lang === 'el' ? 'Εμφάνιση κωδικού' : 'Show password')}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </div>
         </div>
+
+        {mode === 'signup' && (
+          <div className="app-auth-field">
+            <label className="app-auth-label" htmlFor="auth-confirm-password">
+              {s.confirmPassword}
+            </label>
+            <div className="app-auth-password-wrap">
+              <input
+                id="auth-confirm-password"
+                className="app-auth-input"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={s.confirmPasswordPh}
+                autoComplete="new-password"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleSignup()
+                }}
+              />
+              <button
+                type="button"
+                className="app-auth-password-toggle"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? (lang === 'el' ? 'Απόκρυψη κωδικού' : 'Hide password') : (lang === 'el' ? 'Εμφάνιση κωδικού' : 'Show password')}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
+          </div>
+        )}
 
         {mode === 'login' && (
           forgotSent ? (
@@ -265,24 +335,6 @@ export function AppAuthScreen({
               <label className="app-auth-check">
                 <input
                   type="checkbox"
-                  checked={wantChild}
-                  onChange={(e) => setWantChild(e.target.checked)}
-                  disabled={loading}
-                />
-                <span>{s.wantChild}</span>
-              </label>
-              <label className="app-auth-check">
-                <input
-                  type="checkbox"
-                  checked={pregnantOrMom}
-                  onChange={(e) => setPregnantOrMom(e.target.checked)}
-                  disabled={loading}
-                />
-                <span>{s.pregnantOrMom}</span>
-              </label>
-              <label className="app-auth-check">
-                <input
-                  type="checkbox"
                   checked={newsletter}
                   onChange={(e) => setNewsletter(e.target.checked)}
                   disabled={loading}
@@ -298,9 +350,12 @@ export function AppAuthScreen({
                 />
                 <span>
                   {s.privacy}{' '}
-                  <a href={PRIVACY_URL} target="_blank" rel="noreferrer">
+                  <Link
+                    to={PRIVACY_URL}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {s.privacyLink}
-                  </a>
+                  </Link>
                 </span>
               </label>
               <label className="app-auth-check">
@@ -312,9 +367,12 @@ export function AppAuthScreen({
                 />
                 <span>
                   {s.terms}{' '}
-                  <a href={TERMS_URL} target="_blank" rel="noreferrer">
+                  <Link
+                    to={TERMS_URL}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {s.termsLink}
-                  </a>
+                  </Link>
                 </span>
               </label>
             </div>

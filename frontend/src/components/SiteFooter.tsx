@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { PRIVACY_URL, TERMS_URL } from '../auth/authStrings'
@@ -53,14 +54,13 @@ export function SiteFooter({ contentLang }: { contentLang: string }) {
             <ul className="footer-list">
               {infoLinks.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    {...(link.href.startsWith('http')
-                      ? { target: '_blank', rel: 'noopener noreferrer' }
-                      : {})}
-                  >
-                    {link.label}
-                  </a>
+                  {link.href.startsWith('http') ? (
+                    <a href={link.href} target="_blank" rel="noopener noreferrer">
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.href}>{link.label}</Link>
+                  )}
                 </li>
               ))}
             </ul>

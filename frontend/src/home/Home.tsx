@@ -90,6 +90,10 @@ export default function Home() {
   }, [plans, navigate]);
 
   useEffect(() => {
+    document.title = "HeyMaa";
+  }, []);
+
+  useEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = TABLER_ICONS;
