@@ -47,6 +47,8 @@ import {
   clearBootLocalScanCache,
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
+import { LANGS as HOME_LANGS } from "./home/homeContent";
+import { LanguageFlagGrid, LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
@@ -97,20 +99,19 @@ interface Memory { emoji: string; text: string; date: string; img?: string; ref?
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
-const LANGS = [
-  {c:"el",f:"🇬🇷",n:"Ελληνικά",d:"ltr",s:"ΕΛ"},{c:"en",f:"🇬🇧",n:"English",d:"ltr",s:"EN"},
-  {c:"ar",f:"🇸🇦",n:"العربية",d:"rtl",s:"AR"},{c:"zh",f:"🇨🇳",n:"中文",d:"ltr",s:"ZH"},
-  {c:"es",f:"🇪🇸",n:"Español",d:"ltr",s:"ES"},{c:"fr",f:"🇫🇷",n:"Français",d:"ltr",s:"FR"},
-  {c:"ro",f:"🇷🇴",n:"Română",d:"ltr",s:"RO"},{c:"pl",f:"🇵🇱",n:"Polski",d:"ltr",s:"PL"},
-  {c:"tr",f:"🇹🇷",n:"Türkçe",d:"ltr",s:"TR"},{c:"hi",f:"🇮🇳",n:"हिन्दी",d:"ltr",s:"HI"},
-  {c:"ur",f:"🇵🇰",n:"اردو",d:"rtl",s:"UR"},{c:"ja",f:"🇯🇵",n:"日本語",d:"ltr",s:"JA"},
-  {c:"ru",f:"🇷🇺",n:"Русский",d:"ltr",s:"RU"},{c:"de",f:"🇩🇪",n:"Deutsch",d:"ltr",s:"DE"},
-  {c:"pt",f:"🇧🇷",n:"Português",d:"ltr",s:"PT"},{c:"it",f:"🇮🇹",n:"Italiano",d:"ltr",s:"IT"},
-  {c:"nl",f:"🇳🇱",n:"Nederlands",d:"ltr",s:"NL"},{c:"bn",f:"🇧🇩",n:"বাংলা",d:"ltr",s:"BN"},
-  {c:"id",f:"🇮🇩",n:"Indonesia",d:"ltr",s:"ID"},{c:"sw",f:"🇰🇪",n:"Kiswahili",d:"ltr",s:"SW"},
-  {c:"fil",f:"🇵🇭",n:"Filipino",d:"ltr",s:"FIL"},{c:"mr",f:"🇮🇳",n:"मराठी",d:"ltr",s:"MR"},
-  {c:"te",f:"🇮🇳",n:"తెలుగు",d:"ltr",s:"TE"},
-];
+const LANG_FLAG_EMOJI: Record<string, string> = {
+  el: "🇬🇷", en: "🇬🇧", it: "🇮🇹", de: "🇩🇪", fr: "🇫🇷", es: "🇪🇸", ro: "🇷🇴",
+  bg: "🇧🇬", pl: "🇵🇱", sr: "🇷🇸", ar: "🇸🇦", tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵",
+  ru: "🇷🇺", pt: "🇵🇹", nl: "🇳🇱",
+};
+
+const LANGS = HOME_LANGS.map((l) => ({
+  c: l.code,
+  f: LANG_FLAG_EMOJI[l.code] || "🌐",
+  n: l.name,
+  d: l.rtl ? "rtl" : "ltr",
+  s: l.code.toUpperCase(),
+}));
 
 const COUNTRIES = [
   {code:"GR",name:"Greece"},{code:"CY",name:"Cyprus"},
@@ -1339,16 +1340,12 @@ const TR: Record<string,Record<string,string>> = {
 };
 
 function detectLang(text: string): string {
-  // Script-based only — reliable, used for INPUT HINT, never for TTS
-  if(/[\u0600-\u06FF]/.test(text)) return /[\u067E\u0679\u0688\u0691]/.test(text)?"ur":"ar";
+  if(/[\u0600-\u06FF]/.test(text)) return "ar";
   if(/[\u3040-\u30FF]/.test(text)) return "ja";
   if(/[\u4E00-\u9FFF]/.test(text)) return "zh";
-  if(/[\u0980-\u09FF]/.test(text)) return "bn";
-  if(/[\u0C00-\u0C7F]/.test(text)) return "te";
-  if(/[\u0900-\u097F]/.test(text)) return "hi";
   if(/[\u0400-\u04FF]/.test(text)) return "ru";
   if(/[\u0370-\u03FF\u1F00-\u1FFF]/.test(text)) return "el";
-  return ""; // Latin script — cannot reliably distinguish, no hint shown
+  return "";
 }
 function t(key: string, lang: string): string {
   return pickTranslated(TR[key], lang, key);
@@ -1460,12 +1457,15 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
   return (
     <div style={s}>
-      {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
-        <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:"#2B3A67",fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:"1px solid #F0EBE6",marginBottom:4}}>🌐 {t("selectlang",lang)}</div>
-          {LANGS.map(l=><div key={l.c} onClick={()=>{setLang(normalizeAppLang(l.c));setShowLang(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?"#F0EBE6":"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:"#2B3A67"}}>{l.n}</span>{l.c===lang&&<span style={{color:"#4ABEAA",fontWeight:700}}>✓</span>}</div>)}
-        </div>
-      </div>}
+      {showLang && (
+        <LanguageFlagOverlay
+          open={showLang}
+          title={`🌐 ${t("selectlang", lang)}`}
+          currentLang={lang}
+          onClose={() => setShowLang(false)}
+          onSelect={(code) => setLang(normalizeAppLang(code))}
+        />
+      )}
       <div style={{maxWidth:420,width:"100%"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
           <div style={{display:"flex",gap:6,flex:1}}>{[0,1,2,3].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#4ABEAA":i===step?"#2B3A67":"rgba(43,58,103,0.15)",maxWidth:40}}/>)}</div>
@@ -2538,12 +2538,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       </div>}
 
       {/* LANG MODAL */}
-      {showLang&&<div onClick={e=>{if(e.target===e.currentTarget)setShowLang(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
-        <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"65vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:4}}>🌐 {t("selectlang",lang)}</div>
-          {LANGS.map(l=><div key={l.c} onClick={()=>{const nextLang=writeStoredAppLang(l.c);const u={...profile,lang:nextLang};localStorage.setItem(sk(token,"profile"),JSON.stringify(u));void syncProfileToSupabase(token,u);onProfileUpdate(u);setShowLang(false);}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",borderRadius:8,cursor:"pointer",background:l.c===lang?gl:"transparent",margin:"0 8px"}}><span style={{fontSize:19}}>{l.f}</span><span style={{fontSize:13.5,fontWeight:500,flex:1,color:navy}}>{l.n}</span>{l.c===lang&&<span style={{color:teal,fontWeight:700}}>✓</span>}</div>)}
-        </div>
-      </div>}
+      {showLang && (
+        <LanguageFlagOverlay
+          open={showLang}
+          title={`🌐 ${t("selectlang", lang)}`}
+          currentLang={lang}
+          onClose={() => setShowLang(false)}
+          onSelect={(code) => {
+            const nextLang = writeStoredAppLang(code);
+            const u = { ...profile, lang: nextLang };
+            localStorage.setItem(sk(token, "profile"), JSON.stringify(u));
+            void syncProfileToSupabase(token, u);
+            onProfileUpdate(u);
+          }}
+        />
+      )}
 
       {/* ARCHIVE MODAL */}
       {showArchiveModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -2764,10 +2773,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               </button>}
             </div>
 
-            {messages.length===0&&<div style={{...card,textAlign:"center",padding:"20px 16px"}}>
-              <div style={{width:52,height:52,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px"}}>🐾</div>
-              <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {profile.name}, {t("chatgreet2",lang)}</div>
-            </div>}
+            {messages.length===0&&(
+              <>
+                <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
+                  <div style={{width:52,height:52,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px"}}>🐾</div>
+                  <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {profile.name}, {t("chatgreet2",lang)}</div>
+                </div>
+                <div style={{...card,marginTop:12,padding:"16px 12px 14px"}}>
+                  <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,color:navy,textAlign:"center",marginBottom:12}}>
+                    🌐 {t("selectlang",lang)}
+                  </div>
+                  <LanguageFlagGrid
+                    currentLang={lang}
+                    onSelect={(code) => {
+                      const nextLang = writeStoredAppLang(code);
+                      const u = { ...profile, lang: nextLang };
+                      localStorage.setItem(sk(token, "profile"), JSON.stringify(u));
+                      void syncProfileToSupabase(token, u);
+                      onProfileUpdate(u);
+                    }}
+                  />
+                </div>
+              </>
+            )}
 
             {messages.map((msg,i)=>(
               <div key={i}>
@@ -2830,7 +2858,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
               <div>
                 <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {profile.name}! {t("chatgreet2",lang)}</div>
-                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "hi" ? `${displayAge} के बच्चे के विकास के बारे में बताएं` : lang === "ur" ? `${displayAge} کے بچے کی نشوونما کے بارے میں بتائیں` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
               </div>
             </div>
           </div>
@@ -3449,7 +3477,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="hi"?currentDisplayAge+" के बच्चे के लिए अगले विकास के मील के पत्थर क्या हैं?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
                 </div>
               </div>
             </div>
@@ -3460,7 +3488,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
               <div style={{fontSize:11.5,color:"#7A7068",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
               {(()=>{
-                const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="hi"?"सामान्य":lang==="ja"?"一般":"General"),value:""}];
+                const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="ja"?"一般":"General"),value:""}];
                 if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
                 familyChildren.forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
                 familyData.members.forEach(fm=>docRefs.push({label:"👤 "+memberDisplayLabel(fm, familyData.members),value:memberMemoryRef(fm.id)}));

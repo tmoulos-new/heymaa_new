@@ -14,7 +14,7 @@
     "title": "Every moment that<br>deserves to be <em>remembered</em>.",
     "subtitle": "Write, speak or send a photo. HeyMaa organises your memories, records your children's development, and is always with you — no stress, no pressure.",
     "cta": "See how it works",
-    "pillLanguages": "23 languages"
+    "pillLanguages": "17 languages"
   },
   "whatIs": {
     "title": "What is HeyMaa?",
@@ -34,7 +34,7 @@
   "how": {
     "label": "How it works",
     "title": "Write · Speak · Show",
-    "subtitle": "Three simple ways to capture your day — however you can. Discover useful tips by starting today.",
+    "subtitle": "Three simple ways to capture your day. Discover useful tips by starting today.",
     "items": [
       {
         "icon": "ti-pencil",
@@ -162,8 +162,9 @@
         "featured": false,
         "save": "",
         "features": [
-          "All of Premium",
+          "Unlimited Chat",
           "700 Voice/month",
+          "Full Memory",
           "Priority Support"
         ],
         "button": "Choose Plan",
@@ -200,11 +201,11 @@
       },
       {
         "question": "Does HeyMaa give medical advice?",
-        "answer": "Never. That is a core design principle for us. For anything related to the health of you or your child, HeyMaa refers you exclusively to a doctor or pharmacist."
+        "answer": "It is a core design principle of ours that medical advice is never given. For anything related to the health of the child or the mother, HeyMaa refers you exclusively to a doctor or pharmacist."
       },
       {
         "question": "Which languages does it support?",
-        "answer": "15 languages — Greek, English, Arabic, Chinese, Spanish, French, Romanian, Polish, Turkish, Japanese, Russian, German, Portuguese, Italian, Dutch. The UI and chat switch to your selected language."
+        "answer": "HeyMaa works in 17 languages: Greek, English, Italian, German, French, Spanish, Romanian, Bulgarian, Polish, Serbian, Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, and Dutch."
       },
       {
         "question": "Can I cancel my subscription anytime?",

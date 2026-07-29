@@ -257,7 +257,7 @@ export default function Home() {
         </section>
 
         <div className="section" id="how-section">
-          <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>
+          {t("how.label") && <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>}
           <div className="sec-title">{t("how.title")}</div>
           <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">

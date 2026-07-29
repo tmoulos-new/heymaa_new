@@ -1,9 +1,7 @@
-/** App UI language codes (23). Shared by App, Home, Auth, Checkout. */
+import { SUPPORTED_LANG_CODES } from "./supportedLanguages";
 
-export const APP_LANG_CODES = [
-  "el", "en", "ar", "zh", "es", "fr", "ro", "pl", "tr", "hi", "ur", "ja",
-  "ru", "de", "pt", "it", "nl", "bn", "id", "sw", "fil", "mr", "te",
-] as const;
+/** App UI language codes — same 17 as landing flag picker. */
+export const APP_LANG_CODES = SUPPORTED_LANG_CODES;
 
 export type AppLangCode = (typeof APP_LANG_CODES)[number];
 
@@ -11,9 +9,10 @@ const APP_LANG_SET = new Set<string>(APP_LANG_CODES);
 
 /** Legacy / alternate codes → canonical app code */
 const LANG_ALIASES: Record<string, AppLangCode> = {
-  tl: "fil",
-  fil_PH: "fil",
-  "fil-PH": "fil",
+  tl: "el",
+  fil_PH: "el",
+  "fil-PH": "el",
+  fil: "el",
   gr: "el",
   gre: "el",
   eng: "en",
@@ -23,9 +22,11 @@ const LANG_ALIASES: Record<string, AppLangCode> = {
   por: "pt",
   ita: "it",
   nld: "nl",
-  ind: "id",
+  ind: "en",
   zho: "zh",
   cmn: "zh",
+  bul: "bg",
+  srp: "sr",
 };
 
 const PRE_LANG_KEY = "hm_pre_lang";
@@ -71,7 +72,7 @@ export function pickTranslated(
   if (!row) return keyFallback;
   const code = normalizeAppLang(lang, "en");
   let v = row[code];
-  if (code === "fil" && v && looksLikeHangul(v)) v = undefined;
+  if ((code as string) === "fil" && v && looksLikeHangul(v)) v = undefined;
   if (v) return v;
   if (row.en) return row.en;
   if (row.el) return row.el;

@@ -2510,7 +2510,7 @@ async def tts(req: TTSRequest):
         "it":"it-IT-ElsaNeural","ru":"ru-RU-SvetlanaNeural","tr":"tr-TR-EmelNeural",
         "id":"id-ID-GadisNeural","bn":"bn-BD-NabanitaNeural","sw":"sw-KE-ZuriNeural",
         "zh":"zh-CN-XiaoxiaoNeural","ja":"ja-JP-NanamiNeural","nl":"nl-NL-ColetteNeural",
-        "pl":"pl-PL-ZofiaNeural","ro":"ro-RO-AlinaNeural","fil":"fil-PH-BlessicaNeural",
+        "pl":"pl-PL-ZofiaNeural","ro":"ro-RO-AlinaNeural","bg":"bg-BG-KalinaNeural","sr":"sr-RS-SophieNeural",
         "mr":"mr-IN-AarohiNeural","te":"te-IN-ShrutiNeural",
     }
     voice = VOICE_MAP.get(req.lang, "en-US-JennyNeural")
