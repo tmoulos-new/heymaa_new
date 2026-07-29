@@ -2318,8 +2318,10 @@ def get_me(x_token: Optional[str] = Header(None)):
 @app.post("/auth/check_email")
 async def check_email(req: dict):
     email = (req.get("email") or "").lower().strip()
-    if not email or not sb:
+    if not email:
         raise HTTPException(status_code=400, detail="Email required.")
+    if not sb:
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
     res = sb.table("users").select("id").eq("email", email).execute()
     return {"exists": bool(res.data)}
 

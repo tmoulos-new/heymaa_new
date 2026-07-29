@@ -5,8 +5,8 @@ const TITLE = 'Πολιτική Απορρήτου & Προστασίας Δεδ
 
 export function PrivacyPage() {
   return (
-    <LegalPageShell title={`${TITLE} – HeyMaa`} breadcrumbCurrent={TITLE}>
-      <h1>{TITLE} – HeyMaa</h1>
+    <LegalPageShell title={TITLE} breadcrumbCurrent={TITLE}>
+      <h1 className="sec-title">{TITLE}</h1>
 
       <p>Η εταιρεία CARE DIRECT A.E. (εφεξής η «Care Direct» ή η «Εταιρεία»), η οποία εδρεύει στον Άγιο Δημήτριο Αττικής (οδός Πρεμετής 2, Τ.Κ. 17342, email επικοινωνίας: info.heymaa.ai, τηλ.: 210 9287700), αναγνωρίζει τη σημασία της διαφύλαξης της ασφάλειας των προσωπικών δεδομένων των χρηστών της εφαρμογής και του δικτυακού τόπου HeyMaa.</p>
 

@@ -49,18 +49,19 @@
 }
 
 .legal-content h1 {
-  font-family: var(--font-serif, 'Fraunces', Georgia, serif);
-  font-size: clamp(24px, 4vw, 28px);
-  font-weight: 600;
-  line-height: 1.25;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 400;
+  line-height: 1.2;
   margin: 0 0 24px;
   color: var(--navy, #2b3a67);
 }
 
 .legal-content h2 {
-  font-family: var(--font-serif, 'Fraunces', Georgia, serif);
-  font-size: 18px;
-  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(17px, 2.8vw, 22px);
+  font-weight: 400;
+  line-height: 1.25;
   margin: 28px 0 12px;
   color: var(--navy, #2b3a67);
 }

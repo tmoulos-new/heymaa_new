@@ -48,6 +48,7 @@ const STRINGS = {
     errEmailExists: 'Το email είναι ήδη καταχωρημένο.',
     errInviteInvalid: 'Μη έγκυρος κωδικός πρόσκλησης.',
     errInviteRequired: 'Απαιτείται κωδικός πρόσκλησης.',
+    errDatabase: 'Η βάση δεδομένων δεν είναι διαθέσιμη. Δοκίμασε ξανά αργότερα.',
   },
   en: {
     signupTitle: 'To continue, fill in your details!',
@@ -95,6 +96,7 @@ const STRINGS = {
     errEmailExists: 'Email is already registered.',
     errInviteInvalid: 'Invalid invite code.',
     errInviteRequired: 'Invite code required.',
+    errDatabase: 'Database unavailable. Please try again later.',
   },
 } as const
 
@@ -105,7 +107,10 @@ export function authStrings(lang: AuthLang) {
 /** Map common English API auth errors to the active UI language. */
 export function localizeAuthApiMessage(message: string, lang: AuthLang): string {
   const s = authStrings(lang)
-  if (lang !== 'el') return message
+  if (lang !== 'el') {
+    if (message.toLowerCase().includes('database unavailable')) return s.errDatabase
+    return message
+  }
   const normalized = message.trim().toLowerCase()
   const map: Record<string, string> = {
     'email required.': s.errEmail,
@@ -119,10 +124,9 @@ export function localizeAuthApiMessage(message: string, lang: AuthLang): string 
     'invalid invite code': s.errInviteInvalid,
     'invite code required.': s.errInviteRequired,
     'invite code required': s.errInviteRequired,
-    'field required': s.errEmail,
-    'value error, email address must be provided': s.errEmail,
   }
   if (map[normalized]) return map[normalized]
+  if (normalized.includes('database unavailable')) return s.errDatabase
   if (normalized.includes('email') && normalized.includes('required')) return s.errEmail
   if (normalized.includes('name') && normalized.includes('required')) return s.errName
   if (normalized.includes('already registered')) return s.errEmailExists

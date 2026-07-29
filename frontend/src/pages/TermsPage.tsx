@@ -6,7 +6,7 @@ const TITLE = 'Όροι & Προϋποθέσεις Χρήσης'
 export function TermsPage() {
   return (
     <LegalPageShell title={TITLE} breadcrumbCurrent={TITLE}>
-      <h1>{TITLE}</h1>
+      <h1 className="sec-title">{TITLE}</h1>
 
       <p>Η εφαρμογή και ο δικτυακός τόπος HeyMaa (εφεξής η «Εφαρμογή» ή το «HeyMaa») αποτελούν ιδιοκτησία της εταιρείας CARE DIRECT A.E., η οποία εδρεύει στον Άγιο Δημήτριο Αττικής, οδός Πρεμετής αριθ. 2, Τ.Κ.: 17342 (ηλεκτρονική διεύθυνση επικοινωνίας: info.heymaa.ai, τηλέφωνο επικοινωνίας: 210 9287700).</p>
 
