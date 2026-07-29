@@ -14,6 +14,8 @@ import { AppAuthPage } from "./pages/AppAuthPage";
 import { SubscriptionPage } from "./pages/SubscriptionPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { CheckoutResultPage } from "./pages/CheckoutResultPage";
+import { TermsPage } from "./pages/TermsPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
 import { BrandFavicon } from "./components/BrandFavicon";
 import { APP_ROUTE } from "./publicRoutes";
 import { HM_TOKEN_KEY } from "./lib/authApi";
@@ -52,6 +54,8 @@ export default function AppRoutes() {
         <Route path="/checkout/success" element={<CheckoutResultPage outcome="success" />} />
         <Route path="/checkout/failure" element={<CheckoutResultPage outcome="failure" />} />
         <Route path="/checkout/failed" element={<CheckoutResultPage outcome="failure" />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/" element={<PublicHome />} />
         <Route path="/home" element={<Home />} />
         <Route path={`${APP_ROUTE}/*`} element={<App />} />

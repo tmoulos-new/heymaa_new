@@ -88,5 +88,5 @@ export function authStrings(lang: AuthLang) {
   return STRINGS[lang] || STRINGS.el
 }
 
-export const PRIVACY_URL = 'https://heymaa.vdarpp.com/privacy'
-export const TERMS_URL = 'https://heymaa.vdarpp.com/terms'
+export const PRIVACY_URL = '/privacy'
+export const TERMS_URL = '/terms'

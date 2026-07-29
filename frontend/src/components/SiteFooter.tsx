@@ -8,7 +8,6 @@ export function SiteFooter({ contentLang }: { contentLang: string }) {
   const email = t('footer.email')
 
   const infoLinks = [
-    { label: t('footer.linkContact'), href: `mailto:${email}` },
     { label: t('footer.linkPrivacy'), href: PRIVACY_URL },
     { label: t('footer.linkTerms'), href: TERMS_URL },
   ]
