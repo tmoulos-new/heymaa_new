@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Navigate, Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -20,7 +20,7 @@ import {
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, apiDetail } from "./lib/authApi";
+import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, isBrowserLocalHost, isLocalDemoToken } from "./lib/authApi";
 import { displayUppercase } from "./lib/greekText";
 import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
@@ -48,7 +48,7 @@ import {
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
-import { LanguageFlagGrid, LanguageFlagOverlay } from "./components/LanguageFlagPicker";
+import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
@@ -1262,7 +1262,7 @@ const TR: Record<string,Record<string,string>> = {
   additem:{el:"Πρόσθεσε προϊόν...",en:"Add product...",ar:"أضيفي منتجاً...",es:"Agregar producto...",fr:"Ajouter produit...",de:"Produkt hinzufügen...",pt:"Adicionar produto...",it:"Aggiungi prodotto...",ru:"Добавить товар...",tr:"Ürün ekle...",hi:"उत्पाद जोड़ें...",ur:"مصنوع شامل کریں...",zh:"添加产品...",ja:"商品を追加...",nl:"Product toevoegen...",pl:"Dodaj produkt...",ro:"Adaugă produs...",bn:"পণ্য যোগ করুন...",id:"Tambah produk...",sw:"Ongeza bidhaa...",fil:"Add product...",mr:"उत्पादन जोडा...",te:"ఉత్పత్తి జోడించు..."},
   addtolist:{el:"Πρόσθεσε στη λίστα...",en:"Add to list...",ar:"أضيفي إلى القائمة...",es:"Agregar a lista...",fr:"Ajouter à la liste...",de:"Zur Liste hinzufügen...",pt:"Adicionar à lista...",it:"Aggiungi alla lista...",ru:"Добавить в список...",tr:"Listeye ekle...",hi:"सूची में जोड़ें...",ur:"فہرست میں شامل کریں...",zh:"添加到清单...",ja:"リストに追加...",nl:"Toevoegen aan lijst...",pl:"Dodaj do listy...",ro:"Adaugă la listă...",bn:"তালিকায় যোগ করুন...",id:"Tambah ke daftar...",sw:"Ongeza kwenye orodha...",fil:"Add to list...",mr:"यादीत जोडा...",te:"జాబితాకు జోడించు..."},
   sendlist:{el:"Αποστολή:",en:"Send via:",ar:"إرسال:",es:"Enviar:",fr:"Envoyer:",de:"Senden:",pt:"Enviar:",it:"Invia:",ru:"Отправить:",tr:"Gönder:",hi:"भेजें:",ur:"بھیجیں:",zh:"发送：",ja:"送る：",nl:"Versturen:",pl:"Wyślij:",ro:"Trimite:",bn:"পাঠান:",id:"Kirim:",sw:"Tuma:",fil:"Send via:",mr:"Надіслати:",te:"పంపు:"},
-  selectlang:{el:"Επέλεξε γλώσσα",en:"Select language",ar:"اختر اللغة",es:"Seleccionar idioma",fr:"Choisir la langue",de:"Sprache wählen",pt:"Selecionar idioma",it:"Seleziona lingua",ru:"Выбрать язык",tr:"Dil seç",hi:"भाषा चुनें",ur:"زبان منتخب کریں",zh:"选择语言",ja:"言語を選択",nl:"Taal kiezen",pl:"Wybierz język",ro:"Selectați limba",bn:"ভাষা নির্বাচন",id:"Pilih bahasa",sw:"Chagua lugha",fil:"Select language",mr:"भाषा निवडा",te:"భాష ఎంచుకోండి"},
+  selectlang:{el:"Επίλεξε γλώσσα",en:"Select language",ar:"اختر اللغة",es:"Seleccionar idioma",fr:"Choisir la langue",de:"Sprache wählen",pt:"Selecionar idioma",it:"Seleziona lingua",ru:"Выбрать язык",tr:"Dil seç",hi:"भाषा चुनें",ur:"زبان منتخب کریں",zh:"选择语言",ja:"言語を選択",nl:"Taal kiezen",pl:"Wybierz język",ro:"Selectați limba",bn:"ভাষা নির্বাচন",id:"Pilih bahasa",sw:"Chagua lugha",fil:"Select language",mr:"भाषा निवडा",te:"భాష ఎంచుకోండి"},
   chatgreet:{el:"Γεια σου",en:"Hi",ar:"مرحباً",es:"Hola",fr:"Bonjour",de:"Hallo",pt:"Olá",it:"Ciao",ru:"Привет",tr:"Merhaba",hi:"नमस्ते",ur:"ہائے",zh:"你好",ja:"こんにちは",nl:"Hallo",pl:"Cześć",ro:"Bună",bn:"হ্যালো",id:"Halo",sw:"Habari",fil:"Hi",mr:"नमस्कार",te:"హలో"},
   chatgreet2:{el:"χαίρομαι που βρίσκεσαι εδώ. Πώς μπορώ να σε βοηθήσω;",en:"glad you're here. How can I help you today?",ar:"يسعدني وجودك. كيف أساعدك؟",es:"alegría tenerte. ¿En qué te ayudo?",fr:"content que tu sois là. Comment t'aider?",de:"schön, dass du hier bist. Wie helfe ich dir?",pt:"fico feliz. Como posso ajudar?",it:"felice che tu sia qui. Come aiutarti?",ru:"рад что ты здесь. Как помочь?",tr:"burada olduğuna sevindim. Nasıl yardım edebilirim?",hi:"खुशी है। कैसे मदद करूँ?",ur:"خوشی ہے۔ کیسے مدد کروں؟",zh:"很高兴你来了。今天我能帮什么？",ja:"来てくれて嬉しい。どう手伝えますか？",nl:"blij dat je er bent. Hoe kan ik helpen?",pl:"cieszę się. Jak pomóc?",ro:"mă bucur că ești. Cum te ajut?",bn:"আনন্দিত। কীভাবে সাহায্য করব?",id:"senang kamu ada. Bagaimana aku membantumu?",sw:"nafurahi uko. Ninakusaidiaje?",fil:"glad you're here. How can I help you today?",mr:"радий що ти тут. Як допомогти?",te:"మీరు ఇక్కడ ఉన్నందుకు సంతోషం. నేను ఎలా సహాయపడను?"},
   listen:{el:"🔊 Άκουσε",en:"🔊 Listen",ar:"🔊 استمع",es:"🔊 Escuchar",fr:"🔊 Écouter",de:"🔊 Anhören",pt:"🔊 Ouvir",it:"🔊 Ascolta",ru:"🔊 Слушать",tr:"🔊 Dinle",hi:"🔊 सुनें",ur:"🔊 سنیں",zh:"🔊 收听",ja:"🔊 聞く",nl:"🔊 Luisteren",pl:"🔊 Słuchaj",ro:"🔊 Ascultă",bn:"🔊 শুনুন",id:"🔊 Dengar",sw:"🔊 Sikiliza",fil:"🔊 Listen",mr:"🔊 ऐका",te:"🔊 వినండి"},
@@ -1385,7 +1385,7 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
       <div style={cardStyle}>
-        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:20}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
+        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:20}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
         {done ? (
           <div><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontSize:16,color:"#2B3A67",fontWeight:600}}>Password updated!</div><div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginTop:6}}>Redirecting to login...</div></div>
         ) : (<>
@@ -1434,7 +1434,7 @@ function ChangePasswordScreen({
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
       <div style={cardStyle}>
-        <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:12}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
+        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:12}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
         <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>{lang==="el"?"Νέος κωδικός":"Choose a new password"}</div>
         <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>{lang==="el"?"Για λόγους ασφαλείας, όρισε δικό σου κωδικό πριν συνεχίσεις.":"For security, set your own password before continuing."}</div>
         <input style={inp} type="password" placeholder={lang==="el"?"Νέος κωδικός":"New password"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
@@ -1471,10 +1471,10 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           <div style={{display:"flex",gap:6,flex:1}}>{[0,1,2,3].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#4ABEAA":i===step?"#2B3A67":"rgba(43,58,103,0.15)",maxWidth:40}}/>)}</div>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(43,58,103,0.08)",border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"#2B3A67",marginLeft:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
         </div>
-        {step===0&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>👋</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("welcome",lang)}</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("setup",lang)}</p><input style={inp} placeholder={t("yourname",lang)} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(1)} autoFocus/><button style={btn} onClick={()=>setStep(1)}>{t("letsgo",lang)}</button></>}
+        {step===0&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>👋</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("welcome",lang)}</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("setup",lang)}</p><input style={inp} placeholder={t("yourname",lang)} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(1)} autoFocus/><button style={btn} onClick={()=>setStep(1)}>{t("letsgo",lang)}</button></>}
         {step===1&&<>
           <div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>{isPregnant?"🤰":"👶"}</div>
-          <h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("profile2",lang)}</h1>
+          <h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("profile2",lang)}</h1>
           <p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:20,lineHeight:1.65}}>{isPregnant===null?t("pregnant_or_baby_q",lang):isPregnant?t("duedatelabel",lang):t("babyinfo_q",lang)}</p>
           {isPregnant===null&&<div style={{display:"flex",gap:10,marginBottom:10}}>
             <button style={{...btn,marginTop:0,background:"#fff",color:"#2B3A67",border:"1.5px solid rgba(43,58,103,0.18)"}} onClick={()=>setIsPregnant(true)}>🤰 {t("im_pregnant",lang)}</button>
@@ -1493,8 +1493,8 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button onClick={()=>setStep(0)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
-        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
+        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
   );
@@ -2057,9 +2057,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const TTS_QUOTA_BY_TIER: Record<string, number> = { starter: 30, premium: 100, annual: 100 };
   const ttsQuotaTotal = TTS_QUOTA_BY_TIER["starter"]; // test users default to Starter tier
-  const [ttsUsed, setTtsUsed] = useState<number>(() => { try{return parseInt(localStorage.getItem(sk(token,"ttsused"))||"0");}catch{return 0;} });
+  const [ttsUsed, setTtsUsed] = useState<number>(() => { try{const n=parseInt(localStorage.getItem(sk(token,"ttsused"))||"0",10);return Number.isFinite(n)?n:0;}catch{return 0;} });
   useEffect(()=>{ if (!cloudReady) return; void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave, cloudReady]);
-  const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsed);
+  const ttsUsedSafe = Number.isFinite(ttsUsed) ? ttsUsed : 0;
+  const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsedSafe);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
   const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
@@ -2506,7 +2507,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* PROFILE EDIT MODAL */}
       {showProfileEdit&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:520,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)",maxHeight:"90vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</div>
           <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Όνομα":"Name", lang)}</label>
           <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
           <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Τηλέφωνο":"Phone", lang)}</label>
@@ -2525,7 +2526,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* ADDRESS MODAL */}
       {showAddressModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:510,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
           <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
@@ -2557,7 +2558,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* ARCHIVE MODAL */}
       {showArchiveModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:18,padding:24,width:"100%",maxWidth:380}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
           <input value={archiveTitle} onChange={e=>setArchiveTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doArchive()} placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."} style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${gl}`,borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12}} autoFocus/>
           <div style={{display:"flex",gap:8}}>
@@ -2570,7 +2571,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* PAST THREADS PANEL */}
       {showThreads&&<div onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
         <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"70vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
           {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
           {threads.map(th=>(
             <div key={th.id} style={{padding:"11px 12px",borderRadius:10,background:gl,marginBottom:8,cursor:"pointer"}} onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
@@ -2709,10 +2710,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       )}
       {/* HEADER */}
       <div style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{profile.name}</span> 👋</div>
+        <div style={{color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{profile.name}</span> 👋</div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:999,padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
-          <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
+          <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
             {profile.name[0]?.toUpperCase()||"M"}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:140,zIndex:600}}>
               <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
@@ -2774,27 +2775,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             </div>
 
             {messages.length===0&&(
-              <>
-                <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
-                  <div style={{width:52,height:52,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px"}}>🐾</div>
-                  <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {profile.name}, {t("chatgreet2",lang)}</div>
-                </div>
-                <div style={{...card,marginTop:12,padding:"16px 12px 14px"}}>
-                  <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,color:navy,textAlign:"center",marginBottom:12}}>
-                    🌐 {t("selectlang",lang)}
-                  </div>
-                  <LanguageFlagGrid
-                    currentLang={lang}
-                    onSelect={(code) => {
-                      const nextLang = writeStoredAppLang(code);
-                      const u = { ...profile, lang: nextLang };
-                      localStorage.setItem(sk(token, "profile"), JSON.stringify(u));
-                      void syncProfileToSupabase(token, u);
-                      onProfileUpdate(u);
-                    }}
-                  />
-                </div>
-              </>
+              <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px"}}>🐾</div>
+                <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {profile.name}, {t("chatgreet2",lang)}</div>
+              </div>
             )}
 
             {messages.map((msg,i)=>(
@@ -2864,7 +2848,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           </div>
           <div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:showMyFamily?11:0}}>
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,fontWeight:600}}>{t("myfamily",lang)}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,fontWeight:600}}>{t("myfamily",lang)}</div>
               <button
                 type="button"
                 onClick={()=>setShowMyFamily(v=>!v)}
@@ -3075,7 +3059,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 onClick={(e)=>e.stopPropagation()}
                 style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8}}
               >
-                <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
                   {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
@@ -3194,7 +3178,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
         {/* ── MEMORIES ── */}
         {tab==="memories"&&<div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("recentmem",lang)}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("recentmem",lang)}</div>
           <MemoriesBookletPanel
             memories={memories}
             userName={profile.name}
@@ -3418,11 +3402,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             </div>}
             {isPreg&&profile.dueDate&&(<>
             <div style={card}>
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
               <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
             </div>
             <div style={card}>
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
               <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
@@ -3453,7 +3437,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             </>)}
             {currentChild&&(<>
             <div style={card}>
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
               <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("tickall",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
@@ -3485,7 +3469,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             {!effectiveRef&&<div style={card}><div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nochildyet",lang)}</div></div>}
             {/* ── DOCUMENTS ── */}
             <div style={{marginTop:8,background:"#fff",borderRadius:14,padding:16,border:".5px solid rgba(43,58,103,.08)"}}>
-              <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
               <div style={{fontSize:11.5,color:"#7A7068",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
               {(()=>{
                 const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="ja"?"一般":"General"),value:""}];
@@ -3526,7 +3510,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
         })()}
         {/* ── SHOPPING ── */}
         {tab==="shopping"&&<div style={card}>
-          <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
             <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
             <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>
@@ -3584,7 +3568,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
                 {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
                 {o.image_url&&<img src={o.image_url} alt="" style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:10,marginBottom:8,display:"block"}}/>}
-                <div style={{fontFamily:"'Fraunces',Georgia,serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
                 <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap" as any}}>
                   {o.link&&<a href={o.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",fontSize:11,fontWeight:600,color:teal,textDecoration:"none",border:"1px solid "+teal,borderRadius:8,padding:"5px 12px"}}>{t("learnmore",lang)} →</a>}
@@ -3653,11 +3637,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 }
 
 // ── Root ──────────────────────────────────────────────────────
+function ensureLocalDemoToken(): string | null {
+  if (!isBrowserLocalHost()) return null
+  const existing = localStorage.getItem(TOKEN_KEY)
+  if (existing) return existing
+  const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el")
+  const profile: Profile = { name: "Mama", childName: "", childAge: "", lang }
+  localStorage.setItem(TOKEN_KEY, LOCAL_DEMO_TOKEN)
+  localStorage.setItem(sk(LOCAL_DEMO_TOKEN, "profile"), JSON.stringify(profile))
+  return LOCAL_DEMO_TOKEN
+}
+
 export default function App() {
-  const [token, setToken] = useState<string|null>(localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState<string|null>(() => localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken());
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
-    const tk=localStorage.getItem(TOKEN_KEY); if(!tk)return null;
+    const tk=localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken(); if(!tk)return null;
     try{
       const stableRaw = localStorage.getItem(sk(tk,"profile"));
       if (stableRaw) return JSON.parse(stableRaw);
@@ -3665,13 +3660,32 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(null);
+  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(localStorage.getItem(TOKEN_KEY)) ? true : null));
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
+    if (isLocalDemoToken(token)) {
+      setMustChangePassword(false);
+      setSubActive(true);
+      try {
+        const raw = localStorage.getItem(sk(token, "profile"));
+        if (raw) setProfile(JSON.parse(raw) as Profile);
+        else {
+          const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
+          const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
+          localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
+          setProfile(p);
+        }
+      } catch {
+        const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
+        const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
+        setProfile(p);
+      }
+      return;
+    }
     const cached = (() => {
       try {
         const stableRaw = localStorage.getItem(sk(token,"profile"));
@@ -3699,11 +3713,17 @@ export default function App() {
         localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
         setProfile(p);
       })
-      .catch(() => { setProfile(null); setMustChangePassword(false); });
+      .catch(() => {
+        // Keep offline/local cached profile when the API is down.
+        if (cached) setProfile(cached);
+        else setProfile(null);
+        setMustChangePassword(false);
+      });
   }, [token]);
 
   useEffect(() => {
     if (!token) { setSubActive(null); setTrialEndsAt(null); return; }
+    if (isLocalDemoToken(token)) { setSubActive(true); setTrialEndsAt(null); return; }
     let cancelled = false;
     axios.get(`${API}/auth/status`, { headers: { "x-token": token } })
       .then(res => {

@@ -10,6 +10,17 @@
   box-sizing: border-box;
 }
 
+.app-auth-page,
+.app-auth-page button,
+.app-auth-page input,
+.app-auth-page label,
+.app-auth-page a,
+.app-auth-page span,
+.app-auth-page p,
+.app-auth-page h1 {
+  font-family: 'DM Sans', sans-serif;
+}
+
 .app-auth-logo-wrap {
   width: 88px;
   height: 88px;
@@ -38,7 +49,7 @@
 }
 
 .app-auth-title {
-  font-family: var(--font-serif);
+  font-family: 'DM Sans', sans-serif;
   font-size: 22px;
   font-weight: 700;
   line-height: 1.35;

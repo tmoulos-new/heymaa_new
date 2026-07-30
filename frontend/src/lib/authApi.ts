@@ -1,6 +1,16 @@
 import axios from 'axios'
 
 export const HM_TOKEN_KEY = 'hm_token'
+/** Local-only session when Supabase/DB is unavailable — never used in production auth. */
+export const LOCAL_DEMO_TOKEN = 'hm_local_demo'
+
+export function isBrowserLocalHost(): boolean {
+  return isLocalHost(window.location.hostname)
+}
+
+export function isLocalDemoToken(token: string | null | undefined): boolean {
+  return !!token && token === LOCAL_DEMO_TOKEN
+}
 
 function isLocalHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1'

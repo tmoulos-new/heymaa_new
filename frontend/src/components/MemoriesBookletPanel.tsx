@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+﻿import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
   bookletLabelsForLang,
@@ -83,7 +83,7 @@ function FlipPageContent({
         <OrnamentLine light />
         <div
           style={{
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'DM Sans',sans-serif",
             fontSize: 28,
             fontStyle: 'italic',
             fontWeight: 500,
@@ -97,7 +97,7 @@ function FlipPageContent({
         </div>
         <h1
           style={{
-            fontFamily: "'Fraunces',Georgia,serif",
+            fontFamily: "'DM Sans',sans-serif",
             fontSize: 28,
             fontWeight: 600,
             lineHeight: 1.18,
@@ -109,7 +109,7 @@ function FlipPageContent({
         </h1>
         <p
           style={{
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'DM Sans',sans-serif",
             fontSize: 17,
             fontStyle: 'italic',
             opacity: 0.9,
@@ -163,7 +163,7 @@ function FlipPageContent({
         />
         <h2
           style={{
-            fontFamily: "'Fraunces',Georgia,serif",
+            fontFamily: "'DM Sans',sans-serif",
             fontSize: 24,
             color: INK,
             margin: '0 0 6px',
@@ -174,7 +174,7 @@ function FlipPageContent({
         </h2>
         <p
           style={{
-            fontFamily: "'Cormorant Garamond',Georgia,serif",
+            fontFamily: "'DM Sans',sans-serif",
             fontSize: 15,
             fontStyle: 'italic',
             color: INK_SOFT,
@@ -195,7 +195,7 @@ function FlipPageContent({
                 borderBottom: `1px dashed rgba(168,137,106,.4)`,
                 color: INK,
                 fontSize: 16,
-                fontFamily: "'Cormorant Garamond',Georgia,serif",
+                fontFamily: "'DM Sans',sans-serif",
                 fontWeight: 500,
               }}
             >
@@ -237,7 +237,7 @@ function FlipPageContent({
       />
       <h2
         style={{
-          fontFamily: "'Fraunces',Georgia,serif",
+          fontFamily: "'DM Sans',sans-serif",
           fontSize: 18,
           color: INK,
           margin: '0 0 18px',
@@ -259,7 +259,7 @@ function FlipPageContent({
       </h2>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       {page.memories.length === 0 ? (
-        <p style={{ fontSize: 14, color: INK_SOFT, fontFamily: "'Cormorant Garamond',Georgia,serif", fontStyle: 'italic' }}>—</p>
+        <p style={{ fontSize: 14, color: INK_SOFT, fontFamily: "'DM Sans',sans-serif", fontStyle: 'italic' }}>—</p>
       ) : (
         page.memories.map((m, i) => {
           const hasText = Boolean(m.text && m.text !== '📷')
@@ -397,7 +397,7 @@ function FlipPageContent({
                 {hasText && (
                   <div
                     style={{
-                      fontFamily: "'Cormorant Garamond',Georgia,serif",
+                      fontFamily: "'DM Sans',sans-serif",
                       fontSize: 17,
                       color: INK,
                       fontWeight: 500,
@@ -839,7 +839,7 @@ export function MemoriesBookletPanel({
         <span style={{ fontSize: 22, lineHeight: 1, opacity: 0.85 }}>✦</span>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontFamily: "'Fraunces',Georgia,serif", fontSize: 15, color: INK, fontWeight: 600 }}>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: INK, fontWeight: 600 }}>
               {lang === 'el' ? 'Άλμπουμ Αναμνήσεων' : 'Memories Album'}
             </div>
             {onSave && (
@@ -870,7 +870,7 @@ export function MemoriesBookletPanel({
               color: INK_SOFT,
               marginTop: 3,
               lineHeight: 1.45,
-              fontFamily: "'Cormorant Garamond',Georgia,serif",
+              fontFamily: "'DM Sans',sans-serif",
               fontStyle: 'italic',
             }}
           >
