@@ -9,8 +9,14 @@ import {
   loginUser,
   registerUser,
 } from '../lib/authApi'
+import { normalizeAppLang, readStoredAppLang, writeStoredAppLang } from '../lib/appLang'
 import { authStrings, PRIVACY_URL, TERMS_URL, type AuthLang } from './authStrings'
 import './appAuth.css'
+
+/** Auth copy is el/en only — do not overwrite a user's full app language preference. */
+function authUiLangFromStored(): AuthLang {
+  return normalizeAppLang(readStoredAppLang('en')) === 'el' ? 'el' : 'en'
+}
 
 function GoogleIcon() {
   return (
@@ -44,10 +50,7 @@ export function AppAuthScreen({
   onSuccess: (token: string) => void
   initialMode?: Mode
 }) {
-  const [lang, setLang] = useState<AuthLang>(() => {
-    const stored = localStorage.getItem('hm_pre_lang')
-    return stored === 'en' ? 'en' : 'el'
-  })
+  const [lang, setLang] = useState<AuthLang>(() => authUiLangFromStored())
   const s = authStrings(lang)
   const [mode, setMode] = useState<Mode>(initialMode)
   const [name, setName] = useState('')
@@ -65,7 +68,8 @@ export function AppAuthScreen({
 
   const persistLang = (next: AuthLang) => {
     setLang(next)
-    localStorage.setItem('hm_pre_lang', next)
+    // Only persist when user explicitly toggles EL/EN on this screen
+    writeStoredAppLang(next)
   }
 
   const handleSignup = async () => {

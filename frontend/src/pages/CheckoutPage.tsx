@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createVivaCheckout, HM_TOKEN_KEY } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
+import { normalizeAppLang } from '../lib/appLang'
 import { APP_ROUTE } from '../publicRoutes'
 import '../auth/appAuth.css'
 
@@ -15,7 +16,8 @@ export function CheckoutPage() {
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const plan = (search.get('plan') || '').toLowerCase()
-  const lang = localStorage.getItem('hm_pre_lang') === 'en' ? 'en' : 'el'
+  const preferred = normalizeAppLang(localStorage.getItem('hm_pre_lang') || 'en', 'en')
+  const lang = preferred === 'el' ? 'el' : 'en'
   const isEl = lang === 'el'
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)

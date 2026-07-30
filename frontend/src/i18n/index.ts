@@ -4,26 +4,26 @@ import elHome from "../locales/el/home.json";
 import enHome from "../locales/en/home.json";
 import elSubscription from "../locales/el/subscription.json";
 import enSubscription from "../locales/en/subscription.json";
+import { normalizeAppLang, readStoredAppLang } from "../lib/appLang";
 
 export const HOME_I18N_STORAGE_KEY = "hm_pre_lang";
 
-/** Locales with a complete landing-page translation bundle. */
+/** Locales with a complete landing-page i18next JSON bundle. */
 export const HOME_LOCALES = ["el", "en"] as const;
 export type HomeLocale = (typeof HOME_LOCALES)[number];
 
 export function isHomeLocale(lang: string): lang is HomeLocale {
-  return (HOME_LOCALES as readonly string[]).includes(lang);
+  return (HOME_LOCALES as readonly string[]).includes(normalizeAppLang(lang));
 }
 
-function readStoredLang(): string {
-  try {
-    return localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el";
-  } catch {
-    return "el";
-  }
+/** i18next display language for home/subscription (JSON only el/en). */
+export function homeDisplayLocale(stored: string): HomeLocale {
+  const code = normalizeAppLang(stored, "en");
+  return code === "el" ? "el" : "en";
 }
 
-const initialLang = isHomeLocale(readStoredLang()) ? readStoredLang() : "el";
+const initialStored = readStoredAppLang("en");
+const initialLang = homeDisplayLocale(initialStored);
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -31,7 +31,7 @@ i18n.use(initReactI18next).init({
     en: { home: enHome, subscription: enSubscription },
   },
   lng: initialLang,
-  fallbackLng: "el",
+  fallbackLng: "en",
   defaultNS: "home",
   ns: ["home", "subscription"],
   interpolation: {

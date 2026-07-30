@@ -6,8 +6,9 @@ import { SiteFooter } from '../components/SiteFooter'
 import '../home/home.css'
 import {
   HOME_I18N_STORAGE_KEY,
-  isHomeLocale,
+  homeDisplayLocale,
 } from '../i18n'
+import { normalizeAppLang, writeStoredAppLang } from '../lib/appLang'
 import type { HomeFaqItem, HomePlan } from '../i18n/homeTypes'
 import {
   fetchSubscriptionStatus,
@@ -174,8 +175,12 @@ export function SubscriptionPage() {
     readCachedSnapshot(token),
   )
 
-  const contentLang = isHomeLocale(i18n.language) ? i18n.language : 'el'
-  const langMeta = LANGS.find((l) => l.code === contentLang) ?? LANGS[0]
+  const preferredLang = normalizeAppLang(
+    localStorage.getItem(HOME_I18N_STORAGE_KEY) || i18n.language || 'en',
+    'en',
+  )
+  const contentLang = homeDisplayLocale(preferredLang)
+  const langMeta = LANGS.find((l) => l.code === preferredLang) ?? LANGS[0]
 
   const basePlans = asObjectArray<HomePlan>(
     tHome('pricing.plans', { returnObjects: true }),
@@ -237,9 +242,8 @@ export function SubscriptionPage() {
 
   const setLang = useCallback(
     (code: string) => {
-      if (!isHomeLocale(code)) return
-      i18n.changeLanguage(code)
-      localStorage.setItem(HOME_I18N_STORAGE_KEY, code)
+      const normalized = writeStoredAppLang(code)
+      void i18n.changeLanguage(homeDisplayLocale(normalized))
       setLangOpen(false)
     },
     [i18n],
@@ -269,7 +273,7 @@ export function SubscriptionPage() {
               onClick={() => setLangOpen(false)}
               aria-label={tHome('langPicker.close')}
             >
-              Ã—
+              +ù
             </button>
           </div>
           <div className="flag-grid">
@@ -277,7 +281,7 @@ export function SubscriptionPage() {
               <button
                 key={l.code}
                 type="button"
-                className={`flag-item${l.code === contentLang ? ' active' : ''}`}
+                className={`flag-item${l.code === preferredLang ? ' active' : ''}`}
                 onClick={() => setLang(l.code)}
               >
                 <FlagHtml html={mf(l.code, 40, 27)} />
@@ -306,7 +310,7 @@ export function SubscriptionPage() {
             className="lang-trigger"
             onClick={() => setLangOpen(true)}
           >
-            <FlagHtml html={mf(contentLang, 22, 15)} />
+            <FlagHtml html={mf(preferredLang, 22, 15)} />
             <span>{langMeta.name}</span>
             <i className="ti ti-chevron-down" style={{ fontSize: 11 }} />
           </button>

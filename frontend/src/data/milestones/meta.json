@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "source": "babyspace.gr",
+  "generated_at": "2026-07-30T14:50:55+00:00",
+  "refresh_every_months": 6,
+  "stage_count": 65,
+  "langs_ready": [
+    "el"
+  ],
+  "langs_pending": [
+    "en",
+    "ar",
+    "zh",
+    "es",
+    "fr",
+    "ro",
+    "pl",
+    "tr",
+    "hi",
+    "ur",
+    "ja",
+    "ru",
+    "de",
+    "pt",
+    "it",
+    "nl",
+    "bn",
+    "id",
+    "sw",
+    "fil",
+    "mr",
+    "te"
+  ],
+  "taxonomy": {
+    "pregnancy_weeks": "1-40",
+    "baby_months": "1-12",
+    "toddler_ranges": [
+      "12-15",
+      "15-18",
+      "18-24",
+      "24-36"
+    ],
+    "child_years": "4-12",
+    "note": "After 36 months, next band is year 4 (no year-3 stage)."
+  },
+  "humanized_after_24m": true
+}

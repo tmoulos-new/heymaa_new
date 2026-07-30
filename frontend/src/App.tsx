@@ -22,6 +22,10 @@ import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
 import { API, HM_TOKEN_KEY, apiDetail } from "./lib/authApi";
 import { displayUppercase } from "./lib/greekText";
+import {
+  getMilestonesForAgeMonths,
+  getPregnancyMilestonesForWeek,
+} from "./lib/milestones";
 import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
@@ -472,6 +476,8 @@ const MILESTONE_TRANSLATIONS: Record<string, string[][]> = {
 };
 
 function getMilestones(ageMonths: number, lang: string): string[] {
+  const vendorized = getMilestonesForAgeMonths(ageMonths, lang);
+  if (vendorized.length) return vendorized;
   const translations = MILESTONE_TRANSLATIONS[lang] || MILESTONE_TRANSLATIONS["en"];
   for (let i = 0; i < MILESTONE_RANGES.length; i++) {
     const [min, max] = MILESTONE_RANGES[i];
@@ -1176,6 +1182,8 @@ const PREGNANCY_MILESTONE_MSGS_TRANSLATIONS: Record<string, string[][]> = {
 };
 
 function getPregnancyMilestones(week: number, lang: string): string[] {
+  const vendorized = getPregnancyMilestonesForWeek(week, lang);
+  if (vendorized.length) return vendorized;
   const translations = PREGNANCY_MILESTONE_TRANSLATIONS[lang] || PREGNANCY_MILESTONE_TRANSLATIONS["en"];
   for (let i = 0; i < PREGNANCY_MILESTONE_RANGES.length; i++) {
     const [min, max] = PREGNANCY_MILESTONE_RANGES[i];

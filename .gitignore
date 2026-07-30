@@ -20,8 +20,15 @@ backend/__pycache__/
 *.pyc
 
 # RAG data
-data/
+/data/
 backend/knowledge_seed/
+
+# Milestones vendorize scratch
+backend/milestones_cache/
+backend/scripts/_*.json
+backend/scripts/_*.txt
+backend/scripts/_probe_*.py
+
 
 # One-off patch scripts
 Patch*.ps1

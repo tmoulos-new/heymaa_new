@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { HM_TOKEN_KEY } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
+import { normalizeAppLang } from '../lib/appLang'
 import { APP_ROUTE } from '../publicRoutes'
 import '../auth/appAuth.css'
 import './checkoutResult.css'
@@ -10,7 +11,8 @@ const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
 
 export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure' }) {
   const [search] = useSearchParams()
-  const lang = localStorage.getItem('hm_pre_lang') === 'en' ? 'en' : 'el'
+  const preferred = normalizeAppLang(localStorage.getItem('hm_pre_lang') || 'en', 'en')
+  const lang = preferred === 'el' ? 'el' : 'en'
   const isEl = lang === 'el'
   const token = localStorage.getItem(HM_TOKEN_KEY)
   const tx =

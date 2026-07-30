@@ -44,7 +44,16 @@ def main() -> int:
     os.environ["GEMINI_API_KEY"] = gemini
 
     seed_dir = Path(__file__).resolve().parent / "knowledge_seed"
-    files = sorted(seed_dir.glob("*.md"))
+    files = sorted(seed_dir.glob("*.md")) + sorted((seed_dir / "milestones").glob("*.md"))
+    # de-dupe by path
+    seen = set()
+    uniq = []
+    for path in files:
+        if path in seen:
+            continue
+        seen.add(path)
+        uniq.append(path)
+    files = uniq
     if not files:
         print("No seed markdown files found. Run URL acquisition first.")
         return 1

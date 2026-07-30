@@ -5,8 +5,9 @@ import { APP_ROUTE } from "../publicRoutes";
 import { HM_TOKEN_KEY } from "../lib/authApi";
 import {
   HOME_I18N_STORAGE_KEY,
-  isHomeLocale,
+  homeDisplayLocale,
 } from "../i18n";
+import { normalizeAppLang, writeStoredAppLang } from "../lib/appLang";
 import type {
   HomeFaqItem,
   HomeHowItem,
@@ -42,7 +43,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [contentLang, setContentLang] = useState(
-    () => localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el"
+    () => normalizeAppLang(localStorage.getItem(HOME_I18N_STORAGE_KEY) || "en", "en")
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
@@ -125,11 +126,10 @@ export default function Home() {
   );
 
   const selectLang = (code: string) => {
-    setContentLang(code);
-    localStorage.setItem(HOME_I18N_STORAGE_KEY, code);
-    if (isHomeLocale(code)) {
-      void i18n.changeLanguage(code);
-    }
+    const normalized = writeStoredAppLang(code);
+    setContentLang(normalized);
+    // Landing JSON exists for el/en only; other langs keep preference for the app and show EN copy here.
+    void i18n.changeLanguage(homeDisplayLocale(normalized));
     setLangOpen(false);
     setOpenFaqs({});
   };
