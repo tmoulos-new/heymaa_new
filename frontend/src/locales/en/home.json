@@ -1,6 +1,6 @@
 {
   "nav": {
-    "signIn": "Sign in",
+    "signIn": "Sign up",
     "demo": "Start free",
     "demoShort": "Demo",
     "close": "Close",
@@ -14,12 +14,10 @@
     "title": "Every moment that<br>deserves to be <em>remembered</em>.",
     "subtitle": "Write, speak or send a photo. HeyMaa organises your memories, records your children's development, and is always with you — no stress, no pressure.",
     "cta": "See how it works",
-    "pillLanguages": "23 languages",
-    "belowVideoLead": "The days are full.<br>Nights without rest.<br><span class=\"hero-below-emphasis\">And many small but important things pass without being kept.</span>",
-    "belowVideoHighlight": "You don't need more effort.<br>You need a smart solution that works for you."
+    "pillLanguages": "17 languages"
   },
   "whatIs": {
-    "title": "What is HeyMaa",
+    "title": "What is HeyMaa?",
     "body": "A smart, dedicated assistant for the demanding yet wonderful everyday life of motherhood.<br><br>You talk, write or send a photo — whenever you want, whenever you can, whenever you need to.<br><br>HeyMaa organises and saves your moments into one continuous story.<br>Not perfect, but real.",
     "imageAlt": "Child playing with toys and an activity book"
   },
@@ -36,7 +34,7 @@
   "how": {
     "label": "How it works",
     "title": "Write · Speak · Show",
-    "subtitle": "Three simple ways to capture your day — however you can. Discover useful tips by starting today.",
+    "subtitle": "Three simple ways to capture your day. Discover useful tips by starting today.",
     "items": [
       {
         "icon": "ti-pencil",
@@ -105,7 +103,7 @@
         "period": "14 days",
         "badge": "",
         "badgeColor": "",
-        "variant": "current",
+        "variant": "trial",
         "featured": false,
         "save": "",
         "features": [
@@ -113,8 +111,8 @@
           "Voice with limits",
           "Basic Memory"
         ],
-        "button": "Active",
-        "buttonClass": "btn-plan-current"
+        "button": "Select plan",
+        "buttonClass": "btn-plan-idle"
       },
       {
         "icon": "⚡",
@@ -164,8 +162,9 @@
         "featured": false,
         "save": "",
         "features": [
-          "All of Premium",
+          "Unlimited Chat",
           "700 Voice/month",
+          "Full Memory",
           "Priority Support"
         ],
         "button": "Choose Plan",
@@ -202,11 +201,11 @@
       },
       {
         "question": "Does HeyMaa give medical advice?",
-        "answer": "Never. That is a core design principle for us. For anything related to the health of you or your child, HeyMaa refers you exclusively to a doctor or pharmacist."
+        "answer": "It is a core design principle of ours that medical advice is never given. For anything related to the health of the child or the mother, HeyMaa refers you exclusively to a doctor or pharmacist."
       },
       {
         "question": "Which languages does it support?",
-        "answer": "15 languages — Greek, English, Arabic, Chinese, Spanish, French, Romanian, Polish, Turkish, Japanese, Russian, German, Portuguese, Italian, Dutch. The UI and chat switch to your selected language."
+        "answer": "HeyMaa works in 17 languages: Greek, English, Italian, German, French, Spanish, Romanian, Bulgarian, Polish, Serbian, Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, and Dutch."
       },
       {
         "question": "Can I cancel my subscription anytime?",

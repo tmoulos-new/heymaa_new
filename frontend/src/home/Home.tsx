@@ -16,6 +16,7 @@ import type {
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
 import { SiteFooter } from "../components/SiteFooter";
+import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
 import whatIsImage from "../assets/heymaa-what-is.png";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
@@ -47,7 +48,7 @@ export default function Home() {
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
-  const [selectedPlanIndex, setSelectedPlanIndex] = useState<number | null>(null);
+  const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const navbarRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
@@ -74,9 +75,24 @@ export default function Home() {
 
   const handlePlanSelect = useCallback((index: number) => {
     const plan = plans[index];
-    if (!plan || plan.variant === "current") return;
+    if (!plan) return;
     setSelectedPlanIndex(index);
-  }, [plans]);
+    try {
+      sessionStorage.setItem("hm_intent_plan", plan.variant || "trial");
+    } catch {
+      /* ignore */
+    }
+    // Landing pricing never goes to checkout — always registration first.
+    if (localStorage.getItem(HM_TOKEN_KEY)) {
+      navigate("/subscription");
+    } else {
+      navigate(`${APP_ROUTE}/auth`);
+    }
+  }, [plans, navigate]);
+
+  useEffect(() => {
+    document.title = "HeyMaa";
+  }, []);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -179,14 +195,7 @@ export default function Home() {
         </div>
 
         <nav className="navbar" ref={navbarRef}>
-          <div className="nb-logo">
-            <div className="nb-logo-mark">
-              <img src={AUTH_LOGO_SRC} alt={t("nav.logoAlt")} />
-            </div>
-            <span className="nb-logo-text">
-              Hey<span>Maa</span>
-            </span>
-          </div>
+          <SiteNavbarLogo alt={t("nav.logoAlt")} />
           <div className="nb-right">
             <button
               type="button"
@@ -229,22 +238,11 @@ export default function Home() {
             <h1 dangerouslySetInnerHTML={{ __html: t("hero.title") }} />
             <p className="hero-sub" dangerouslySetInnerHTML={{ __html: t("hero.subtitle") }} />
             <div className="hero-btns">
-              <button type="button" className="btn-primary" onClick={goToApp}>
+              <button type="button" className="cta-btn-primary" onClick={goToApp}>
                 {t("hero.cta")}
               </button>
             </div>
           </div>
-        </section>
-
-        <section className="hero-below section">
-          <p
-            className="hero-below-text"
-            dangerouslySetInnerHTML={{ __html: t("hero.belowVideoLead") }}
-          />
-          <div
-            className="hero-below-highlight"
-            dangerouslySetInnerHTML={{ __html: t("hero.belowVideoHighlight") }}
-          />
         </section>
 
         <section className="what-is section">
@@ -263,7 +261,7 @@ export default function Home() {
         </section>
 
         <div className="section" id="how-section">
-          <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>
+          {t("how.label") && <div className="sec-label">{displayUppercase(t("how.label"), contentLang)}</div>}
           <div className="sec-title">{t("how.title")}</div>
           <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">
@@ -351,54 +349,21 @@ export default function Home() {
               <p className="pricing-panel-sub">{t("pricing.subtitle")}</p>
             </div>
             <div className="pricing-panel-body">
-              <div className="pricing-cards-layout">
-                <div className="pricing-trial-col">
-                  {plans.slice(0, 1).map((plan, index) => {
-                    const isCurrent = plan.variant === "current";
-                    const buttonState = isCurrent
-                      ? "current"
-                      : selectedPlanIndex === index
-                        ? "selected"
-                        : "idle";
-                    const radioSelected =
-                      selectedPlanIndex === index ||
-                      (selectedPlanIndex === null && isCurrent);
-                    return (
-                      <PlanCard
-                        plan={plan}
-                        key={plan.name}
-                        selectMode
-                        buttonState={buttonState}
-                        radioSelected={radioSelected}
-                        onSelect={() => handlePlanSelect(index)}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="pricing-paid-grid">
-                  {plans.slice(1).map((plan, offset) => {
-                    const index = offset + 1;
-                    const isCurrent = plan.variant === "current";
-                    const buttonState = isCurrent
-                      ? "current"
-                      : selectedPlanIndex === index
-                        ? "selected"
-                        : "idle";
-                    const radioSelected =
-                      selectedPlanIndex === index ||
-                      (selectedPlanIndex === null && isCurrent);
-                    return (
-                      <PlanCard
-                        plan={plan}
-                        key={plan.name}
-                        selectMode
-                        buttonState={buttonState}
-                        radioSelected={radioSelected}
-                        onSelect={() => handlePlanSelect(index)}
-                      />
-                    );
-                  })}
-                </div>
+              <div className="pricing-cards-grid">
+                {plans.map((plan, index) => {
+                  const radioSelected = selectedPlanIndex === index;
+                  const buttonState = radioSelected ? "selected" : "idle";
+                  return (
+                    <PlanCard
+                      plan={plan}
+                      key={plan.name}
+                      selectMode
+                      buttonState={buttonState}
+                      radioSelected={radioSelected}
+                      onSelect={() => handlePlanSelect(index)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -444,7 +409,10 @@ export default function Home() {
               className="cta-headline"
               dangerouslySetInnerHTML={{ __html: t("cta.headline") }}
             />
-            <p className="cta-line">{t("cta.line3")}</p>
+            <p
+              className="cta-line cta-line-end"
+              dangerouslySetInnerHTML={{ __html: t("cta.line3") }}
+            />
           </div>
           <div className="cta-actions">
             <button type="button" className="cta-btn-primary" onClick={goToApp}>

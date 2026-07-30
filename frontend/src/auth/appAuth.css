@@ -10,11 +10,22 @@
   box-sizing: border-box;
 }
 
+.app-auth-page,
+.app-auth-page button,
+.app-auth-page input,
+.app-auth-page label,
+.app-auth-page a,
+.app-auth-page span,
+.app-auth-page p,
+.app-auth-page h1 {
+  font-family: 'DM Sans', sans-serif;
+}
+
 .app-auth-logo-wrap {
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: none;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -38,7 +49,7 @@
 }
 
 .app-auth-title {
-  font-family: var(--font-serif);
+  font-family: 'DM Sans', sans-serif;
   font-size: 22px;
   font-weight: 700;
   line-height: 1.35;
@@ -75,6 +86,37 @@
 .app-auth-input:focus {
   border-color: rgba(74, 190, 170, 0.65);
   box-shadow: 0 0 0 3px rgba(74, 190, 170, 0.12);
+}
+
+.app-auth-password-wrap {
+  position: relative;
+}
+
+.app-auth-password-wrap .app-auth-input {
+  padding-right: 46px;
+}
+
+.app-auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: rgba(43, 58, 103, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 0;
+}
+
+.app-auth-password-toggle:hover {
+  color: var(--navy, #2b3a67);
+  background: rgba(43, 58, 103, 0.06);
 }
 
 .app-auth-invite {

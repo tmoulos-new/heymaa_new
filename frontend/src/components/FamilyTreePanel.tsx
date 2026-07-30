@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+﻿import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayUppercase } from '../lib/greekText'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
@@ -383,7 +383,7 @@ export function FamilyTreePanel({
     >
       <div style={{ padding: '14px 16px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ fontFamily: "'Fraunces',Georgia,serif", fontSize: 16, color: NAVY, fontWeight: 700 }}>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: NAVY, fontWeight: 700 }}>
             {copy.title}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -541,7 +541,7 @@ export function FamilyTreePanel({
 
       <div style={{ padding: '0 14px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ fontFamily: "'Fraunces',Georgia,serif", fontSize: 13, color: NAVY, fontWeight: 700 }}>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: NAVY, fontWeight: 700 }}>
             {copy.history}
           </div>
           <button

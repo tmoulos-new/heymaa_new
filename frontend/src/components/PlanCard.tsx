@@ -25,6 +25,8 @@ export function PlanCard({
   radioSelected?: boolean
 }) {
   const isCurrent = plan.variant === 'current'
+  const isTrial = plan.variant === 'trial'
+  const hidePrice = isCurrent || isTrial
   const productKey = vivaPlanForVariant(plan.variant)
   const isDisabled = disabled ?? (isCurrent && !selectMode)
   const resolvedButtonState: PlanButtonState =
@@ -35,7 +37,6 @@ export function PlanCard({
 
   const handleClick = () => {
     if (selectMode) {
-      if (isCurrent || isSelected) return
       onSelect?.()
       return
     }
@@ -93,20 +94,13 @@ export function PlanCard({
     isCurrent ? 'current' : '',
     plan.featured || plan.badge ? 'highlighted' : '',
     plan.badge ? 'has-badge' : '',
-    selectMode && !isCurrent && !isSelected ? 'selectable' : '',
+    selectMode ? 'selectable' : '',
   ]
     .filter(Boolean)
     .join(' ')
 
   return (
-    <div
-      className={planClassName}
-      onClick={
-        selectMode && !isCurrent && !isSelected
-          ? () => onSelect?.()
-          : undefined
-      }
-    >
+    <div className={planClassName}>
       {plan.badge ? (
         <div
           className="plan-badge-corner"
@@ -119,19 +113,31 @@ export function PlanCard({
         <div className="plan-icon-wrap" aria-hidden="true">
           {plan.icon}
         </div>
-        <div
-          className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
-          aria-hidden="true"
-        >
-          <span className="plan-radio-dot" />
-        </div>
+        {selectMode ? (
+          <button
+            type="button"
+            className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
+            aria-pressed={isRadioFilled}
+            aria-label={plan.name}
+            onClick={handleClick}
+          >
+            <span className="plan-radio-dot" />
+          </button>
+        ) : (
+          <div
+            className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
+            aria-hidden="true"
+          >
+            <span className="plan-radio-dot" />
+          </div>
+        )}
       </div>
       <div className="plan-meta">
         <div className="plan-name-row">
           <div className="plan-name">{plan.name}</div>
         </div>
         <div className="plan-price-row">
-          {!isCurrent && plan.price ? (
+          {!hidePrice && plan.price ? (
             <span className="plan-price">{plan.price}</span>
           ) : null}
           {plan.period ? (
@@ -157,7 +163,7 @@ export function PlanCard({
       <button
         type="button"
         className={`plan-btn btn-plan-${resolvedButtonState}`}
-        disabled={selectMode ? isCurrent || isSelected : isDisabled}
+        disabled={selectMode ? false : isDisabled}
         onClick={handleClick}
       >
         {plan.button}

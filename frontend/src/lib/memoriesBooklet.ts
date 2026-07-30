@@ -1,4 +1,4 @@
-/** Memories Booklet — personalized, downloadable HTML/PDF export. */
+﻿/** Memories Booklet — personalized, downloadable HTML/PDF export. */
 
 import type { FamilyChild, FamilyMemberRecord } from './familyData'
 import { displayUppercase } from './greekText'
@@ -410,7 +410,7 @@ function bookletStyles(): string {
       margin: 0 auto 22px;
     }
     .cover-logo {
-      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 42px;
       font-style: italic;
       font-weight: 500;
@@ -419,7 +419,7 @@ function bookletStyles(): string {
       opacity: 0.92;
     }
     .cover h1 {
-      font-family: 'Fraunces', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 38px;
       font-weight: 600;
       margin-bottom: 14px;
@@ -427,7 +427,7 @@ function bookletStyles(): string {
       max-width: 14ch;
     }
     .cover .dedication {
-      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 20px;
       font-style: italic;
       font-weight: 500;
@@ -455,7 +455,7 @@ function bookletStyles(): string {
       letter-spacing: 0.14em;
     }
     h2.section-title {
-      font-family: 'Fraunces', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 24px;
       color: var(--ink);
       margin: 0 0 22px;
@@ -476,7 +476,7 @@ function bookletStyles(): string {
       font-size: 16px;
       color: var(--ink);
       font-weight: 500;
-      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
     }
     .toc li span:last-child {
       color: var(--rose);
@@ -552,7 +552,7 @@ function bookletStyles(): string {
     }
     .memory-body { flex: 1; min-width: 0; }
     .memory-text {
-      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 19px;
       font-weight: 500;
       color: var(--ink);
@@ -566,14 +566,14 @@ function bookletStyles(): string {
       letter-spacing: 0.08em;
     }
     .page-title {
-      font-family: 'Fraunces', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 28px;
       color: var(--ink);
       margin-bottom: 8px;
       font-weight: 600;
     }
     .page-sub {
-      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 17px;
       font-style: italic;
       color: var(--ink-soft);

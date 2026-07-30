@@ -2318,8 +2318,10 @@ def get_me(x_token: Optional[str] = Header(None)):
 @app.post("/auth/check_email")
 async def check_email(req: dict):
     email = (req.get("email") or "").lower().strip()
-    if not email or not sb:
+    if not email:
         raise HTTPException(status_code=400, detail="Email required.")
+    if not sb:
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
     res = sb.table("users").select("id").eq("email", email).execute()
     return {"exists": bool(res.data)}
 
@@ -2510,7 +2512,7 @@ async def tts(req: TTSRequest):
         "it":"it-IT-ElsaNeural","ru":"ru-RU-SvetlanaNeural","tr":"tr-TR-EmelNeural",
         "id":"id-ID-GadisNeural","bn":"bn-BD-NabanitaNeural","sw":"sw-KE-ZuriNeural",
         "zh":"zh-CN-XiaoxiaoNeural","ja":"ja-JP-NanamiNeural","nl":"nl-NL-ColetteNeural",
-        "pl":"pl-PL-ZofiaNeural","ro":"ro-RO-AlinaNeural","fil":"fil-PH-BlessicaNeural",
+        "pl":"pl-PL-ZofiaNeural","ro":"ro-RO-AlinaNeural","bg":"bg-BG-KalinaNeural","sr":"sr-RS-SophieNeural",
         "mr":"mr-IN-AarohiNeural","te":"te-IN-ShrutiNeural",
     }
     voice = VOICE_MAP.get(req.lang, "en-US-JennyNeural")
