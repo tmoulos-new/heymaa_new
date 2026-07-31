@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayUppercase } from '../lib/greekText'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {

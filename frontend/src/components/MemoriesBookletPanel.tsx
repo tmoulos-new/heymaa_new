@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
   bookletLabelsForLang,

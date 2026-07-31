@@ -1,4 +1,4 @@
-﻿/** Memories Booklet — personalized, downloadable HTML/PDF export. */
+/** Memories Booklet — personalized, downloadable HTML/PDF export. */
 
 import type { FamilyChild, FamilyMemberRecord } from './familyData'
 import { displayUppercase } from './greekText'
