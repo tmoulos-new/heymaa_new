@@ -356,6 +356,8 @@ export function AppAuthScreen({
                   {s.privacy}{' '}
                   <Link
                     to={PRIVACY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {s.privacyLink}
@@ -373,6 +375,8 @@ export function AppAuthScreen({
                   {s.terms}{' '}
                   <Link
                     to={TERMS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {s.termsLink}

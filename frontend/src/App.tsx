@@ -53,6 +53,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
+import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
@@ -2723,8 +2724,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:999,padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
             {profile.name[0]?.toUpperCase()||"M"}
-            {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:140,zIndex:600}}>
+            {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
               <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
+              <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
+              <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
               <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
             </div>}
           </div>

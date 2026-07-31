@@ -92,3 +92,20 @@
 .legal-content a {
   color: var(--navy, #2b3a67);
 }
+
+.legal-related {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(43, 58, 103, 0.1);
+  font-size: 14px;
+}
+
+.legal-related a {
+  color: var(--navy, #2b3a67);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.legal-related a:hover {
+  text-decoration: underline;
+}
