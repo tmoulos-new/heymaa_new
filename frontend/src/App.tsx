@@ -1653,11 +1653,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const [addrStreet, setAddrStreet] = useState(() => profile.address || "");
   const [addrCity, setAddrCity] = useState(() => profile.city || "");
   const [addrPostal, setAddrPostal] = useState(() => profile.postalCode || "");
-  const hasAddress = !!(profile.address && profile.city);
 
-  const handleShoppingTab = () => {
-    if (!hasAddress) { setShowAddressModal(true); } else { setTab("shopping"); }
-  };
   const saveAddress = async () => {
     if (!addrStreet.trim() || !addrCity.trim()) return;
     const updated: Profile = {
