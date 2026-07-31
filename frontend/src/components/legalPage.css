@@ -58,6 +58,37 @@
   color: rgba(43, 58, 103, 0.72);
 }
 
+.legal-back-row {
+  margin-bottom: 22px;
+}
+
+.legal-back-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--navy, #2b3a67);
+  text-decoration: none;
+}
+
+.legal-back-link:hover {
+  text-decoration: none;
+}
+
+.legal-back-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(43, 58, 103, 0.08);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.legal-back-link:hover .legal-back-arrow {
+  background: rgba(43, 58, 103, 0.14);
+}
+
 .legal-content {
   line-height: 1.75;
 }
