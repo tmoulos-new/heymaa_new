@@ -131,6 +131,7 @@ export function AppAuthScreen({
         lang,
       })
       localStorage.setItem(HM_TOKEN_KEY, res.data.token)
+      try { sessionStorage.setItem('hm_signup_name', trimmedName) } catch { /* ignore */ }
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }

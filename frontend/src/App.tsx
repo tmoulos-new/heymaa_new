@@ -53,6 +53,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
+import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
@@ -1245,11 +1246,13 @@ const TR: Record<string,Record<string,string>> = {
   country_ph:{el:"Επίλεξε χώρα...",en:"Select your country...",ar:"اختر بلدك...",zh:"选择国家...",es:"Selecciona tu país...",fr:"Sélectionnez votre pays...",ro:"Selectează țara...",pl:"Wybierz kraj...",tr:"Ülkeni seç...",hi:"देश चुनें...",ur:"ملک منتخب کریں...",ja:"国を選択...",ru:"Выберите страну...",de:"Land wählen...",pt:"Seleciona o teu país...",it:"Seleziona il tuo paese...",nl:"Selecteer land...",bn:"দেশ নির্বাচন করুন...",id:"Pilih negara...",sw:"Chagua nchi...",fil:"Pumili ng bansa...",mr:"देश निवडा...",te:"దేశం ఎంచుకోండి..."},
   consent_gdpr:{el:"Συναινώ σε εξατομικευμένες προσφορές από την Care Direct (GDPR)",en:"I agree to receive personalised offers from Care Direct (GDPR)",ar:"أوافق على العروض المخصصة من Care Direct (GDPR)",zh:"同意接收Care Direct个性化优惠 (GDPR)",es:"Acepto recibir ofertas personalizadas de Care Direct (GDPR)",fr:"Accepter les offres personnalisées Care Direct (RGPD)",ro:"Accept oferte personalizate de la Care Direct (GDPR)",pl:"Zgadzam się na oferty spersonalizowane od Care Direct (RODO)",tr:"Care Direct kişisel teklifler onayı (GDPR)",hi:"Care Direct से व्यक्तिगत ऑफ़र पाने की सहमति (GDPR)",ur:"Care Direct سے ذاتی آفرز قبول کرتا/کرتی ہوں (GDPR)",ja:"Care Directからのパーソナライズ特典に同意 (GDPR)",ru:"Согласен/а на предложения Care Direct (GDPR)",de:"Personalisierte Angebote von Care Direct zustimmen (DSGVO)",pt:"Aceito ofertas personalizadas da Care Direct (RGPD)",it:"Acconsento alle offerte di Care Direct (GDPR)",nl:"Akkoord met aanbiedingen van Care Direct (AVG)",bn:"Care Direct থেকে অফার পেতে সম্মতি (GDPR)",id:"Setuju menerima penawaran dari Care Direct (GDPR)",sw:"Nakubali ofa kutoka Care Direct (GDPR)",fil:"Sumasang-ayon sa alok mula sa Care Direct (GDPR)",mr:"Care Direct कडून ऑफर मिळवण्यास संमती (GDPR)",te:"Care Direct నుండి ఆఫర్‌లకు అంగీకరిస్తున్నాను (GDPR)"},
   enterbtn:{el:"Μπες στην εφαρμογή →",en:"Enter the app →",ar:"← ادخل التطبيق",es:"Entrar →",fr:"Entrer →",de:"App öffnen →",pt:"Entrar →",it:"Entra →",ru:"Войти →",tr:"Gir →",hi:"प्रवेश करें →",ur:"داخل ہوں →",zh:"进入 →",ja:"入る →",nl:"Ga naar de app →",pl:"Wejdź →",ro:"Intră →",bn:"প্রবেশ করুন →",id:"Masuk →",sw:"Ingia →",fil:"Enter the app →",mr:"Увійти →",te:"ప్రవేశించు →"},
-  greeting:{el:"Καλημέρα,",en:"Good morning,",ar:"صباح الخير،",es:"Buenos días,",fr:"Bonjour,",de:"Guten Morgen,",pt:"Bom dia,",it:"Buongiorno,",ru:"Доброе утро,",tr:"Günaydın,",hi:"शुभ प्रभात,",ur:"صبح بخیر،",zh:"早上好，",ja:"おはようございます、",nl:"Goedemorgen,",pl:"Dzień dobry,",ro:"Bună dimineața,",bn:"শুভ সকাল,",id:"Selamat pagi,",sw:"Habari,",fil:"Good morning,",mr:"शुभ सकाळ,",te:"శుభోదయం,"},
+  greeting:{el:"Γεια σου,",en:"Hi,",ar:"مرحباً،",es:"Hola,",fr:"Bonjour,",de:"Hallo,",pt:"Olá,",it:"Ciao,",ru:"Привет,",tr:"Merhaba,",hi:"नमस्ते,",ur:"ہائے،",zh:"你好，",ja:"こんにちは、",nl:"Hallo,",pl:"Cześć,",ro:"Bună,",bn:"হ্যালো,",id:"Halo,",sw:"Habari,",fil:"Hi,",mr:"नमस्कार,",te:"హలో,"},
   chat:{el:"Συνομιλία",en:"Chat",ar:"المحادثة",es:"Chat",fr:"Discussion",de:"Chat",pt:"Chat",it:"Chat",ru:"Чат",tr:"Sohbet",hi:"चैट",ur:"چیٹ",zh:"聊天",ja:"チャット",nl:"Chat",pl:"Czat",ro:"Chat",bn:"চ্যাট",id:"Obrolan",sw:"Mazungumzo",fil:"Chat",mr:"संवाद",te:"చాట్"},
   family:{el:"Οικογένεια",en:"Family",ar:"العائلة",es:"Familia",fr:"Famille",de:"Familie",pt:"Família",it:"Famiglia",ru:"Семья",tr:"Aile",hi:"परिवार",ur:"خاندان",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",bn:"পরিবার",id:"Keluarga",sw:"Familia",fil:"Family",mr:"कुटुंब",te:"కుటుంబం"},
   memories:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"Memories",mr:"आठवणी",te:"జ్ఞాపకాలు"},
-  milestones:{el:"Milestones",en:"Milestones",ar:"الإنجازات",es:"Hitos",fr:"Étapes",de:"Meilensteine",pt:"Marcos",it:"Tappe",ru:"Вехи",tr:"Aşamalar",hi:"माइलस्टोन",ur:"سنگ میل",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Etapy",ro:"Etape",bn:"মাইলফলক",id:"Tonggak",sw:"Hatua",fil:"Milestones",mr:"टप्पे",te:"మైలురాళ్ళు"},
+  milestones:{el:"Ορόσημα",en:"Milestones",ar:"الإنجازات",es:"Hitos",fr:"Étapes",de:"Meilensteine",pt:"Marcos",it:"Tappe",ru:"Вехи",tr:"Aşamalar",hi:"माइलस्टोन",ur:"سنگ میل",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Etapy",ro:"Etape",bn:"মাইলফলক",id:"Tonggak",sw:"Hatua",fil:"Milestones",mr:"टप्पे",te:"మైలురాళ్ళు"},
+  profile_tab:{el:"Προφίλ",en:"Profile",ar:"الملف",es:"Perfil",fr:"Profil",de:"Profil",pt:"Perfil",it:"Profilo",ru:"Профиль",tr:"Profil",hi:"प्रोफ़ाइल",ur:"پروفائل",zh:"资料",ja:"プロフィール",nl:"Profiel",pl:"Profil",ro:"Profil",bn:"প্রোফাইল",id:"Profil",sw:"Wasifu",fil:"Profile",mr:"प्रोफाइल",te:"ప్రొఫైల్"},
+  heymaa_tab:{el:"HeyMaa",en:"HeyMaa",ar:"HeyMaa",es:"HeyMaa",fr:"HeyMaa",de:"HeyMaa",pt:"HeyMaa",it:"HeyMaa",ru:"HeyMaa",tr:"HeyMaa",hi:"HeyMaa",ur:"HeyMaa",zh:"HeyMaa",ja:"HeyMaa",nl:"HeyMaa",pl:"HeyMaa",ro:"HeyMaa",bn:"HeyMaa",id:"HeyMaa",sw:"HeyMaa",fil:"HeyMaa",mr:"HeyMaa",te:"HeyMaa"},
   shopping:{el:"Shopping",en:"Shopping",ar:"التسوق",es:"Compras",fr:"Achats",de:"Einkaufen",pt:"Compras",it:"Shopping",ru:"Покупки",tr:"Alışveriş",hi:"शॉपिंग",ur:"شاپنگ",zh:"购物",ja:"ショッピング",nl:"Winkelen",pl:"Zakupy",ro:"Cumpărături",bn:"কেনাকাটা",id:"Belanja",sw:"Ununuzi",fil:"Shopping",mr:"खरेदी",te:"షాపింగ్"},
   offers:{el:"Προσφορές",en:"Offers",ar:"العروض",zh:"优惠",es:"Ofertas",fr:"Offres",ro:"Oferte",pl:"Oferty",tr:"Teklifler",hi:"ऑफर्स",ur:"پیشکشیں",ja:"お得情報",ru:"Предложения",de:"Angebote",pt:"Ofertas",it:"Offerte",nl:"Aanbiedingen",bn:"অফার",id:"Penawaran",sw:"Matoleo",fil:"Mga Alok",mr:"ऑफर्स",te:"ఆఫర్‌లు"},
   offers_sub:{el:"Ενημερώσεις, νέα και προσφορές από την ομάδα της HeyMaa.",en:"Updates, news and offers from the HeyMaa team.",ar:"تحديثات وأخبار وعروض من فريق HeyMaa.",zh:"来自HeyMaa团队的更新、新闻和优惠。",es:"Novedades, noticias y ofertas del equipo de HeyMaa.",fr:"Mises à jour, actualités et offres de l'équipe HeyMaa.",ro:"Actualizări, știri și oferte de la echipa HeyMaa.",pl:"Aktualizacje, wiadomości i oferty od zespołu HeyMaa.",tr:"HeyMaa ekibinden güncellemeler, haberler ve teklifler.",hi:"HeyMaa टीम से अपडेट, समाचार और ऑफर।",ur:"HeyMaa ٹیم سے اپڈیٹس، خبریں اور پیشکشیں۔",ja:"HeyMaaチームからの最新情報、ニュース、お得情報。",ru:"Обновления, новости и предложения от команды HeyMaa.",de:"Updates, Neuigkeiten und Angebote vom HeyMaa-Team.",pt:"Atualizações, novidades e ofertas da equipa HeyMaa.",it:"Aggiornamenti, novità e offerte dal team HeyMaa.",nl:"Updates, nieuws en aanbiedingen van het HeyMaa-team.",bn:"HeyMaa টিমের আপডেট, খবর এবং অফার।",id:"Pembaruan, berita, dan penawaran dari tim HeyMaa.",sw:"Habari, masasisho na matoleo kutoka timu ya HeyMaa.",fil:"Mga update, balita, at alok mula sa HeyMaa team.",mr:"HeyMaa टीमकडून अपडेट्स, बातम्या आणि ऑफर्स.",te:"HeyMaa టీమ్ నుండి అప్‌డేట్‌లు, వార్తలు మరియు ఆఫర్‌లు."},
@@ -1257,6 +1260,7 @@ const TR: Record<string,Record<string,string>> = {
   loading:{el:"Φόρτωση...",en:"Loading...",ar:"جار التحميل...",zh:"加载中...",es:"Cargando...",fr:"Chargement...",ro:"Se încarcă...",pl:"Wczytywanie...",tr:"Yükleniyor...",hi:"लोड हो रहा है...",ur:"لوڈ ہو رہا ہے...",ja:"読み込み中...",ru:"Загрузка...",de:"Lädt...",pt:"A carregar...",it:"Caricamento...",nl:"Laden...",bn:"লোড হচ্ছে...",id:"Memuat...",sw:"Inapakia...",fil:"Naglo-load...",mr:"लोड होत आहे...",te:"లోడ్ అవుతోంది..."},
   learnmore:{el:"Μάθε περισσότερα",en:"Learn more",ar:"معرفة المزيد",zh:"了解更多",es:"Saber más",fr:"En savoir plus",ro:"Află mai multe",pl:"Dowiedz się więcej",tr:"Daha fazla bilgi",hi:"अधिक जानें",ur:"مزید جانیں",ja:"もっと見る",ru:"Подробнее",de:"Mehr erfahren",pt:"Saber mais",it:"Scopri di più",nl:"Meer informatie",bn:"আরও জানুন",id:"Pelajari lebih lanjut",sw:"Jifunze zaidi",fil:"Alamin pa",mr:"अधिक जाणून घ्या",te:"మరింత తెలుసుకోండి"},
   typehere:{el:"Γράψε κάτι...",en:"Type something...",ar:"اكتبي شيئاً...",es:"Escribe algo...",fr:"Écris quelque chose...",de:"Schreib etwas...",pt:"Escreve algo...",it:"Scrivi qualcosa...",ru:"Напишите что-нибудь...",tr:"Bir şey yaz...",hi:"कुछ लिखें...",ur:"کچھ لکھیں...",zh:"输入点什么...",ja:"何か入力...",nl:"Typ iets...",pl:"Napisz coś...",ro:"Scrie ceva...",bn:"কিছু লিখুন...",id:"Tulis sesuatu...",sw:"Andika kitu...",fil:"Type something...",mr:"काहीतरी लिहा...",te:"ఏదైనా టైప్ చేయండి..."},
+  listening:{el:"Σε ακούω… μίλα τώρα",en:"Listening… speak now",ar:"أستمع… تحدثي الآن",es:"Escuchando… habla ahora",fr:"J'écoute… parle maintenant",de:"Ich höre zu… sprich jetzt",pt:"A ouvir… fala agora",it:"Ti ascolto… parla ora",ru:"Слушаю… говори",tr:"Dinliyorum… şimdi konuş",hi:"सुन रही हूँ… अब बोलें",ur:"سن رہی ہوں… اب بولیں",zh:"正在听…请说",ja:"聞いています…話してね",nl:"Ik luister… spreek nu",pl:"Słucham… mów teraz",ro:"Te ascult… vorbește acum",bn:"শুনছি… এখন বলুন",id:"Mendengarkan… bicara sekarang",sw:"Ninasikiliza… sema sasa",fil:"Listening… speak now",mr:"ऐकत आहे… आता बोला",te:"వింటున్నాను… ఇప్పుడు మాట్లాడండి"},
   recentmem:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"Memories",mr:"आठवणी",te:"జ్ఞాపకాలు"},
   addmemory:{el:"Γράψε μια ανάμνηση...",en:"Write a memory...",ar:"أضيفي ذكرى...",es:"Escribe un recuerdo...",fr:"Ajouter un souvenir...",de:"Erinnerung hinzufügen...",pt:"Adicionar memória...",it:"Aggiungi ricordo...",ru:"Добавить воспоминание...",tr:"Anı ekle...",hi:"याद लिखें...",ur:"یاد لکھیں...",zh:"写下回忆...",ja:"思い出を書く...",nl:"Herinnering schrijven...",pl:"Napisz wspomnienie...",ro:"Scrie amintire...",bn:"স্মৃতি লিখুন...",id:"Tulis kenangan...",sw:"Andika kumbukumbu...",fil:"Write a memory...",mr:"आठवण लिहा...",te:"జ్ఞాపకం రాయండి..."},
   nomemories:{el:"Δεν υπάρχουν αναμνήσεις ακόμα.",en:"No memories yet. Add your first!",ar:"لا توجد ذكريات بعد.",es:"Aún no hay recuerdos.",fr:"Pas encore de souvenirs.",de:"Noch keine Erinnerungen.",pt:"Ainda sem memórias.",it:"Ancora nessun ricordo.",ru:"Пока нет воспоминаний.",tr:"Henüz anı yok.",hi:"अभी यादें नहीं।",ur:"ابھی یادیں نہیں۔",zh:"还没有回忆。",ja:"まだ思い出がありません。",nl:"Nog geen herinneringen.",pl:"Brak wspomnień.",ro:"Nu există amintiri.",bn:"এখনও স্মৃতি নেই।",id:"Belum ada kenangan.",sw:"Bado hakuna kumbukumbu.",fil:"No memories yet. Add your first!",mr:"अजून आठवणी नाहीत.",te:"ఇంకా జ్ఞాపకాలు లేవు."},
@@ -1458,9 +1462,33 @@ function ChangePasswordScreen({
 
 // ── Onboarding ────────────────────────────────────────────────
 function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => void }) {
-  const [step, setStep] = useState(0); const [name, setName] = useState(""); const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState(() => {
+    try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; }
+  });
+  const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
   const L = getLang(lang);
-  const save = () => { const nextLang = writeStoredAppLang(lang); const p: Profile = {name:name||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined}; localStorage.setItem(sk(token,"profile"),JSON.stringify(p)); void syncProfileToSupabase(token,p); onDone(p); };
+  useEffect(() => {
+    if (isLocalDemoToken(token)) return;
+    let cancelled = false;
+    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
+      .then((res) => {
+        if (cancelled) return;
+        const apiName = String(res.data?.name || "").trim();
+        if (apiName) setName((prev) => prev.trim() || apiName);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [token]);
+  const save = () => {
+    const nextLang = writeStoredAppLang(lang);
+    const displayName = name.trim() || (() => { try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; } })();
+    const p: Profile = {name:displayName||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined};
+    try { sessionStorage.removeItem("hm_signup_name"); } catch { /* ignore */ }
+    localStorage.setItem(sk(token,"profile"),JSON.stringify(p));
+    void syncProfileToSupabase(token,p);
+    onDone(p);
+  };
   const s: React.CSSProperties = {minHeight:"100vh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
@@ -1579,7 +1607,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     return s?.length ? s : ["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];
   });
 
-  const [tab, setTab] = useState<"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
+  const [tab, setTab] = useState<"profile"|"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
 
   useEffect(() => {
     track("view", appPath(tab));
@@ -1588,6 +1616,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const [input, setInput] = useState("");
   const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
+  const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
@@ -1668,7 +1697,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const recordingIntentRef = useRef(false); const recTranscriptRef = useRef(""); const recSendTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null); const micMeterRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
   const profileChildren = useMemo(() => getAllChildren(profile), [profile]);
   const familyChildren = useMemo(
     () => getFamilyChildren(familyData, profileChildren),
@@ -1997,6 +2026,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
+    if (recordingIntentRef.current) {
+      recordingIntentRef.current = false;
+      const r = recRef.current;
+      recRef.current = null;
+      stopMicMeter();
+      setRecording(false);
+      try { r?.stop(); } catch { /* ignore */ }
+    }
     track("submit", appPath("chat", "send"), "Send message");
     const userMsg: Message = {role:"user",content:text};
     const next = [...messages, userMsg]; setMessages(next); setInput(""); setLoading(true);
@@ -2082,14 +2119,123 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     catch{setPlayingIndex(null);}
   };
 
+  const stopMicMeter = () => {
+    const meter = micMeterRef.current;
+    micMeterRef.current = null;
+    if (!meter) return;
+    cancelAnimationFrame(meter.raf);
+    meter.stream.getTracks().forEach((t) => t.stop());
+    void meter.ctx.close().catch(() => {});
+    setMicLevels(Array.from({ length: 32 }, () => 0.12));
+  };
+
+  const startMicMeter = () => {
+    stopMicMeter();
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    void navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then((stream) => {
+      if (!recordingIntentRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const ctx: AudioContext = new AudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.55;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const barCount = 32;
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const next: number[] = [];
+        for (let i = 0; i < barCount; i++) {
+          const idx = Math.min(data.length - 1, Math.floor((i / barCount) * data.length * 0.85) + 1);
+          next.push(Math.max(0.08, Math.min(1, data[idx] / 210)));
+        }
+        setMicLevels(next);
+        const handle = requestAnimationFrame(tick);
+        if (micMeterRef.current) micMeterRef.current.raf = handle;
+      };
+      const raf = requestAnimationFrame(tick);
+      micMeterRef.current = { stream, ctx, raf };
+      void ctx.resume().catch(() => {});
+    }).catch((err) => {
+      console.error("Mic meter error", err);
+    });
+  };
+
   const startRec = () => {
     const SR = (window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
     if(!SR){alert("Για το μικρόφωνο άνοιξε το app στο http://127.0.0.1:3000");return;}
-    const r=new SR(); r.lang=lang; r.continuous=false; r.interimResults=false;
-    r.onresult=(e:any)=>{setRecording(false);sendMessage(e.results[0][0].transcript);};
-    r.onerror=(e:any)=>{console.error("SpeechRecognition error",e.error);setRecording(false);};
-    r.onend=()=>setRecording(false);
-    recRef.current=r; r.start(); setRecording(true);
+    if(recordingIntentRef.current) return;
+    if(recSendTimerRef.current){ clearTimeout(recSendTimerRef.current); recSendTimerRef.current=null; }
+    const r=new SR();
+    r.lang=lang;
+    r.continuous=true;
+    r.interimResults=true;
+    let finalBuf="";
+    recTranscriptRef.current="";
+    r.onresult=(e:any)=>{
+      let interim="";
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const piece=e.results[i][0].transcript;
+        if(e.results[i].isFinal) finalBuf += (finalBuf && !/\s$/.test(finalBuf) ? " " : "") + piece.trim();
+        else interim += piece;
+      }
+      const live=(finalBuf + (interim ? (finalBuf ? " " : "") + interim : "")).trim();
+      recTranscriptRef.current=live;
+      if(live) setInput(live);
+    };
+    r.onerror=(e:any)=>{
+      console.error("SpeechRecognition error",e.error);
+      if(e.error==="aborted"||e.error==="no-speech") return;
+      recordingIntentRef.current=false;
+      stopMicMeter();
+      setRecording(false);
+    };
+    r.onend=()=>{
+      // Browser may end after a pause — keep listening while the mic is held.
+      if(recRef.current===r && recordingIntentRef.current){
+        try { r.start(); } catch { recordingIntentRef.current=false; stopMicMeter(); setRecording(false); }
+      } else {
+        setRecording(false);
+      }
+    };
+    recRef.current=r;
+    recordingIntentRef.current=true;
+    try {
+      r.start();
+      setRecording(true);
+      startMicMeter();
+    } catch(err){
+      console.error(err);
+      recordingIntentRef.current=false;
+      stopMicMeter();
+      setRecording(false);
+    }
+  };
+
+  const stopRecAndSend = () => {
+    if(!recordingIntentRef.current && !recording) return;
+    recordingIntentRef.current = false;
+    const r = recRef.current;
+    recRef.current = null;
+    stopMicMeter();
+    setRecording(false);
+    try { r?.stop(); } catch { /* ignore */ }
+    if(recSendTimerRef.current) clearTimeout(recSendTimerRef.current);
+    // Brief delay so the final speech chunk can land after stop().
+    recSendTimerRef.current = setTimeout(() => {
+      recSendTimerRef.current = null;
+      const text = recTranscriptRef.current.trim();
+      recTranscriptRef.current = "";
+      if(text) void sendMessage(text);
+    }, 350);
   };
 
   const addMemory = (imgData?: string) => {
@@ -2449,12 +2595,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const dir=L.d as "ltr"|"rtl";
   const card:React.CSSProperties={background:"#fff",borderRadius:14,padding:16,marginBottom:12,border:".5px solid rgba(43,58,103,.08)",maxWidth:"100%",boxSizing:"border-box"};
-  const tabs=[
-    {id:"chat" as const,icon:"💬",label:t("chat",lang)},
-    {id:"family" as const,icon:"👨‍👩‍👧",label:t("family",lang)},
-    {id:"memories" as const,icon:"🤍",label:t("memories",lang)},
-    {id:"milestones" as const,icon:"🏆",label:t("milestones",lang)},
-    {id:"shopping" as const,icon:"🛍️",label:t("shopping",lang)},
+  const tabs: { id: AppNavTabId; label: string }[] = [
+    { id: "profile", label: t("profile_tab", lang) },
+    { id: "family", label: t("family", lang) },
+    { id: "chat", label: t("heymaa_tab", lang) },
+    { id: "memories", label: t("memories", lang) },
+    { id: "milestones", label: t("milestones", lang) },
   ];
 
   const trialEndLabel = trialEndsAt
@@ -2725,7 +2871,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
             {profile.name[0]?.toUpperCase()||"M"}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
-              <button onClick={()=>{setShowProfileEdit(true);setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
+              <button onClick={()=>{setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
               <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
               <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
@@ -2757,6 +2903,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
       {/* BODY */}
       <div style={{flex:1,overflowY:"auto",padding:16}}>
+
+                {tab==="profile"&&(
+          <div style={{...card}}>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Προφίλ":"Profile"}</div>
+            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Όνομα":"Name", lang)}</label>
+            <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
+            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Τηλέφωνο":"Phone", lang)}</label>
+            <input value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+30 69..." style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
+            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Διεύθυνση":"Address", lang)}</label>
+            <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+              <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+            </div>
+            <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",opacity:editSaving?0.6:1}}>{editSaving?t("saving",lang):t("save_ok",lang)}</button>
+          </div>
+        )}
 
         {/* ── CHAT ── */}
         {tab==="chat"&&(
@@ -3595,20 +3758,201 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* LANG MISMATCH HINT */}
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
-      {tab==="chat"&&<div style={{display:"flex",gap:8,padding:"10px 16px",background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)",flexShrink:0}}>
-        <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage(input)} placeholder={t("typehere",lang)} disabled={loading} style={{flex:1,padding:"9px 13px",borderRadius:999,border:"1.5px solid rgba(43,58,103,.15)",fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none"}}/>
-        <button onClick={recording?()=>{recRef.current?.stop();setRecording(false);}:startRec} style={{width:36,height:36,borderRadius:"50%",background:recording?coral:gl,border:"none",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{recording?"🔴":"🎙️"}</button>
-        <button onClick={()=>sendMessage(input)} disabled={loading||!input.trim()} style={{width:36,height:36,borderRadius:"50%",background:navy,border:"none",color:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,opacity:(loading||!input.trim())?0.5:1}}>➤</button>
+      {tab==="chat"&&<div style={{display:"flex",gap:8,padding:"10px 16px",background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)",flexShrink:0,alignItems:"center"}}>
+        {recording ? (
+          <div
+            aria-hidden="true"
+            style={{
+              flex: 1,
+              height: 38,
+              borderRadius: 999,
+              border: "1.5px solid rgba(43,58,103,.12)",
+              background: "#F7F3EF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2.5,
+              padding: "0 14px",
+              minWidth: 0,
+              overflow: "hidden",
+            }}
+          >
+            {micLevels.map((level, i) => (
+              <span
+                key={i}
+                style={{
+                  width: 2.5,
+                  height: `${Math.round(8 + level * 22)}px`,
+                  borderRadius: 999,
+                  background: navy,
+                  opacity: 0.35 + level * 0.65,
+                  flexShrink: 0,
+                  transition: "height 60ms linear, opacity 60ms linear",
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage(input)}
+            placeholder={t("typehere",lang)}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: "9px 13px",
+              borderRadius: 999,
+              border: "1.5px solid rgba(43,58,103,.15)",
+              background: "#fff",
+              fontFamily: "'DM Sans',sans-serif",
+              fontSize: 13,
+              color: navy,
+              outline: "none",
+              minWidth: 0,
+            }}
+          />
+        )}
+        <button
+          type="button"
+          aria-label={recording ? "Release to send" : "Hold to speak"}
+          aria-pressed={recording}
+          onContextMenu={(e)=>e.preventDefault()}
+          onPointerDown={(e)=>{
+            if(e.button!==0||loading) return;
+            e.preventDefault();
+            try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+            startRec();
+          }}
+          onPointerUp={()=>stopRecAndSend()}
+          onPointerCancel={()=>stopRecAndSend()}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            background: recording ? "rgba(245,197,163,.65)" : "transparent",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "background .15s",
+            padding: 0,
+            touchAction: "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+        >
+          <ChatMicIcon active={recording} />
+        </button>
+        <button onClick={()=>sendMessage(input)} disabled={loading||!input.trim()||recording} style={{width:36,height:36,borderRadius:"50%",background:navy,border:"none",color:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,opacity:(loading||!input.trim()||recording)?0.5:1}}>➤</button>
       </div>}
 
-      {/* TAB BAR */}
-      <div style={{display:"flex",background:"#fff",borderTop:"1px solid rgba(43,58,103,.1)",flexShrink:0}}>
-        {tabs.map(tb=>(
-          <button key={tb.id} onClick={()=>tb.id==="shopping"?handleShoppingTab():setTab(tb.id)} style={{flex:1,display:"flex",flexDirection:"column" as any,alignItems:"center",padding:"9px 4px 7px",cursor:"pointer",border:"none",background:"none",borderTop:tab===tb.id?`2px solid ${navy}`:"2px solid transparent",fontFamily:"'DM Sans',sans-serif"}}>
-            <span style={{fontSize:20,opacity:tab===tb.id?1:0.3,position:"relative" as any}}>{tb.icon}{tb.id==="shopping"&&offers.length>0&&tab!=="shopping"&&<span style={{position:"absolute",top:-1,right:-2,width:7,height:7,borderRadius:"50%",background:coral,border:"1.5px solid #fff"}}/>}</span>
-            <span style={{fontSize:9,color:tab===tb.id?navy:"rgba(43,58,103,.3)",marginTop:2,fontWeight:tab===tb.id?600:400}}>{tb.label}</span>
-          </button>
-        ))}
+      {/* TAB BAR — floating dock like reference */}
+      <div style={{flexShrink:0,padding:"10px 14px 14px",background:cream}}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            background: "#fff",
+            borderRadius: 28,
+            padding: "8px 6px 10px",
+            boxShadow: "0 10px 28px rgba(43,58,103,.12)",
+            border: "1px solid rgba(43,58,103,.07)",
+            position: "relative",
+          }}
+        >
+          {tabs.map(tb=>{
+            const active = tab === tb.id;
+            const isCenter = tb.id === "chat";
+            return (
+              <button
+                key={tb.id}
+                type="button"
+                onClick={()=>{
+                  if (tb.id === "profile") {
+                    setEditName(profile.name || "");
+                    setEditPhone(profile.phone || "");
+                    setEditAddress(profile.address || "");
+                    setEditCity(profile.city || "");
+                    setEditPostal(profile.postalCode || "");
+                  }
+                  setTab(tb.id);
+                }}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: 5,
+                  padding: isCenter ? "0 2px 2px" : "6px 2px 2px",
+                  cursor: "pointer",
+                  border: "none",
+                  background: "none",
+                  fontFamily: "'DM Sans',sans-serif",
+                  minWidth: 0,
+                }}
+              >
+                {isCenter ? (
+                  <span
+                    style={{
+                      width: 54,
+                      height: 54,
+                      marginTop: -26,
+                      borderRadius: "50%",
+                      background: navy,
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "3px solid #fff",
+                      boxShadow: "0 8px 22px rgba(43,58,103,.32)",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <AppNavIcon id="chat" active />
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 12,
+                      background: active ? "rgba(245,197,163,.65)" : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background .15s",
+                    }}
+                  >
+                    <AppNavIcon id={tb.id} active={active} />
+                  </span>
+                )}
+                <span
+                  style={{
+                    fontSize: 9,
+                    lineHeight: 1.15,
+                    color: isCenter
+                      ? "rgba(43,58,103,.42)"
+                      : active
+                        ? navy
+                        : "rgba(43,58,103,.40)",
+                    fontWeight: active && !isCenter ? 700 : 500,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "100%",
+                  }}
+                >
+                  {tb.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
     {toasts.length > 0 && (
@@ -3719,8 +4063,20 @@ export default function App() {
       .then(res => {
         const u = res.data;
         setMustChangePassword(!!u.must_change_password);
-        if (cached) { setProfile(cached); return; }
-        const p: Profile = { name: u.name || "Mama", childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en") };
+        const apiName = String(u.name || "").trim();
+        if (cached) {
+          const cachedName = String(cached.name || "").trim();
+          if (apiName && (!cachedName || cachedName === "Mama")) {
+            const fixed = { ...cached, name: apiName };
+            localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
+            setProfile(fixed);
+            return;
+          }
+          setProfile(cached);
+          return;
+        }
+        if (!apiName) return;
+        const p: Profile = { name: apiName, childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en") };
         localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
         setProfile(p);
       })

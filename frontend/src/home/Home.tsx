@@ -44,7 +44,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [contentLang, setContentLang] = useState(
-    () => normalizeAppLang(localStorage.getItem(HOME_I18N_STORAGE_KEY) || "en", "en")
+    () => normalizeAppLang(localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el", "el")
   );
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});

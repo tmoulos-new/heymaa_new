@@ -184,8 +184,8 @@ export function SubscriptionPage() {
   )
 
   const preferredLang = normalizeAppLang(
-    localStorage.getItem(HOME_I18N_STORAGE_KEY) || i18n.language || 'en',
-    'en',
+    localStorage.getItem(HOME_I18N_STORAGE_KEY) || i18n.language || 'el',
+    'el',
   )
   const contentLang = homeDisplayLocale(preferredLang)
   const langMeta = LANGS.find((l) => l.code === preferredLang) ?? LANGS[0]

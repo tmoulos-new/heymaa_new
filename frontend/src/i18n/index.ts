@@ -18,11 +18,11 @@ export function isHomeLocale(lang: string): lang is HomeLocale {
 
 /** i18next display language for home/subscription (JSON only el/en). */
 export function homeDisplayLocale(stored: string): HomeLocale {
-  const code = normalizeAppLang(stored, "en");
+  const code = normalizeAppLang(stored, "el");
   return code === "el" ? "el" : "en";
 }
 
-const initialStored = readStoredAppLang("en");
+const initialStored = readStoredAppLang("el");
 const initialLang = homeDisplayLocale(initialStored);
 
 i18n.use(initReactI18next).init({
@@ -31,7 +31,7 @@ i18n.use(initReactI18next).init({
     en: { home: enHome, subscription: enSubscription },
   },
   lng: initialLang,
-  fallbackLng: "en",
+  fallbackLng: "el",
   defaultNS: "home",
   ns: ["home", "subscription"],
   interpolation: {
