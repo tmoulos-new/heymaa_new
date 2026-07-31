@@ -1,6 +1,6 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-body { font-family: "Segoe UI", sans-serif; background: #fdf6f0; height: 100vh; display: flex; flex-direction: column; }
+body { font-family: 'DM Sans', sans-serif; background: #fdf6f0; height: 100vh; display: flex; flex-direction: column; }
 
 .app { display: flex; flex-direction: column; height: 100vh; max-width: 720px; margin: 0 auto; width: 100%; }
 

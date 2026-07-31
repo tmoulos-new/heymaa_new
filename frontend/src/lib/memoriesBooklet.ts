@@ -346,7 +346,7 @@ export function groupMemoriesForBooklet(
 
 function bookletStyles(): string {
   return `
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&display=swap');
     :root {
       --linen: #F6F0E8;
       --linen-deep: #E8DFD2;
@@ -364,6 +364,9 @@ function bookletStyles(): string {
       color: var(--ink);
       background: var(--linen-deep);
       line-height: 1.55;
+    }
+    button, input, textarea, select, label, a, h1, h2, h3, h4, p, span, li {
+      font-family: 'DM Sans', sans-serif;
     }
     .page {
       max-width: 720px;

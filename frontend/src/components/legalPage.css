@@ -12,6 +12,20 @@
   color: #2b3a67;
 }
 
+.legal-page,
+.legal-page button,
+.legal-page input,
+.legal-page label,
+.legal-page a,
+.legal-page h1,
+.legal-page h2,
+.legal-page h3,
+.legal-page p,
+.legal-page span,
+.legal-page li {
+  font-family: 'DM Sans', sans-serif;
+}
+
 .legal-page-inner {
   max-width: 780px;
   margin: 0 auto;
