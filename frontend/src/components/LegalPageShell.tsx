@@ -78,7 +78,15 @@ export function LegalPageShell({
               aria-label="Επιστροφή στην εγγραφή"
             >
               <span className="legal-back-arrow" aria-hidden="true">
-                ←
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M15 5L8 12l7 7"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </span>
             </Link>
           </div>

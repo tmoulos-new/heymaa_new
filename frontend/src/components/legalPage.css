@@ -77,12 +77,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: rgba(43, 58, 103, 0.08);
-  font-size: 20px;
-  line-height: 1;
+  color: var(--navy, #2b3a67);
+}
+
+.legal-back-arrow svg {
+  display: block;
 }
 
 .legal-back-link:hover .legal-back-arrow {
