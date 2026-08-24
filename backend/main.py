@@ -1726,46 +1726,71 @@ async def call_groq(message, history, system_prompt, api_key: str):
     return await asyncio.to_thread(_run)
 
 async def call_gemini(message, history, system_prompt, api_key: str):
-    import google.generativeai as genai
-    # Prefer models that still have free-tier quota; 2.0-flash often reports limit:0 on free keys.
+    # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
     model_candidates = (
-        "gemini-flash-latest",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash",
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
+        "gemini-flash-latest",
     )
+
+    def _contents():
+        items = []
+        for h in (history or [])[-6:]:
+            role = "user" if h.get("role") == "user" else "model"
+            text = (h.get("content") or "")[:1500]
+            if not text.strip():
+                continue
+            items.append({"role": role, "parts": [{"text": text}]})
+        while items and items[0]["role"] != "user":
+            items.pop(0)
+        items.append({"role": "user", "parts": [{"text": (message or "")[:2000]}]})
+        return items
+
+    def _extract_text(payload: dict) -> str:
+        cands = payload.get("candidates") or []
+        if not cands:
+            feedback = payload.get("promptFeedback") or {}
+            raise RuntimeError(f"gemini blocked/empty: {feedback or payload}")
+        parts = (((cands[0] or {}).get("content") or {}).get("parts")) or []
+        text = "".join((p.get("text") or "") for p in parts if isinstance(p, dict)).strip()
+        if not text:
+            raise RuntimeError(f"gemini empty text: {cands[0].get('finishReason')}")
+        return text
+
     def _run():
-        genai.configure(api_key=api_key)
-        hist = (history or [])[-6:]
-        chat_history = [
-            {"role": "user" if h["role"] == "user" else "model", "parts": [(h.get("content") or "")[:1500]]}
-            for h in hist
-        ]
         last_err = None
+        body = {
+            "system_instruction": {"parts": [{"text": system_prompt or ""}]},
+            "contents": _contents(),
+            "generationConfig": {"maxOutputTokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
+        }
         for model_name in model_candidates:
+            url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model_name}:generateContent?key={api_key}"
+            )
             try:
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=system_prompt,
-                    generation_config={"max_output_tokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
-                )
-                chat = model.start_chat(history=chat_history)
-                resp = chat.send_message((message or "")[:2000])
-                try:
-                    text = (resp.text or "").strip()
-                except Exception as e:
-                    raise RuntimeError(f"gemini empty/blocked response: {e}") from e
-                if not text:
-                    raise RuntimeError("gemini returned empty text")
-                return text
+                r = requests.post(url, json=body, timeout=45)
+                err_txt = (r.text or "")[:300]
+                if r.status_code == 404 or (r.status_code == 400 and "not found" in err_txt.lower()):
+                    last_err = RuntimeError(f"{model_name}: {err_txt}")
+                    continue
+                if r.status_code == 429:
+                    last_err = RuntimeError(f"{model_name}: 429 {err_txt}")
+                    continue
+                if not r.ok:
+                    last_err = RuntimeError(f"{model_name}: HTTP {r.status_code} {err_txt}")
+                    continue
+                return _extract_text(r.json())
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
-                # Try next model on quota/not-found; otherwise fail fast.
-                if any(x in msg for x in ("429", "quota", "rate", "not found", "not supported", "404")):
+                if any(x in msg for x in ("429", "quota", "rate", "not found", "404", "400")):
                     continue
                 raise
         raise RuntimeError(f"gemini all models failed: {last_err}")
+
     return await asyncio.to_thread(_run)
 
 async def call_claude(message, history, system_prompt, api_key: str):
@@ -2497,11 +2522,18 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         joined = " | ".join(errors)
         low = joined.lower()
         if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
-            raise HTTPException(
-                status_code=503,
-                detail="HeyMaa is busy right now. Please try again in a minute.",
+            _api_error(
+                503,
+                "llm_busy",
+                "HeyMaa is busy right now. Please try again in a minute.",
+                joined,
             )
-        raise HTTPException(status_code=503, detail="All providers failed: " + joined)
+        _api_error(
+            503,
+            "llm_failed",
+            "HeyMaa could not answer right now. Please try again in a moment.",
+            joined,
+        )
     except HTTPException:
         raise
     except Exception as e:

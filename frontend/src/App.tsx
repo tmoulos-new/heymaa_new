@@ -2235,14 +2235,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       else {
         const detail = apiDetail(err.response?.data, "");
         const network = !err.response && (err.code === "ECONNABORTED" || /timeout/i.test(String(err.message || "")));
-        const technical = /quota|429|providers failed|generativelanguage|rate-limit|api key/i.test(detail);
         const busy = /busy right now|try again in a minute/i.test(detail);
         let msg = t("chat_error", lang);
         if (network) {
           msg = lang === "el" ? "Η απάντηση άργησε πολύ. Δοκίμασε ξανά." : "The reply took too long. Please try again.";
-        } else if (busy) {
-          msg = lang === "el" ? "Η HeyMaa είναι λίγο απασχολημένη. Δοκίμασε ξανά σε ένα λεπτό." : detail;
-        } else if (detail && !technical && detail.length < 160) {
+        } else if (busy || err.response?.status === 503) {
+          msg = lang === "el"
+            ? (busy ? "Η HeyMaa είναι λίγο απασχολημένη. Δοκίμασε ξανά σε ένα λεπτό." : "Η HeyMaa δεν μπόρεσε να απαντήσει. Δοκίμασε ξανά σε λίγο.")
+            : (detail || msg);
+        } else if (detail && detail.length < 200) {
           msg = detail;
         }
         console.error("chat failed", err.response?.status, detail || err.message);
