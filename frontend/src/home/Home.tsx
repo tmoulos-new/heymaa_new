@@ -58,6 +58,11 @@ export default function Home() {
     else navigate(`${APP_ROUTE}/auth`);
   }, [navigate]);
 
+  const goToLogin = useCallback(() => {
+    if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
+    else navigate(`${APP_ROUTE}/auth?mode=login`);
+  }, [navigate]);
+
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })
   );
@@ -207,7 +212,7 @@ export default function Home() {
               <span className="nb-lang-label">{langMeta.name}</span>
               <i className="ti ti-chevron-down nb-lang-chevron" style={{ fontSize: 11 }} />
             </button>
-            <button type="button" className="nb-signin" onClick={goToApp}>
+            <button type="button" className="nb-signin" onClick={goToLogin}>
               {t("nav.signIn")}
             </button>
             <button type="button" className="nb-cta" onClick={goToApp}>

@@ -156,6 +156,7 @@ export function SubscriptionPage() {
   }
 
   const goApp = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
+  const goLogin = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth?mode=login`)
 
   return (
     <div className="subscription-page">
@@ -175,7 +176,7 @@ export function SubscriptionPage() {
               onClick={() => setLangOpen(false)}
               aria-label={tHome('langPicker.close')}
             >
-              +ù
+              +Ã¹
             </button>
           </div>
           <div className="flag-grid">
@@ -213,7 +214,7 @@ export function SubscriptionPage() {
               {tSub('nav.backToApp')}
             </button>
           ) : (
-            <button type="button" className="nb-signin" onClick={goApp}>
+            <button type="button" className="nb-signin" onClick={goLogin}>
               {tSub('nav.signIn')}
             </button>
           )}

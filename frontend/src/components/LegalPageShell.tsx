@@ -46,9 +46,9 @@ export function LegalPageShell({
     void i18n.changeLanguage(homeDisplayLocale(normalizeAppLang(stored, 'el')))
   }, [i18n])
 
-  const goToApp = () => {
+  const goToLogin = () => {
     if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE)
-    else navigate(`${APP_ROUTE}/auth`)
+    else navigate(`${APP_ROUTE}/auth?mode=login`)
   }
 
   return (
@@ -62,7 +62,7 @@ export function LegalPageShell({
         </Link>
         <div className="nb-right">
           {!fromSignup && (
-            <button type="button" className="nb-signin" onClick={goToApp}>
+            <button type="button" className="nb-signin" onClick={goToLogin}>
               {t('nav.signIn')}
             </button>
           )}
