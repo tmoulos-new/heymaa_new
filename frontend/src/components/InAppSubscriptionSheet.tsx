@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PlanCard } from './PlanCard'
 import '../home/home.css'
@@ -36,8 +36,11 @@ export function InAppSubscriptionSheet({
   const { t, i18n } = useTranslation()
   const tHome = (key: string, opts?: Record<string, unknown>) =>
     t(key, { ns: 'home', ...opts })
-  const tSub = (key: string, opts?: Record<string, unknown>) =>
-    t(key, { ns: 'subscription', ...opts })
+  const tSub = useCallback(
+    (key: string, opts?: Record<string, unknown>) =>
+      t(key, { ns: 'subscription', ...opts }),
+    [t],
+  )
 
   const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(null)
