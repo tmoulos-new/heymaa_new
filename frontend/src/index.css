@@ -4,6 +4,11 @@
 :root {
   --font-sans: 'DM Sans', sans-serif;
   --font-serif: 'DM Sans', sans-serif;
+  --bp-sm: 480px;
+  --bp-md: 700px;
+  --bp-lg: 1024px;
+  --bp-xl: 1400px;
+  --hm-touch-min: 44px;
 }
 
 html,
@@ -19,6 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #f5f0eb;
+  overflow-x: hidden;
 }
 
 button,

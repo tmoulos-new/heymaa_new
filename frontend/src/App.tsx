@@ -1615,7 +1615,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button onClick={()=>setStep(0)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("selectlang",lang)}</h1><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} style={{padding:"10px 4px",borderRadius:10,border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6",cursor:"pointer",textAlign:"center",fontSize:22}}>{l.f}<div style={{fontSize:10,color:"#2B3A67",marginTop:2,fontWeight:500}}>{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><div className="hm-onboarding-lang-grid">{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} className="hm-onboarding-lang-cell" style={{border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6"}}>{l.f}<div className="hm-onboarding-lang-code">{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
         {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {name||"Mama"}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
@@ -3648,10 +3648,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
       {/* HEADER */}
       <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
-        <div style={{color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{displayName || "…"}</span> 👋</div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:999,padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
-          <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
+        <div className="hm-header-greeting">{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{displayName || "…"}</span> 👋</div>
+        <div className="hm-header-actions">
+          <button type="button" className="hm-header-lang-btn" onClick={()=>setShowLang(true)}>{L.f} {L.s}</button>
+          <div className="hm-header-avatar" onClick={()=>setShowAccountMenu(v=>!v)} style={{background:coral}}>
             {displayInitial}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
               <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
@@ -3664,15 +3664,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       </div>
 
       {gamification && (
-        <div style={{background:"#243156",padding:"8px 18px 10px",flexShrink:0,borderBottom:`1px solid rgba(255,255,255,.08)`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,color:"rgba(255,255,255,.9)",marginBottom:5}}>
+        <div className="hm-gamification-bar" style={{background:"#243156",padding:"8px 18px 10px",flexShrink:0,borderBottom:`1px solid rgba(255,255,255,.08)`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",color:"rgba(255,255,255,.9)",marginBottom:5}}>
             <span>🏆 {levelName(gamification.level, lang)} · Lv.{gamification.level.number}</span>
             <span>{gamification.points} {lang==="el"?"πόντοι":"pts"}</span>
           </div>
           <div style={{height:6,borderRadius:99,background:"rgba(255,255,255,.12)",overflow:"hidden"}}>
             <div style={{height:"100%",width:`${gamification.progress_percent}%`,background:gamification.level.is_max?coral:teal,borderRadius:99,transition:"width .3s"}}/>
           </div>
-          <div style={{fontSize:10,color:"rgba(255,255,255,.55)",marginTop:4}}>
+          <div className="hm-gamification-sub" style={{color:"rgba(255,255,255,.55)",marginTop:4}}>
             {gamification.level.is_max
               ? (lang==="el"?"Μέγιστο επίπεδο · 0 ακόμα":"Max level · 0 to go")
               : gamification.next_level
@@ -3708,13 +3708,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </h1>
               <button
                 type="button"
+                className="hm-icon-btn"
                 aria-label={lang==="el"?"Ρυθμίσεις προφίλ":"Profile settings"}
                 onClick={()=>setShowProfileSettings(true)}
-                style={{
-                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",cursor:"pointer",
-                  background:"#fff",color:navy,display:"flex",alignItems:"center",justifyContent:"center",
-                  flexShrink:0,padding:0,
-                }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path
@@ -4746,6 +4742,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           type="button"
           aria-label={recording ? "Release to send" : "Hold to speak"}
           aria-pressed={recording}
+          className={`hm-composer-action hm-composer-mic${recording ? " hm-composer-mic--recording" : ""}`}
           onContextMenu={(e)=>e.preventDefault()}
           onPointerDown={(e)=>{
             if(e.button!==0||loading) return;
@@ -4755,44 +4752,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           }}
           onPointerUp={()=>stopRecAndSend()}
           onPointerCancel={()=>stopRecAndSend()}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            background: recording ? "rgba(245,197,163,.65)" : "transparent",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            transition: "background .15s",
-            padding: 0,
-            touchAction: "none",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-          }}
         >
           <ChatMicIcon active={recording} />
         </button>
-        <button onClick={()=>sendMessage(input)} disabled={loading||!input.trim()||recording} style={{width:36,height:36,borderRadius:"50%",background:navy,border:"none",color:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,opacity:(loading||!input.trim()||recording)?0.5:1}}>➤</button>
+        <button type="button" className="hm-composer-action hm-composer-send" onClick={()=>sendMessage(input)} disabled={loading||!input.trim()||recording}>➤</button>
         </div>
       </div>}
 
       {/* TAB BAR — floating dock like reference */}
       <div className="hm-app-tabbar" style={{background:cream}}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            background: "#fff",
-            borderRadius: 28,
-            padding: "8px 6px 10px",
-            boxShadow: "0 10px 28px rgba(43,58,103,.12)",
-            border: "1px solid rgba(43,58,103,.07)",
-            position: "relative",
-          }}
-        >
+        <div className="hm-tab-dock">
           {tabs.map(tb=>{
             const active = tab === tb.id;
             const isCenter = tb.id === "chat";
@@ -4800,75 +4769,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button
                 key={tb.id}
                 type="button"
+                className={`hm-tab-btn${isCenter ? " hm-tab-btn--center" : ""}`}
                 onClick={()=>{
                   setTab(tb.id);
                 }}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  gap: 5,
-                  padding: isCenter ? "0 2px 2px" : "6px 2px 2px",
-                  cursor: "pointer",
-                  border: "none",
-                  background: "none",
-                  fontFamily: "'DM Sans',sans-serif",
-                  minWidth: 0,
-                }}
               >
                 {isCenter ? (
-                  <span
-                    style={{
-                      width: 54,
-                      height: 54,
-                      marginTop: -26,
-                      borderRadius: "50%",
-                      background: navy,
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: "3px solid #fff",
-                      boxShadow: "0 8px 22px rgba(43,58,103,.32)",
-                      boxSizing: "border-box",
-                    }}
-                  >
+                  <span className="hm-tab-icon hm-tab-icon--center">
                     <AppNavIcon id="chat" active />
                   </span>
                 ) : (
-                  <span
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 12,
-                      background: active ? "rgba(245,197,163,.65)" : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "background .15s",
-                    }}
-                  >
+                  <span className={`hm-tab-icon${active ? " hm-tab-icon--active" : ""}`}>
                     <AppNavIcon id={tb.id} active={active} />
                   </span>
                 )}
                 <span
-                  className="hm-tab-label"
-                  style={{
-                    fontSize: 9,
-                    lineHeight: 1.15,
-                    color: isCenter
-                      ? "rgba(43,58,103,.42)"
+                  className={`hm-tab-label${
+                    isCenter
+                      ? " hm-tab-label--center"
                       : active
-                        ? navy
-                        : "rgba(43,58,103,.40)",
-                    fontWeight: active && !isCenter ? 700 : 500,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    maxWidth: "100%",
-                  }}
+                        ? " hm-tab-label--active"
+                        : " hm-tab-label--inactive"
+                  }`}
+                  style={active && !isCenter ? { color: navy } : undefined}
                 >
                   {tb.label}
                 </span>

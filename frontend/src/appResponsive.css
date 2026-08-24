@@ -65,7 +65,8 @@ body.hm-app-active #root {
   background: var(--hm-cream);
   position: relative;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: clip;
+  min-height: 100dvh;
 }
 
 .hm-app-body {
@@ -388,4 +389,259 @@ body.hm-app-active #root {
   .subscription-page .pricing-cards-layout {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* ── In-app header ── */
+.hm-app-header {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hm-header-greeting {
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(15px, 2.2vw, 17px);
+  min-width: 0;
+}
+
+.hm-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hm-header-lang-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  min-height: var(--hm-touch-min);
+  cursor: pointer;
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.hm-header-avatar {
+  width: var(--hm-touch-min);
+  height: var(--hm-touch-min);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hm-gamification-bar {
+  font-size: clamp(11px, 1.6vw, 12px);
+}
+
+.hm-gamification-sub {
+  font-size: clamp(10px, 1.4vw, 11px);
+}
+
+/* ── Icon / control buttons (44px touch target) ── */
+.hm-icon-btn {
+  width: var(--hm-touch-min);
+  height: var(--hm-touch-min);
+  min-width: var(--hm-touch-min);
+  min-height: var(--hm-touch-min);
+  border-radius: 50%;
+  border: 1px solid rgba(43, 58, 103, 0.12);
+  cursor: pointer;
+  background: #fff;
+  color: var(--hm-navy);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+/* ── Tab bar ── */
+.hm-tab-dock {
+  display: flex;
+  align-items: flex-end;
+  background: #fff;
+  border-radius: 28px;
+  padding: 8px 6px 10px;
+  box-shadow: 0 10px 28px rgba(43, 58, 103, 0.12);
+  border: 1px solid rgba(43, 58, 103, 0.07);
+  position: relative;
+}
+
+.hm-tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 6px 2px 2px;
+  min-height: 52px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: 'DM Sans', sans-serif;
+  min-width: 0;
+}
+
+.hm-tab-btn--center {
+  padding: 0 2px 2px;
+}
+
+.hm-tab-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.hm-tab-icon--active {
+  background: rgba(245, 197, 163, 0.65);
+}
+
+.hm-tab-icon--center {
+  width: 54px;
+  height: 54px;
+  margin-top: -26px;
+  border-radius: 50%;
+  background: var(--hm-navy);
+  color: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 22px rgba(43, 58, 103, 0.32);
+  box-sizing: border-box;
+}
+
+.hm-tab-label {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hm-tab-label--active {
+  font-weight: 700;
+}
+
+.hm-tab-label--center {
+  color: rgba(43, 58, 103, 0.42);
+}
+
+.hm-tab-label--inactive {
+  color: rgba(43, 58, 103, 0.4);
+}
+
+@media (min-width: 700px) {
+  .hm-tab-label {
+    font-size: 11px;
+  }
+
+  .hm-tab-btn {
+    min-height: 56px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-tab-label {
+    font-size: 12px;
+  }
+}
+
+/* ── Composer ── */
+.hm-composer-action {
+  width: var(--hm-touch-min);
+  height: var(--hm-touch-min);
+  min-width: var(--hm-touch-min);
+  min-height: var(--hm-touch-min);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hm-composer-mic {
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hm-composer-mic--recording {
+  background: rgba(245, 197, 163, 0.65);
+}
+
+.hm-composer-send {
+  border-radius: 50%;
+  background: var(--hm-navy);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.hm-composer-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Onboarding ── */
+.hm-onboarding-lang-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 480px) {
+  .hm-onboarding-lang-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.hm-onboarding-lang-cell {
+  padding: 12px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 22px;
+  min-height: var(--hm-touch-min);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-onboarding-lang-code {
+  font-size: 10px;
+  color: #2b3a67;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.hm-onboarding-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(20px, 4vw, 24px);
+  color: #2b3a67;
+  text-align: center;
+  margin-bottom: 8px;
 }

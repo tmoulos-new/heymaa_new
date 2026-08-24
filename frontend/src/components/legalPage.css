@@ -29,8 +29,14 @@
 .legal-page-inner {
   max-width: 780px;
   margin: 0 auto;
-  padding: 28px 24px 64px;
+  padding: 28px 20px 64px;
   box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+  .legal-page-inner {
+    padding: 28px 24px 64px;
+  }
 }
 
 .legal-breadcrumb {
@@ -77,8 +83,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
   background: rgba(43, 58, 103, 0.08);
   color: var(--navy, #2b3a67);
