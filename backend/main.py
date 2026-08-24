@@ -1684,12 +1684,12 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
 _CHAT_MAX_TOKENS = 512
 
 def _is_usable_reply(text: str) -> bool:
-    """Reject empty, truncated, or instruction-leakage replies."""
+    """Reject empty or instruction-leakage replies. Allow markdown (*bold*)."""
     t = (text or "").strip()
-    if len(t) < 18:
+    if len(t) < 8:
         return False
     letters = sum(1 for c in t if c.isalpha())
-    if letters < 12:
+    if letters < 6:
         return False
     low = t.lower()
     leak_markers = (
@@ -1704,8 +1704,6 @@ def _is_usable_reply(text: str) -> bool:
         "εσύ).",
     )
     if any(m in low for m in leak_markers):
-        return False
-    if t.count("*") >= 2 or t.startswith(":") or t.startswith("("):
         return False
     return True
 
