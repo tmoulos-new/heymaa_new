@@ -2135,6 +2135,14 @@ def root():
     client = ensure_supabase()
     url, key = _supabase_credentials()
     llm = _llm_api_keys()
+    try:
+        try:
+            from .viva_webhook import viva_webhook_env_status
+        except ImportError:
+            from viva_webhook import viva_webhook_env_status
+        viva = viva_webhook_env_status()
+    except Exception:
+        viva = {"webhook_configured": False}
     return {
         "status": "HeyMaa API is running!",
         "database": "ok" if client else "unconfigured",
@@ -2143,6 +2151,7 @@ def root():
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
         "vercel": bool(os.getenv("VERCEL")),
         "llm": {name: bool(val) for name, val in llm.items()},
+        "viva": viva,
     }
 def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
     if not sb:

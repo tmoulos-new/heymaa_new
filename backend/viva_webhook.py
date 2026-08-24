@@ -17,12 +17,39 @@ VIVA_FAILED_STATUS_IDS = {"E"}
 _webhook_key_cache: dict[str, Any] = {"value": None, "expires_at": 0.0}
 
 
+def _env_first(*names: str) -> str:
+    for name in names:
+        value = (os.getenv(name) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _merchant_basic_credentials() -> Optional[tuple[str, str]]:
-    merchant_id = (os.getenv("VIVA_WALLET_MERCHANT_ID") or "").strip()
-    api_key = (os.getenv("VIVA_WALLET_API_KEY") or "").strip()
+    merchant_id = _env_first("VIVA_WALLET_MERCHANT_ID", "VIVA_MERCHANT_ID")
+    api_key = _env_first("VIVA_WALLET_API_KEY", "VIVA_API_KEY")
     if merchant_id and api_key:
         return merchant_id, api_key
     return None
+
+
+def viva_webhook_configured() -> bool:
+    if _env_first("VIVA_WEBHOOK_KEY", "VIVA_WEBHOOK_VERIFICATION_KEY"):
+        return True
+    return _merchant_basic_credentials() is not None
+
+
+def viva_webhook_env_status() -> dict[str, bool]:
+    merchant_id = _env_first("VIVA_WALLET_MERCHANT_ID", "VIVA_MERCHANT_ID")
+    api_key = _env_first("VIVA_WALLET_API_KEY", "VIVA_API_KEY")
+    webhook_key = _env_first("VIVA_WEBHOOK_KEY", "VIVA_WEBHOOK_VERIFICATION_KEY")
+    return {
+        "checkout_configured": viva_configured(),
+        "webhook_key_set": bool(webhook_key),
+        "merchant_id_set": bool(merchant_id),
+        "api_key_set": bool(api_key),
+        "webhook_configured": viva_webhook_configured(),
+    }
 
 
 def parse_merchant_trns(value: Optional[str]) -> tuple[Optional[str], Optional[str]]:
@@ -82,7 +109,7 @@ def _payload_value(payload: dict, *keys: str) -> Any:
 
 
 async def fetch_webhook_verification_key() -> str:
-    cached = (os.getenv("VIVA_WEBHOOK_KEY") or "").strip()
+    cached = _env_first("VIVA_WEBHOOK_KEY", "VIVA_WEBHOOK_VERIFICATION_KEY")
     if cached:
         return cached
 
@@ -93,7 +120,8 @@ async def fetch_webhook_verification_key() -> str:
     creds = _merchant_basic_credentials()
     if not creds:
         raise ValueError(
-            "Set VIVA_WEBHOOK_KEY or VIVA_WALLET_MERCHANT_ID + VIVA_WALLET_API_KEY for webhook verification."
+            "Webhook verification is not configured on Vercel. Add VIVA_WEBHOOK_KEY "
+            "or VIVA_WALLET_MERCHANT_ID + VIVA_WALLET_API_KEY (Production), then redeploy."
         )
 
     merchant_id, api_key = creds
@@ -102,6 +130,11 @@ async def fetch_webhook_verification_key() -> str:
             f"{_viva_api_base()}/api/messages/config/token",
             auth=(merchant_id, api_key),
         )
+        if res.status_code == 401:
+            raise ValueError(
+                "Viva rejected the Merchant ID / API Key. Use credentials from "
+                "Viva → Settings → API Access (not Client ID / Client Secret)."
+            )
         res.raise_for_status()
         data = res.json()
 
