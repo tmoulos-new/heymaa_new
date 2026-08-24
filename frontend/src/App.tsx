@@ -20,7 +20,7 @@ import {
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, apiDetail, applyAuthUserName, isLocalDemoToken } from "./lib/authApi";
+import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, isBrowserLocalHost, isLocalDemoToken } from "./lib/authApi";
 import { displayUppercase } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -2188,6 +2188,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     track("submit", appPath("chat", "send"), "Send message");
     const userMsg: Message = {role:"user",content:text};
     const next = [...messages, userMsg]; setMessages(next); setInput(""); setLoading(true);
+    if (isLocalDemoToken(token)) {
+      const msg = lang === "el"
+        ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat χρειάζεται σύνδεση με πραγματικό λογαριασμό (Supabase)."
+        : "Local demo cannot reach the chat API. Sign in with a real account (Supabase) to chat.";
+      setMessages([...next, { role: "assistant", content: msg }]);
+      setLoading(false);
+      return;
+    }
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
@@ -4907,22 +4915,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 }
 
 // ── Root ──────────────────────────────────────────────────────
-/** Drop local demo tokens — they cannot call /chat (401). Require real login. */
-function readValidAppToken(): string | null {
+function ensureLocalDemoToken(): string | null {
+  if (!isBrowserLocalHost()) return null
   const existing = localStorage.getItem(TOKEN_KEY)
-  if (!existing) return null
-  if (isLocalDemoToken(existing)) {
-    localStorage.removeItem(TOKEN_KEY)
-    return null
-  }
-  return existing
+  if (existing) return existing
+  const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el")
+  const profile: Profile = { name: "Mama", childName: "", childAge: "", lang }
+  localStorage.setItem(TOKEN_KEY, LOCAL_DEMO_TOKEN)
+  localStorage.setItem(sk(LOCAL_DEMO_TOKEN, "profile"), JSON.stringify(profile))
+  return LOCAL_DEMO_TOKEN
 }
 
 export default function App() {
-  const [token, setToken] = useState<string|null>(() => readValidAppToken());
+  const [token, setToken] = useState<string|null>(() => localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken());
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
-    const tk=readValidAppToken(); if(!tk)return null;
+    const tk=localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken(); if(!tk)return null;
     try{
       const stableRaw = localStorage.getItem(sk(tk,"profile"));
       if (stableRaw) return JSON.parse(stableRaw);
@@ -4930,7 +4938,7 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(null);
+  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(localStorage.getItem(TOKEN_KEY)) ? true : null));
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
@@ -4938,7 +4946,22 @@ export default function App() {
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
     if (isLocalDemoToken(token)) {
-      handleLogout();
+      setMustChangePassword(false);
+      setSubActive(true);
+      try {
+        const raw = localStorage.getItem(sk(token, "profile"));
+        if (raw) setProfile(JSON.parse(raw) as Profile);
+        else {
+          const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
+          const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
+          localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
+          setProfile(p);
+        }
+      } catch {
+        const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
+        const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
+        setProfile(p);
+      }
       return;
     }
     const cached = (() => {
