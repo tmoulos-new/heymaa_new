@@ -26,8 +26,16 @@ def _env_first(*names: str) -> str:
 
 
 def _merchant_basic_credentials() -> Optional[tuple[str, str]]:
-    merchant_id = _env_first("VIVA_WALLET_MERCHANT_ID", "VIVA_MERCHANT_ID")
-    api_key = _env_first("VIVA_WALLET_API_KEY", "VIVA_API_KEY")
+    merchant_id = _env_first(
+        "VIVA_WALLET_MERCHANT_ID",
+        "VIVA_MERCHANT_ID",
+        "VIVA_MERCHANTID",
+    )
+    api_key = _env_first(
+        "VIVA_WALLET_API_KEY",
+        "VIVA_API_KEY",
+        "VIVA_API_Key",
+    )
     if merchant_id and api_key:
         return merchant_id, api_key
     return None
@@ -40,8 +48,16 @@ def viva_webhook_configured() -> bool:
 
 
 def viva_webhook_env_status() -> dict[str, bool]:
-    merchant_id = _env_first("VIVA_WALLET_MERCHANT_ID", "VIVA_MERCHANT_ID")
-    api_key = _env_first("VIVA_WALLET_API_KEY", "VIVA_API_KEY")
+    merchant_id = _env_first(
+        "VIVA_WALLET_MERCHANT_ID",
+        "VIVA_MERCHANT_ID",
+        "VIVA_MERCHANTID",
+    )
+    api_key = _env_first(
+        "VIVA_WALLET_API_KEY",
+        "VIVA_API_KEY",
+        "VIVA_API_Key",
+    )
     webhook_key = _env_first("VIVA_WEBHOOK_KEY", "VIVA_WEBHOOK_VERIFICATION_KEY")
     return {
         "checkout_configured": viva_configured(),
