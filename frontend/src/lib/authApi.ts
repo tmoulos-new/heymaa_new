@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { normalizeAppLang } from './appLang'
+import { stableSk } from './userDataRecovery'
 
 export const HM_TOKEN_KEY = 'hm_token'
 /** Local-only session when Supabase/DB is unavailable — never used in production auth. */
@@ -81,6 +83,36 @@ export async function registerUser(payload: RegisterPayload) {
 
 export async function loginUser(email: string, password: string) {
   return axios.post(`${API}/auth/login`, { email, password })
+}
+
+/** Persist the account display name from signup/login into the local profile. */
+export function applyAuthUserName(token: string, name: string | null | undefined) {
+  const trimmed = String(name || '').trim()
+  if (!token || !trimmed) return
+  try {
+    sessionStorage.setItem('hm_signup_name', trimmed)
+  } catch {
+    /* ignore */
+  }
+  try {
+    const key = stableSk(token, 'profile')
+    const raw = localStorage.getItem(key)
+    const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : null
+    const lang = normalizeAppLang(
+      String(existing?.lang || localStorage.getItem('hm_pre_lang') || 'el'),
+      'el',
+    )
+    const next = {
+      childName: '',
+      childAge: '',
+      ...(existing && typeof existing === 'object' ? existing : {}),
+      name: trimmed,
+      lang,
+    }
+    localStorage.setItem(key, JSON.stringify(next))
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function checkEmail(email: string) {

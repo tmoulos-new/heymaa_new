@@ -1,0 +1,391 @@
+/* HeyMaa in-app responsive — mobile keeps phone feel; tablet/desktop use full width */
+
+:root {
+  --hm-cream: #f5f0eb;
+  --hm-navy: #2b3a67;
+  --hm-shell-max: 100%;
+  --hm-content-max: 100%;
+  --hm-dialog-pad: 16px;
+  --hm-body-pad: 16px;
+  --hm-tab-pad: 10px 14px max(14px, env(safe-area-inset-bottom, 0px));
+  --hm-composer-pad: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
+  --hm-sheet-max: 100%;
+  --hm-sheet-wide-max: 100%;
+}
+
+/* Tablet: full width, more breathing room */
+@media (min-width: 700px) {
+  :root {
+    --hm-dialog-pad: 24px;
+    --hm-body-pad: 24px 28px;
+    --hm-tab-pad: 12px 24px max(16px, env(safe-area-inset-bottom, 0px));
+    --hm-composer-pad: 12px 24px 14px;
+    --hm-sheet-max: min(560px, calc(100% - 48px));
+    --hm-sheet-wide-max: min(860px, calc(100% - 48px));
+    --hm-content-max: 100%;
+  }
+}
+
+/* Desktop: true full-bleed shell */
+@media (min-width: 1024px) {
+  :root {
+    --hm-dialog-pad: 32px;
+    --hm-body-pad: 28px 40px;
+    --hm-tab-pad: 14px 40px max(18px, env(safe-area-inset-bottom, 0px));
+    --hm-composer-pad: 14px 40px 16px;
+    --hm-sheet-max: min(640px, calc(100% - 64px));
+    --hm-sheet-wide-max: min(1100px, calc(100% - 64px));
+  }
+}
+
+@media (min-width: 1400px) {
+  :root {
+    --hm-body-pad: 32px 56px;
+    --hm-tab-pad: 14px 56px max(18px, env(safe-area-inset-bottom, 0px));
+    --hm-composer-pad: 14px 56px 16px;
+  }
+}
+
+body.hm-app-active,
+body.hm-app-active #root {
+  background: var(--hm-cream);
+  min-height: 100%;
+  width: 100%;
+}
+
+.hm-app-shell {
+  font-family: 'DM Sans', sans-serif;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: var(--hm-cream);
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.hm-app-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--hm-body-pad);
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+/* Optional readable inner column for dense text tabs — still full-bleed shell */
+.hm-app-body-inner {
+  width: 100%;
+  max-width: var(--hm-content-max);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.hm-app-tabbar {
+  flex-shrink: 0;
+  padding: var(--hm-tab-pad);
+  background: var(--hm-cream);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.hm-app-composer {
+  flex-shrink: 0;
+  padding: var(--hm-composer-pad);
+  background: var(--hm-cream);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+@media (min-width: 700px) {
+  .hm-app-tabbar .hm-tab-label {
+    font-size: 11px !important;
+  }
+
+  /* Floating dock stays compact; shell/header/body stay full-bleed */
+  .hm-app-tabbar > div {
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-app-tabbar .hm-tab-label {
+    font-size: 12px !important;
+  }
+
+  .hm-app-tabbar > div {
+    max-width: 640px;
+  }
+
+  .hm-app-header {
+    padding-left: 40px !important;
+    padding-right: 40px !important;
+  }
+}
+
+@media (min-width: 1400px) {
+  .hm-app-header {
+    padding-left: 56px !important;
+    padding-right: 56px !important;
+  }
+}
+
+/* ── Overlays / dialogs ── */
+.hm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 530;
+  background: rgba(43, 58, 103, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--hm-dialog-pad);
+  box-sizing: border-box;
+}
+
+.hm-overlay--bottom {
+  align-items: flex-end;
+  padding: var(--hm-dialog-pad);
+}
+
+.hm-dialog {
+  width: 100%;
+  max-width: 400px;
+  max-height: min(92vh, 92dvh);
+  overflow-y: auto;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hm-dialog--sm {
+  max-width: 360px;
+}
+
+.hm-dialog--md {
+  max-width: 400px;
+}
+
+.hm-dialog--lg {
+  max-width: 440px;
+}
+
+@media (min-width: 700px) {
+  .hm-dialog--sm {
+    max-width: 420px;
+  }
+  .hm-dialog--md {
+    max-width: 480px;
+  }
+  .hm-dialog--lg {
+    max-width: 560px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-dialog--md {
+    max-width: 520px;
+  }
+  .hm-dialog--lg {
+    max-width: 640px;
+  }
+}
+
+/* Full-height sheets (Add child, Subscription) */
+.hm-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 540;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background: rgba(43, 58, 103, 0.35);
+  box-sizing: border-box;
+}
+
+.hm-sheet-panel {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--hm-cream);
+  box-sizing: border-box;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.hm-sheet-panel--scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 700px) {
+  .hm-sheet-overlay {
+    align-items: center;
+    padding: var(--hm-dialog-pad);
+    background: rgba(43, 58, 103, 0.45);
+  }
+
+  .hm-sheet-panel {
+    width: 100%;
+    max-width: var(--hm-sheet-max);
+    height: auto;
+    max-height: min(90vh, 90dvh);
+    border-radius: 24px;
+    box-shadow: 0 16px 48px rgba(43, 58, 103, 0.2);
+    overflow-y: auto;
+  }
+
+  .hm-sheet-panel--wide {
+    max-width: var(--hm-sheet-wide-max);
+  }
+}
+
+/* Threads bottom sheet: full width of shell */
+.hm-threads-sheet {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+  .hm-threads-sheet {
+    max-width: min(640px, 100%);
+    border-radius: 18px 18px 0 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-threads-sheet {
+    max-width: min(720px, 100%);
+  }
+}
+
+/* Trial nudge */
+.hm-floating-banner {
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 520px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .hm-floating-banner {
+    left: auto !important;
+    right: 40px !important;
+    transform: none;
+    max-width: 420px;
+  }
+}
+
+/* Toasts */
+.hm-toast-stack {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  width: calc(100% - 32px);
+  max-width: 420px;
+  align-items: stretch !important;
+}
+
+@media (min-width: 700px) {
+  .hm-toast-stack {
+    left: auto;
+    right: 24px;
+    transform: none;
+    align-items: flex-end !important;
+    width: auto;
+    max-width: 420px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-toast-stack {
+    right: 40px;
+    bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Onboarding / narrow forms stay readable */
+.hm-narrow-form {
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+  .hm-narrow-form {
+    max-width: 480px;
+  }
+}
+
+/* Chat / composer use full content width (shell is already 100%) */
+.hm-chat-column {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.hm-app-composer-inner {
+  width: 100%;
+  max-width: none;
+}
+
+/* Keep chat bubbles readable on ultra-wide screens */
+@media (min-width: 1024px) {
+  .hm-chat-column [data-hm-bubble] {
+    max-width: min(720px, 72%) !important;
+  }
+}
+
+/* In-app subscription plan grid */
+.in-app-subscription-sheet .pricing-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 700px) {
+  .in-app-subscription-sheet .pricing-stack {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .in-app-subscription-sheet .hm-sheet-panel--wide .pricing-stack {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Public subscription: multi-column on tablet/desktop */
+@media (min-width: 700px) {
+  .subscription-page .pricing-cards-layout {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    align-items: stretch;
+  }
+  .subscription-page .pricing-trial-col,
+  .subscription-page .pricing-paid-grid {
+    display: contents;
+  }
+}
+
+@media (min-width: 1024px) {
+  .subscription-page .pricing-cards-layout {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

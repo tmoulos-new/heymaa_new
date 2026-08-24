@@ -1,13 +1,45 @@
 .app-auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f5f0eb;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 20px 40px;
+  justify-content: flex-start;
+  padding: max(28px, env(safe-area-inset-top, 0px)) 20px max(40px, env(safe-area-inset-bottom, 0px));
   font-family: 'DM Sans', sans-serif;
   color: #2b3a67;
   box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+  .app-auth-page {
+    justify-content: center;
+    padding: 48px 32px 56px;
+  }
+
+  .app-auth-card {
+    max-width: 460px;
+  }
+
+  .app-auth-title {
+    font-size: 24px;
+  }
+
+  .app-auth-logo-wrap {
+    width: 96px;
+    height: 96px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-auth-page {
+    padding: 56px 40px 64px;
+  }
+
+  .app-auth-card {
+    max-width: 480px;
+  }
 }
 
 .app-auth-page,
@@ -274,8 +306,8 @@
 
 .app-auth-lang {
   position: fixed;
-  top: 14px;
-  right: 14px;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(43, 58, 103, 0.12);
   border-radius: 999px;
@@ -285,12 +317,13 @@
   font-weight: 600;
   color: #2b3a67;
   cursor: pointer;
+  z-index: 2;
 }
 
 .app-auth-close {
   position: fixed;
-  top: 14px;
-  left: 14px;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  left: max(14px, env(safe-area-inset-left, 0px));
   z-index: 2;
   display: flex;
   align-items: center;

@@ -20,7 +20,7 @@ import {
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, isBrowserLocalHost, isLocalDemoToken } from "./lib/authApi";
+import { API, HM_TOKEN_KEY, apiDetail, applyAuthUserName, isLocalDemoToken } from "./lib/authApi";
 import { displayUppercase } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -29,6 +29,11 @@ import {
 import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
+import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
+import "./appResponsive.css";
+import { useTranslation } from "react-i18next";
+import type { HomeFaqItem } from "./i18n/homeTypes";
+import { homeDisplayLocale } from "./i18n";
 import {
   compressImageDataUrl,
   persistMemoriesDurable,
@@ -55,9 +60,89 @@ import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
+import { AUTH_LOGO_SRC } from "./auth/authLogo";
 
 export { HM_TOKEN_KEY } from "./lib/authApi";
 const TOKEN_KEY = HM_TOKEN_KEY;
+
+function HeyMaaAvatar({ size }: { size: number }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        overflow: "hidden",
+        flexShrink: 0,
+        boxShadow: "0 4px 12px rgba(43,58,103,0.08)",
+        background: "#fff",
+      }}
+    >
+      <img
+        src={AUTH_LOGO_SRC}
+        alt="HeyMaa"
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          transform: "scale(1.05)",
+        }}
+      />
+    </div>
+  );
+}
+
+function UserChatAvatar({
+  size,
+  name,
+  photo,
+}: {
+  size: number;
+  name: string;
+  photo?: string | null;
+}) {
+  const initial = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt={name || "User"}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+          display: "block",
+          boxShadow: "0 4px 12px rgba(43,58,103,0.08)",
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "#8B7EC8",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "'DM Sans',sans-serif",
+        fontSize: Math.max(11, Math.round(size * 0.4)),
+        fontWeight: 700,
+        flexShrink: 0,
+        boxShadow: "0 4px 12px rgba(43,58,103,0.08)",
+      }}
+      aria-hidden="true"
+    >
+      {initial}
+    </div>
+  );
+}
 
 async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
   const ch: ChildEntity[] = profile.children ||
@@ -1276,7 +1361,7 @@ const TR: Record<string,Record<string,string>> = {
   addtolist:{el:"Πρόσθεσε στη λίστα...",en:"Add to list...",ar:"أضيفي إلى القائمة...",es:"Agregar a lista...",fr:"Ajouter à la liste...",de:"Zur Liste hinzufügen...",pt:"Adicionar à lista...",it:"Aggiungi alla lista...",ru:"Добавить в список...",tr:"Listeye ekle...",hi:"सूची में जोड़ें...",ur:"فہرست میں شامل کریں...",zh:"添加到清单...",ja:"リストに追加...",nl:"Toevoegen aan lijst...",pl:"Dodaj do listy...",ro:"Adaugă la listă...",bn:"তালিকায় যোগ করুন...",id:"Tambah ke daftar...",sw:"Ongeza kwenye orodha...",fil:"Add to list...",mr:"यादीत जोडा...",te:"జాబితాకు జోడించు..."},
   sendlist:{el:"Αποστολή:",en:"Send via:",ar:"إرسال:",es:"Enviar:",fr:"Envoyer:",de:"Senden:",pt:"Enviar:",it:"Invia:",ru:"Отправить:",tr:"Gönder:",hi:"भेजें:",ur:"بھیجیں:",zh:"发送：",ja:"送る：",nl:"Versturen:",pl:"Wyślij:",ro:"Trimite:",bn:"পাঠান:",id:"Kirim:",sw:"Tuma:",fil:"Send via:",mr:"Надіслати:",te:"పంపు:"},
   selectlang:{el:"Επίλεξε γλώσσα",en:"Select language",ar:"اختر اللغة",es:"Seleccionar idioma",fr:"Choisir la langue",de:"Sprache wählen",pt:"Selecionar idioma",it:"Seleziona lingua",ru:"Выбрать язык",tr:"Dil seç",hi:"भाषा चुनें",ur:"زبان منتخب کریں",zh:"选择语言",ja:"言語を選択",nl:"Taal kiezen",pl:"Wybierz język",ro:"Selectați limba",bn:"ভাষা নির্বাচন",id:"Pilih bahasa",sw:"Chagua lugha",fil:"Select language",mr:"भाषा निवडा",te:"భాష ఎంచుకోండి"},
-  chatgreet:{el:"Γεια σου",en:"Hi",ar:"مرحباً",es:"Hola",fr:"Bonjour",de:"Hallo",pt:"Olá",it:"Ciao",ru:"Привет",tr:"Merhaba",hi:"नमस्ते",ur:"ہائے",zh:"你好",ja:"こんにちは",nl:"Hallo",pl:"Cześć",ro:"Bună",bn:"হ্যালো",id:"Halo",sw:"Habari",fil:"Hi",mr:"नमस्कार",te:"హలో"},
+  chatgreet:{el:"Γεια σου,",en:"Hi,",ar:"مرحباً،",es:"Hola,",fr:"Bonjour,",de:"Hallo,",pt:"Olá,",it:"Ciao,",ru:"Привет,",tr:"Merhaba,",hi:"नमस्ते,",ur:"ہائے،",zh:"你好，",ja:"こんにちは、",nl:"Hallo,",pl:"Cześć,",ro:"Bună,",bn:"হ্যালো,",id:"Halo,",sw:"Habari,",fil:"Hi,",mr:"नमस्कार,",te:"హలో,"},
   chatgreet2:{el:"χαίρομαι που βρίσκεσαι εδώ. Πώς μπορώ να σε βοηθήσω;",en:"glad you're here. How can I help you today?",ar:"يسعدني وجودك. كيف أساعدك؟",es:"alegría tenerte. ¿En qué te ayudo?",fr:"content que tu sois là. Comment t'aider?",de:"schön, dass du hier bist. Wie helfe ich dir?",pt:"fico feliz. Como posso ajudar?",it:"felice che tu sia qui. Come aiutarti?",ru:"рад что ты здесь. Как помочь?",tr:"burada olduğuna sevindim. Nasıl yardım edebilirim?",hi:"खुशी है। कैसे मदद करूँ?",ur:"خوشی ہے۔ کیسے مدد کروں؟",zh:"很高兴你来了。今天我能帮什么？",ja:"来てくれて嬉しい。どう手伝えますか？",nl:"blij dat je er bent. Hoe kan ik helpen?",pl:"cieszę się. Jak pomóc?",ro:"mă bucur că ești. Cum te ajut?",bn:"আনন্দিত। কীভাবে সাহায্য করব?",id:"senang kamu ada. Bagaimana aku membantumu?",sw:"nafurahi uko. Ninakusaidiaje?",fil:"glad you're here. How can I help you today?",mr:"радий що ти тут. Як допомогти?",te:"మీరు ఇక్కడ ఉన్నందుకు సంతోషం. నేను ఎలా సహాయపడను?"},
   listen:{el:"🔊 Άκουσε",en:"🔊 Listen",ar:"🔊 استمع",es:"🔊 Escuchar",fr:"🔊 Écouter",de:"🔊 Anhören",pt:"🔊 Ouvir",it:"🔊 Ascolta",ru:"🔊 Слушать",tr:"🔊 Dinle",hi:"🔊 सुनें",ur:"🔊 سنیں",zh:"🔊 收听",ja:"🔊 聞く",nl:"🔊 Luisteren",pl:"🔊 Słuchaj",ro:"🔊 Ascultă",bn:"🔊 শুনুন",id:"🔊 Dengar",sw:"🔊 Sikiliza",fil:"🔊 Listen",mr:"🔊 ऐका",te:"🔊 వినండి"},
   playing:{el:"⏸ Παίζει...",en:"⏸ Playing...",ar:"⏸ يعزف...",es:"⏸ Reproduciendo...",fr:"⏸ Lecture...",de:"⏸ Spielt...",pt:"⏸ A reproduzir...",it:"⏸ In riproduzione...",ru:"⏸ Воспроизводится...",tr:"⏸ Oynatılıyor...",hi:"⏸ चल रहा है...",ur:"⏸ چل رہا ہے...",zh:"⏸ 播放中...",ja:"⏸ 再生中...",nl:"⏸ Afspelen...",pl:"⏸ Gra...",ro:"⏸ Se redă...",bn:"⏸ বাজছে...",id:"⏸ Memutar...",sw:"⏸ Inacheza...",fil:"⏸ Playing...",mr:"⏸ वाजत आहे...",te:"⏸ ప్లేయవుతోంది..."},
@@ -1489,7 +1574,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     void syncProfileToSupabase(token,p);
     onDone(p);
   };
-  const s: React.CSSProperties = {minHeight:"100vh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'DM Sans',sans-serif"};
+  const s: React.CSSProperties = {minHeight:"100dvh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
   return (
@@ -1503,7 +1588,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           onSelect={(code) => setLang(normalizeAppLang(code))}
         />
       )}
-      <div style={{maxWidth:420,width:"100%"}}>
+      <div className="hm-narrow-form">
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
           <div style={{display:"flex",gap:6,flex:1}}>{[0,1,2,3].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#4ABEAA":i===step?"#2B3A67":"rgba(43,58,103,0.15)",maxWidth:40}}/>)}</div>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(43,58,103,0.08)",border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"#2B3A67",marginLeft:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
@@ -1538,7 +1623,8 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 }
 
 // ── Main App ──────────────────────────────────────────────────
-function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; trialEndsAt?: string | null }) {
+function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onTokenUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; onTokenUpdate?: (t: string) => void; trialEndsAt?: string | null }) {
+  const { t: tHome } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const showToast = (text: string, kind: ToastKind = "ok", undo?: () => void, undoLabel?: string) => {
     const trimmed = text.trim();
@@ -1548,16 +1634,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
     window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
   };
   const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
+  const displayName = String(profile.name || "").trim();
+  const displayInitial = displayName ? displayName.charAt(0).toUpperCase() : "?";
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
+  const [helpMessage, setHelpMessage] = useState("");
+  const homeLng = homeDisplayLocale(lang);
+  const helpFaqItems = useMemo(() => {
+    const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
+    return Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
+  }, [tHome, homeLng]);
+  const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
+  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "+30 210 928 7700");
+  const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287700");
+  const helpAddress = String(tHome("footer.address", { lng: homeLng }) || "");
+
+  useEffect(() => {
+    document.body.classList.add("hm-app-active");
+    return () => document.body.classList.remove("hm-app-active");
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
       .then(res => {
         if (res.data?.gamification) setGamification(res.data.gamification);
+        if (typeof res.data?.email === "string") setAccountEmail(res.data.email.trim());
       })
       .catch(() => {});
   }, [token]);
@@ -1618,33 +1724,73 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
   const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [showHelpSupport, setShowHelpSupport] = useState(false);
+  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
-  const [editPhone, setEditPhone] = useState(() => profile.phone || "");
-  const [editAddress, setEditAddress] = useState(() => profile.address || "");
-  const [editCity, setEditCity] = useState(() => profile.city || "");
-  const [editPostal, setEditPostal] = useState(() => profile.postalCode || "");
+  const [editPhoto, setEditPhoto] = useState<string | null>(null);
+  const [editNewPassword, setEditNewPassword] = useState("");
+  const [editConfirmPassword, setEditConfirmPassword] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const profilePhotoRef = useRef<HTMLInputElement>(null);
+
+  const openProfileEditForm = () => {
+    setEditName(profile.name || "");
+    setEditNewPassword("");
+    setEditConfirmPassword("");
+    setEditPhoto(familyData.selfPhoto || null);
+    setShowProfileEdit(true);
+  };
+
   const saveProfileEdit = async () => {
+    const nextName = editName.trim() || profile.name;
+    const newPw = editNewPassword.trim();
+    const confirmPw = editConfirmPassword.trim();
+    if (newPw || confirmPw) {
+      if (newPw.length < 6) {
+        showToast(lang === "el" ? "Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες." : "Password must be at least 6 characters.", "err");
+        return;
+      }
+      if (newPw !== confirmPw) {
+        showToast(lang === "el" ? "Οι κωδικοί δεν ταιριάζουν." : "Passwords do not match.", "err");
+        return;
+      }
+    }
     setEditSaving(true);
-    const updated: Profile = {
-      ...profile,
-      name: editName.trim() || profile.name,
-      phone: editPhone.trim() || undefined,
-      address: editAddress.trim() || undefined,
-      city: editCity.trim() || undefined,
-      postalCode: editPostal.trim() || undefined,
-    };
+    const updated: Profile = { ...profile, name: nextName };
     try {
       await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
-      localStorage.setItem(sk(token,"profile"), JSON.stringify(updated));
+      localStorage.setItem(sk(token, "profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
+      if (editPhoto !== (familyData.selfPhoto || null)) {
+        setFamilyData((cur) => {
+          const next = { ...cur };
+          if (editPhoto) next.selfPhoto = editPhoto;
+          else delete next.selfPhoto;
+          return next;
+        });
+      }
+      if (newPw) {
+        const res = await axios.post(
+          `${API}/auth/change-password`,
+          { password: newPw },
+          { headers: { "x-token": token } },
+        );
+        const nextToken = res.data?.token;
+        if (typeof nextToken === "string" && nextToken) {
+          localStorage.setItem(TOKEN_KEY, nextToken);
+          onTokenUpdate?.(nextToken);
+        }
+      }
       showToast(t("profile_saved", lang), "ok");
       track("submit", appPath("profile", "save"), "Save profile");
+      setEditNewPassword("");
+      setEditConfirmPassword("");
       setShowProfileEdit(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
-      showToast(msg || t("save_failed", lang), "err");
+    } catch (e: any) {
+      const msg = apiDetail(e?.response?.data, (e instanceof Error ? e.message : "") || t("save_failed", lang));
+      showToast(msg, "err");
     } finally {
       setEditSaving(false);
     }
@@ -1680,6 +1826,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
   };
   const [showAddMember, setShowAddMember] = useState(false); const [newMemberName, setNewMemberName] = useState(""); const [newMemberRole, setNewMemberRole] = useState("Partner"); const [newMemberRelatedTo, setNewMemberRelatedTo] = useState(RELATED_TO_SELF); const [newMemberEmail, setNewMemberEmail] = useState(""); const [newMemberPhone, setNewMemberPhone] = useState(""); const [newMemberBirthDate, setNewMemberBirthDate] = useState(""); const [newMemberNote, setNewMemberNote] = useState("");
   const [showAddChild, setShowAddChild] = useState(false); const [newChildName, setNewChildName] = useState(""); const [newChildBirthDate, setNewChildBirthDate] = useState("");
+  const [newChildDateMode, setNewChildDateMode] = useState<"birth"|"due">("birth");
+  const [newChildGender, setNewChildGender] = useState<"girl"|"boy"|"surprise"|"">("");
+  const openAddChildForm = () => {
+    setNewChildName("");
+    setNewChildBirthDate("");
+    setNewChildDateMode("birth");
+    setNewChildGender("");
+    setShowAddChild(true);
+  };
   const [showAddPet, setShowAddPet] = useState(false); const [newPetName, setNewPetName] = useState(""); const [newPetNote, setNewPetNote] = useState("");
   const [showMyFamily, setShowMyFamily] = useState(true);
   const [treeEdit, setTreeEdit] = useState<LaidOutNode | null>(null);
@@ -2043,6 +2198,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           message: text,
           history: messages.slice(-12),
           profile: {
+            name: displayName || profile.name || null,
             childName: profile.childName,
             childAge: profile.childAge,
             childBirthDate: profile.childBirthDate || null,
@@ -2060,8 +2216,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       );
       setMessages([...next, { role: "assistant", content: res.data.reply, promo: res.data.promo || null }]);
     } catch (err: any) {
-      if (err.response?.status === 401) onLogout();
-      else if (err.response?.status === 402) onExpired();
+      if (err.response?.status === 401) {
+        const msg = lang === "el"
+          ? "Η σύνδεσή σου έληξε ή δεν είναι έγκυρη. Συνδέσου ξανά για να μιλήσεις με την HeyMaa."
+          : "Your session expired or is invalid. Please sign in again to chat with HeyMaa.";
+        setMessages([...next, { role: "assistant", content: msg }]);
+        showToast(msg, "err");
+        window.setTimeout(() => onLogout(), 1200);
+      } else if (err.response?.status === 402) onExpired();
       else {
         const detail = apiDetail(err.response?.data, "");
         const network = !err.response && (err.code === "ECONNABORTED" || /timeout/i.test(String(err.message || "")));
@@ -2342,20 +2504,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   const addChild = () => {
     if(!newChildName.trim()||!newChildBirthDate)return;
+    if(!newChildGender){
+      showToast(lang==="el"?"Επίλεξε φύλο.":"Select gender.", "err");
+      return;
+    }
     track("submit", appPath("family", "add-child"), "Add child");
-    const updatedChildren = [...familyChildren, {name:newChildName.trim(),birthDate:newChildBirthDate}];
+    const updatedChildren = [...familyChildren, {
+      name: newChildName.trim(),
+      birthDate: newChildBirthDate,
+      gender: newChildGender,
+    }];
     setFamilyData((prev) => ({ ...prev, children: updatedChildren }));
     const updatedProfile: Profile = {
       ...profile,
-      children: updatedChildren,
+      children: updatedChildren.map(({name, birthDate}) => ({name, birthDate})),
       childName: updatedChildren[0]?.name || profile.childName,
       childBirthDate: updatedChildren[0]?.birthDate || profile.childBirthDate,
       childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : profile.childAge,
-      pregnancyStatus: profile.dueDate ? "completed" : profile.pregnancyStatus,
+      pregnancyStatus: newChildDateMode === "birth" && profile.dueDate ? "completed" : profile.pregnancyStatus,
+      ...(newChildDateMode === "due" ? { dueDate: newChildBirthDate, pregnancyStatus: "active" as const } : {}),
     };
     onProfileUpdate(updatedProfile);
     void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
-    setNewChildName(""); setNewChildBirthDate(""); setShowAddChild(false);
+    setNewChildName(""); setNewChildBirthDate(""); setNewChildGender(""); setNewChildDateMode("birth"); setShowAddChild(false);
+    showToast(lang==="el"?"Το παιδί προστέθηκε":"Child added", "ok");
   };
 
   const deleteFamilyMember = (index: number) => {
@@ -2653,30 +2825,639 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 
   return (
     <>
-    <div dir={dir} style={{fontFamily:"'DM Sans',sans-serif",height:"100vh",display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto",background:cream}}>
+    <div dir={dir} className="hm-app-shell" style={{fontFamily:"'DM Sans',sans-serif",background:cream}}>
 
-      {/* PROFILE EDIT MODAL */}
-      {showProfileEdit&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:520,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)",maxHeight:"90vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</div>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Όνομα":"Name", lang)}</label>
-          <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Τηλέφωνο":"Phone", lang)}</label>
-          <input value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+30 69..." style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-          <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Διεύθυνση":"Address", lang)}</label>
-          <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
-            <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+      {/* PROFILE SETTINGS MENU */}
+      {showProfileSettings&&(
+        <div
+          className="hm-overlay"
+          onClick={e=>{ if(e.target===e.currentTarget) setShowProfileSettings(false); }}
+          style={{zIndex:515}}
+        >
+          <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:24,padding:"18px 16px 16px",boxShadow:"0 12px 40px rgba(43,58,103,.18)"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14}}>
+              <button
+                type="button"
+                aria-label={lang==="el"?"Πίσω":"Back"}
+                onClick={()=>setShowProfileSettings(false)}
+                style={{
+                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
+                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
+                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1,paddingTop:6}}>
+                <img src={AUTH_LOGO_SRC} alt="" style={{width:22,height:22,borderRadius:"50%",objectFit:"cover"}} />
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:700,color:navy}}>
+                  {lang==="el"?"Ρυθμίσεις":"Settings"}
+                </span>
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {[
+                {
+                  key: "edit",
+                  icon: "✏️",
+                  title: lang==="el"?"Επεξεργασία προφίλ":"Edit profile",
+                  subtitle: lang==="el"?"Όνομα, email, κωδικός":"Name, email, password",
+                  onClick: () => {
+                    setShowProfileSettings(false);
+                    openProfileEditForm();
+                  },
+                },
+                {
+                  key: "sub",
+                  icon: "💳",
+                  title: lang==="el"?"Συνδρομή":"Subscription",
+                  subtitle: lang==="el"?"Πλάνα, πληρωμές, ανανέωση":"Plans, billing, renew",
+                  onClick: () => {
+                    setShowProfileSettings(false);
+                    setShowSubscriptionSheet(true);
+                  },
+                },
+                {
+                  key: "help",
+                  icon: "💬",
+                  title: lang==="el"?"Βοήθεια & υποστήριξη":"Help & support",
+                  subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
+                  onClick: () => {
+                    setShowProfileSettings(false);
+                    setOpenHelpFaq({ 0: true });
+                    setHelpMessage("");
+                    setShowHelpSupport(true);
+                  },
+                },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={item.onClick}
+                  style={{
+                    width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 14px",
+                    border:"none",borderRadius:16,background:"#FFF3E8",cursor:"pointer",
+                    fontFamily:"'DM Sans',sans-serif",textAlign:"left",
+                  }}
+                >
+                  <span style={{fontSize:18,lineHeight:1,width:24,textAlign:"center",flexShrink:0}} aria-hidden="true">{item.icon}</span>
+                  <span style={{flex:1,minWidth:0}}>
+                    <span style={{display:"block",fontSize:14,fontWeight:700,color:navy,lineHeight:1.25}}>{item.title}</span>
+                    <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.5)",marginTop:3,lineHeight:1.3}}>{item.subtitle}</span>
+                  </span>
+                  <span style={{color:"rgba(43,58,103,.3)",fontSize:18,lineHeight:1,flexShrink:0}}>›</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:editSaving?0.6:1}}>{editSaving?t("saving",lang):t("save_ok",lang)}</button>
-          <button onClick={()=>setShowProfileEdit(false)} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
         </div>
-      </div>}
+      )}
+
+      {/* HELP & SUPPORT POPUP */}
+      {showHelpSupport&&(
+        <div
+          className="hm-overlay"
+          onClick={e=>{ if(e.target===e.currentTarget) setShowHelpSupport(false); }}
+        >
+          <div className="hm-dialog hm-dialog--md" style={{
+            background:cream,borderRadius:24,padding:"16px 16px 20px",
+            boxShadow:"0 12px 40px rgba(43,58,103,.18)",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16}}>
+              <button
+                type="button"
+                aria-label={lang==="el"?"Πίσω":"Back"}
+                onClick={()=>setShowHelpSupport(false)}
+                style={{
+                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
+                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
+                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:18,fontWeight:700,color:navy}}>
+                  {lang==="el"?"Βοήθεια & υποστήριξη":"Help & support"}
+                </div>
+                <p style={{margin:"4px 0 0",fontSize:13,color:"rgba(43,58,103,.55)"}}>
+                  {lang==="el"?"Είμαστε εδώ για σένα":"We're here for you"}
+                </p>
+              </div>
+            </div>
+
+            <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+              {displayUppercase(tHome("faq.label", { lng: homeLng }) || (lang==="el"?"Συχνές ερωτήσεις":"FAQ"), lang)}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {helpFaqItems.map((item, i) => {
+                const open = !!openHelpFaq[i];
+                return (
+                  <div key={item.question} style={{background:"#fff",borderRadius:14,overflow:"hidden",boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}>
+                    <button
+                      type="button"
+                      onClick={()=>setOpenHelpFaq(prev=>({...prev,[i]:!open}))}
+                      style={{
+                        width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
+                        padding:"12px 14px",border:"none",background:"#fff",cursor:"pointer",
+                        fontFamily:"'DM Sans',sans-serif",textAlign:"left",
+                      }}
+                    >
+                      <span style={{fontSize:13.5,fontWeight:600,color:navy,lineHeight:1.35}}>{item.question}</span>
+                      <span style={{color:"rgba(43,58,103,.35)",fontSize:18,lineHeight:1,flexShrink:0,transform:open?"rotate(90deg)":"none"}}>›</span>
+                    </button>
+                    {open ? (
+                      <div style={{padding:"0 14px 12px",fontSize:13,color:"rgba(43,58,103,.65)",lineHeight:1.55}}>
+                        {item.answer}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+              {displayUppercase(lang==="el"?"Στείλε μας μήνυμα":"Send us a message", lang)}
+            </div>
+            <textarea
+              value={helpMessage}
+              onChange={e=>setHelpMessage(e.target.value)}
+              placeholder={lang==="el"?"Γράψε την ερώτησή σου εδώ...":"Write your question here..."}
+              rows={4}
+              style={{
+                width:"100%",boxSizing:"border-box",padding:"12px 14px",border:"none",borderRadius:14,
+                background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,color:navy,outline:"none",
+                resize:"vertical",marginBottom:10,boxShadow:"0 1px 4px rgba(43,58,103,.06)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={()=>{
+                const body = helpMessage.trim();
+                if (!body) {
+                  showToast(lang==="el"?"Γράψε πρώτα το μήνυμά σου.":"Write your message first.", "err");
+                  return;
+                }
+                window.open(`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}&body=${encodeURIComponent(body)}`);
+              }}
+              style={{
+                width:"100%",padding:13,background:navy,color:"#fff",border:"none",borderRadius:14,
+                fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,
+              }}
+            >
+              {lang==="el"?"Αποστολή μηνύματος":"Send message"}
+            </button>
+
+            <div style={{
+              background:"#fff",borderRadius:16,padding:"14px 14px",marginBottom:8,
+              boxShadow:"0 1px 4px rgba(43,58,103,.06)",
+            }}>
+              <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:10}}>
+                {displayUppercase(lang==="el"?"Επικοινωνία":"Contact", lang)}
+              </div>
+              <a
+                href={`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}`}
+                style={{display:"flex",alignItems:"center",gap:10,textDecoration:"none",color:navy,marginBottom:10}}
+              >
+                <span style={{width:34,height:34,borderRadius:10,background:"#FFF3E8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">✉️</span>
+                <span>
+                  <span style={{display:"block",fontSize:13,fontWeight:700}}>Email</span>
+                  <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.55)",marginTop:2}}>{helpEmail}</span>
+                </span>
+              </a>
+              <a
+                href={`tel:${helpPhoneTel}`}
+                style={{display:"flex",alignItems:"center",gap:10,textDecoration:"none",color:navy,marginBottom:helpAddress?10:0}}
+              >
+                <span style={{width:34,height:34,borderRadius:10,background:"rgba(74,190,170,.16)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">📞</span>
+                <span>
+                  <span style={{display:"block",fontSize:13,fontWeight:700}}>{lang==="el"?"Τηλέφωνο":"Phone"}</span>
+                  <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.55)",marginTop:2}}>{helpPhone}</span>
+                </span>
+              </a>
+              {helpAddress ? (
+                <div style={{display:"flex",alignItems:"flex-start",gap:10,color:"rgba(43,58,103,.7)"}}>
+                  <span style={{width:34,height:34,borderRadius:10,background:"rgba(43,58,103,.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">📍</span>
+                  <span style={{fontSize:12,lineHeight:1.45,paddingTop:6}}>{helpAddress}</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROFILE EDIT — popup screen */}
+      {showProfileEdit&&(
+        <div
+          className="hm-overlay"
+          onClick={e=>{ if(e.target===e.currentTarget) setShowProfileEdit(false); }}
+        >
+          <div className="hm-dialog hm-dialog--md" style={{
+            background:cream,borderRadius:24,padding:"18px 20px 22px",
+            fontFamily:"'DM Sans',sans-serif",
+            boxShadow:"0 12px 40px rgba(43,58,103,.18)",
+          }}>
+            <input
+              ref={profilePhotoRef}
+              type="file"
+              accept="image/*"
+              style={{display:"none"}}
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  const photo = await readPhotoFile(f);
+                  setEditPhoto(photo);
+                } catch { /* ignore */ }
+              }}
+            />
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:18}}>
+              <button
+                type="button"
+                aria-label={lang==="el"?"Πίσω":"Back"}
+                onClick={()=>setShowProfileEdit(false)}
+                style={{
+                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
+                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
+                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div style={{minWidth:0,flex:1}}>
+                <h1 style={{margin:0,fontSize:20,fontWeight:700,color:navy,letterSpacing:-0.3}}>
+                  {lang==="el"?"Επεξεργασία προφίλ":"Edit profile"}
+                </h1>
+                <p style={{margin:"4px 0 0",fontSize:13,color:"rgba(43,58,103,.55)"}}>
+                  {lang==="el"?"Ενημέρωσε τα στοιχεία σου":"Update your details"}
+                </p>
+              </div>
+            </div>
+
+            <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
+              <div style={{position:"relative",width:108,height:108}}>
+                <div style={{
+                  width:108,height:108,borderRadius:"50%",overflow:"hidden",background:"#fff",
+                  boxShadow:"0 8px 24px rgba(43,58,103,0.08)",display:"flex",alignItems:"center",justifyContent:"center",
+                }}>
+                  {editPhoto ? (
+                    <img src={editPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                  ) : (
+                    <img src={AUTH_LOGO_SRC} alt="HeyMaa" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",transform:"scale(1.05)"}} />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label={lang==="el"?"Αλλαγή φωτογραφίας":"Change photo"}
+                  onClick={()=>profilePhotoRef.current?.click()}
+                  style={{
+                    position:"absolute",right:2,bottom:2,width:34,height:34,borderRadius:"50%",
+                    border:"2px solid #fff",background:navy,color:"#fff",cursor:"pointer",
+                    display:"flex",alignItems:"center",justifyContent:"center",padding:0,
+                    boxShadow:"0 2px 8px rgba(43,58,103,.25)",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {([
+              {
+                key: "name",
+                label: lang==="el"?"Όνομα":"Name",
+                node: (
+                  <input
+                    value={editName}
+                    onChange={e=>setEditName(e.target.value)}
+                    placeholder={lang==="el"?"Το όνομά σου":"Your name"}
+                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
+                  />
+                ),
+              },
+              {
+                key: "email",
+                label: "Email",
+                node: (
+                  <input
+                    value={accountEmail}
+                    readOnly
+                    placeholder="email@example.com"
+                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:"rgba(43,58,103,.55)",boxShadow:"0 1px 4px rgba(43,58,103,.06)",cursor:"default"}}
+                  />
+                ),
+              },
+              {
+                key: "new_pw",
+                label: lang==="el"?"Νέος κωδικός":"New password",
+                hint: lang==="el"?"Άφησέ το κενό αν δεν θέλεις να αλλάξεις κωδικό":"Leave blank if you don't want to change password",
+                node: (
+                  <input
+                    type="password"
+                    value={editNewPassword}
+                    onChange={e=>setEditNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
+                  />
+                ),
+              },
+              {
+                key: "confirm_pw",
+                label: lang==="el"?"Επιβεβαίωση κωδικού":"Confirm password",
+                node: (
+                  <input
+                    type="password"
+                    value={editConfirmPassword}
+                    onChange={e=>setEditConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
+                  />
+                ),
+              },
+            ] as {key:string;label:string;hint?:string;node:React.ReactNode}[]).map(field => (
+              <div key={field.key} style={{marginBottom:16}}>
+                <label style={{display:"block",fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+                  {displayUppercase(field.label, lang)}
+                </label>
+                {field.node}
+                {field.hint ? (
+                  <div style={{fontSize:12,color:"rgba(43,58,103,.45)",marginTop:8,lineHeight:1.4}}>{field.hint}</div>
+                ) : null}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={saveProfileEdit}
+              disabled={editSaving}
+              style={{
+                width:"100%",padding:14,marginTop:4,background:navy,color:"#fff",border:"none",borderRadius:14,
+                fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:editSaving?"default":"pointer",opacity:editSaving?0.6:1,
+              }}
+            >
+              {editSaving ? t("saving", lang) : t("save_ok", lang)}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ADD CHILD — in-app screen */}
+      {showAddChild&&(
+        <div className="hm-sheet-overlay">
+          <div className="hm-sheet-panel" style={{background:cream}}>
+            <div style={{flex:1,overflowY:"auto",padding:"16px 20px 12px",boxSizing:"border-box"}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:22}}>
+                <button
+                  type="button"
+                  aria-label={lang==="el"?"Πίσω":"Back"}
+                  onClick={()=>{
+                    setShowAddChild(false);
+                    setNewChildName("");
+                    setNewChildBirthDate("");
+                    setNewChildGender("");
+                    setNewChildDateMode("birth");
+                  }}
+                  style={{
+                    width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
+                    background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
+                    justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <div style={{minWidth:0,flex:1}}>
+                  <h1 style={{margin:0,fontSize:26,fontWeight:700,color:navy,letterSpacing:-0.4,lineHeight:1.15}}>
+                    {lang==="el"?"Πρόσθεσε παιδί":"Add a child"}
+                  </h1>
+                  <p style={{margin:"8px 0 0",fontSize:14,color:"rgba(43,58,103,.55)",lineHeight:1.4}}>
+                    {lang==="el"?"Συμπλήρωσε τα βασικά στοιχεία":"Fill in the basic details"}
+                  </p>
+                </div>
+              </div>
+
+              {/* 1. Name */}
+              <div style={{marginBottom:22}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{
+                    width:22,height:22,borderRadius:"50%",background:navy,color:"#fff",
+                    display:"inline-flex",alignItems:"center",justifyContent:"center",
+                    fontSize:12,fontWeight:700,flexShrink:0,
+                  }}>1</span>
+                  <span style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6}}>
+                    {displayUppercase(lang==="el"?"Όνομα / χαϊδευτικό μωρού":"Name / baby nickname", lang)}
+                  </span>
+                </div>
+                <input
+                  value={newChildName}
+                  onChange={e=>setNewChildName(e.target.value)}
+                  placeholder={lang==="el"?"π.χ. Μάνος":"e.g. Manos"}
+                  style={{
+                    width:"100%",padding:"14px 16px",border:"1.5px solid rgba(43,58,103,.12)",
+                    borderRadius:14,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,
+                    outline:"none",boxSizing:"border-box" as any,color:navy,
+                  }}
+                />
+              </div>
+
+              {/* 2. Birth / due date */}
+              <div style={{marginBottom:22}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{
+                    width:22,height:22,borderRadius:"50%",background:navy,color:"#fff",
+                    display:"inline-flex",alignItems:"center",justifyContent:"center",
+                    fontSize:12,fontWeight:700,flexShrink:0,
+                  }}>2</span>
+                  <span style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6}}>
+                    {displayUppercase(
+                      newChildDateMode==="due"
+                        ? (lang==="el"?"Ημερομηνία τοκετού":"Due date")
+                        : (lang==="el"?"Ημερομηνία γέννησης":"Date of birth"),
+                      lang,
+                    )}
+                  </span>
+                </div>
+                <div style={{
+                  display:"flex",background:"rgba(43,58,103,.06)",borderRadius:12,padding:3,marginBottom:10,gap:2,
+                }}>
+                  {([
+                    { id: "birth" as const, label: lang==="el"?"Επιλογή ημερομηνίας":"Select date" },
+                    { id: "due" as const, label: lang==="el"?"Ημ. Τοκετού":"Due date" },
+                  ]).map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={()=>setNewChildDateMode(opt.id)}
+                      style={{
+                        flex:1,padding:"10px 8px",border:"none",borderRadius:10,cursor:"pointer",
+                        fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,
+                        background: newChildDateMode===opt.id ? "#fff" : "transparent",
+                        color: newChildDateMode===opt.id ? navy : "rgba(43,58,103,.5)",
+                        boxShadow: newChildDateMode===opt.id ? "0 1px 4px rgba(43,58,103,.08)" : "none",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <label
+                  style={{
+                    position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
+                    width:"100%",padding:"14px 16px",borderRadius:14,background:"#F2E6DC",
+                    boxSizing:"border-box" as any,cursor:"pointer",overflow:"hidden",
+                  }}
+                >
+                  <span style={{
+                    fontSize:15,color: newChildBirthDate ? navy : "rgba(43,58,103,.4)",
+                    fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5,pointerEvents:"none",
+                  }}>
+                    {newChildBirthDate
+                      ? (() => {
+                          const [y, m, d] = newChildBirthDate.split("-");
+                          return y && m && d ? `${d} / ${m} / ${y}` : newChildBirthDate;
+                        })()
+                      : "dd / mm / yyyy"}
+                  </span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{flexShrink:0,opacity:0.55,pointerEvents:"none"}}>
+                    <rect x="3" y="5" width="18" height="16" rx="2" stroke={navy} strokeWidth="1.6"/>
+                    <path d="M3 9h18M8 3v4M16 3v4" stroke={navy} strokeWidth="1.6" strokeLinecap="round"/>
+                  </svg>
+                  <input
+                    type="date"
+                    value={newChildBirthDate}
+                    onChange={e=>setNewChildBirthDate(e.target.value)}
+                    style={{
+                      position:"absolute",inset:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",
+                      fontSize:16,
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* 3. Gender */}
+              <div style={{marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{
+                    width:22,height:22,borderRadius:"50%",background:navy,color:"#fff",
+                    display:"inline-flex",alignItems:"center",justifyContent:"center",
+                    fontSize:12,fontWeight:700,flexShrink:0,
+                  }}>3</span>
+                  <span style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6}}>
+                    {displayUppercase(lang==="el"?"Φύλο":"Gender", lang)}
+                  </span>
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  {([
+                    {
+                      id: "girl" as const,
+                      label: lang==="el"?"Κορίτσι":"Girl",
+                      accent: "#E8A0B8",
+                      icon: (
+                        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                          <circle cx="24" cy="14" r="7" fill="#F5C6D4"/>
+                          <path d="M12 42c0-8 5.5-14 12-14s12 6 12 14" fill="#F5C6D4"/>
+                          <path d="M18 28h12l2 14H16l2-14z" fill="#E891A8"/>
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "boy" as const,
+                      label: lang==="el"?"Αγόρι":"Boy",
+                      accent: "#7EB8E8",
+                      icon: (
+                        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                          <circle cx="24" cy="14" r="7" fill="#A8D0F0"/>
+                          <path d="M14 28h20v6c0 4-4 8-10 8s-10-4-10-8v-6z" fill="#7EB8E8"/>
+                          <rect x="16" y="34" width="6" height="10" rx="1" fill="#5A9FD4"/>
+                          <rect x="26" y="34" width="6" height="10" rx="1" fill="#5A9FD4"/>
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "surprise" as const,
+                      label: lang==="el"?"Έκπληξη":"Surprise",
+                      accent: "#C4A0E8",
+                      icon: (
+                        <svg width="36" height="36" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                          <rect x="10" y="20" width="28" height="20" rx="3" fill="#C4A0E8"/>
+                          <path d="M10 28h28" stroke="#fff" strokeWidth="3"/>
+                          <path d="M24 20v20" stroke="#fff" strokeWidth="3"/>
+                          <path d="M18 20c0-4 3-7 6-7s4 2 4 4c0 3-4 5-4 5" stroke="#B07AD9" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+                          <path d="M30 20c0-4-3-7-6-7s-4 2-4 4" stroke="#B07AD9" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+                        </svg>
+                      ),
+                    },
+                  ]).map(g => {
+                    const selected = newChildGender === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={()=>setNewChildGender(g.id)}
+                        style={{
+                          flex:1,padding:"14px 8px 12px",borderRadius:14,cursor:"pointer",
+                          background:"#fff",
+                          border: selected ? `2px solid ${g.accent}` : "1.5px solid rgba(43,58,103,.1)",
+                          boxShadow: selected ? `0 0 0 3px ${g.accent}33` : "0 1px 4px rgba(43,58,103,.04)",
+                          display:"flex",flexDirection:"column",alignItems:"center",gap:8,
+                          fontFamily:"'DM Sans',sans-serif",
+                        }}
+                      >
+                        {g.icon}
+                        <span style={{fontSize:13,fontWeight:600,color:navy}}>{g.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div style={{flexShrink:0,padding:"12px 20px 20px",background:cream}}>
+              <button
+                type="button"
+                onClick={addChild}
+                disabled={!newChildName.trim()||!newChildBirthDate||!newChildGender}
+                style={{
+                  width:"100%",padding:16,background:
+                    (!newChildName.trim()||!newChildBirthDate||!newChildGender) ? "rgba(43,58,103,.35)" : navy,
+                  color:"#fff",border:"none",borderRadius:16,
+                  fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:700,cursor:
+                    (!newChildName.trim()||!newChildBirthDate||!newChildGender) ? "default" : "pointer",
+                }}
+              >
+                {lang==="el"?"Αποθήκευση":"Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSubscriptionSheet && (
+        <InAppSubscriptionSheet
+          token={token}
+          lang={lang}
+          trialEndsAt={trialEndsAt}
+          onClose={() => setShowSubscriptionSheet(false)}
+        />
+      )}
 
       {/* ADDRESS MODAL */}
-      {showAddressModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.55)",zIndex:510,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:"#fff",borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
+      {showAddressModal&&<div className="hm-overlay" style={{zIndex:510,background:"rgba(43,58,103,.55)"}}>
+        <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:20,padding:24,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
           <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
@@ -2707,8 +3488,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       )}
 
       {/* ARCHIVE MODAL */}
-      {showArchiveModal&&<div style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:"#fff",borderRadius:18,padding:24,width:"100%",maxWidth:380}}>
+      {showArchiveModal&&<div className="hm-overlay" style={{zIndex:500,background:"rgba(43,58,103,.5)"}}>
+        <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:18,padding:24}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
           <input value={archiveTitle} onChange={e=>setArchiveTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doArchive()} placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."} style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${gl}`,borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12}} autoFocus/>
@@ -2720,8 +3501,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       </div>}
 
       {/* PAST THREADS PANEL */}
-      {showThreads&&<div onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{position:"fixed",inset:0,background:"rgba(43,58,103,.5)",zIndex:500,display:"flex",alignItems:"flex-end"}}>
-        <div style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,width:"100%",maxHeight:"70vh",overflowY:"auto"}}>
+      {showThreads&&<div className="hm-overlay hm-overlay--bottom" onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{zIndex:500,background:"rgba(43,58,103,.5)",padding:0}}>
+        <div className="hm-threads-sheet" style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,maxHeight:"70vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
           {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
           {threads.map(th=>(
@@ -2764,13 +3545,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {trialEndingSoon && trialNudgeOpen && (
         <div
           role="status"
+          className="hm-floating-banner"
           style={{
             position: "fixed",
-            left: 12,
-            right: 12,
             bottom: 72,
-            maxWidth: 456,
-            margin: "0 auto",
             zIndex: 580,
             background: "#2A2A5A",
             color: "#fff",
@@ -2780,6 +3558,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             display: "flex",
             flexDirection: "column",
             gap: 12,
+            boxSizing: "border-box",
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -2860,14 +3639,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
         </div>
       )}
       {/* HEADER */}
-      <div style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{profile.name}</span> 👋</div>
+      <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
+        <div style={{color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{displayName || "…"}</span> 👋</div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:999,padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>
-            {profile.name[0]?.toUpperCase()||"M"}
+            {displayInitial}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
-              <button onClick={()=>{setShowAccountMenu(false);setEditName(profile.name||"");setEditPhone(profile.phone||"");setEditAddress(profile.address||"");setEditCity(profile.city||"");setEditPostal(profile.postalCode||"");setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
+              <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
               <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
               <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
@@ -2898,67 +3677,217 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       )}
 
       {/* BODY */}
-      <div style={{flex:1,overflowY:"auto",padding:16}}>
+      <div className="hm-app-body">
 
                 {tab==="profile"&&(
-          <div style={{...card}}>
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:16}}>✏️ {lang==="el"?"Προφίλ":"Profile"}</div>
-            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Όνομα":"Name", lang)}</label>
-            <input value={editName} onChange={e=>setEditName(e.target.value)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Τηλέφωνο":"Phone", lang)}</label>
-            <input value={editPhone} onChange={e=>setEditPhone(e.target.value)} placeholder="+30 69..." style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12,marginTop:4,color:"#2B3A67"}}/>
-            <label style={{fontSize:12,color:"rgba(43,58,103,.5)",fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5}}>{displayUppercase(lang==="el"?"Διεύθυνση":"Address", lang)}</label>
-            <input value={editAddress} onChange={e=>setEditAddress(e.target.value)} placeholder={lang==="el"?"Οδός και αριθμός":"Street & number"} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:8,marginTop:4,color:"#2B3A67"}}/>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <input value={editCity} onChange={e=>setEditCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
-              <input value={editPostal} onChange={e=>setEditPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
+              <div style={{
+                width:62,height:62,borderRadius:"50%",border:"none",boxSizing:"border-box",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                boxShadow:"0 8px 24px rgba(43,58,103,0.08)",overflow:"hidden",background:"#fff",
+              }}>
+                <img
+                  src={AUTH_LOGO_SRC}
+                  alt="HeyMaa"
+                  style={{display:"block",width:"100%",height:"100%",objectFit:"cover",transform:"scale(1.05)"}}
+                />
+              </div>
             </div>
-            <button onClick={saveProfileEdit} disabled={editSaving} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",opacity:editSaving?0.6:1}}>{editSaving?t("saving",lang):t("save_ok",lang)}</button>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+              <h1 style={{margin:0,fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:700,color:navy,letterSpacing:-0.3}}>
+                {lang==="el"?"Το προφίλ μου":"My profile"}
+              </h1>
+              <button
+                type="button"
+                aria-label={lang==="el"?"Ρυθμίσεις προφίλ":"Profile settings"}
+                onClick={()=>setShowProfileSettings(true)}
+                style={{
+                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",cursor:"pointer",
+                  background:"#fff",color:navy,display:"flex",alignItems:"center",justifyContent:"center",
+                  flexShrink:0,padding:0,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div style={{...card,marginBottom:0,display:"flex",alignItems:"center",gap:14,padding:"16px 18px"}}>
+              {familyData.selfPhoto ? (
+                <img
+                  src={familyData.selfPhoto}
+                  alt=""
+                  style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",flexShrink:0,display:"block"}}
+                />
+              ) : (
+                <div style={{
+                  width:64,height:64,borderRadius:"50%",background:"#8B7EC8",color:"#fff",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'DM Sans',sans-serif",fontSize:26,fontWeight:700,flexShrink:0,
+                }}>
+                  {displayInitial}
+                </div>
+              )}
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:700,color:navy,lineHeight:1.25}}>
+                  {displayName || (lang==="el"?"Χωρίς όνομα":"No name")}
+                </div>
+                {accountEmail ? (
+                  <div style={{fontSize:13,color:"rgba(43,58,103,.55)",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {accountEmail}
+                  </div>
+                ) : null}
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:10}}>
+                  {(familyChildren.length===0 && !pregnancyActive) && (
+                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(245,197,163,.55)",borderRadius:999,padding:"4px 10px"}}>
+                      {lang==="el"?"Θέλω παιδί":"Want a child"}
+                    </span>
+                  )}
+                  {pregnancyActive && (
+                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(74,190,170,.18)",borderRadius:999,padding:"4px 10px"}}>
+                      {lang==="el"?`Εγκυμοσύνη · εβδ. ${pregWeek}`:`Pregnancy · wk ${pregWeek}`}
+                    </span>
+                  )}
+                  <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(43,58,103,.08)",borderRadius:999,padding:"4px 10px"}}>
+                    {familyChildren.length} {lang==="el"?(familyChildren.length===1?"παιδί":"παιδιά"):(familyChildren.length===1?"child":"children")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:700,color:"rgba(43,58,103,.72)",letterSpacing:0.8}}>
+                  {displayUppercase(lang==="el"?"Τα παιδιά μου":"My children", lang)}
+                </div>
+                <button
+                  type="button"
+                  onClick={openAddChildForm}
+                  style={{background:"none",border:"none",color:navy,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",padding:0}}
+                >
+                  + {lang==="el"?"Προσθήκη":"Add"}
+                </button>
+              </div>
+              {familyChildren.length===0 ? (
+                <button
+                  type="button"
+                  onClick={openAddChildForm}
+                  style={{
+                    width:"100%",boxSizing:"border-box",border:"1.5px dashed rgba(43,58,103,.22)",
+                    borderRadius:14,padding:"28px 16px",background:"transparent",cursor:"pointer",
+                    display:"flex",flexDirection:"column",alignItems:"center",gap:8,
+                    color:"rgba(43,58,103,.45)",fontFamily:"'DM Sans',sans-serif",
+                  }}
+                >
+                  <span style={{fontSize:22,lineHeight:1,color:"rgba(43,58,103,.35)"}}>+</span>
+                  <span style={{fontSize:13,fontWeight:500}}>{lang==="el"?"Πρόσθεσε το πρώτο παιδί":"Add your first child"}</span>
+                </button>
+              ) : (
+                <div style={{...card,marginBottom:0,padding:0,overflow:"hidden"}}>
+                  {familyChildren.map((child, i) => (
+                    <div
+                      key={`${child.name}-${i}`}
+                      style={{
+                        display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                        borderBottom: i < familyChildren.length - 1 ? "1px solid "+gl : "none",
+                      }}
+                    >
+                      <div style={{
+                        width:40,height:40,borderRadius:"50%",background:gl,color:navy,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,
+                      }}>👶</div>
+                      <div style={{minWidth:0,flex:1}}>
+                        <div style={{fontWeight:600,fontSize:14,color:navy}}>{child.name}</div>
+                        <div style={{fontSize:12,color:"rgba(43,58,103,.5)",marginTop:2}}>
+                          {formatChildAge(child.birthDate, lang) || child.birthDate || "—"}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onLogout}
+              style={{
+                width:"100%",padding:"14px 12px",marginTop:4,border:"none",background:"transparent",
+                color:"#D64545",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
+                cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {lang==="el"?"Αποσύνδεση":"Log out"}
+            </button>
           </div>
         )}
 
         {/* ── CHAT ── */}
         {tab==="chat"&&(
-          <div style={{display:"flex",flexDirection:"column"}}>
+          <div className="hm-chat-column" style={{display:"flex",flexDirection:"column"}}>
             {/* Voice quota bar */}
             <div style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:"#7A7068",marginBottom:4}}>
                 <span>🔊 {t("voicequota",lang)}</span>
-                <span>{ttsRemaining}/{ttsQuotaTotal}</span>
+                <span>{ttsUsedSafe}/{ttsQuotaTotal}</span>
               </div>
               <div style={{height:6,borderRadius:99,background:gl,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${Math.round((ttsRemaining/ttsQuotaTotal)*100)}%`,background:ttsRemaining>0?teal:"#E07B54",borderRadius:99,transition:"width .3s"}}/>
+                <div style={{height:"100%",width:`${Math.min(100, Math.round((ttsUsedSafe/ttsQuotaTotal)*100))}%`,background:ttsRemaining>0?teal:"#E07B54",borderRadius:99,transition:"width .3s"}}/>
               </div>
             </div>
 
             {/* Chat toolbar */}
-            <div style={{display:"flex",gap:6,marginBottom:10}}>
-              <button onClick={()=>{if(messages.length>0)setShowArchiveModal(true);}} disabled={messages.length===0} style={{flex:1,padding:"7px 10px",background:messages.length>0?gl:"rgba(240,235,230,.4)",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,cursor:messages.length>0?"pointer":"default",color:messages.length>0?navy:"#C8BFB8",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                📁 {t("archivethread",lang)}
-              </button>
-              <button onClick={()=>{if(messages.length>0){setMessages([]);localStorage.setItem(sk(token,"chat"),"[]");}}} disabled={messages.length===0} style={{flex:1,padding:"7px 10px",background:messages.length>0?gl:"rgba(240,235,230,.4)",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,cursor:messages.length>0?"pointer":"default",color:messages.length>0?navy:"#C8BFB8",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                ✏️ {t("newthread",lang)}
-              </button>
-              {threads.length>0&&<button onClick={()=>setShowThreads(true)} style={{flex:1,padding:"7px 10px",background:gl,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,cursor:"pointer",color:navy,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                🗂️ {t("pastthreads",lang)}
-              </button>}
-            </div>
+            {threads.length>0&&(
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                <button onClick={()=>setShowThreads(true)} style={{flex:1,padding:"7px 10px",background:gl,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,cursor:"pointer",color:navy,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                  🗂️ {t("pastthreads",lang)}
+                </button>
+              </div>
+            )}
 
             {messages.length===0&&(
               <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
-                <div style={{width:52,height:52,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,margin:"0 auto 12px"}}>🐾</div>
-                <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {profile.name}, {t("chatgreet2",lang)}</div>
+                <div style={{margin:"0 auto 12px",width:52,height:52}}><HeyMaaAvatar size={52} /></div>
+                <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
               </div>
             )}
 
             {messages.map((msg,i)=>(
               <div key={i}>
-                {msg.role==="assistant"?(<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
-                  <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
-                  <div><div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}><button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button></div></div>
-                </div>):(<div style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,margin:"8px 0 8px 40px",lineHeight:1.5}}>{msg.content}</div>)}
-              {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 40px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
+                {msg.role==="assistant"?(
+                  <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                    <HeyMaaAvatar size={28} />
+                    <div style={{minWidth:0,flex:1}}>
+                      <div data-hm-bubble style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
+                      </div>
+                    </div>
+                  </div>
+                ):(
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"flex-end",gap:8,margin:"8px 0"}}>
+                    <div data-hm-bubble style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,lineHeight:1.5,maxWidth:"78%"}}>{msg.content}</div>
+                    <UserChatAvatar size={28} name={displayName} photo={familyData.selfPhoto} />
+                  </div>
+                )}
+              {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 36px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
                   {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{displayUppercase(msg.promo.badge, lang)}</span>}
                   <span style={{fontWeight:700,fontSize:12.5,color:"#2B3A67"}}>{msg.promo.title}</span>
@@ -2969,7 +3898,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
               </div>
             ))}
             {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true" aria-label="…">
-              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+              <HeyMaaAvatar size={28} />
               <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"center",minHeight:40,minWidth:52}}>
                 <span
                   aria-hidden="true"
@@ -2993,7 +3922,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
         {/* ── FAMILY ── */}
         {tab==="family"&&(<>
           <FamilyTreePanel
-            userName={profile.name}
+            userName={displayName || profile.name}
             lang={lang}
             familyChildren={familyChildren}
             members={familyData.members}
@@ -3011,7 +3940,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
               <div>
-                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {profile.name}! {t("chatgreet2",lang)}</div>
+                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
                 <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
               </div>
             </div>
@@ -3064,15 +3993,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 <button onClick={()=>deleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
               </div>);
             })}
-            {showAddChild&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
-              <input value={newChildName} onChange={e=>setNewChildName(e.target.value)} placeholder={t("childname",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-              <input value={newChildBirthDate} onChange={e=>setNewChildBirthDate(e.target.value)} type="date" placeholder={t("childbirthdate",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={addChild} disabled={!newChildName.trim()||!newChildBirthDate} style={{flex:1,padding:9,background:(!newChildName.trim()||!newChildBirthDate)?"#C8BFB8":navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:(!newChildName.trim()||!newChildBirthDate)?"default":"pointer"}}>{t("save",lang)}</button>
-                <button onClick={()=>{setShowAddChild(false);setNewChildName("");setNewChildBirthDate("");}} style={{flex:1,padding:9,background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
-              </div>
-            </div>}
-            <div onClick={()=>setShowAddChild(!showAddChild)} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
+            <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
             {familyData.members.filter(m=>classifyKinship(m.relationship)==="pet").map((m)=>{
               const i = familyData.members.indexOf(m);
               return (
@@ -3222,12 +4143,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
             <div
               role="dialog"
               aria-modal="true"
-              style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(24,28,42,.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}}
+              className="hm-overlay hm-overlay--bottom"
+              style={{zIndex:9998,background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
               onClick={()=>setTreeEdit(null)}
             >
               <div
+                className="hm-dialog hm-dialog--lg"
                 onClick={(e)=>e.stopPropagation()}
-                style={{width:"100%",maxWidth:420,background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8}}
+                style={{background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8,maxHeight:"min(85vh, 85dvh)"}}
               >
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
                   {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
@@ -3351,7 +4274,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("recentmem",lang)}</div>
           <MemoriesBookletPanel
             memories={memories}
-            userName={profile.name}
+            userName={displayName || profile.name}
             lang={lang}
             familyChildren={familyChildren}
             members={familyData.members}
@@ -3754,7 +4677,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       {/* LANG MISMATCH HINT */}
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
-      {tab==="chat"&&<div style={{display:"flex",gap:8,padding:"10px 16px",background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)",flexShrink:0,alignItems:"center"}}>
+      {tab==="chat"&&<div className="hm-app-composer" style={{background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)"}}>
+        <div className="hm-app-composer-inner" style={{display:"flex",gap:8,alignItems:"center",width:"100%"}}>
         {recording ? (
           <div
             aria-hidden="true"
@@ -3844,10 +4768,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
           <ChatMicIcon active={recording} />
         </button>
         <button onClick={()=>sendMessage(input)} disabled={loading||!input.trim()||recording} style={{width:36,height:36,borderRadius:"50%",background:navy,border:"none",color:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,opacity:(loading||!input.trim()||recording)?0.5:1}}>➤</button>
+        </div>
       </div>}
 
       {/* TAB BAR — floating dock like reference */}
-      <div style={{flexShrink:0,padding:"10px 14px 14px",background:cream}}>
+      <div className="hm-app-tabbar" style={{background:cream}}>
         <div
           style={{
             display: "flex",
@@ -3868,13 +4793,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                 key={tb.id}
                 type="button"
                 onClick={()=>{
-                  if (tb.id === "profile") {
-                    setEditName(profile.name || "");
-                    setEditPhone(profile.phone || "");
-                    setEditAddress(profile.address || "");
-                    setEditCity(profile.city || "");
-                    setEditPostal(profile.postalCode || "");
-                  }
                   setTab(tb.id);
                 }}
                 style={{
@@ -3928,6 +4846,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
                   </span>
                 )}
                 <span
+                  className="hm-tab-label"
                   style={{
                     fontSize: 9,
                     lineHeight: 1.15,
@@ -3952,7 +4871,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
       </div>
     </div>
     {toasts.length > 0 && (
-      <div aria-live="polite" style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10,pointerEvents:"none",maxWidth:"min(420px, calc(100vw - 32px))"}}>
+      <div aria-live="polite" className="hm-toast-stack" style={{position:"fixed",zIndex:9999,display:"flex",flexDirection:"column",gap:10,pointerEvents:"none"}}>
         {toasts.map(toastItem => (
           <div key={toastItem.id} role="status" style={{
             pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"12px 14px", borderRadius:12,
@@ -3988,22 +4907,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, trialEn
 }
 
 // ── Root ──────────────────────────────────────────────────────
-function ensureLocalDemoToken(): string | null {
-  if (!isBrowserLocalHost()) return null
+/** Drop local demo tokens — they cannot call /chat (401). Require real login. */
+function readValidAppToken(): string | null {
   const existing = localStorage.getItem(TOKEN_KEY)
-  if (existing) return existing
-  const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el")
-  const profile: Profile = { name: "Mama", childName: "", childAge: "", lang }
-  localStorage.setItem(TOKEN_KEY, LOCAL_DEMO_TOKEN)
-  localStorage.setItem(sk(LOCAL_DEMO_TOKEN, "profile"), JSON.stringify(profile))
-  return LOCAL_DEMO_TOKEN
+  if (!existing) return null
+  if (isLocalDemoToken(existing)) {
+    localStorage.removeItem(TOKEN_KEY)
+    return null
+  }
+  return existing
 }
 
 export default function App() {
-  const [token, setToken] = useState<string|null>(() => localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken());
+  const [token, setToken] = useState<string|null>(() => readValidAppToken());
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
-    const tk=localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken(); if(!tk)return null;
+    const tk=readValidAppToken(); if(!tk)return null;
     try{
       const stableRaw = localStorage.getItem(sk(tk,"profile"));
       if (stableRaw) return JSON.parse(stableRaw);
@@ -4011,7 +4930,7 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(localStorage.getItem(TOKEN_KEY)) ? true : null));
+  const [subActive, setSubActive] = useState<boolean|null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
@@ -4019,22 +4938,7 @@ export default function App() {
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
     if (isLocalDemoToken(token)) {
-      setMustChangePassword(false);
-      setSubActive(true);
-      try {
-        const raw = localStorage.getItem(sk(token, "profile"));
-        if (raw) setProfile(JSON.parse(raw) as Profile);
-        else {
-          const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
-          const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
-          localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
-          setProfile(p);
-        }
-      } catch {
-        const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
-        const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
-        setProfile(p);
-      }
+      handleLogout();
       return;
     }
     const cached = (() => {
@@ -4060,9 +4964,9 @@ export default function App() {
         const u = res.data;
         setMustChangePassword(!!u.must_change_password);
         const apiName = String(u.name || "").trim();
+        if (apiName) applyAuthUserName(token, apiName);
         if (cached) {
-          const cachedName = String(cached.name || "").trim();
-          if (apiName && (!cachedName || cachedName === "Mama")) {
+          if (apiName && cached.name !== apiName) {
             const fixed = { ...cached, name: apiName };
             localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
             setProfile(fixed);
@@ -4071,8 +4975,24 @@ export default function App() {
           setProfile(cached);
           return;
         }
-        if (!apiName) return;
-        const p: Profile = { name: apiName, childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en") };
+        if (!apiName) {
+          // Prefer signup name while profile is still being created.
+          try {
+            const seeded = sessionStorage.getItem("hm_signup_name");
+            if (seeded?.trim()) {
+              const p: Profile = {
+                name: seeded.trim(),
+                childName: "",
+                childAge: "",
+                lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el"),
+              };
+              localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
+              setProfile(p);
+            }
+          } catch { /* ignore */ }
+          return;
+        }
+        const p: Profile = { name: apiName, childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el") };
         localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
         setProfile(p);
       })
@@ -4107,5 +5027,5 @@ export default function App() {
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <Navigate to="/subscription" replace />;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} trialEndsAt={trialEndsAt}/>;
+  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>;
 }

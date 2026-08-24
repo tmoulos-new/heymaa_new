@@ -544,8 +544,8 @@ function BookletFlipbookModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 440,
-          maxHeight: '92vh',
+          maxWidth: 'min(440px, 100%)',
+          maxHeight: 'min(92vh, 92dvh)',
           display: 'flex',
           flexDirection: 'column',
           gap: 12,

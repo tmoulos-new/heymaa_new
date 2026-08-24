@@ -5,6 +5,8 @@ export interface FamilyChild {
   birthDate: string
   /** Optional portrait as data URL or remote URL. */
   photo?: string
+  /** Optional: girl | boy | surprise */
+  gender?: 'girl' | 'boy' | 'surprise'
 }
 
 /** Special relatedTo anchors (not a person name). */
@@ -118,12 +120,17 @@ export function memoryBelongsToMember(
 
 function normalizeChild(raw: unknown): FamilyChild | null {
   if (!raw || typeof raw !== 'object') return null
-  const o = raw as { name?: string; birthDate?: string; birth_date?: string; photo?: string }
+  const o = raw as { name?: string; birthDate?: string; birth_date?: string; photo?: string; gender?: string }
   const name = (o.name || '').trim()
   if (!name) return null
   const birthDate = (o.birthDate || o.birth_date || '').trim()
   const photo = typeof o.photo === 'string' && o.photo.trim() ? o.photo.trim() : undefined
-  return { name, birthDate, ...(photo ? { photo } : {}) }
+  const g = typeof o.gender === 'string' ? o.gender.trim().toLowerCase() : ''
+  const gender =
+    g === 'girl' || g === 'boy' || g === 'surprise'
+      ? (g as FamilyChild['gender'])
+      : undefined
+  return { name, birthDate, ...(photo ? { photo } : {}), ...(gender ? { gender } : {}) }
 }
 
 function normalizeRelatedTo(raw: unknown): string | undefined {

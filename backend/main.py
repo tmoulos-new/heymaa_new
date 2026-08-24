@@ -1062,6 +1062,12 @@ def build_profile_context(profile):
         return ""
     from datetime import date
     lines = []
+    user_name = (getattr(profile, "name", None) or "").strip()
+    if user_name:
+        lines.append(
+            f"The user's name is {user_name}. Address them by this name (e.g. greet with their name). "
+            f"Never call them Mama unless that is actually their name."
+        )
     children = []
     if profile.children:
         for c in profile.children:
@@ -1800,6 +1806,7 @@ class DocContext(BaseModel):
     ref: Optional[str] = None
 
 class ProfileContext(BaseModel):
+    name: Optional[str] = None
     childName: Optional[str] = None
     childAge: Optional[str] = None
     childBirthDate: Optional[str] = None
@@ -4622,9 +4629,8 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
         raise HTTPException(status_code=404, detail="User not found.")
     row = u.data[0]
     email = row.get("email") or ""
-    if not row.get("must_change_password"):
-        if not req.current_password:
-            raise HTTPException(status_code=400, detail="Current password is required.")
+    # Authenticated profile edit may omit current_password; verify only when provided.
+    if req.current_password:
         try:
             _sign_in_with_password_as_user(email, req.current_password.strip())
         except Exception:

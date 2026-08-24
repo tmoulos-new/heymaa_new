@@ -6,6 +6,7 @@ import {
   API,
   checkEmail,
   HM_TOKEN_KEY,
+  applyAuthUserName,
   loginUser,
   registerUser,
 } from '../lib/authApi'
@@ -131,7 +132,7 @@ export function AppAuthScreen({
         lang,
       })
       localStorage.setItem(HM_TOKEN_KEY, res.data.token)
-      try { sessionStorage.setItem('hm_signup_name', trimmedName) } catch { /* ignore */ }
+      applyAuthUserName(res.data.token, trimmedName || res.data.name)
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }
@@ -157,6 +158,7 @@ export function AppAuthScreen({
     try {
       const res = await loginUser(trimmedEmail, password)
       localStorage.setItem(HM_TOKEN_KEY, res.data.token)
+      applyAuthUserName(res.data.token, res.data.name)
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }

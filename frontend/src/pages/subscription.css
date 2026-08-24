@@ -1,5 +1,23 @@
 .subscription-page {
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (min-width: 700px) {
+  .subscription-hero {
+    padding-top: 56px;
+    padding-bottom: 36px;
+  }
+
+  .subscription-page .pricing-panel-body {
+    padding: 22px 20px 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .subscription-hero {
+    padding-top: 72px;
+  }
 }
 
 .subscription-hero {
