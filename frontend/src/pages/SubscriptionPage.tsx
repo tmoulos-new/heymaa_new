@@ -65,7 +65,10 @@ function FlagHtml({ html }: { html: string }) {
 export function SubscriptionPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
-  const tHome = (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'home', ...opts })
+  const tHome = useCallback(
+    (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'home', ...opts }),
+    [t],
+  )
   const tSub = useCallback(
     (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'subscription', ...opts }),
     [t],
@@ -176,7 +179,7 @@ export function SubscriptionPage() {
               onClick={() => setLangOpen(false)}
               aria-label={tHome('langPicker.close')}
             >
-              +Ã¹
+              ×
             </button>
           </div>
           <div className="flag-grid">

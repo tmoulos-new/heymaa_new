@@ -20,4 +20,4 @@ dependencies = [
 entrypoint = "backend.main:app"
 
 [tool.vercel.scripts]
-build = "npm install --prefix frontend && npm install --prefix admin && npm run build --prefix frontend && npm run build --prefix admin && node scripts/merge-vercel-build.mjs"
+build = "node scripts/vercel-build.mjs"
