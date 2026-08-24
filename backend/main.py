@@ -4,7 +4,7 @@ import base64
 import asyncio
 import uuid
 from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -4817,6 +4817,42 @@ async def checkout_viva(req: VivaCheckoutRequest, x_token: Optional[str] = Heade
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Viva Wallet Webhooks
+@app.get("/webhooks/viva")
+async def viva_webhook_verify():
+    """Return verification key for Viva dashboard webhook setup (GET verify)."""
+    try:
+        try:
+            from .viva_webhook import webhook_verification_response
+        except ImportError:
+            from viva_webhook import webhook_verification_response
+        body = await webhook_verification_response()
+        return JSONResponse(content=body)
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/webhooks/viva")
+async def viva_webhook(request: Request):
+    """Handle Viva payment webhooks: success (1796) and failed (1798)."""
+    try:
+        try:
+            from .viva_webhook import handle_viva_webhook
+        except ImportError:
+            from viva_webhook import handle_viva_webhook
+        payload = await request.json()
+        result = await handle_viva_webhook(payload, sb)
+        if not result.get("ok") and result.get("reason") not in (None, "user_not_found"):
+            return JSONResponse(status_code=400, content=result)
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=503, content={"ok": False, "error": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
+
 
 # Lemon Squeezy Webhook
 @app.post("/webhooks/lemon")
