@@ -3,6 +3,17 @@
   min-height: 100dvh;
 }
 
+@media (max-width: 699px) {
+  .subscription-hero {
+    padding-top: 32px;
+    padding-bottom: 24px;
+  }
+
+  .subscription-page .pricing-panel-body {
+    padding: 14px 12px 16px;
+  }
+}
+
 @media (min-width: 700px) {
   .subscription-hero {
     padding-top: 56px;
