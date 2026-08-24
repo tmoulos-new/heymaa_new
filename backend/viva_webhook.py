@@ -141,18 +141,34 @@ async def fetch_webhook_verification_key() -> str:
         )
 
     merchant_id, api_key = creds
+    token_urls = [
+        f"{_viva_api_base()}/api/messages/config/token",
+        "https://www.vivapayments.com/api/messages/config/token",
+    ]
+    last_status: Optional[int] = None
     async with httpx.AsyncClient(timeout=20.0) as client:
-        res = await client.get(
-            f"{_viva_api_base()}/api/messages/config/token",
-            auth=(merchant_id, api_key),
+        data = None
+        for url in token_urls:
+            res = await client.get(url, auth=(merchant_id, api_key))
+            last_status = res.status_code
+            if res.status_code == 401:
+                raise ValueError(
+                    "Viva rejected the Merchant ID / API Key. Use credentials from "
+                    "Viva → Settings → API Access (not Client ID / Client Secret)."
+                )
+            if res.status_code == 404:
+                continue
+            res.raise_for_status()
+            data = res.json()
+            break
+
+    if data is None:
+        raise ValueError(
+            "Could not fetch the Viva webhook key (HTTP "
+            f"{last_status or 'error'}). Add VIVA_WEBHOOK_KEY on Vercel instead: "
+            "GET https://api.vivapayments.com/api/messages/config/token with Basic auth "
+            "(Merchant ID + API Key from Settings → API Access), then redeploy."
         )
-        if res.status_code == 401:
-            raise ValueError(
-                "Viva rejected the Merchant ID / API Key. Use credentials from "
-                "Viva → Settings → API Access (not Client ID / Client Secret)."
-            )
-        res.raise_for_status()
-        data = res.json()
 
     key = data.get("Key") or data.get("key")
     if not key:
