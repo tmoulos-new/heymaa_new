@@ -308,7 +308,7 @@ const ROW_GAP = 44
 const PAD_X = 28
 const PAD_Y = 32
 
-const PALETTE = ['#2B3A67', '#4ABEAA', '#E07B54', '#7C5CBF', '#2D9E6B', '#5B7FE8', '#C4785A']
+const PALETTE = ['#2B3A67', '#BEB4CD', '#8B9BC4', '#5A6B8F', '#D4C8E8', '#6B7FA8', '#A89FBC']
 
 function distribute(count: number, center: number, slot: number): number[] {
   if (count <= 0) return []
@@ -373,7 +373,7 @@ export function buildTreePeople(opts: {
       generation: 1,
       ref: 'pregnancy',
       memoryCount: opts.memoryCounts?.pregnancy ?? 0,
-      color: '#E07B54',
+      color: '#BEB4CD',
     })
   }
 
@@ -388,7 +388,7 @@ export function buildTreePeople(opts: {
       birthDate: c.birthDate,
       ref: c.name,
       memoryCount: opts.memoryCounts?.[c.name] ?? 0,
-      color: '#4ABEAA',
+      color: '#BEB4CD',
       childIndex: i,
       ...(c.photo ? { photo: c.photo } : {}),
     })

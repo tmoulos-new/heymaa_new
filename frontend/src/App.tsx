@@ -133,8 +133,8 @@ function UserChatAvatar({
         width: size,
         height: size,
         borderRadius: "50%",
-        background: "#8B7EC8",
-        color: "#fff",
+        background: "#BEB4CD",
+        color: "#2B3A67",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1493,8 +1493,6 @@ function getLang(code: string) {
 function sk(token: string, suffix: string) {
   return stableSk(token, suffix);
 }
-const COLORS = ["#E07B54","#4ABEAA","#7C5CBF","#2B3A67","#2D9E6B","#E0845B","#5B7FE8"];
-
 // ── Password reset ─────────────────────────────────────────────
 
 function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
@@ -1695,7 +1693,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6";
+  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
@@ -3196,7 +3194,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   ) : (
                     <div style={{
                       width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",
-                      background:"#8B7EC8",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:36,fontWeight:700,
+                      background:"#BEB4CD",color:navy,fontFamily:"'DM Sans',sans-serif",fontSize:36,fontWeight:700,
                     }}>{displayInitial}</div>
                   )}
                 </div>
@@ -3565,7 +3563,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showAddressModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.55)"}}>
         <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:20,padding:24,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
-          <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
+          <p style={{fontSize:13,color:"rgba(43,58,103,.55)",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
           <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             <input value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
@@ -3597,7 +3595,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showArchiveModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.5)"}}>
         <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:18,padding:24}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
-          <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
+          <p style={{fontSize:13,color:"rgba(43,58,103,.55)",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
           <input value={archiveTitle} onChange={e=>setArchiveTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doArchive()} placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."} style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${gl}`,borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12}} autoFocus/>
           <div style={{display:"flex",gap:8}}>
             <button onClick={doArchive} style={{flex:1,padding:11,background:navy,color:"#fff",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer"}}>{t("archivethread",lang)} ✓</button>
@@ -3610,11 +3608,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showThreads&&<div className="hm-overlay hm-overlay--bottom" onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{background:"rgba(43,58,103,.5)",padding:0}}>
         <div className="hm-threads-sheet" style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,maxHeight:"70vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
-          {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
+          {threads.length===0&&<div style={{textAlign:"center",color:"rgba(43,58,103,.55)",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
           {threads.map(th=>(
             <div key={th.id} style={{padding:"11px 12px",borderRadius:10,background:gl,marginBottom:8,cursor:"pointer"}} onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
               <div style={{fontSize:13,fontWeight:600,color:navy,marginBottom:2}}>{th.title}</div>
-              <div style={{fontSize:11,color:"#7A7068"}}>{th.date} · {th.messages.length} {t("messages_count",lang)}</div>
+              <div style={{fontSize:11,color:"rgba(43,58,103,.55)"}}>{th.date} · {th.messages.length} {t("messages_count",lang)}</div>
             </div>
           ))}
         </div>
@@ -3668,7 +3666,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
             onReadChange={refreshNotifRead}
           />
-          <div className="hm-header-avatar" onClick={()=>{ setShowNotifications(false); setShowAccountMenu(v=>!v); }} style={{background:coral}}>
+          <div className="hm-header-avatar" onClick={()=>{ setShowNotifications(false); setShowAccountMenu(v=>!v); }}>
             {displayInitial}
             {showAccountMenu&&<div className="hm-header-account-menu" onClick={e=>e.stopPropagation()}>
               <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
@@ -3729,7 +3727,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 />
               ) : (
                 <div style={{
-                  width:64,height:64,borderRadius:"50%",background:"#8B7EC8",color:"#fff",
+                  width:64,height:64,borderRadius:"50%",background:"#BEB4CD",color:navy,
                   display:"flex",alignItems:"center",justifyContent:"center",
                   fontFamily:"'DM Sans',sans-serif",fontSize:26,fontWeight:700,flexShrink:0,
                 }}>
@@ -3752,7 +3750,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     </span>
                   )}
                   {pregnancyActive && (
-                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(74,190,170,.18)",borderRadius:999,padding:"4px 10px"}}>
+                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(190,180,205,.35)",borderRadius:999,padding:"4px 10px"}}>
                       {lang==="el"?`Εγκυμοσύνη · εβδ. ${pregWeek}`:`Pregnancy · wk ${pregWeek}`}
                     </span>
                   )}
@@ -3901,7 +3899,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <div className="hm-chat-column" style={{display:"flex",flexDirection:"column"}}>
             {/* Voice quota bar */}
             <div style={{marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:"#7A7068",marginBottom:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:"rgba(43,58,103,.55)",marginBottom:4}}>
                 <span>🔊 {t("voicequota",lang)}</span>
                 <span>{ttsUsedSafe}/{ttsQuotaTotal}</span>
               </div>
@@ -3999,7 +3997,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
               <div>
                 <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
-                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${teal}`,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${navy}`,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
               </div>
             </div>
           </div>
@@ -4010,7 +4008,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button
                 type="button"
                 onClick={()=>setShowMyFamily(v=>!v)}
-                style={{background:"none",border:"none",color:teal,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}}
+                style={{background:"none",border:"none",color:navy,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}}
               >
                 {showMyFamily ? t("hide",lang) : t("show",lang)}
               </button>
@@ -4019,8 +4017,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
             {showMyFamily && (<>
             {profile.dueDate&&<div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-              <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:"#fff",flexShrink:0}}>🤰</div>
-              <div style={{minWidth:0,flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
+              <div style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:navy,flexShrink:0}}>🤰</div>
+              <div style={{minWidth:0,flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
             </div>}
             {familyChildren.map((child,i)=>{
               const age = formatChildAge(child.birthDate, lang);
@@ -4035,7 +4033,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       side: "self" as const,
                       generation: 1 as const,
                       memoryCount: 0,
-                      color: "#4ABEAA",
+                      color: logoPurple,
                       childIndex: i,
                       ref: child.name,
                       photo: child.photo,
@@ -4044,17 +4042,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     };
                     openTreeEdit(nodeLike);
                   }}
-                  style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                  style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                 >
                   {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
                 </div>
-                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{age}</div></div>
-                <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
-                <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+coral,borderRadius:7,color:coral,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
+                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
+                <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
+                <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+navy,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
                 <button onClick={()=>deleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
               </div>);
             })}
-            <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
+            <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
             {familyData.members.filter(m=>classifyKinship(m.relationship)==="pet").map((m)=>{
               const i = familyData.members.indexOf(m);
               return (
@@ -4070,7 +4068,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         side: "self",
                         generation: 1,
                         memoryCount: 0,
-                        color: COLORS[i % COLORS.length],
+                        color: logoPurple,
                         memberIndex: i,
                         relatedTo: m.relatedTo,
                         ref: memberMemoryRef(m.id),
@@ -4079,16 +4077,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         y: 0,
                       });
                     }}
-                    style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "🐾"}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"#7A7068",marginTop:1}}>{lang==="el"?"Κατοικίδιο":"Family Pet"}</div>
+                    <div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{lang==="el"?"Κατοικίδιο":"Family Pet"}</div>
                     {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
                   </div>
-                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
+                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
                   <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
                 </div>
               </div>
@@ -4101,7 +4099,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <button type="button" onClick={()=>{setShowAddPet(false);setNewPetName("");setNewPetNote("");}} style={{flex:1,padding:9,background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
               </div>
             </div>}
-            <div onClick={()=>{setShowAddPet(v=>!v);setShowAddMember(false);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13,marginBottom:8}}>{t("addpet",lang)}</div>
+            <div onClick={()=>{setShowAddPet(v=>!v);setShowAddMember(false);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13,marginBottom:8}}>{t("addpet",lang)}</div>
             {familyData.members.filter(m=>classifyKinship(m.relationship)!=="pet").map((m)=>{
               const i = familyData.members.indexOf(m);
               return (
@@ -4117,7 +4115,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         side: "self",
                         generation: 0,
                         memoryCount: 0,
-                        color: COLORS[i % COLORS.length],
+                        color: logoPurple,
                         memberIndex: i,
                         relatedTo: m.relatedTo,
                         ref: memberMemoryRef(m.id),
@@ -4126,7 +4124,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         y: 0,
                       });
                     }}
-                    style={{width:36,height:36,borderRadius:"50%",background:COLORS[i%COLORS.length],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:"#fff",flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : m.name[0]?.toUpperCase()}
                   </div>
@@ -4139,7 +4137,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       </div>
                     )}
                   </div>
-                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${teal}`,borderRadius:7,color:teal,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
+                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
                   <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
                 </div>
                 <select
@@ -4178,12 +4176,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 setNewMemberRelatedTo(
                   defaultRelatedToForRelationship(role, familyData.members, newMemberRelatedTo),
                 );
-              }} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B2420"}}>
+              }} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B3A67"}}>
                 {RELATIONSHIP_PRESETS.map(p=>(
                   <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
                 ))}
               </select>
-              <select value={newMemberRelatedTo} onChange={e=>setNewMemberRelatedTo(e.target.value)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B2420"}}>
+              <select value={newMemberRelatedTo} onChange={e=>setNewMemberRelatedTo(e.target.value)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:"#2B3A67"}}>
                 {relatedToOptions.map(o=>(
                   <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
                 ))}
@@ -4197,7 +4195,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <button onClick={()=>setShowAddMember(false)} style={{flex:1,padding:9,background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
               </div>
             </div>}
-            <div onClick={()=>{setShowAddPet(false);setNewMemberRole("Partner");setShowAddMember(!showAddMember);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13}}>{t("addmember",lang)}</div>
+            <div onClick={()=>{setShowAddPet(false);setNewMemberRole("Partner");setShowAddMember(!showAddMember);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13}}>{t("addmember",lang)}</div>
             </>)}
           </div>
           </AppTabSection>
@@ -4222,16 +4220,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <button
                     type="button"
                     onClick={()=>treePhotoRef.current?.click()}
-                    style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${teal}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
+                    style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${logoPurple}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
                     title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
                   >
                     {currentTreeEditPhoto() ? (
                       <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
                     ) : (
-                      <span style={{fontSize:11,color:teal,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
+                      <span style={{fontSize:11,color:navy,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
                     )}
                   </button>
-                  <div style={{flex:1,fontSize:12,color:"#7A7068",lineHeight:1.45}}>
+                  <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
                     {lang==="el"
                       ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία στο δέντρο."
                       : "Tap the circle to add or change their photo on the tree."}
@@ -4252,7 +4250,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 />
                 {treeEdit.memberIndex != null && (
                   <>
-                    <div style={{fontSize:11,fontWeight:700,color:"#7A7068",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
                       {lang==="el"?"Ρόλος / μετακίνηση στο δέντρο":"Role / move on tree"}
                     </div>
                     <select
@@ -4272,7 +4270,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
                       ))}
                     </select>
-                    <div style={{fontSize:11,fontWeight:700,color:"#7A7068",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
                       {lang==="el"?"Συγγενής του / της":"Relative of"}
                     </div>
                     <select
@@ -4307,7 +4305,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         setTreeEdit(null);
                         setTab("memories");
                       }}
-                      style={{flex:1,minWidth:90,padding:10,background:"#fff",color:teal,border:`1.5px solid ${teal}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                      style={{flex:1,minWidth:90,padding:10,background:"#fff",color:navy,border:`1.5px solid ${navy}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
                     >
                       📝 {t("recentmem",lang)}
                     </button>
@@ -4401,7 +4399,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       borderRadius:999,
                       border:"none",
                       background:activeMemRef===r.value?navy:gl,
-                      color:activeMemRef===r.value?"#fff":"#7A7068",
+                      color:activeMemRef===r.value?"#fff":"rgba(43,58,103,.55)",
                       fontFamily:"'DM Sans',sans-serif",
                       fontSize:12,
                       fontWeight:600,
@@ -4443,7 +4441,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               const member = familyData.members.find((fm) => memberMemoryRef(fm.id) === activeMemRef);
               return member ? memoryBelongsToMember(m.ref, member, familyData.members) : false;
             });
-            if(filtered.length===0) return <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nomemories",lang)}</div>;
+            if(filtered.length===0) return <div style={{fontSize:13,color:"rgba(43,58,103,.55)",textAlign:"center",padding:"20px 0"}}>{t("nomemories",lang)}</div>;
             return filtered.map((m,i)=>{
               const origIdx = memories.indexOf(m);
               const moveOptions: {label:string,value:string}[] = [
@@ -4476,7 +4474,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                           <div style={{display:"flex",flexDirection:"column" as any,gap:5}}>
                             <button
                               onClick={() => { setPhotoEditMemIdx(origIdx); fileRef.current?.click(); }}
-                              style={{padding:"5px 10px",background:"rgba(124,92,191,0.12)",border:"none",borderRadius:8,color:"#7C5CBF",cursor:"pointer",fontSize:12,fontWeight:700}}
+                              style={{padding:"5px 10px",background:"rgba(43,58,103,.08)",border:"none",borderRadius:8,color:"#2B3A67",cursor:"pointer",fontSize:12,fontWeight:700}}
                             >
                               {m.img ? t("change_photo",lang) : t("add_photo",lang)}
                             </button>
@@ -4490,7 +4488,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             )}
                           </div>
                         </div>
-                        <label style={{fontSize:11,color:"#7A7068",fontWeight:600}}>{t("move_memory",lang)}</label>
+                        <label style={{fontSize:11,color:"rgba(43,58,103,.55)",fontWeight:600}}>{t("move_memory",lang)}</label>
                         <select
                           value={currentMoveValue}
                           onChange={(e)=>moveMemory(origIdx, e.target.value)}
@@ -4506,25 +4504,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             onChange={e=>setMemEditVal(e.target.value)}
                             onKeyDown={e=>{if(e.key==="Enter"){saveMemoryText(origIdx, memEditVal);}if(e.key==="Escape")setEditingMemIdx(null);}}
                             autoFocus
-                            style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid #7C5CBF",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B2420",outline:"none"}}
+                            style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B3A67",outline:"none"}}
                           />
                           <button
                             onClick={()=>saveMemoryText(origIdx, memEditVal)}
-                            style={{padding:"5px 10px",background:"#7C5CBF",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}
+                            style={{padding:"5px 10px",background:"#2B3A67",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}
                           >
                             ✓
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div style={{fontSize:12.5,color:"#2B2420",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>
+                      <div style={{fontSize:12.5,color:"#2B3A67",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>
                         {m.text!=="📷"?m.text:""}
                       </div>
                     )}
                     <div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div>
                   </div>
                   <div style={{display:"flex",gap:3,flexShrink:0}}>
-                    <button title={t("edit_memory",lang)} onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(124,92,191,0.10)",border:"none",borderRadius:7,color:"#7C5CBF",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button>
+                    <button title={t("edit_memory",lang)} onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(43,58,103,.08)",border:"none",borderRadius:7,color:"#2B3A67",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button>
                     <button title={t("delete_memory",lang)} onClick={()=>deleteMemory(origIdx)} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
                   </div>
                 </div>
@@ -4532,7 +4530,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             });
           })()}
           <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`,minWidth:0}}>
-            <input value={memInput} onChange={e=>setMemInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMemory()} placeholder={t("addmemory",lang)} disabled={activeMemRef==null} style={{flex:1,minWidth:0,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#2B2420",background:"#fff",outline:"none",opacity:activeMemRef==null?0.55:1}}/>
+            <input value={memInput} onChange={e=>setMemInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMemory()} placeholder={t("addmemory",lang)} disabled={activeMemRef==null} style={{flex:1,minWidth:0,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#2B3A67",background:"#fff",outline:"none",opacity:activeMemRef==null?0.55:1}}/>
             <button onClick={()=>fileRef.current?.click()} disabled={activeMemRef==null} style={{padding:"8px 11px",background:gl,color:navy,border:"none",borderRadius:9,fontSize:15,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>📷</button>
             <button onClick={()=>addMemory()} disabled={activeMemRef==null} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>＋</button>
           </div>
@@ -4556,32 +4554,32 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           return (<AppTabPageShell title={t("milestones", lang)}>
             {msRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
               {msRefs.map((r,i)=>(
-                <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
+                <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"rgba(43,58,103,.55)",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
               ))}
             </div>}
             {isPreg&&profile.dueDate&&(<>
             <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
-              <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
+              <div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
             </div>
             <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
-              <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
+              <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
                   <div onClick={()=>toggleMilestone("pregnancy",i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
-                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:currentChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
-                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
                   </div>
                   {currentChecks[i]&&currentLastIdx===i&&(
-                    <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:"1px solid "+teal,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
+                    <div className="hm-callout">
                       {getPregnancyMilestoneMsg(i,currentMilestoneList.length,lang)}
                     </div>
                   )}
                 </div>
               ))}
             </div>
-            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            {currentCheckedCount>0&&<div className="hm-success-strip">
               <span>🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}</span><button onClick={()=>prefillChat(lang==="el"?"Θέλω να προσθέσω ένα νέο milestone":"I want to add a new milestone")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:"0 2px"}}>🚀</button>
             </div>}
             <div className="hm-tab-card">
@@ -4589,7 +4587,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                  <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
                 </div>
               </div>
             </div>
@@ -4597,22 +4595,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {currentChild&&(<>
             <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
-              <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("tickall",lang)}</div>
+              <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("tickall",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
                   <div onClick={()=>toggleMilestone(effectiveRef!,i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
-                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?teal:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"#C8BFB8",flexShrink:0,border:currentChecks[i]?"none":"2px solid #C8BFB8",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
-                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B2420":"#7A7068",flex:1}}>{m}</div>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
+                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
                   </div>
                   {currentChecks[i]&&currentLastIdx===i&&(
-                    <div style={{background:"linear-gradient(135deg,rgba(74,190,170,.12),rgba(43,58,103,.06))",border:"1px solid "+teal,borderRadius:10,padding:"10px 12px",margin:"4px 0 8px 30px",fontSize:12,color:navy,lineHeight:1.55,fontStyle:"italic"}}>
+                    <div className="hm-callout">
                       {getMilestoneMsg(i,currentMilestoneList.length,lang)}
                     </div>
                   )}
                 </div>
               ))}
             </div>
-            {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            {currentCheckedCount>0&&<div className="hm-success-strip">
               🎉 {currentChildName} — {currentCheckedCount}/{currentMilestoneList.length} milestones!
             </div>}
             <div className="hm-tab-card">
@@ -4620,7 +4618,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+teal,borderRadius:8,color:teal,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
                 </div>
               </div>
             </div>
@@ -4629,7 +4627,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {/* ── DOCUMENTS ── */}
             <div className="hm-tab-card" style={{marginTop:8}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
-              <div style={{fontSize:11.5,color:"#7A7068",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
+              <div style={{fontSize:11.5,color:"rgba(43,58,103,.55)",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
               {(()=>{
                 const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="ja"?"一般":"General"),value:""}];
                 if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
@@ -4639,15 +4637,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 const filteredDocs = docs.filter(d=>d.ref===effDocRef);
                 return (<>
                   {docRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap" as any,marginBottom:12}}>
-                    {docRefs.map((r,i)=>(<button key={i} onClick={()=>setActiveDocRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effDocRef===r.value?navy:gl,color:effDocRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>))}
+                    {docRefs.map((r,i)=>(<button key={i} onClick={()=>setActiveDocRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effDocRef===r.value?navy:gl,color:effDocRef===r.value?"#fff":"rgba(43,58,103,.55)",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>))}
                   </div>}
-                  {filteredDocs.length===0?<div style={{fontSize:12.5,color:"#7A7068",textAlign:"center",padding:"12px 0"}}>{t("docs_empty",lang)}</div>:filteredDocs.map((d,i)=>{
+                  {filteredDocs.length===0?<div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",textAlign:"center",padding:"12px 0"}}>{t("docs_empty",lang)}</div>:filteredDocs.map((d,i)=>{
                     const origIdx=docs.indexOf(d);
                     return(<div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl}}>
                       <span style={{fontSize:20,flexShrink:0}}>📄</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:600,color:navy}}>{d.title}</div>
-                        {d.category&&<div style={{fontSize:11,color:teal,marginTop:1}}>{d.category}</div>}
+                        {d.category&&<div style={{fontSize:11,color:navy,marginTop:1,opacity:0.72}}>{d.category}</div>}
                         {d.date&&<div style={{fontSize:10.5,color:"#C8BFB8",marginTop:1}}>{d.date}</div>}
                         <div style={{fontSize:10,color:"#C8BFB8",marginTop:1}}>{d.addedDate}</div>
                       </div>
@@ -4671,15 +4669,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         {tab==="shopping"&&<div className="hm-tab-card">
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
-            <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
-            <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>
-            <button onClick={()=>setShopTab("o")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="o"?navy:"#fff",color:shopTab==="o"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif",position:"relative" as any}}>🔔 {t("offers",lang)}{offers.length>0&&shopTab!=="o"&&<span style={{position:"absolute",top:4,right:4,width:7,height:7,borderRadius:"50%",background:coral}}/>}</button>
+            <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"rgba(43,58,103,.55)",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
+            <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"rgba(43,58,103,.55)",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>
+            <button onClick={()=>setShopTab("o")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="o"?navy:"#fff",color:shopTab==="o"?"#fff":"rgba(43,58,103,.55)",border:"none",fontFamily:"'DM Sans',sans-serif",position:"relative" as any}}>🔔 {t("offers",lang)}{offers.length>0&&shopTab!=="o"&&<span style={{position:"absolute",top:4,right:4,width:7,height:7,borderRadius:"50%",background:coral}}/>}</button>
           </div>
           {shopTab==="p"&&(<>
             {shopItems.map((item,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"1px solid "+gl}}>
                 <div style={{width:36,height:36,borderRadius:8,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>📦</div>
-                <div style={{fontSize:12.5,fontWeight:600,color:"#2B2420",flex:1}}>{item}</div>
+                <div style={{fontSize:12.5,fontWeight:600,color:"#2B3A67",flex:1}}>{item}</div>
                 <button onClick={()=>setShopItems(shopItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
             ))}
@@ -4701,7 +4699,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {superItems.map((item,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 0",borderBottom:"1px solid "+gl}}>
                 <div style={{width:34,height:34,borderRadius:7,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🛒</div>
-                <div style={{fontSize:12.5,fontWeight:600,color:"#2B2420",flex:1}}>{item}</div>
+                <div style={{fontSize:12.5,fontWeight:600,color:"#2B3A67",flex:1}}>{item}</div>
                 <button onClick={()=>setSuperItems(superItems.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4}}>×</button>
               </div>
             ))}
@@ -4720,17 +4718,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
           </>)}
           {shopTab==="o"&&<div>
-            <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("offers_sub",lang)}</div>
-            {offersLoading&&<div style={{textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("loading",lang)}</div>}
-            {!offersLoading&&offers.length===0&&<div style={{textAlign:"center",fontSize:12,color:"#7A7068"}}>{t("offers_empty",lang)}</div>}
+            <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("offers_sub",lang)}</div>
+            {offersLoading&&<div style={{textAlign:"center",fontSize:12,color:"rgba(43,58,103,.55)"}}>{t("loading",lang)}</div>}
+            {!offersLoading&&offers.length===0&&<div style={{textAlign:"center",fontSize:12,color:"rgba(43,58,103,.55)"}}>{t("offers_empty",lang)}</div>}
             {offers.map((o:any)=>(
               <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
-                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#7C5CBF":teal,color:"#fff",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
+                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#2B3A67":"#BEB4CD",color:o.badge==="promo"||o.badge==="sponsored"?"#fff":"#2B3A67",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
                 {o.image_url&&<img src={o.image_url} alt="" style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:10,marginBottom:8,display:"block"}}/>}
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
-                <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
+                <div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap" as any}}>
-                  {o.link&&<a href={o.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",fontSize:11,fontWeight:600,color:teal,textDecoration:"none",border:"1px solid "+teal,borderRadius:8,padding:"5px 12px"}}>{t("learnmore",lang)} →</a>}
+                  {o.link&&<a href={o.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",fontSize:11,fontWeight:600,color:navy,textDecoration:"none",border:"1px solid "+navy,borderRadius:8,padding:"5px 12px"}}>{t("learnmore",lang)} →</a>}
                   <button onClick={()=>setShopItems(prev=>[...prev,o.title])} style={{fontSize:11,fontWeight:600,color:navy,background:"#fff",border:"1px solid "+gl,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{t("add_to_products",lang)}</button>
                   <button onClick={()=>setSuperItems(prev=>[...prev,o.title])} style={{fontSize:11,fontWeight:600,color:navy,background:"#fff",border:"1px solid "+gl,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{t("add_to_super",lang)}</button>
                 </div>

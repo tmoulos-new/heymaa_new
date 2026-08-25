@@ -17,10 +17,8 @@ import {
 } from '../lib/familyTree'
 
 const NAVY = '#2B3A67'
-const TEAL = '#4ABEAA'
-const MUTED = '#7A7068'
-const CREAM = '#FBF9F7'
-const CORAL = '#E07B54'
+const ACCENT = '#BEB4CD'
+const MUTED = 'rgba(43, 58, 103, 0.55)'
 
 type DragState = {
   memberIndex: number
@@ -99,13 +97,13 @@ function TreeCard({
         fill="#fff"
         stroke={
           highlight
-            ? TEAL
+            ? ACCENT
             : isYou
               ? NAVY
               : node.kind === 'partner' || node.kind === 'child' || node.kind === 'pet'
-                ? TEAL
+                ? ACCENT
                 : movable
-                  ? 'rgba(224,123,84,.45)'
+                  ? 'rgba(190,180,205,.65)'
                   : 'rgba(43,58,103,.10)'
         }
         strokeWidth={highlight || focus ? 2.35 : 1.25}
@@ -137,27 +135,27 @@ function TreeCard({
       )}
       {editable && (
         <>
-          <circle cx={avatarR - 2} cy={avatarY + avatarR - 4} r={7} fill="#fff" stroke={TEAL} strokeWidth={1.25} />
+          <circle cx={avatarR - 2} cy={avatarY + avatarR - 4} r={7} fill="#fff" stroke={ACCENT} strokeWidth={1.25} />
           <text
             x={avatarR - 2}
             y={avatarY + avatarR - 3.5}
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={8}
-            fill={TEAL}
+            fill={ACCENT}
           >
             ✎
           </text>
         </>
       )}
       {movable && (
-        <text x={0} y={-h / 2 + 11} textAnchor="middle" fontSize={9} fill={CORAL} opacity={0.85}>
+        <text x={0} y={-h / 2 + 11} textAnchor="middle" fontSize={9} fill={NAVY} opacity={0.55}>
           ⋮⋮
         </text>
       )}
       {node.memoryCount > 0 && (
         <>
-          <circle cx={w / 2 - 8} cy={-h / 2 + 10} r={7.5} fill={TEAL} />
+          <circle cx={w / 2 - 8} cy={-h / 2 + 10} r={7.5} fill={ACCENT} />
           <text
             x={w / 2 - 8}
             y={-h / 2 + 10}
@@ -373,7 +371,7 @@ export function FamilyTreePanel({
 
   return (
     <div className="hm-tab-card hm-tab-card--flush hm-family-tree-panel">
-      <div style={{ padding: '14px 16px 8px' }}>
+      <div className="hm-family-tree-panel__head">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div className="hm-tab-card-title" style={{ marginBottom: 0 }}>
             {copy.title}
@@ -397,11 +395,12 @@ export function FamilyTreePanel({
               </button>
             )}
             <div
+              className="hm-family-tree-panel__count"
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                color: TEAL,
-                background: 'rgba(74,190,170,.12)',
+                color: NAVY,
+                background: 'rgba(190,180,205,.35)',
                 borderRadius: 999,
                 padding: '3px 8px',
               }}
@@ -413,7 +412,7 @@ export function FamilyTreePanel({
         <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{copy.subtitle}</div>
       </div>
 
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div className="hm-family-tree-panel__canvas" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#fff' }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${layout.width} ${layout.height}`}
@@ -437,8 +436,8 @@ export function FamilyTreePanel({
               width={layout.width - 16}
               height={b.yBottom - b.yTop}
               rx={14}
-              fill={hoverSlot === b.slot && drag ? 'rgba(74,190,170,.16)' : b.slot === 'couple' || b.slot === 'children' || b.slot === 'pets' ? 'rgba(74,190,170,.05)' : 'transparent'}
-              stroke={hoverSlot === b.slot && drag ? TEAL : 'transparent'}
+              fill={hoverSlot === b.slot && drag ? 'rgba(190,180,205,.22)' : b.slot === 'couple' || b.slot === 'children' || b.slot === 'pets' ? 'rgba(43,58,103,.04)' : 'transparent'}
+              stroke={hoverSlot === b.slot && drag ? ACCENT : 'transparent'}
               strokeWidth={1.5}
               strokeDasharray={drag ? '5 4' : undefined}
             />
@@ -452,7 +451,7 @@ export function FamilyTreePanel({
               textAnchor="middle"
               fontSize={9}
               fontWeight={700}
-              fill={hoverSlot === g.slot && drag ? TEAL : 'rgba(43,58,103,.35)'}
+              fill={hoverSlot === g.slot && drag ? ACCENT : 'rgba(43,58,103,.35)'}
               fontFamily="'DM Sans', sans-serif"
               letterSpacing={0.8}
             >
@@ -469,7 +468,7 @@ export function FamilyTreePanel({
               y1={e.y1}
               x2={e.x2}
               y2={e.y2}
-              stroke={e.kind === 'spouse' ? TEAL : 'rgba(43,58,103,.20)'}
+              stroke={e.kind === 'spouse' ? ACCENT : 'rgba(43,58,103,.20)'}
               strokeWidth={e.kind === 'spouse' ? 2.25 : 1.5}
               strokeLinecap="round"
               opacity={drag ? 0.35 : e.kind === 'spouse' ? 0.85 : 1}
@@ -485,7 +484,7 @@ export function FamilyTreePanel({
                 y={(e.y1 + e.y2) / 2 + 4}
                 textAnchor="middle"
                 fontSize={10}
-                fill={TEAL}
+                fill={ACCENT}
                 opacity={drag ? 0.35 : 1}
               >
                 ♡
@@ -511,7 +510,7 @@ export function FamilyTreePanel({
                 height={isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_H : TREE_NODE_H}
                 rx={18}
                 fill="#fff"
-                stroke={TEAL}
+                stroke={ACCENT}
                 strokeWidth={2.5}
                 opacity={0.95}
                 filter="url(#hm-ft-shadow)"
@@ -528,7 +527,7 @@ export function FamilyTreePanel({
         </svg>
       </div>
 
-      <div style={{ padding: '0 14px 12px' }}>
+      <div className="hm-family-tree-panel__history" style={{ padding: '0 14px 12px', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: NAVY, fontWeight: 700 }}>
             {copy.history}
@@ -539,7 +538,7 @@ export function FamilyTreePanel({
             style={{
               background: 'none',
               border: 'none',
-              color: TEAL,
+              color: ACCENT,
               fontSize: 11,
               fontWeight: 700,
               cursor: 'pointer',
@@ -562,7 +561,7 @@ export function FamilyTreePanel({
                   top: 6,
                   bottom: 6,
                   width: 2,
-                  background: 'linear-gradient(180deg, #4ABEAA, rgba(74,190,170,.15))',
+                  background: 'linear-gradient(180deg, #BEB4CD, rgba(190, 180, 205, 0.15))',
                   borderRadius: 2,
                 }}
               />
@@ -577,7 +576,7 @@ export function FamilyTreePanel({
                       fontWeight: 800,
                       color: NAVY,
                       zIndex: 1,
-                      background: CREAM,
+                      background: '#fff',
                       borderRadius: 8,
                       padding: '2px 0',
                     }}
@@ -585,7 +584,7 @@ export function FamilyTreePanel({
                     {ev.year}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: TEAL, letterSpacing: 0.4 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: ACCENT, letterSpacing: 0.4 }}>
                       {displayUppercase(ev.label, lang)}
                     </div>
                     <div style={{ fontSize: 12, color: NAVY, fontWeight: 500, lineHeight: 1.35 }}>{ev.detail}</div>

@@ -13,13 +13,12 @@ import {
 import { displayUppercase } from '../lib/greekText'
 import { AppModalPortal } from './AppModalPortal'
 
-const LINEN = '#F6F0E8'
+const LINEN = '#F0EBE6'
 const LINEN_DEEP = '#E8DFD2'
-const ROSE = '#C97B84'
-const ROSE_SOFT = '#E8B4B8'
-const INK = '#2C2421'
-const INK_SOFT = '#5C534C'
-const GOLD = '#A8896A'
+const NAVY = '#2B3A67'
+const NAVY_MUTED = 'rgba(43, 58, 103, 0.55)'
+const PURPLE = '#BEB4CD'
+const PURPLE_SOFT = '#D4C8E8'
 const PAPER = '#FFFBF7'
 
 function OrnamentLine({ light = false }: { light?: boolean }) {
@@ -31,7 +30,7 @@ function OrnamentLine({ light = false }: { light?: boolean }) {
         margin: '0 auto',
         background: light
           ? 'linear-gradient(90deg, transparent, rgba(255,251,247,.7), transparent)'
-          : `linear-gradient(90deg, transparent, ${ROSE_SOFT}, transparent)`,
+          : `linear-gradient(90deg, transparent, ${PURPLE_SOFT}, transparent)`,
       }}
     />
   )
@@ -66,7 +65,7 @@ function FlipPageContent({
           justifyContent: 'center',
           textAlign: 'center',
           background:
-            'radial-gradient(ellipse at 30% 20%, rgba(243,224,226,.45), transparent 50%), radial-gradient(ellipse at 80% 85%, rgba(201,123,132,.32), transparent 45%), linear-gradient(165deg, #3A2F2C 0%, #5A3F42 42%, #C97B84 78%, #E8B4B8 100%)',
+            'radial-gradient(ellipse at 30% 20%, rgba(248,229,214,.55), transparent 50%), radial-gradient(ellipse at 80% 85%, rgba(190,180,205,.35), transparent 45%), linear-gradient(165deg, #2B3A67 0%, #3D4F7A 42%, #BEB4CD 78%, #F8E5D6 100%)',
           color: PAPER,
           boxShadow: 'inset 0 0 0 1px rgba(255,251,247,.16)',
           position: 'relative',
@@ -149,7 +148,7 @@ function FlipPageContent({
           height: '100%',
           minHeight: 420,
           padding: '30px 26px',
-          background: `radial-gradient(ellipse at 12% 0%, ${ROSE_SOFT}33, transparent 45%), ${PAPER}`,
+          background: `radial-gradient(ellipse at 12% 0%, ${PURPLE_SOFT}33, transparent 45%), ${PAPER}`,
           position: 'relative',
         }}
       >
@@ -166,7 +165,7 @@ function FlipPageContent({
           style={{
             fontFamily: "'DM Sans',sans-serif",
             fontSize: 24,
-            color: INK,
+            color: NAVY,
             margin: '0 0 6px',
             fontWeight: 600,
           }}
@@ -178,7 +177,7 @@ function FlipPageContent({
             fontFamily: "'DM Sans',sans-serif",
             fontSize: 15,
             fontStyle: 'italic',
-            color: INK_SOFT,
+            color: NAVY_MUTED,
             margin: '0 0 22px',
           }}
         >
@@ -194,7 +193,7 @@ function FlipPageContent({
                 alignItems: 'baseline',
                 padding: '13px 0',
                 borderBottom: `1px dashed rgba(168,137,106,.4)`,
-                color: INK,
+                color: NAVY,
                 fontSize: 16,
                 fontFamily: "'DM Sans',sans-serif",
                 fontWeight: 500,
@@ -203,7 +202,7 @@ function FlipPageContent({
               <span>
                 {item.icon} {item.label}
               </span>
-              <span style={{ color: ROSE, fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600 }}>
+              <span style={{ color: PURPLE, fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600 }}>
                 {item.count}
               </span>
             </li>
@@ -240,7 +239,7 @@ function FlipPageContent({
         style={{
           fontFamily: "'DM Sans',sans-serif",
           fontSize: 18,
-          color: INK,
+          color: NAVY,
           margin: '0 0 18px',
           paddingBottom: 10,
           borderBottom: `1px solid rgba(201,123,132,.35)`,
@@ -253,14 +252,14 @@ function FlipPageContent({
         <span>{page.icon}</span>
         <span style={{ flex: 1 }}>{page.label}</span>
         {page.partLabel && (
-          <span style={{ fontSize: 11, color: GOLD, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: 11, color: NAVY_MUTED, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, letterSpacing: '0.06em' }}>
             {page.partLabel}
           </span>
         )}
       </h2>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       {page.memories.length === 0 ? (
-        <p style={{ fontSize: 14, color: INK_SOFT, fontFamily: "'DM Sans',sans-serif", fontStyle: 'italic' }}>—</p>
+        <p style={{ fontSize: 14, color: NAVY_MUTED, fontFamily: "'DM Sans',sans-serif", fontStyle: 'italic' }}>—</p>
       ) : (
         page.memories.map((m, i) => {
           const hasText = Boolean(m.text && m.text !== '📷')
@@ -285,7 +284,7 @@ function FlipPageContent({
                 style={{
                   background: LINEN,
                   padding: '8px 8px 18px',
-                  boxShadow: '0 6px 18px rgba(44,36,33,.08)',
+                  boxShadow: '0 6px 18px rgba(43,58,103,.08)',
                   border: `1px solid rgba(168,137,106,.22)`,
                   transform: 'rotate(-0.4deg)',
                   width: '100%',
@@ -347,7 +346,7 @@ function FlipPageContent({
                           border: 'none',
                           borderRadius: 999,
                           padding: '6px 10px',
-                          background: 'rgba(44,36,33,.82)',
+                          background: 'rgba(43,58,103,.82)',
                           color: '#fff',
                           fontSize: 12,
                           fontWeight: 700,
@@ -400,7 +399,7 @@ function FlipPageContent({
                     style={{
                       fontFamily: "'DM Sans',sans-serif",
                       fontSize: 17,
-                      color: INK,
+                      color: NAVY,
                       fontWeight: 500,
                       lineHeight: 1.4,
                       marginBottom: 6,
@@ -412,7 +411,7 @@ function FlipPageContent({
                 <div
                   style={{
                     fontSize: 10,
-                    color: GOLD,
+                    color: NAVY_MUTED,
                     fontWeight: 600,
                     letterSpacing: '0.08em',
                   }}
@@ -429,8 +428,8 @@ function FlipPageContent({
                     border: 'none',
                     borderRadius: 8,
                     padding: '4px 8px',
-                    background: 'rgba(224,123,84,.15)',
-                    color: '#E07B54',
+                    background: 'rgba(43,58,103,.12)',
+                    color: NAVY,
                     fontSize: 14,
                     fontWeight: 700,
                     cursor: 'pointer',
@@ -517,7 +516,7 @@ function BookletFlipbookModal({
       aria-modal="true"
       className="hm-overlay"
       style={{
-        background: 'rgba(44, 36, 33, .62)',
+        background: 'rgba(43, 58, 103, .62)',
         backdropFilter: 'blur(6px)',
       }}
       onClick={onClose}
@@ -614,7 +613,7 @@ function BookletFlipbookModal({
               padding: '9px 12px',
               borderRadius: 10,
               border: 'none',
-              background: safeIndex <= 0 ? LINEN_DEEP : INK,
+              background: safeIndex <= 0 ? LINEN_DEEP : NAVY,
               color: safeIndex <= 0 ? '#A89F98' : '#fff',
               fontFamily: "'DM Sans',sans-serif",
               fontSize: 12.5,
@@ -625,7 +624,7 @@ function BookletFlipbookModal({
           >
             ← {labels.prevPage}
           </button>
-          <div style={{ fontSize: 11.5, color: INK_SOFT, fontWeight: 600, textAlign: 'center', flex: 1 }}>
+          <div style={{ fontSize: 11.5, color: NAVY_MUTED, fontWeight: 600, textAlign: 'center', flex: 1 }}>
             {pageLabel}
           </div>
           <button
@@ -636,7 +635,7 @@ function BookletFlipbookModal({
               padding: '9px 12px',
               borderRadius: 10,
               border: 'none',
-              background: safeIndex >= total - 1 ? LINEN_DEEP : ROSE,
+              background: safeIndex >= total - 1 ? LINEN_DEEP : PURPLE,
               color: safeIndex >= total - 1 ? '#A89F98' : '#fff',
               fontFamily: "'DM Sans',sans-serif",
               fontSize: 12.5,
@@ -665,7 +664,7 @@ function BookletFlipbookModal({
                 padding: '11px 12px',
                 borderRadius: 12,
                 border: editing ? 'none' : '1.5px solid rgba(255,255,255,.35)',
-                background: editing ? ROSE : 'rgba(255,255,255,.14)',
+                background: editing ? PURPLE : 'rgba(255,255,255,.14)',
                 color: '#fff',
                 fontFamily: "'DM Sans',sans-serif",
                 fontSize: 13,
@@ -702,7 +701,7 @@ function BookletFlipbookModal({
               padding: '11px 12px',
               borderRadius: 12,
               border: 'none',
-              background: GOLD,
+              background: NAVY,
               color: '#fff',
               fontFamily: "'DM Sans',sans-serif",
               fontSize: 13,
@@ -817,7 +816,7 @@ export function MemoriesBookletPanel({
     borderRadius: 9,
     fontFamily: "'DM Sans',sans-serif",
     fontSize: 13,
-    color: INK,
+    color: NAVY,
     background: PAPER,
     outline: 'none',
     boxSizing: 'border-box',
@@ -841,7 +840,7 @@ export function MemoriesBookletPanel({
                   fontSize: 11,
                   fontWeight: 700,
                   color: '#fff',
-                  background: saving ? 'rgba(44,36,33,.45)' : INK,
+                  background: saving ? 'rgba(44,36,33,.45)' : NAVY,
                   border: 'none',
                   borderRadius: 999,
                   padding: '5px 12px',
@@ -871,7 +870,7 @@ export function MemoriesBookletPanel({
       <div
         style={{
           fontSize: 11,
-          color: GOLD,
+          color: NAVY_MUTED,
           letterSpacing: 0.6,
           marginBottom: 8,
           fontWeight: 600,
@@ -889,7 +888,7 @@ export function MemoriesBookletPanel({
         }}
       >
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: INK }}>{labels.dateFrom}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY }}>{labels.dateFrom}</span>
           <input
             type="date"
             value={fromDate}
@@ -902,7 +901,7 @@ export function MemoriesBookletPanel({
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: INK }}>{labels.dateTo}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY }}>{labels.dateTo}</span>
           <input
             type="date"
             value={toDate}
@@ -917,8 +916,8 @@ export function MemoriesBookletPanel({
       </div>
 
       {rangeOk && (
-        <div style={{ fontSize: 12, color: INK_SOFT, marginBottom: 10 }}>
-          <strong style={{ color: INK }}>{periodText}</strong>
+        <div style={{ fontSize: 12, color: NAVY_MUTED, marginBottom: 10 }}>
+          <strong style={{ color: NAVY }}>{periodText}</strong>
           {' · '}
           {countInPeriod} {lang === 'el' ? 'στιγμές' : 'moments'}
         </div>
@@ -933,8 +932,8 @@ export function MemoriesBookletPanel({
             flex: 1,
             padding: '10px 14px',
             background: PAPER,
-            color: INK,
-            border: `1.5px solid ${INK}`,
+            color: NAVY,
+            border: `1.5px solid ${NAVY}`,
             borderRadius: 10,
             fontFamily: "'DM Sans',sans-serif",
             fontSize: 13,
@@ -952,7 +951,7 @@ export function MemoriesBookletPanel({
           style={{
             flex: 1,
             padding: '10px 14px',
-            background: ROSE,
+            background: PURPLE,
             color: '#fff',
             border: 'none',
             borderRadius: 10,
@@ -966,7 +965,7 @@ export function MemoriesBookletPanel({
           ⬇ {labels.download}
         </button>
       </div>
-      <div style={{ fontSize: 10.5, color: GOLD, marginTop: 6, textAlign: 'center' }}>{labels.downloadHint}</div>
+      <div style={{ fontSize: 10.5, color: NAVY_MUTED, marginTop: 6, textAlign: 'center' }}>{labels.downloadHint}</div>
 
       {previewOpen && previewPages.length > 0 && (
         <BookletFlipbookModal
