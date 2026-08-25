@@ -1064,10 +1064,21 @@ def build_profile_context(profile):
     lines = []
     user_name = (getattr(profile, "name", None) or "").strip()
     if user_name:
+        try:
+            from .greek_text import greek_vocative
+        except ImportError:
+            from greek_text import greek_vocative
+        user_lang = (getattr(profile, "lang", None) or "").strip()
+        vocative = greek_vocative(user_name) if user_lang.startswith("el") else user_name
         lines.append(
             f"The user's name is {user_name}. Address them by this name (e.g. greet with their name). "
             f"Never call them Mama unless that is actually their name."
         )
+        if user_lang.startswith("el") and vocative != user_name:
+            lines.append(
+                f"When responding in Greek and addressing the user directly (greetings, vocative), "
+                f"use the vocative form «{vocative}», not the nominative «{user_name}»."
+            )
     children = []
     if profile.children:
         for c in profile.children:
@@ -4372,11 +4383,16 @@ def _tester_invite_email_html(
       <li>Βάλε το email σου: <strong>{email}</strong></li>
       <li>Βάλε τον κωδικό πρόσκλησης</li>
       <li>Φτιάξε τον κωδικό σου (password)</li>"""
+    try:
+        from .greek_text import greek_vocative
+    except ImportError:
+        from greek_text import greek_vocative
+    greet_name = greek_vocative(first_name)
     return f"""
 <div style="font-family:'Segoe UI',sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:36px;border:1px solid #F0EBE6">
   <div style="font-size:26px;font-weight:700;color:#2B3A67;margin-bottom:4px">Hey<span style="color:#4ABEAA">Maa</span></div>
   <div style="font-size:12px;color:#7A7068;margin-bottom:28px">by Care Direct</div>
-  <p style="font-size:16px;color:#2B3A67;margin-bottom:8px">Γεια σου <strong>{first_name}</strong>! 👋</p>
+  <p style="font-size:16px;color:#2B3A67;margin-bottom:8px">Γεια σου <strong>{greet_name}</strong>! 👋</p>
   <p style="font-size:14px;color:#555;line-height:1.7;margin-bottom:20px">
     Σε καλωσορίζουμε στο <strong>HeyMaa Beta</strong>! Είσαι ένας από τους πρώτους ανθρώπους που θα δοκιμάσουν την εφαρμογή μας.
     Ο λογαριασμός σου έχει ρυθμιστεί στο πακέτο <strong>{plan_label}</strong>.
