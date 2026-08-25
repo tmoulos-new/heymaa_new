@@ -826,20 +826,12 @@ export function MemoriesBookletPanel({
   }
 
   return (
-    <div
-      style={{
-        marginBottom: 14,
-        padding: '16px 14px',
-        borderRadius: 14,
-        background: `radial-gradient(ellipse at 10% 0%, ${ROSE_SOFT}44, transparent 50%), linear-gradient(145deg, ${LINEN} 0%, ${PAPER} 100%)`,
-        border: `1px solid rgba(201,123,132,.22)`,
-      }}
-    >
+    <div className="hm-tab-card" style={{ marginBottom: 14, padding: '16px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
         <span style={{ fontSize: 22, lineHeight: 1, opacity: 0.85 }}>✦</span>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: INK, fontWeight: 600 }}>
+            <div className="hm-tab-card-title" style={{ marginBottom: 0 }}>
               {lang === 'el' ? 'Άλμπουμ Αναμνήσεων' : 'Memories Album'}
             </div>
             {onSave && (
@@ -867,11 +859,10 @@ export function MemoriesBookletPanel({
           <div
             style={{
               fontSize: 12.5,
-              color: INK_SOFT,
+              color: 'rgba(43,58,103,.55)',
               marginTop: 3,
               lineHeight: 1.45,
               fontFamily: "'DM Sans',sans-serif",
-              fontStyle: 'italic',
             }}
           >
             {labels.bookletSubtitle}

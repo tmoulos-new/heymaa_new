@@ -12,6 +12,9 @@
   --hm-composer-pad: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
   --hm-sheet-max: 100%;
   --hm-sheet-wide-max: 100%;
+  --hm-tabbar-inset: 96px;
+  --hm-tabbar-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --hm-tabbar-duration: 0.32s;
 }
 
 .pill-btn-navy {
@@ -109,6 +112,46 @@ body.hm-app-active #root {
   background: var(--hm-cream);
   box-sizing: border-box;
   width: 100%;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 220;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--hm-tabbar-duration) var(--hm-tabbar-ease);
+  will-change: transform;
+}
+
+.hm-app-tabbar.is-hidden {
+  transform: translate3d(0, calc(100% + 12px), 0);
+  pointer-events: none;
+}
+
+/* Reserve space so scrollable content is not covered by the fixed tab bar */
+.hm-app-shell:not(.hm-tab-chat) .hm-app-body {
+  padding-bottom: calc(var(--hm-tabbar-inset, 96px) + 8px);
+  transition: padding-bottom var(--hm-tabbar-duration) var(--hm-tabbar-ease);
+}
+
+.hm-app-shell.hm-tabbar-hidden:not(.hm-tab-chat) .hm-app-body {
+  padding-bottom: 8px;
+}
+
+.hm-app-shell.hm-tab-chat .hm-app-composer {
+  margin-bottom: var(--hm-tabbar-inset, 96px);
+  transition: margin-bottom var(--hm-tabbar-duration) var(--hm-tabbar-ease);
+}
+
+.hm-app-shell.hm-tab-chat.hm-tabbar-hidden .hm-app-composer {
+  margin-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-app-tabbar,
+  .hm-app-shell:not(.hm-tab-chat) .hm-app-body,
+  .hm-app-shell.hm-tab-chat .hm-app-composer {
+    transition: none;
+  }
 }
 
 .hm-app-composer {
@@ -312,10 +355,15 @@ body.hm-app-active #root {
   left: 50%;
   right: auto;
   transform: translateX(-50%);
-  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--hm-tabbar-inset, 96px) + 12px);
   width: calc(100% - 32px);
   max-width: 420px;
   align-items: stretch !important;
+  transition: bottom var(--hm-tabbar-duration) var(--hm-tabbar-ease);
+}
+
+.hm-app-shell.hm-tabbar-hidden .hm-toast-stack {
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 700px) {
@@ -421,6 +469,8 @@ body.hm-app-active #root {
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 560;
 }
 
 .hm-header-greeting {
@@ -428,6 +478,129 @@ body.hm-app-active #root {
   font-family: 'DM Sans', sans-serif;
   font-size: clamp(15px, 2.2vw, 17px);
   min-width: 0;
+}
+
+.hm-header-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.hm-header-logo {
+  display: block;
+  height: 34px;
+  width: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ── Unified in-app tab pages (profile, family, memories, milestones) ── */
+.hm-tab-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.hm-tab-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hm-tab-page-head-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.hm-tab-page-title {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.hm-tab-page-subtitle {
+  margin: 4px 0 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-tab-page-action {
+  flex-shrink: 0;
+}
+
+.hm-tab-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hm-tab-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hm-tab-section-label {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(43, 58, 103, 0.72);
+  letter-spacing: 0.8px;
+}
+
+.hm-tab-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  border: 0.5px solid rgba(43, 58, 103, 0.08);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+.hm-tab-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.hm-tab-card-title {
+  margin: 0 0 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hm-navy);
+}
+
+.hm-tab-card-muted {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-tab-empty {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: rgba(43, 58, 103, 0.55);
+  text-align: center;
+  padding: 20px 0;
+}
+
+.hm-family-tree-panel > div:first-of-type {
+  background: #fbf9f7;
+  border-bottom: 1px solid rgba(43, 58, 103, 0.06);
 }
 
 .hm-header-actions {
@@ -447,6 +620,168 @@ body.hm-app-active #root {
   color: #fff;
   font-size: 12px;
   font-family: inherit;
+}
+
+.hm-header-notif-btn {
+  position: relative;
+  width: var(--hm-touch-min);
+  height: var(--hm-touch-min);
+  min-width: var(--hm-touch-min);
+  min-height: var(--hm-touch-min);
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.hm-header-notif-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e07b54;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+  border: 1.5px solid var(--hm-navy);
+}
+
+.hm-notif-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(420px, 70dvh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(43, 58, 103, 0.22);
+  z-index: 620;
+  box-sizing: border-box;
+}
+
+.hm-notif-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  border-bottom: 1px solid rgba(43, 58, 103, 0.08);
+}
+
+.hm-notif-panel-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.45);
+}
+
+.hm-notif-list {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hm-notif-empty {
+  padding: 28px 20px 32px;
+  text-align: center;
+  color: rgba(43, 58, 103, 0.55);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hm-notif-empty-icon {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 10px;
+  opacity: 0.45;
+}
+
+.hm-notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(43, 58, 103, 0.06);
+}
+
+.hm-notif-item--urgent {
+  background: rgba(224, 123, 84, 0.06);
+}
+
+.hm-notif-item--unread .hm-notif-item-title {
+  font-weight: 700;
+}
+
+.hm-notif-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(43, 58, 103, 0.15);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.hm-notif-item--unread .hm-notif-item-dot {
+  background: #e07b54;
+}
+
+.hm-notif-item-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.hm-notif-item-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hm-navy);
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.hm-notif-item-text {
+  margin: 0 0 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(43, 58, 103, 0.62);
+}
+
+.hm-notif-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--hm-navy);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.hm-notif-action:hover {
+  opacity: 0.92;
 }
 
 .hm-header-avatar {

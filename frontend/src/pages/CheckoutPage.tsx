@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { createVivaCheckout, HM_TOKEN_KEY } from '../lib/authApi'
+import { createVivaCheckout, HM_TOKEN_KEY, apiDetail } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { setPlanIntent } from '../lib/planCheckoutFlow'
 import { useHomeI18nSync } from '../lib/useHomeI18nSync'
@@ -49,13 +49,8 @@ export function CheckoutPage() {
       .catch((e: unknown) => {
         if (cancelled) return
         const err = e as { response?: { data?: unknown } }
-        const detail =
-          err.response?.data && typeof err.response.data === 'object'
-            ? String((err.response.data as { detail?: string }).detail || '')
-            : ''
         setError(
-          detail ||
-            (e instanceof Error ? e.message : t('checkout.failed')),
+          apiDetail(err.response?.data, e instanceof Error ? e.message : t('checkout.failed')),
         )
         setLoading(false)
       })

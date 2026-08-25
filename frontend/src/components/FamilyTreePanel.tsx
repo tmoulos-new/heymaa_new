@@ -372,18 +372,10 @@ export function FamilyTreePanel({
     : null
 
   return (
-    <div
-      style={{
-        borderRadius: 16,
-        overflow: 'hidden',
-        background: `linear-gradient(165deg, ${CREAM} 0%, #F0F5F3 48%, #F7F1EB 100%)`,
-        border: '1px solid rgba(43,58,103,.08)',
-        marginBottom: 12,
-      }}
-    >
+    <div className="hm-tab-card hm-tab-card--flush hm-family-tree-panel">
       <div style={{ padding: '14px 16px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, color: NAVY, fontWeight: 700 }}>
+          <div className="hm-tab-card-title" style={{ marginBottom: 0 }}>
             {copy.title}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

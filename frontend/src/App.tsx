@@ -20,7 +20,7 @@ import {
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, isBrowserLocalHost, isLocalDemoToken } from "./lib/authApi";
+import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, type SubscriptionSnapshot } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -56,6 +56,11 @@ import {
   clearBootLocalScanCache,
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
+import { slotForPaidPlan } from "./lib/subscriptionPlans";
+import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
+import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
+import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
+import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
@@ -144,38 +149,55 @@ function UserChatAvatar({
   );
 }
 
-async function syncProfileToSupabase(token: string, profile: Profile): Promise<void> {
+type SyncProfileResult =
+  | { ok: true }
+  | { ok: false; authExpired?: boolean; error?: string };
+
+async function syncProfileToSupabase(token: string, profile: Profile): Promise<SyncProfileResult> {
+  if (isLocalDemoToken(token)) return { ok: true };
   const ch: ChildEntity[] = profile.children ||
     (profile.childBirthDate ? [{name: profile.childName||"", birthDate: profile.childBirthDate||""}] : []);
   const bds = ch.map((c: ChildEntity) => c.birthDate).filter((d: string) => d.length > 0);
   const pregnant = !!(profile.dueDate && profile.pregnancyStatus !== "completed");
-  const res = await fetch(`${API}/profile/sync`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "x-token": token},
-    body: JSON.stringify({
-      name: profile.name || null,
-      phone: profile.phone || null,
-      country: profile.country || null,
-      city: profile.city || null,
-      zip: profile.postalCode || null,
-      address_street: profile.address || null,
-      address_zip: profile.postalCode || null,
-      address_city: profile.city || null,
-      address_country: profile.country || "GR",
-      child_count: ch.length,
-      pregnancy_active: pregnant,
-      children_birthdates: bds,
-      consent_marketing: !!profile.consentMarketing,
-      consent_date: profile.consentDate || null,
-    }),
-  });
-  let body: { ok?: boolean; error?: string; detail?: unknown } = {};
-  try { body = await res.json(); } catch { /* non-JSON */ }
-  if (!res.ok) {
-    throw new Error(apiDetail(body, res.statusText || "Request failed"));
-  }
-  if (body.ok === false) {
-    throw new Error(body.error || "Profile sync failed");
+  try {
+    const res = await fetch(`${API}/profile/sync`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "x-token": token},
+      body: JSON.stringify({
+        name: profile.name || null,
+        phone: profile.phone || null,
+        country: profile.country || null,
+        city: profile.city || null,
+        zip: profile.postalCode || null,
+        address_street: profile.address || null,
+        address_zip: profile.postalCode || null,
+        address_city: profile.city || null,
+        address_country: profile.country || "GR",
+        child_count: ch.length,
+        pregnancy_active: pregnant,
+        children_birthdates: bds,
+        consent_marketing: !!profile.consentMarketing,
+        consent_date: profile.consentDate || null,
+      }),
+    });
+    let body: { ok?: boolean; error?: string; detail?: unknown } = {};
+    try { body = await res.json(); } catch { /* non-JSON */ }
+    if (res.status === 401) {
+      return {
+        ok: false,
+        authExpired: true,
+        error: apiDetail(body, "Your session has expired or is not valid. Please sign in again."),
+      };
+    }
+    if (!res.ok) {
+      return { ok: false, error: apiDetail(body, res.statusText || "Request failed") };
+    }
+    if (body.ok === false) {
+      return { ok: false, error: body.error || "Profile sync failed" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error" };
   }
 }
 
@@ -230,6 +252,20 @@ function ageMonthsFromBirthDate(birthDateStr?: string): number | null {
   let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
   if (now.getDate() < birth.getDate()) months -= 1;
   return Math.max(0, months);
+}
+
+function openNativeDatePicker(input: HTMLInputElement | null) {
+  if (!input) return;
+  try {
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+  } catch {
+    /* Some browsers block showPicker outside a direct gesture */
+  }
+  input.focus({ preventScroll: true });
+  input.click();
 }
 
 function formatChildAge(birthDateStr: string | undefined, lang: string): string {
@@ -1634,6 +1670,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
   };
   const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
+  const sessionExpiredMsg = lang === "el"
+    ? "Η σύνδεσή σου έληξε ή δεν είναι έγκυρη. Συνδέσου ξανά."
+    : "Your session has expired or is not valid. Please sign in again.";
+  const syncProfileSafe = async (p: Profile, opts?: { silent?: boolean }): Promise<boolean> => {
+    const result = await syncProfileToSupabase(token, p);
+    if (!result.ok && "authExpired" in result && result.authExpired) {
+      showToast(sessionExpiredMsg, "err");
+      window.setTimeout(() => onLogout(), 1200);
+      return false;
+    }
+    if (!result.ok && !opts?.silent) {
+      const errMsg = "error" in result ? result.error : undefined;
+      showToast(errMsg || t("save_failed", lang), "err");
+    }
+    return result.ok;
+  };
+  const syncProfileInBackground = (p: Profile) => { void syncProfileSafe(p, { silent: true }); };
   const displayName = String(profile.name || "").trim();
   const vocativeName = nameInVocative(displayName, lang);
   const displayInitial = displayName ? displayName.charAt(0).toUpperCase() : "?";
@@ -1668,6 +1721,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       })
       .catch(() => {});
   }, [token]);
+
+  useEffect(() => {
+    fetchSubscriptionStatus(token)
+      .then(setSubSnapshot)
+      .catch(() => {
+        if (trialEndsAt) {
+          setSubSnapshot({
+            subscription_active: true,
+            subscription_status: "trial",
+            trial_ends_at: trialEndsAt,
+            is_trial: true,
+          });
+        }
+      });
+  }, [token, trialEndsAt]);
 
   const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
     const result = await logUserActivity(token, { action, path, label, details });
@@ -1725,9 +1793,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
   const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
+  const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
@@ -1761,7 +1832,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setEditSaving(true);
     const updated: Profile = { ...profile, name: nextName };
     try {
-      await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
+      const synced = await syncProfileSafe({ ...updated, consentMarketing: profile.consentMarketing });
+      if (!synced) return;
       localStorage.setItem(sk(token, "profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
       if (editPhoto !== (familyData.selfPhoto || null)) {
@@ -1810,7 +1882,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       postalCode: addrPostal.trim() || undefined,
     };
     try {
-      await syncProfileToSupabase(token, { ...updated, consentMarketing: profile.consentMarketing });
+      const synced = await syncProfileSafe({ ...updated, consentMarketing: profile.consentMarketing });
+      if (!synced) return;
       localStorage.setItem(sk(token,"profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
       showToast(t("address_saved", lang), "ok");
@@ -1846,6 +1919,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [treeEditNote, setTreeEditNote] = useState("");
   const [familySaving, setFamilySaving] = useState(false);
   const treePhotoRef = useRef<HTMLInputElement>(null);
+  const childBirthDateRef = useRef<HTMLInputElement>(null);
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
@@ -2535,7 +2609,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       ...(newChildDateMode === "due" ? { dueDate: newChildBirthDate, pregnancyStatus: "active" as const } : {}),
     };
     onProfileUpdate(updatedProfile);
-    void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
+    void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
     setNewChildName(""); setNewChildBirthDate(""); setNewChildGender(""); setNewChildDateMode("birth"); setShowAddChild(false);
     showToast(lang==="el"?"Το παιδί προστέθηκε":"Child added", "ok");
   };
@@ -2701,7 +2775,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     let nextFamily = familyData;
     if (treeEdit.kind === "self") {
       onProfileUpdate({ ...profile, name });
-      void syncProfileToSupabase(token, { ...profile, name, consentMarketing: profile.consentMarketing });
+      syncProfileInBackground({ ...profile, name, consentMarketing: profile.consentMarketing });
     } else if (treeEdit.childIndex != null) {
       const idx = treeEdit.childIndex;
       const birthDate = treeEditBirthDate || familyChildren[idx]?.birthDate;
@@ -2747,7 +2821,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : "",
     };
     onProfileUpdate(updatedProfile);
-    void syncProfileToSupabase(token, { ...updatedProfile, consentMarketing: profile.consentMarketing });
+    void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
     showUndoToast(
       t("deleted_named", lang).replace("{name}", removed.name),
       () => {
@@ -2762,7 +2836,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           childAge: restored[0] ? formatChildAge(restored[0].birthDate, lang) : profile.childAge,
         };
         onProfileUpdate(restoredProfile);
-        void syncProfileToSupabase(token, { ...restoredProfile, consentMarketing: profile.consentMarketing });
+        syncProfileInBackground({ ...restoredProfile, consentMarketing: profile.consentMarketing });
       },
     );
   };
@@ -2781,61 +2855,60 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     { id: "milestones", label: t("milestones", lang) },
   ];
 
-  const trialEndLabel = trialEndsAt
-    ? new Date(trialEndsAt).toLocaleString(lang === "el" ? "el-GR" : "en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-
-  const trialDaysLeft = trialEndsAt
-    ? (new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    : null;
-  /** Day 12 of a 14-day trial → 2 days remaining */
-  const trialEndingSoon =
-    trialDaysLeft != null && trialDaysLeft <= 2 && trialDaysLeft > 0;
-
-  const trialNudgeStorageKey =
-    trialEndsAt && token
-      ? `hm_trial_ending_nudge_${token}_${trialEndsAt}`
-      : null;
-  const [trialNudgeOpen, setTrialNudgeOpen] = useState(() => {
-    if (!trialNudgeStorageKey) return false;
-    try {
-      return localStorage.getItem(trialNudgeStorageKey) !== "1";
-    } catch {
-      return true;
+  const profilePlanLabel = useMemo(() => {
+    if (subSnapshot?.is_trial && subSnapshot.subscription_active) return "Free";
+    const paidSlot = slotForPaidPlan(subSnapshot?.plan);
+    if (paidSlot === "starter") return "Starter";
+    if (paidSlot === "premium") return "Premium";
+    if (paidSlot === "annual") return lang === "el" ? "Ετήσιο Premium" : "Annual Premium";
+    if (subSnapshot?.subscription_active && subSnapshot.plan) {
+      return String(subSnapshot.plan);
     }
-  });
+    return "Free";
+  }, [subSnapshot, lang]);
+
+  const appNotifications = useMemo(
+    () => buildAppNotifications(lang, trialEndsAt, subSnapshot),
+    [lang, trialEndsAt, subSnapshot],
+  );
+  const notifUnreadCount = appNotifications.filter((n) => !notifReadIds.has(n.id)).length;
+  const refreshNotifRead = useCallback(() => {
+    setNotifReadIds(readNotificationIds(token));
+  }, [token]);
 
   useEffect(() => {
-    if (!trialEndingSoon || !trialNudgeStorageKey) {
-      setTrialNudgeOpen(false);
-      return;
-    }
-    try {
-      setTrialNudgeOpen(localStorage.getItem(trialNudgeStorageKey) !== "1");
-    } catch {
-      setTrialNudgeOpen(true);
-    }
-  }, [trialEndingSoon, trialNudgeStorageKey]);
+    refreshNotifRead();
+  }, [subSnapshot, refreshNotifRead]);
 
-  const dismissTrialNudge = () => {
-    setTrialNudgeOpen(false);
-    if (!trialNudgeStorageKey) return;
-    try {
-      localStorage.setItem(trialNudgeStorageKey, "1");
-    } catch {
-      /* ignore */
-    }
-  };
+  const appBodyRef = useRef<HTMLDivElement>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const { tabBarVisible, showTabBar } = useAutoHideTabBar(appBodyRef);
+
+  useEffect(() => {
+    showTabBar();
+    const body = appBodyRef.current;
+    if (body) body.scrollTop = 0;
+  }, [tab, showTabBar]);
+
+  useEffect(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const syncInset = () => {
+      document.documentElement.style.setProperty("--hm-tabbar-inset", `${el.offsetHeight}px`);
+    };
+    syncInset();
+    const ro = new ResizeObserver(syncInset);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <>
-    <div dir={dir} className="hm-app-shell" style={{fontFamily:"'DM Sans',sans-serif",background:cream}}>
+    <div
+      dir={dir}
+      className={`hm-app-shell${tabBarVisible ? "" : " hm-tabbar-hidden"}${tab === "chat" ? " hm-tab-chat" : ""}`}
+      style={{fontFamily:"'DM Sans',sans-serif",background:cream}}
+    >
 
       {/* PROFILE SETTINGS MENU */}
       {showProfileSettings&&(
@@ -2861,7 +2934,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </svg>
               </button>
               <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1,paddingTop:6}}>
-                <img src={AUTH_LOGO_SRC} alt="" style={{width:22,height:22,borderRadius:"50%",objectFit:"cover"}} />
                 <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:700,color:navy}}>
                   {lang==="el"?"Ρυθμίσεις":"Settings"}
                 </span>
@@ -3121,7 +3193,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   {editPhoto ? (
                     <img src={editPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
                   ) : (
-                    <img src={AUTH_LOGO_SRC} alt="HeyMaa" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",transform:"scale(1.05)"}} />
+                    <div style={{
+                      width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",
+                      background:"#8B7EC8",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:36,fontWeight:700,
+                    }}>{displayInitial}</div>
                   )}
                 </div>
                 <button
@@ -3325,6 +3400,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   ))}
                 </div>
                 <label
+                  htmlFor="hm-add-child-birth-date"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openNativeDatePicker(childBirthDateRef.current);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openNativeDatePicker(childBirthDateRef.current);
+                    }
+                  }}
                   style={{
                     position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
                     width:"100%",padding:"14px 16px",borderRadius:14,background:"#F2E6DC",
@@ -3347,13 +3433,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     <path d="M3 9h18M8 3v4M16 3v4" stroke={navy} strokeWidth="1.6" strokeLinecap="round"/>
                   </svg>
                   <input
+                    id="hm-add-child-birth-date"
+                    ref={childBirthDateRef}
                     type="date"
                     value={newChildBirthDate}
                     onChange={e=>setNewChildBirthDate(e.target.value)}
+                    aria-label={
+                      newChildDateMode === "due"
+                        ? (lang === "el" ? "Ημερομηνία τοκετού" : "Due date")
+                        : (lang === "el" ? "Ημερομηνία γέννησης" : "Date of birth")
+                    }
                     style={{
                       position:"absolute",inset:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",
-                      fontSize:16,
+                      fontSize:16,zIndex:2,margin:0,padding:0,border:"none",background:"transparent",
+                      pointerEvents:"none",
                     }}
+                    tabIndex={-1}
                   />
                 </label>
               </div>
@@ -3491,7 +3586,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             const nextLang = writeStoredAppLang(code);
             const u = { ...profile, lang: nextLang };
             localStorage.setItem(sk(token, "profile"), JSON.stringify(u));
-            void syncProfileToSupabase(token, u);
+            syncProfileInBackground(u);
             onProfileUpdate(u);
           }}
         />
@@ -3552,108 +3647,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       />
 
       {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
-      {trialEndingSoon && trialNudgeOpen && (
-        <div
-          role="status"
-          className="hm-floating-banner"
-          style={{
-            position: "fixed",
-            bottom: 72,
-            zIndex: 580,
-            background: "#2A2A5A",
-            color: "#fff",
-            borderRadius: 14,
-            padding: "14px 16px",
-            boxShadow: "0 12px 32px rgba(43,58,103,0.28)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            boxSizing: "border-box",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <div style={{ flex: 1, fontSize: 13.5, lineHeight: 1.5, fontWeight: 500 }}>
-              {lang === "el"
-                ? "Η δοκιμή σου λήγει σε 2 ημέρες! Επίλεξε ένα από τα διαθέσιμα πακέτα συνδρομής για να συνεχίσεις"
-                : "Your trial ends in 2 days! Choose one of the available subscription plans to continue"}
-            </div>
-            <button
-              type="button"
-              onClick={dismissTrialNudge}
-              aria-label={lang === "el" ? "Κλείσιμο" : "Close"}
-              style={{
-                background: "rgba(255,255,255,0.12)",
-                border: "none",
-                color: "#fff",
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                cursor: "pointer",
-                flexShrink: 0,
-                fontSize: 14,
-                lineHeight: 1,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          <Link
-            to="/subscription"
-            onClick={dismissTrialNudge}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-              boxSizing: "border-box",
-              background: "#FCECDD",
-              color: "#2A2A5A",
-              textDecoration: "none",
-              fontFamily: "'DM Sans',sans-serif",
-              fontWeight: 600,
-              fontSize: 14,
-              borderRadius: 10,
-              padding: "12px 18px",
-              border: "none",
-            }}
-          >
-            {lang === "el" ? "Επιλογή Πακέτου" : "Select plan"}
-          </Link>
-        </div>
-      )}
-      {trialEndLabel && (
-        <div style={{background:"#C62828",color:"#fff",padding:"10px 14px",fontSize:12.5,lineHeight:1.45,flexShrink:0,textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
-          <span>
-            {lang === "el"
-              ? `Δωρεάν δοκιμή — λήγει ${trialEndLabel}.`
-              : `Free trial — ends ${trialEndLabel}.`}
-          </span>
-          <Link
-            to="/subscription"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              color: "#C62828",
-              textDecoration: "none",
-              fontFamily: "'DM Sans',sans-serif",
-              fontWeight: 600,
-              fontSize: 13,
-              borderRadius: 999,
-              padding: "8px 18px",
-            }}
-          >
-            {lang === "el" ? "Επιλογή Πακέτου" : "Select plan"}
-          </Link>
-        </div>
-      )}
+      {showNotifications&&<div onClick={()=>setShowNotifications(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
       {/* HEADER */}
       <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
-        <div className="hm-header-greeting">{t("greeting",lang)} <span style={{color:"#F8E5D6"}}>{vocativeName || "…"}</span> 👋</div>
+        <div className="hm-header-brand">
+          <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
+        </div>
         <div className="hm-header-actions">
-          <button type="button" className="hm-header-lang-btn" onClick={()=>setShowLang(true)}>{L.f} {L.s}</button>
-          <div className="hm-header-avatar" onClick={()=>setShowAccountMenu(v=>!v)} style={{background:coral}}>
+          <AppNotificationsBell
+            lang={lang}
+            token={token}
+            trialEndsAt={trialEndsAt}
+            subSnapshot={subSnapshot}
+            open={showNotifications}
+            onOpenChange={(next) => {
+              setShowNotifications(next);
+              if (next) setShowAccountMenu(false);
+            }}
+            onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
+            onReadChange={refreshNotifRead}
+          />
+          <div className="hm-header-avatar" onClick={()=>{ setShowNotifications(false); setShowAccountMenu(v=>!v); }} style={{background:coral}}>
             {displayInitial}
             {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
               <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
@@ -3687,51 +3701,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
 
       {/* BODY */}
-      <div className="hm-app-body">
+      <div className="hm-app-body" ref={appBodyRef}>
 
                 {tab==="profile"&&(
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
-              <div style={{
-                width:62,height:62,borderRadius:"50%",border:"none",boxSizing:"border-box",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                boxShadow:"0 8px 24px rgba(43,58,103,0.08)",overflow:"hidden",background:"#fff",
-              }}>
-                <img
-                  src={AUTH_LOGO_SRC}
-                  alt="HeyMaa"
-                  style={{display:"block",width:"100%",height:"100%",objectFit:"cover",transform:"scale(1.05)"}}
-                />
-              </div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-              <h1 style={{margin:0,fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:700,color:navy,letterSpacing:-0.3}}>
-                {lang==="el"?"Το προφίλ μου":"My profile"}
-              </h1>
-              <button
-                type="button"
-                className="hm-icon-btn"
-                aria-label={lang==="el"?"Ρυθμίσεις προφίλ":"Profile settings"}
-                onClick={()=>setShowProfileSettings(true)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path
-                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                  />
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+          <AppTabPageShell
+            title={lang==="el"?"Το προφίλ μου":"My profile"}
+            action={(
+              <button type="button" className="hm-icon-btn" aria-label={lang==="el"?"Ρυθμίσεις προφίλ":"Profile settings"} onClick={()=>setShowProfileSettings(true)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="1.7"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
-            </div>
-
-            <div style={{...card,marginBottom:0,display:"flex",alignItems:"center",gap:14,padding:"16px 18px"}}>
+            )}
+          >
+            <div className="hm-tab-card" style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px"}}>
               {familyData.selfPhoto ? (
                 <img
                   src={familyData.selfPhoto}
@@ -3774,11 +3755,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </div>
 
-            <div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:700,color:"rgba(43,58,103,.72)",letterSpacing:0.8}}>
-                  {displayUppercase(lang==="el"?"Τα παιδιά μου":"My children", lang)}
-                </div>
+            <AppTabSection
+              lang={lang}
+              label={lang==="el"?"Τα παιδιά μου":"My children"}
+              action={(
                 <button
                   type="button"
                   onClick={openAddChildForm}
@@ -3786,7 +3766,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 >
                   + {lang==="el"?"Προσθήκη":"Add"}
                 </button>
-              </div>
+              )}
+            >
               {familyChildren.length===0 ? (
                 <button
                   type="button"
@@ -3802,7 +3783,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <span style={{fontSize:13,fontWeight:500}}>{lang==="el"?"Πρόσθεσε το πρώτο παιδί":"Add your first child"}</span>
                 </button>
               ) : (
-                <div style={{...card,marginBottom:0,padding:0,overflow:"hidden"}}>
+                <div className="hm-tab-card hm-tab-card--flush">
                   {familyChildren.map((child, i) => (
                     <div
                       key={`${child.name}-${i}`}
@@ -3825,13 +3806,75 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   ))}
                 </div>
               )}
-            </div>
+            </AppTabSection>
+
+            <AppTabSection lang={lang} label={lang==="el"?"Ρυθμίσεις":"Settings"}>
+              <div className="hm-tab-card hm-tab-card--flush">
+                {[
+                  {
+                    key: "notifications",
+                    icon: "🔔",
+                    iconBg: "rgba(255,193,7,.2)",
+                    label: lang==="el"?"Ειδοποιήσεις":"Notifications",
+                    value: notificationSummaryLabel(lang, appNotifications.length, notifUnreadCount),
+                    onClick: () => {
+                      setTab("profile");
+                      setShowNotifications(true);
+                    },
+                  },
+                  {
+                    key: "language",
+                    icon: "🌐",
+                    iconBg: "rgba(91,127,232,.15)",
+                    label: lang==="el"?"Γλώσσα":"Language",
+                    value: L.n,
+                    onClick: () => setShowLang(true),
+                  },
+                  {
+                    key: "subscription",
+                    icon: "💳",
+                    iconBg: "rgba(43,58,103,.1)",
+                    label: lang==="el"?"Συνδρομή":"Subscription",
+                    value: profilePlanLabel,
+                    onClick: () => setShowSubscriptionSheet(true),
+                  },
+                ].map((row, i, rows) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    onClick={row.onClick}
+                    style={{
+                      width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 16px",
+                      border:"none",background:"#fff",cursor:row.onClick?"pointer":"default",
+                      fontFamily:"'DM Sans',sans-serif",textAlign:"left",
+                      borderBottom: i < rows.length - 1 ? "1px solid "+gl : "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width:36,height:36,borderRadius:10,background:row.iconBg,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:17,flexShrink:0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {row.icon}
+                    </span>
+                    <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:navy}}>{row.label}</span>
+                    <span style={{fontSize:13,color:"rgba(43,58,103,.5)",marginRight:4}}>{row.value}</span>
+                    <span style={{color:"rgba(43,58,103,.28)",fontSize:20,lineHeight:1}} aria-hidden="true">›</span>
+                  </button>
+                ))}
+              </div>
+            </AppTabSection>
 
             <button
               type="button"
               onClick={onLogout}
               style={{
-                width:"100%",padding:"14px 12px",marginTop:4,border:"none",background:"transparent",
+                width:"100%",padding:"14px 12px",marginTop:4,
+                border:".5px solid rgba(43,58,103,.08)",background:"#fff",borderRadius:14,
+                boxSizing:"border-box",
                 color:"#D64545",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
                 cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
               }}
@@ -3842,7 +3885,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </svg>
               {lang==="el"?"Αποσύνδεση":"Log out"}
             </button>
-          </div>
+          </AppTabPageShell>
         )}
 
         {/* ── CHAT ── */}
@@ -3869,7 +3912,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             )}
 
             {messages.length===0&&(
-              <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
+              <div className="hm-tab-card" style={{textAlign:"center",padding:"20px 16px"}}>
                 <div style={{margin:"0 auto 12px",width:52,height:52}}><HeyMaaAvatar size={52} /></div>
                 <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
               </div>
@@ -3926,7 +3969,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         )}
 
         {/* ── FAMILY ── */}
-        {tab==="family"&&(<>
+        {tab==="family"&&(
+          <AppTabPageShell title={t("family", lang)}>
           <FamilyTreePanel
             userName={displayName || profile.name}
             lang={lang}
@@ -3942,7 +3986,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onSave={saveFamilyNow}
             saving={familySaving}
           />
-          <div style={card}>
+          <div className="hm-tab-card">
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
               <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
               <div>
@@ -3951,9 +3995,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </div>
           </div>
-          <div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:showMyFamily?11:0}}>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,fontWeight:600}}>{t("myfamily",lang)}</div>
+          <AppTabSection
+            lang={lang}
+            label={t("myfamily", lang)}
+            action={(
               <button
                 type="button"
                 onClick={()=>setShowMyFamily(v=>!v)}
@@ -3961,7 +4006,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               >
                 {showMyFamily ? t("hide",lang) : t("show",lang)}
               </button>
-            </div>
+            )}
+          >
+          <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
             {showMyFamily && (<>
             {profile.dueDate&&<div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:"#fff",flexShrink:0}}>🤰</div>
@@ -4145,6 +4192,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <div onClick={()=>{setShowAddPet(false);setNewMemberRole("Partner");setShowAddMember(!showAddMember);}} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"#7A7068",fontSize:13}}>{t("addmember",lang)}</div>
             </>)}
           </div>
+          </AppTabSection>
           {treeEdit && (
             <div
               role="dialog"
@@ -4273,11 +4321,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </div>
           )}
-        </>)}
+        </AppTabPageShell>)}
 
         {/* ── MEMORIES ── */}
-        {tab==="memories"&&<div style={{...card, overflow:"hidden", maxWidth:"100%", boxSizing:"border-box" as any}}>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>{t("recentmem",lang)}</div>
+        {tab==="memories"&&(
+          <AppTabPageShell title={t("memories", lang)}>
+          <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
           <MemoriesBookletPanel
             memories={memories}
             userName={displayName || profile.name}
@@ -4376,7 +4425,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           })()}
           {/* Filtered memory list — only when a member is selected */}
           {activeMemRef==null ? (
-            <div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("selectmem",lang)}</div>
+            <div className="hm-tab-empty">{t("selectmem",lang)}</div>
           ) : (()=>{
             const filtered = memories.filter((m) => {
               if (activeMemRef === "__general__") return !m.ref || m.ref === "__general__";
@@ -4477,7 +4526,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <button onClick={()=>fileRef.current?.click()} disabled={activeMemRef==null} style={{padding:"8px 11px",background:gl,color:navy,border:"none",borderRadius:9,fontSize:15,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>📷</button>
             <button onClick={()=>addMemory()} disabled={activeMemRef==null} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>＋</button>
           </div>
-        </div>}
+          </div>
+        </AppTabPageShell>)}
 
         {/* ── MILESTONES ── */}
         {tab==="milestones"&&(()=>{
@@ -4493,18 +4543,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           const currentDisplayAge = currentChild?formatChildAge(currentChild.birthDate,lang):displayAge;
           const currentChildName = currentChild?.name||primaryChildName;
           const currentCheckedCount = currentChecks.filter(Boolean).length;
-          return (<>
+          return (<AppTabPageShell title={t("milestones", lang)}>
             {msRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
               {msRefs.map((r,i)=>(
                 <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"#7A7068",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
               ))}
             </div>}
             {isPreg&&profile.dueDate&&(<>
-            <div style={card}>
+            <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
               <div style={{fontSize:12.5,color:"#7A7068",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
             </div>
-            <div style={card}>
+            <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
               <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
@@ -4524,7 +4574,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <span>🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}</span><button onClick={()=>prefillChat(lang==="el"?"Θέλω να προσθέσω ένα νέο milestone":"I want to add a new milestone")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:"0 2px"}}>🚀</button>
             </div>}
-            <div style={card}>
+            <div className="hm-tab-card">
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
                 <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                 <div>
@@ -4535,7 +4585,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
             </>)}
             {currentChild&&(<>
-            <div style={card}>
+            <div className="hm-tab-card">
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
               <div style={{fontSize:12,color:"#7A7068",marginBottom:12}}>{t("tickall",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
@@ -4555,7 +4605,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {currentCheckedCount>0&&<div style={{background:"rgba(74,190,170,.12)",border:"1.5px solid "+teal,borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:13,color:teal,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               🎉 {currentChildName} — {currentCheckedCount}/{currentMilestoneList.length} milestones!
             </div>}
-            <div style={card}>
+            <div className="hm-tab-card">
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
                 <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
                 <div>
@@ -4565,9 +4615,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </div>
             </>)}
-            {!effectiveRef&&<div style={card}><div style={{fontSize:13,color:"#7A7068",textAlign:"center",padding:"20px 0"}}>{t("nochildyet",lang)}</div></div>}
+            {!effectiveRef&&<div className="hm-tab-card"><div className="hm-tab-empty">{t("nochildyet",lang)}</div></div>}
             {/* ── DOCUMENTS ── */}
-            <div style={{marginTop:8,background:"#fff",borderRadius:14,padding:16,border:".5px solid rgba(43,58,103,.08)"}}>
+            <div className="hm-tab-card" style={{marginTop:8}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
               <div style={{fontSize:11.5,color:"#7A7068",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
               {(()=>{
@@ -4605,10 +4655,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </>);
               })()}
             </div>
-          </>);
+          </AppTabPageShell>);
         })()}
         {/* ── SHOPPING ── */}
-        {tab==="shopping"&&<div style={card}>
+        {tab==="shopping"&&<div className="hm-tab-card">
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
             <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"#7A7068",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
@@ -4762,7 +4812,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       </div>}
 
       {/* TAB BAR — floating dock like reference */}
-      <div className="hm-app-tabbar" style={{background:cream}}>
+      <div ref={tabBarRef} className={`hm-app-tabbar${tabBarVisible ? "" : " is-hidden"}`} style={{background:cream}}>
         <div className="hm-tab-dock">
           {tabs.map(tb=>{
             const active = tab === tb.id;
@@ -4773,6 +4823,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 type="button"
                 className={`hm-tab-btn${isCenter ? " hm-tab-btn--center" : ""}`}
                 onClick={()=>{
+                  showTabBar();
                   setTab(tb.id);
                 }}
               >

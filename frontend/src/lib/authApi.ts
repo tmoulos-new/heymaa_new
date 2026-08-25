@@ -38,6 +38,17 @@ export function getApiBase(): string {
   return window.location.origin
 }
 
+/** Checkout API — local FastAPI often lacks Viva credentials; production has them. */
+export function getCheckoutApiBase(): string {
+  const explicit = (process.env.REACT_APP_CHECKOUT_API_URL || '').trim()
+  if (explicit) return explicit.replace(/\/$/, '')
+  const base = getApiBase()
+  if (isBrowserLocalHost() && isLocalApiUrl(base)) {
+    return 'https://www.heymaa.ai'
+  }
+  return base
+}
+
 export const API = getApiBase()
 
 export function apiDetail(data: unknown, fallback: string): string {
@@ -146,7 +157,7 @@ export async function createVivaCheckout(plan: string, lang: string, token: stri
   const headers: Record<string, string> = {}
   if (token) headers['x-token'] = token
   const res = await axios.post<VivaCheckoutResponse>(
-    `${API}/checkout/viva`,
+    `${getCheckoutApiBase()}/checkout/viva`,
     { plan, lang },
     { headers },
   )
