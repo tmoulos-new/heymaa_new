@@ -33,7 +33,11 @@
   },
   "checkout": {
     "title": "Ολοκλήρωση πληρωμής",
-    "redirecting": "Σε λίγο θα μεταφερθείς στο Viva Wallet…",
+    "reviewSubtitle": "Έλεγξε τι περιλαμβάνει το πακέτο πριν προχωρήσεις στην πληρωμή.",
+    "includes": "Το πακέτο περιλαμβάνει",
+    "buy": "Αγορά",
+    "loading": "Φόρτωση…",
+    "redirecting": "Μετάβαση στο Viva Wallet…",
     "invalidPlan": "Μη έγκυρο πακέτο.",
     "failed": "Αποτυχία checkout.",
     "backToPlans": "← Πίσω στα πακέτα",

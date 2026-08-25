@@ -33,6 +33,10 @@
   },
   "checkout": {
     "title": "Complete payment",
+    "reviewSubtitle": "Review what is included in your plan before proceeding to payment.",
+    "includes": "This plan includes",
+    "buy": "Buy",
+    "loading": "Loading…",
     "redirecting": "Redirecting to Viva Wallet…",
     "invalidPlan": "Invalid plan.",
     "failed": "Checkout failed.",

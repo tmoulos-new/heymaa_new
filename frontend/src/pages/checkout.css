@@ -1,0 +1,127 @@
+.checkout-page .app-auth-card {
+  max-width: 420px;
+  text-align: left;
+}
+
+.checkout-plan-card {
+  background: #fff;
+  border: 1.5px solid rgba(43, 58, 103, 0.1);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  margin-bottom: 20px;
+}
+
+.checkout-plan-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.checkout-plan-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(43, 58, 103, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.checkout-plan-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.checkout-plan-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2b3a67;
+  line-height: 1.2;
+}
+
+.checkout-plan-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.checkout-plan-price {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #2b3a67;
+}
+
+.checkout-plan-period {
+  font-size: 14px;
+  color: rgba(43, 58, 103, 0.55);
+  font-weight: 500;
+}
+
+.checkout-plan-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.checkout-plan-includes {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.45);
+  margin: 0 0 10px;
+}
+
+.checkout-plan-feats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkout-plan-feats li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: #2b3a67;
+  line-height: 1.45;
+}
+
+.checkout-plan-feats li i {
+  color: #4abeaa;
+  font-size: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.checkout-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkout-actions-row .app-auth-google {
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
+  justify-content: center;
+}
