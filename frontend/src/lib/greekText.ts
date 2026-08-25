@@ -40,8 +40,12 @@ export function displayUppercase(text: string, lang: string): string {
   return text.toLocaleUpperCase(lang || 'en')
 }
 
+function normalizeGreekName(text: string): string {
+  return text.normalize('NFC').trim()
+}
+
 function greekKey(text: string): string {
-  return stripGreekAccents(text.trim().toLowerCase())
+  return stripGreekAccents(normalizeGreekName(text).toLowerCase())
 }
 
 function hasGreekLetters(text: string): boolean {
@@ -138,7 +142,7 @@ function vocativeWord(word: string): string {
 
 /** Convert a Greek name to vocative for direct address (Γεια σου, Γεώργιε). */
 export function greekVocative(name: string): string {
-  const trimmed = name.trim()
+  const trimmed = normalizeGreekName(name)
   if (!trimmed || !hasGreekLetters(trimmed)) return trimmed
 
   const parts = trimmed.split(/\s+/).filter(Boolean)
@@ -149,9 +153,10 @@ export function greekVocative(name: string): string {
   return [first, ...parts.slice(1)].join(' ')
 }
 
-/** Use vocative when addressing the user in Greek; otherwise return as-is. */
+/** Use vocative when addressing the user in Greek; also when the name itself is Greek. */
 export function nameInVocative(name: string, lang: string): string {
-  if (!name.trim()) return name
-  if (!lang.startsWith('el')) return name
-  return greekVocative(name)
+  const trimmed = normalizeGreekName(name)
+  if (!trimmed) return name
+  if (lang.startsWith('el') || hasGreekLetters(trimmed)) return greekVocative(trimmed)
+  return name
 }

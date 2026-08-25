@@ -66,8 +66,14 @@ def strip_greek_accents(text: str) -> str:
     return text.translate(GREEK_ACCENT_MAP)
 
 
+def _normalize_greek_name(text: str) -> str:
+    import unicodedata
+
+    return unicodedata.normalize("NFC", (text or "").strip())
+
+
 def _greek_key(text: str) -> str:
-    return strip_greek_accents(text.strip().lower())
+    return strip_greek_accents(_normalize_greek_name(text).lower())
 
 
 def _has_greek_letters(text: str) -> bool:
@@ -102,7 +108,7 @@ def _vocative_word(word: str) -> str:
 
 
 def greek_vocative(name: str) -> str:
-    trimmed = (name or "").strip()
+    trimmed = _normalize_greek_name(name)
     if not trimmed or not _has_greek_letters(trimmed):
         return trimmed
     parts = trimmed.split()
@@ -115,8 +121,9 @@ def greek_vocative(name: str) -> str:
 
 
 def name_in_vocative(name: str, lang: str) -> str:
-    if not (name or "").strip():
+    trimmed = _normalize_greek_name(name)
+    if not trimmed:
         return name
-    if not (lang or "").startswith("el"):
-        return name
-    return greek_vocative(name)
+    if (lang or "").startswith("el") or _has_greek_letters(trimmed):
+        return greek_vocative(trimmed)
+    return name
