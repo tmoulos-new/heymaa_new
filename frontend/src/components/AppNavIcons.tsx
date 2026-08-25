@@ -37,14 +37,14 @@ export function NavIconFamily() {
   );
 }
 
-export function NavIconHeyMaa() {
+export function NavIconChat() {
   return (
     <IconWrap>
       <path
-        d="M5.5 15.2V9.4c0-3.1 2.7-5.6 6.5-5.6s6.5 2.5 6.5 5.6-2.7 5.6-6.5 5.6c-.7 0-1.4-.1-2-.2L6.2 17.6c-.4.2-.8-.2-.6-.6l1-1.8Z"
+        d="M19 4H7a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h2v3l4.2-3H19a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Z"
         {...stroke}
       />
-      <path d="M10 9.2v3.2M12 8.4v4.8M14 9.2v3.2" {...stroke} />
+      <path d="M8 10h8M8 13.5h5.5" {...stroke} />
     </IconWrap>
   );
 }
@@ -81,19 +81,21 @@ export function NavIconMic() {
 
 export type AppNavTabId = "profile" | "family" | "chat" | "memories" | "milestones";
 
-export function AppNavIcon({ id, active }: { id: AppNavTabId; active: boolean }) {
-  const color = active ? "#2B3A67" : "rgba(43,58,103,.38)";
+export function AppNavIcon({ id }: { id: AppNavTabId; active: boolean }) {
+  const wrap = (node: React.ReactNode) => (
+    <span style={{ color: "currentColor", display: "flex" }}>{node}</span>
+  );
   switch (id) {
     case "profile":
-      return <span style={{ color, display: "flex" }}><NavIconProfile /></span>;
+      return wrap(<NavIconProfile />);
     case "family":
-      return <span style={{ color, display: "flex" }}><NavIconFamily /></span>;
+      return wrap(<NavIconFamily />);
     case "chat":
-      return <span style={{ color: "#fff", display: "flex" }}><NavIconHeyMaa /></span>;
+      return wrap(<NavIconChat />);
     case "memories":
-      return <span style={{ color, display: "flex" }}><NavIconMemories /></span>;
+      return wrap(<NavIconMemories />);
     case "milestones":
-      return <span style={{ color, display: "flex" }}><NavIconMilestones /></span>;
+      return wrap(<NavIconMilestones />);
   }
 }
 

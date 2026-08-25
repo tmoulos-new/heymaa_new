@@ -4811,40 +4811,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
       </div>}
 
-      {/* TAB BAR — floating dock like reference */}
-      <div ref={tabBarRef} className={`hm-app-tabbar${tabBarVisible ? "" : " is-hidden"}`} style={{background:cream}}>
+      {/* TAB BAR */}
+      <div ref={tabBarRef} className={`hm-app-tabbar${tabBarVisible ? "" : " is-hidden"}`}>
         <div className="hm-tab-dock">
           {tabs.map(tb=>{
             const active = tab === tb.id;
-            const isCenter = tb.id === "chat";
             return (
               <button
                 key={tb.id}
                 type="button"
-                className={`hm-tab-btn${isCenter ? " hm-tab-btn--center" : ""}`}
+                className="hm-tab-btn"
                 onClick={()=>{
                   showTabBar();
                   setTab(tb.id);
                 }}
               >
-                {isCenter ? (
-                  <span className="hm-tab-icon hm-tab-icon--center">
-                    <AppNavIcon id="chat" active />
-                  </span>
-                ) : (
-                  <span className={`hm-tab-icon${active ? " hm-tab-icon--active" : ""}`}>
-                    <AppNavIcon id={tb.id} active={active} />
-                  </span>
-                )}
+                <span className={`hm-tab-icon${active ? " hm-tab-icon--active" : ""}`}>
+                  <AppNavIcon id={tb.id} active={active} />
+                </span>
                 <span
-                  className={`hm-tab-label${
-                    isCenter
-                      ? " hm-tab-label--center"
-                      : active
-                        ? " hm-tab-label--active"
-                        : " hm-tab-label--inactive"
-                  }`}
-                  style={active && !isCenter ? { color: navy } : undefined}
+                  className={`hm-tab-label${active ? " hm-tab-label--active" : " hm-tab-label--inactive"}`}
                 >
                   {tb.label}
                 </span>

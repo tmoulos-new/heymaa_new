@@ -4,15 +4,16 @@
   --hm-cream: #f5f0eb;
   --hm-navy: #2b3a67;
   --hm-beige: #f8e5d6;
+  --hm-logo-purple: #beb4cd;
   --hm-shell-max: 100%;
   --hm-content-max: 100%;
   --hm-dialog-pad: 16px;
   --hm-body-pad: 16px;
-  --hm-tab-pad: 10px 14px max(14px, env(safe-area-inset-bottom, 0px));
+  --hm-tab-pad: 4px 0 max(8px, env(safe-area-inset-bottom, 0px));
   --hm-composer-pad: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
   --hm-sheet-max: 100%;
   --hm-sheet-wide-max: 100%;
-  --hm-tabbar-inset: 96px;
+  --hm-tabbar-inset: 84px;
   --hm-tabbar-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --hm-tabbar-duration: 0.32s;
 }
@@ -38,7 +39,7 @@
   :root {
     --hm-dialog-pad: 24px;
     --hm-body-pad: 24px 28px;
-    --hm-tab-pad: 12px 24px max(16px, env(safe-area-inset-bottom, 0px));
+    --hm-tab-pad: 6px 0 max(10px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 12px 24px 14px;
     --hm-sheet-max: min(560px, calc(100% - 48px));
     --hm-sheet-wide-max: min(860px, calc(100% - 48px));
@@ -51,7 +52,7 @@
   :root {
     --hm-dialog-pad: 32px;
     --hm-body-pad: 28px 40px;
-    --hm-tab-pad: 14px 40px max(18px, env(safe-area-inset-bottom, 0px));
+    --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 40px 16px;
     --hm-sheet-max: min(640px, calc(100% - 64px));
     --hm-sheet-wide-max: min(1100px, calc(100% - 64px));
@@ -61,7 +62,7 @@
 @media (min-width: 1400px) {
   :root {
     --hm-body-pad: 32px 56px;
-    --hm-tab-pad: 14px 56px max(18px, env(safe-area-inset-bottom, 0px));
+    --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 56px 16px;
   }
 }
@@ -109,7 +110,7 @@ body.hm-app-active #root {
 .hm-app-tabbar {
   flex-shrink: 0;
   padding: var(--hm-tab-pad);
-  background: var(--hm-cream);
+  background: var(--hm-navy);
   box-sizing: border-box;
   width: 100%;
   position: fixed;
@@ -120,6 +121,7 @@ body.hm-app-active #root {
   transform: translate3d(0, 0, 0);
   transition: transform var(--hm-tabbar-duration) var(--hm-tabbar-ease);
   will-change: transform;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .hm-app-tabbar.is-hidden {
@@ -166,23 +168,11 @@ body.hm-app-active #root {
   .hm-app-tabbar .hm-tab-label {
     font-size: 11px !important;
   }
-
-  /* Floating dock stays compact; shell/header/body stay full-bleed */
-  .hm-app-tabbar > div {
-    max-width: 560px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-  }
 }
 
 @media (min-width: 1024px) {
   .hm-app-tabbar .hm-tab-label {
     font-size: 12px !important;
-  }
-
-  .hm-app-tabbar > div {
-    max-width: 640px;
   }
 
   .hm-app-header {
@@ -829,13 +819,14 @@ body.hm-app-active #root {
 /* ── Tab bar ── */
 .hm-tab-dock {
   display: flex;
-  align-items: flex-end;
-  background: #fff;
-  border-radius: 28px;
-  padding: 8px 6px 10px;
-  box-shadow: 0 10px 28px rgba(43, 58, 103, 0.12);
-  border: 1px solid rgba(43, 58, 103, 0.07);
+  align-items: center;
+  background: transparent;
+  border-radius: 0;
+  padding: 2px 0 0;
+  box-shadow: none;
+  border: none;
   position: relative;
+  width: 100%;
 }
 
 .hm-tab-btn {
@@ -843,10 +834,10 @@ body.hm-app-active #root {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
-  padding: 6px 2px 2px;
-  min-height: 52px;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 2px 1px;
+  min-height: 44px;
   cursor: pointer;
   border: none;
   background: none;
@@ -854,34 +845,20 @@ body.hm-app-active #root {
   min-width: 0;
 }
 
-.hm-tab-btn--center {
-  padding: 0 2px 2px;
-}
-
 .hm-tab-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
+  color: #fff;
 }
 
 .hm-tab-icon--active {
-  background: rgba(245, 197, 163, 0.65);
-}
-
-.hm-tab-icon--center {
-  width: 54px;
-  height: 54px;
-  margin-top: -26px;
-  border-radius: 50%;
-  background: var(--hm-navy);
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
-  border: 3px solid #fff;
-  box-shadow: 0 8px 22px rgba(43, 58, 103, 0.32);
-  box-sizing: border-box;
 }
 
 .hm-tab-label {
@@ -892,18 +869,20 @@ body.hm-app-active #root {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  color: #fff;
 }
 
 .hm-tab-label--active {
   font-weight: 700;
-}
-
-.hm-tab-label--center {
-  color: rgba(43, 58, 103, 0.42);
+  color: #fff;
 }
 
 .hm-tab-label--inactive {
-  color: rgba(43, 58, 103, 0.4);
+  color: #fff;
+}
+
+.hm-app-tabbar .hm-tab-label--active {
+  color: #fff;
 }
 
 @media (min-width: 700px) {
@@ -912,7 +891,7 @@ body.hm-app-active #root {
   }
 
   .hm-tab-btn {
-    min-height: 56px;
+    min-height: 46px;
   }
 }
 
