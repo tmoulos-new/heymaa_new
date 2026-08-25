@@ -30,5 +30,32 @@
   "plan": {
     "currentBadge": "Τρέχον",
     "currentButton": "Ενεργό"
+  },
+  "checkout": {
+    "title": "Ολοκλήρωση πληρωμής",
+    "redirecting": "Σε λίγο θα μεταφερθείς στο Viva Wallet…",
+    "invalidPlan": "Μη έγκυρο πακέτο.",
+    "failed": "Αποτυχία checkout.",
+    "backToPlans": "← Πίσω στα πακέτα",
+    "backToApp": "Επιστροφή στην εφαρμογή",
+    "logoAlt": "HeyMaa",
+    "plans": {
+      "starter": "Starter",
+      "premium": "Premium",
+      "annual": "Ετήσιο Premium"
+    }
+  },
+  "checkoutResult": {
+    "successTitle": "Η πληρωμή ολοκληρώθηκε",
+    "failureTitle": "Η πληρωμή απέτυχε",
+    "successBody": "Ευχαριστούμε! Η συνδρομή σου θα ενεργοποιηθεί σε λίγα λεπτά. Αν δεν βλέπεις αλλαγή αμέσως, άνοιξε ξανά την εφαρμογή.",
+    "failureBody": "Η πληρωμή δεν ολοκληρώθηκε ή ακυρώθηκε. Μπορείς να δοκιμάσεις ξανά από τα πακέτα.",
+    "transactionRef": "Αναφορά συναλλαγής",
+    "continueApp": "Συνέχεια στην εφαρμογή →",
+    "signIn": "Σύνδεση →",
+    "tryAgain": "Δοκίμασε ξανά →",
+    "viewPlans": "Δες τα πακέτα",
+    "backToApp": "Επιστροφή στην εφαρμογή",
+    "home": "Αρχική"
   }
 }

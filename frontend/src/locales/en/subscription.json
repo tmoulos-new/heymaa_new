@@ -30,5 +30,32 @@
   "plan": {
     "currentBadge": "Current",
     "currentButton": "Active"
+  },
+  "checkout": {
+    "title": "Complete payment",
+    "redirecting": "Redirecting to Viva Wallet…",
+    "invalidPlan": "Invalid plan.",
+    "failed": "Checkout failed.",
+    "backToPlans": "← Back to plans",
+    "backToApp": "Back to app",
+    "logoAlt": "HeyMaa",
+    "plans": {
+      "starter": "Starter",
+      "premium": "Premium",
+      "annual": "Annual Premium"
+    }
+  },
+  "checkoutResult": {
+    "successTitle": "Payment successful",
+    "failureTitle": "Payment failed",
+    "successBody": "Thank you! Your subscription will activate shortly. If you do not see the change yet, reopen the app.",
+    "failureBody": "Payment was not completed or was cancelled. You can try again from the plans page.",
+    "transactionRef": "Transaction",
+    "continueApp": "Continue to app →",
+    "signIn": "Sign in →",
+    "tryAgain": "Try again →",
+    "viewPlans": "View plans",
+    "backToApp": "Back to app",
+    "home": "Home"
   }
 }
