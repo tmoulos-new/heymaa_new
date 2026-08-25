@@ -4732,7 +4732,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               border: "1.5px solid rgba(43,58,103,.15)",
               background: "#fff",
               fontFamily: "'DM Sans',sans-serif",
-              fontSize: 13,
+              fontSize: 16,
               color: navy,
               outline: "none",
               minWidth: 0,

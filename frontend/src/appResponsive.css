@@ -344,6 +344,14 @@ body.hm-app-active #root {
   max-width: none;
 }
 
+/* iOS Safari zooms focused inputs below 16px — keep composer text at 16px on phones */
+@media (max-width: 699px) {
+  .hm-app-composer input,
+  .hm-app-composer textarea {
+    font-size: 16px;
+  }
+}
+
 /* Keep chat bubbles readable on ultra-wide screens */
 @media (min-width: 1024px) {
   .hm-chat-column [data-hm-bubble] {
