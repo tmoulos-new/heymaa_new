@@ -99,9 +99,9 @@ export function AppNavIcon({ id }: { id: AppNavTabId; active: boolean }) {
   }
 }
 
-/** Mic control styled like nav-tab active/inactive states. */
+/** Mic control in the chat composer circle button. */
 export function ChatMicIcon({ active }: { active: boolean }) {
-  const color = active ? "#2B3A67" : "rgba(43,58,103,.38)";
-  return <span style={{ color, display: "flex" }}><NavIconMic /></span>;
+  const color = active ? "#2B3A67" : "#2B3A67";
+  return <span style={{ color, display: "flex", opacity: active ? 1 : 0.72 }}><NavIconMic /></span>;
 }
 

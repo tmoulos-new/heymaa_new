@@ -45,6 +45,11 @@ import {
   parseMemoriesJson,
 } from "./lib/memoriesSync";
 import {
+  attachmentPayloadForApi,
+  fileToChatAttachment,
+  type ChatAttachment,
+} from "./lib/chatAttachments";
+import {
   mergeCloudUserData,
   pruneOrphanJwtMemoryKeys,
   pruneOrphanJwtFamilyKeys,
@@ -209,7 +214,7 @@ let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
-interface Message { role: "user" | "assistant"; content: string; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
+interface Message { role: "user" | "assistant"; content: string; attachments?: ChatAttachment[]; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
 interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; createdAt?: string; } // ref = child name | "pregnancy" | m:{memberId} | undefined (general)
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
@@ -1550,6 +1555,7 @@ function ChangePasswordScreen({
   const [confirm, setConfirm] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false)
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any}
   const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6}
@@ -1575,8 +1581,48 @@ function ChangePasswordScreen({
         <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση":"Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleChange()} disabled={loading}/>
         {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
         <button style={{...btn,opacity:(loading||!password||!confirm)?0.5:1}} onClick={handleChange} disabled={loading||!password||!confirm}>{loading?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
-        <button onClick={onLogout} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:14,padding:6,width:"100%"}}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
+        <button onClick={() => setShowLogoutConfirm(true)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:14,padding:6,width:"100%"}}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
       </div>
+      {showLogoutConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="hm-overlay"
+          style={{ position: "fixed", inset: 0, background: "rgba(43,58,103,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 900 }}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="hm-dialog hm-dialog--sm"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)", maxWidth: 400, width: "100%" }}
+          >
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: "#2B3A67", fontWeight: 700, marginBottom: 8 }}>
+              {lang === "el" ? "Αποσύνδεση" : "Log out"}
+            </div>
+            <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
+              {lang === "el"
+                ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
+                : "Are you sure you want to log out?"}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => { setShowLogoutConfirm(false); onLogout(); }}
+                style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              >
+                {lang === "el" ? "Αποσύνδεση" : "Log out"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{ flex: 1, padding: 12, background: "#F5F2ED", color: "#2B3A67", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
+              >
+                {lang === "el" ? "Ακύρωση" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1693,7 +1739,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",logoPurple="#BEB4CD";
+  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E6DED6",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
@@ -1789,6 +1835,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [tab, track]);
 
   const [input, setInput] = useState("");
+  const [chatPendingAttachments, setChatPendingAttachments] = useState<ChatAttachment[]>([]);
+  const [showChatAttachSheet, setShowChatAttachSheet] = useState(false);
+  const [isCoarseMobile, setIsCoarseMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 699px), (pointer: coarse)");
+    const update = () => setIsCoarseMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "chat") setShowChatAttachSheet(false);
+  }, [tab]);
+
   const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
   const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
@@ -1911,6 +1973,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
   const [showAddPet, setShowAddPet] = useState(false); const [newPetName, setNewPetName] = useState(""); const [newPetNote, setNewPetNote] = useState("");
   const [showMyFamily, setShowMyFamily] = useState(true);
+  const [childDeleteConfirm, setChildDeleteConfirm] = useState<number | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [treeEdit, setTreeEdit] = useState<LaidOutNode | null>(null);
   const [treeEditName, setTreeEditName] = useState("");
   const [treeEditRole, setTreeEditRole] = useState("Family");
@@ -1923,7 +1987,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const recordingIntentRef = useRef(false); const recTranscriptRef = useRef(""); const recSendTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null); const micMeterRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null); const fileRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const recordingIntentRef = useRef(false); const recTranscriptRef = useRef(""); const recSendTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null); const micMeterRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null); const fileRef = useRef<HTMLInputElement>(null); const chatFileRef = useRef<HTMLInputElement>(null); const chatCameraRef = useRef<HTMLInputElement>(null); const chatGalleryRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
   const profileChildren = useMemo(() => getAllChildren(profile), [profile]);
   const familyChildren = useMemo(
     () => getFamilyChildren(familyData, profileChildren),
@@ -2250,8 +2314,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(()=>{ if (!cloudReady) return; void sbSave("shopitems", shopItems); },[shopItems, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("superitems", superItems); },[superItems, sbSave, cloudReady]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = async (text: string, attachments: ChatAttachment[] = []) => {
+    const trimmed = text.trim();
+    if (!trimmed && attachments.length === 0) return;
     if (recordingIntentRef.current) {
       recordingIntentRef.current = false;
       const r = recRef.current;
@@ -2260,13 +2325,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       setRecording(false);
       try { r?.stop(); } catch { /* ignore */ }
     }
-    track("submit", appPath("chat", "send"), "Send message");
-    const userMsg: Message = {role:"user",content:text};
-    const next = [...messages, userMsg]; setMessages(next); setInput(""); setLoading(true);
+    track("submit", appPath("chat", "send"), attachments.length ? "Send message with attachment" : "Send message");
+    const userMsg: Message = { role: "user", content: trimmed, attachments: attachments.length ? attachments : undefined };
+    const next = [...messages, userMsg]; setMessages(next); setInput(""); setChatPendingAttachments([]); setLoading(true);
     if (isLocalDemoToken(token)) {
       const msg = lang === "el"
-        ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat χρειάζεται σύνδεση με πραγματικό λογαριασμό (Supabase)."
-        : "Local demo cannot reach the chat API. Sign in with a real account (Supabase) to chat.";
+        ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat με φωτογραφίες/αρχεία χρειάζεται σύνδεση με πραγματικό λογαριασμό."
+        : "Local demo cannot reach the chat API. Sign in with a real account to send photos and files.";
       setMessages([...next, { role: "assistant", content: msg }]);
       setLoading(false);
       return;
@@ -2274,12 +2339,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     // Last 15 memories (text only, no images) for context
     const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
+    const historyForApi = messages.slice(-12).map((m) => ({
+      role: m.role,
+      content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
+    }));
     try {
       const res = await axios.post(
         `${API}/chat`,
         {
-          message: text,
-          history: messages.slice(-12),
+          message: trimmed,
+          history: historyForApi,
+          attachments: attachments.map(attachmentPayloadForApi),
           profile: {
             name: displayName || profile.name || null,
             childName: profile.childName,
@@ -2478,6 +2548,35 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       recTranscriptRef.current = "";
       if(text) void sendMessage(text);
     }, 350);
+  };
+
+  const handleChatFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const picked = Array.from(files).slice(0, 4);
+    try {
+      const next = await Promise.all(picked.map((f) => fileToChatAttachment(f)));
+      setChatPendingAttachments((prev) => [...prev, ...next].slice(0, 4));
+    } catch (err: any) {
+      if (err?.message === "too_large") {
+        showToast(lang === "el" ? "Το αρχείο είναι πολύ μεγάλο (μέγ. 6MB)." : "File is too large (max 6MB).", "err");
+      } else {
+        showToast(lang === "el" ? "Δεν ήταν δυνατή η ανάγνωση του αρχείου." : "Could not read that file.", "err");
+      }
+    }
+  };
+
+  const openChatAttachPicker = () => {
+    if (loading || recording || chatPendingAttachments.length >= 4) return;
+    setShowChatAttachSheet((open) => !open);
+  };
+
+  const pickChatAttachment = (target: "camera" | "gallery" | "file") => {
+    setShowChatAttachSheet(false);
+    window.setTimeout(() => {
+      if (target === "camera") chatCameraRef.current?.click();
+      else if (target === "gallery") chatGalleryRef.current?.click();
+      else chatFileRef.current?.click();
+    }, 0);
   };
 
   const addMemory = (imgData?: string) => {
@@ -2708,6 +2807,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
   };
 
+  const openChildEdit = (childIndex: number) => {
+    const child = familyChildren[childIndex];
+    if (!child) return;
+    openTreeEdit({
+      id: `child-${childIndex}-${child.name}`,
+      name: child.name,
+      role: t("role_child", lang),
+      kind: "child",
+      side: "self",
+      generation: 1,
+      memoryCount: 0,
+      color: logoPurple,
+      childIndex,
+      ref: child.name,
+      photo: child.photo,
+      x: 0,
+      y: 0,
+    });
+  };
+
   const currentTreeEditPhoto = (): string | undefined => {
     if (!treeEdit) return undefined;
     if (treeEdit.kind === "self") return familyData.selfPhoto;
@@ -2839,6 +2958,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         syncProfileInBackground({ ...restoredProfile, consentMarketing: profile.consentMarketing });
       },
     );
+  };
+
+  const requestDeleteChild = (index: number) => {
+    if (!familyChildren[index]) return;
+    setChildDeleteConfirm(index);
+  };
+
+  const confirmDeleteChild = () => {
+    if (childDeleteConfirm == null) return;
+    const index = childDeleteConfirm;
+    setChildDeleteConfirm(null);
+    setTreeEdit(null);
+    deleteChild(index);
+  };
+
+  const requestLogout = () => {
+    setShowAccountMenu(false);
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
+    onLogout();
   };
 
   const buildShoppingList = () => {
@@ -3559,6 +3701,226 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         />
       )}
 
+      {treeEdit && (
+        <AppModalPortal>
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="hm-overlay hm-overlay--bottom"
+          style={{background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
+          onClick={()=>setTreeEdit(null)}
+        >
+          <div
+            className="hm-dialog hm-dialog--lg"
+            onClick={(e)=>e.stopPropagation()}
+            style={{background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8,maxHeight:"min(85vh, 85dvh)"}}
+          >
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
+              {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+              <button
+                type="button"
+                onClick={()=>treePhotoRef.current?.click()}
+                style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${logoPurple}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
+                title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
+              >
+                {currentTreeEditPhoto() ? (
+                  <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                ) : (
+                  <span style={{fontSize:11,color:navy,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
+                )}
+              </button>
+              <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
+                {lang==="el"
+                  ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία στο δέντρο."
+                  : "Tap the circle to add or change their photo on the tree."}
+              </div>
+            </div>
+            <input
+              ref={treePhotoRef}
+              type="file"
+              accept="image/*"
+              style={{display:"none"}}
+              onChange={(e)=>{ void applyTreePhoto(e.target.files?.[0] || null); e.target.value=""; }}
+            />
+            <input
+              value={treeEditName}
+              onChange={(e)=>setTreeEditName(e.target.value)}
+              placeholder={lang==="el"?"Όνομα":"Name"}
+              style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}
+            />
+            {treeEdit.memberIndex != null && (
+              <>
+                <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                  {lang==="el"?"Ρόλος / μετακίνηση στο δέντρο":"Role / move on tree"}
+                </div>
+                <select
+                  value={RELATIONSHIP_PRESETS.some(p=>p.value===treeEditRole)?treeEditRole:"Family"}
+                  onChange={(e)=>{
+                    const role = e.target.value;
+                    setTreeEditRole(role);
+                    const nextRelated = defaultRelatedToForRelationship(role, familyData.members, treeEditRelatedTo);
+                    setTreeEditRelatedTo(nextRelated);
+                    if (treeEdit.memberIndex != null) {
+                      changeMemberRelationship(treeEdit.memberIndex, role);
+                    }
+                  }}
+                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                >
+                  {RELATIONSHIP_PRESETS.map(p=>(
+                    <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
+                  ))}
+                </select>
+                <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                  {lang==="el"?"Συγγενής του / της":"Relative of"}
+                </div>
+                <select
+                  value={treeEditRelatedTo}
+                  onChange={(e)=>{
+                    const next = e.target.value;
+                    setTreeEditRelatedTo(next);
+                    if (treeEdit.memberIndex != null) {
+                      changeMemberRelatedTo(treeEdit.memberIndex, next);
+                    }
+                  }}
+                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                >
+                  {relatedToOptions.filter(o=>o.value!==memberMemoryRef(familyData.members[treeEdit.memberIndex!]?.id || "")).map(o=>(
+                    <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
+                  ))}
+                </select>
+                <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+                <input value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              </>
+            )}
+            {treeEdit.childIndex != null && (
+              <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+            )}
+            <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap" as any}}>
+              <button type="button" onClick={saveTreeEdit} style={{flex:1,minWidth:90,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
+              {(treeEdit.ref || treeEdit.kind === "self") && (
+                <button
+                  type="button"
+                  onClick={()=>{
+                    setActiveMemRef(treeEdit.kind === "self" ? "__general__" : (treeEdit.ref ?? null));
+                    setTreeEdit(null);
+                    setTab("memories");
+                  }}
+                  style={{flex:1,minWidth:90,padding:10,background:"#fff",color:navy,border:`1.5px solid ${navy}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                >
+                  📝 {t("recentmem",lang)}
+                </button>
+              )}
+              {(treeEdit.memberIndex != null || treeEdit.childIndex != null) && (
+                <button
+                  type="button"
+                  onClick={()=>{
+                    if (treeEdit.memberIndex != null) {
+                      deleteFamilyMember(treeEdit.memberIndex);
+                      setTreeEdit(null);
+                    } else if (treeEdit.childIndex != null) {
+                      requestDeleteChild(treeEdit.childIndex);
+                    }
+                  }}
+                  style={{flex:1,minWidth:90,padding:10,background:"rgba(224,123,84,.12)",color:"#E07B54",border:`1.5px solid rgba(224,123,84,.45)`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
+                >
+                  🗑 {t("delete_memory",lang)}
+                </button>
+              )}
+              <button type="button" onClick={()=>setTreeEdit(null)} style={{padding:"10px 12px",background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
+            </div>
+          </div>
+        </div>
+        </AppModalPortal>
+      )}
+
+      {childDeleteConfirm != null && familyChildren[childDeleteConfirm] && (
+        <AppModalPortal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="hm-overlay"
+            style={{ background: "rgba(43,58,103,.55)" }}
+            onClick={() => setChildDeleteConfirm(null)}
+          >
+            <div
+              className="hm-dialog hm-dialog--sm"
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)" }}
+            >
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: navy, fontWeight: 700, marginBottom: 8 }}>
+                {lang === "el" ? "Διαγραφή παιδιού" : "Delete child"}
+              </div>
+              <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
+                {lang === "el"
+                  ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις τον/την ${familyChildren[childDeleteConfirm].name};`
+                  : `Are you sure you want to delete ${familyChildren[childDeleteConfirm].name}?`}
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={confirmDeleteChild}
+                  style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                >
+                  {t("delete_memory", lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChildDeleteConfirm(null)}
+                  style={{ flex: 1, padding: 12, background: gl, color: navy, border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
+                >
+                  {t("cancel", lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </AppModalPortal>
+      )}
+
+      {showLogoutConfirm && (
+        <AppModalPortal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="hm-overlay"
+            style={{ background: "rgba(43,58,103,.55)" }}
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <div
+              className="hm-dialog hm-dialog--sm"
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)" }}
+            >
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: navy, fontWeight: 700, marginBottom: 8 }}>
+                {lang === "el" ? "Αποσύνδεση" : "Log out"}
+              </div>
+              <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
+                {lang === "el"
+                  ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
+                  : "Are you sure you want to log out?"}
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={confirmLogout}
+                  style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                >
+                  {lang === "el" ? "Αποσύνδεση" : "Log out"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  style={{ flex: 1, padding: 12, background: gl, color: navy, border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
+                >
+                  {t("cancel", lang)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </AppModalPortal>
+      )}
+
       {/* ADDRESS MODAL */}
       {showAddressModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.55)"}}>
         <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:20,padding:24,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
@@ -3618,7 +3980,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
       </div>}
 
-      {/* FILE INPUT */}
+      {/* FILE INPUT (memories) */}
       <input
         ref={fileRef}
         type="file"
@@ -3641,6 +4003,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             }
           };
           r.readAsDataURL(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* FILE INPUT (chat — documents only) */}
+      <input
+        ref={chatFileRef}
+        type="file"
+        accept=".pdf,.txt,.md,.markdown,text/plain,application/pdf"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          void handleChatFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {/* FILE INPUT (chat — camera on mobile) */}
+      <input
+        ref={chatCameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          void handleChatFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {/* FILE INPUT (chat — photo library on mobile) */}
+      <input
+        ref={chatGalleryRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          void handleChatFiles(e.target.files);
           e.target.value = "";
         }}
       />
@@ -3672,7 +4073,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
               <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
-              <button onClick={onLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
+              <button onClick={requestLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
             </div>}
           </div>
         </div>
@@ -3799,14 +4200,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       }}
                     >
                       <div style={{
-                        width:40,height:40,borderRadius:"50%",background:gl,color:navy,
+                        width:40,height:40,borderRadius:"50%",background:logoPurple,color:navy,
                         display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,
-                      }}>👶</div>
+                        overflow:"hidden",
+                      }}>
+                        {child.photo ? (
+                          <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                        ) : "👶"}
+                      </div>
                       <div style={{minWidth:0,flex:1}}>
                         <div style={{fontWeight:600,fontSize:14,color:navy}}>{child.name}</div>
                         <div style={{fontSize:12,color:"rgba(43,58,103,.5)",marginTop:2}}>
                           {formatChildAge(child.birthDate, lang) || child.birthDate || "—"}
                         </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                        <button
+                          type="button"
+                          className="hm-row-action-btn"
+                          aria-label={lang==="el"?"Επεξεργασία παιδιού":"Edit child"}
+                          onClick={() => openChildEdit(i)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="hm-row-action-btn hm-row-action-btn--danger"
+                          aria-label={lang==="el"?"Διαγραφή παιδιού":"Delete child"}
+                          onClick={() => requestDeleteChild(i)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M3 6h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M19 6l-.8 14.2A1.8 1.8 0 0 1 16.4 22H7.6a1.8 1.8 0 0 1-1.8-1.8L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -3876,7 +4308,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
             <button
               type="button"
-              onClick={onLogout}
+              onClick={requestLogout}
               style={{
                 width:"100%",padding:"14px 12px",marginTop:4,
                 border:".5px solid rgba(43,58,103,.08)",background:"#fff",borderRadius:14,
@@ -3930,7 +4362,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
                     <HeyMaaAvatar size={28} />
                     <div style={{minWidth:0,flex:1}}>
-                      <div data-hm-bubble style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
+                      <div data-hm-bubble style={{background:chatAssistantBg,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
                         <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
                       </div>
@@ -3938,7 +4370,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   </div>
                 ):(
                   <div style={{display:"flex",alignItems:"flex-start",justifyContent:"flex-end",gap:8,margin:"8px 0"}}>
-                    <div data-hm-bubble style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,lineHeight:1.5,maxWidth:"78%"}}>{msg.content}</div>
+                    <div data-hm-bubble style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,lineHeight:1.5,maxWidth:"78%"}}>
+                      {msg.attachments?.map((att, j) => (
+                        att.kind === "image" && att.data ? (
+                          <img
+                            key={`${att.name}-${j}`}
+                            src={att.data}
+                            alt={att.name}
+                            style={{display:"block",maxWidth:"100%",borderRadius:8,marginBottom: msg.content ? 8 : 0}}
+                          />
+                        ) : (
+                          <div key={`${att.name}-${j}`} style={{display:"flex",alignItems:"center",gap:6,marginBottom: j < (msg.attachments?.length || 0) - 1 ? 6 : (msg.content ? 8 : 0),padding:"6px 8px",borderRadius:8,background:"rgba(255,255,255,.12)",fontSize:12}}>
+                            <span aria-hidden="true">📎</span>
+                            <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:180}}>{att.name}</span>
+                          </div>
+                        )
+                      ))}
+                      {msg.content && (
+                        <div>{msg.content}</div>
+                      )}
+                    </div>
                     <UserChatAvatar size={28} name={displayName} photo={familyData.selfPhoto} />
                   </div>
                 )}
@@ -3954,7 +4405,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ))}
             {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true" aria-label="…">
               <HeyMaaAvatar size={28} />
-              <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"center",minHeight:40,minWidth:52}}>
+              <div style={{background:chatAssistantBg,borderRadius:"0 11px 11px 11px",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"center",minHeight:40,minWidth:52}}>
                 <span
                   aria-hidden="true"
                   style={{
@@ -4049,7 +4500,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
                 <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
                 <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+navy,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
-                <button onClick={()=>deleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
+                <button onClick={()=>requestDeleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
               </div>);
             })}
             <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
@@ -4199,136 +4650,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </>)}
           </div>
           </AppTabSection>
-          {treeEdit && (
-            <AppModalPortal>
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="hm-overlay hm-overlay--bottom"
-              style={{background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
-              onClick={()=>setTreeEdit(null)}
-            >
-              <div
-                className="hm-dialog hm-dialog--lg"
-                onClick={(e)=>e.stopPropagation()}
-                style={{background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8,maxHeight:"min(85vh, 85dvh)"}}
-              >
-                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
-                  {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
-                  <button
-                    type="button"
-                    onClick={()=>treePhotoRef.current?.click()}
-                    style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${logoPurple}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
-                    title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
-                  >
-                    {currentTreeEditPhoto() ? (
-                      <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
-                    ) : (
-                      <span style={{fontSize:11,color:navy,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
-                    )}
-                  </button>
-                  <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
-                    {lang==="el"
-                      ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία στο δέντρο."
-                      : "Tap the circle to add or change their photo on the tree."}
-                  </div>
-                </div>
-                <input
-                  ref={treePhotoRef}
-                  type="file"
-                  accept="image/*"
-                  style={{display:"none"}}
-                  onChange={(e)=>{ void applyTreePhoto(e.target.files?.[0] || null); e.target.value=""; }}
-                />
-                <input
-                  value={treeEditName}
-                  onChange={(e)=>setTreeEditName(e.target.value)}
-                  placeholder={lang==="el"?"Όνομα":"Name"}
-                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}
-                />
-                {treeEdit.memberIndex != null && (
-                  <>
-                    <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
-                      {lang==="el"?"Ρόλος / μετακίνηση στο δέντρο":"Role / move on tree"}
-                    </div>
-                    <select
-                      value={RELATIONSHIP_PRESETS.some(p=>p.value===treeEditRole)?treeEditRole:"Family"}
-                      onChange={(e)=>{
-                        const role = e.target.value;
-                        setTreeEditRole(role);
-                        const nextRelated = defaultRelatedToForRelationship(role, familyData.members, treeEditRelatedTo);
-                        setTreeEditRelatedTo(nextRelated);
-                        if (treeEdit.memberIndex != null) {
-                          changeMemberRelationship(treeEdit.memberIndex, role);
-                        }
-                      }}
-                      style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
-                    >
-                      {RELATIONSHIP_PRESETS.map(p=>(
-                        <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
-                      ))}
-                    </select>
-                    <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
-                      {lang==="el"?"Συγγενής του / της":"Relative of"}
-                    </div>
-                    <select
-                      value={treeEditRelatedTo}
-                      onChange={(e)=>{
-                        const next = e.target.value;
-                        setTreeEditRelatedTo(next);
-                        if (treeEdit.memberIndex != null) {
-                          changeMemberRelatedTo(treeEdit.memberIndex, next);
-                        }
-                      }}
-                      style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
-                    >
-                      {relatedToOptions.filter(o=>o.value!==memberMemoryRef(familyData.members[treeEdit.memberIndex!]?.id || "")).map(o=>(
-                        <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
-                      ))}
-                    </select>
-                    <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-                    <input value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-                  </>
-                )}
-                {treeEdit.childIndex != null && (
-                  <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-                )}
-                <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap" as any}}>
-                  <button type="button" onClick={saveTreeEdit} style={{flex:1,minWidth:90,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
-                  {(treeEdit.ref || treeEdit.kind === "self") && (
-                    <button
-                      type="button"
-                      onClick={()=>{
-                        setActiveMemRef(treeEdit.kind === "self" ? "__general__" : (treeEdit.ref ?? null));
-                        setTreeEdit(null);
-                        setTab("memories");
-                      }}
-                      style={{flex:1,minWidth:90,padding:10,background:"#fff",color:navy,border:`1.5px solid ${navy}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
-                    >
-                      📝 {t("recentmem",lang)}
-                    </button>
-                  )}
-                  {(treeEdit.memberIndex != null || treeEdit.childIndex != null) && (
-                    <button
-                      type="button"
-                      onClick={()=>{
-                        if (treeEdit.memberIndex != null) deleteFamilyMember(treeEdit.memberIndex);
-                        else if (treeEdit.childIndex != null) deleteChild(treeEdit.childIndex);
-                        setTreeEdit(null);
-                      }}
-                      style={{flex:1,minWidth:90,padding:10,background:"rgba(224,123,84,.12)",color:"#E07B54",border:`1.5px solid rgba(224,123,84,.45)`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
-                    >
-                      🗑 {t("delete_memory",lang)}
-                    </button>
-                  )}
-                  <button type="button" onClick={()=>setTreeEdit(null)} style={{padding:"10px 12px",background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
-                </div>
-              </div>
-            </div>
-            </AppModalPortal>
-          )}
         </AppTabPageShell>)}
 
         {/* ── MEMORIES ── */}
@@ -4742,7 +5063,63 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
       {tab==="chat"&&<div className="hm-app-composer" style={{background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)"}}>
+        {chatPendingAttachments.length > 0 && (
+          <div className="hm-chat-attach-preview">
+            {chatPendingAttachments.map((att, i) => (
+              <div key={`${att.name}-${i}`} className="hm-chat-attach-preview__item">
+                {att.kind === "image" && att.data ? (
+                  <img src={att.data} alt="" className="hm-chat-attach-preview__thumb" />
+                ) : (
+                  <div className="hm-chat-attach-preview__file" aria-hidden="true">📎</div>
+                )}
+                <span className="hm-chat-attach-preview__name">{att.name}</span>
+                <button
+                  type="button"
+                  className="hm-chat-attach-preview__remove"
+                  aria-label={lang === "el" ? "Αφαίρεση" : "Remove"}
+                  onClick={() => setChatPendingAttachments((prev) => prev.filter((_, j) => j !== i))}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="hm-app-composer-inner" style={{display:"flex",gap:8,alignItems:"center",width:"100%"}}>
+        <div className="hm-composer-plus-wrap">
+          <button
+            type="button"
+            className={`hm-composer-action hm-composer-plus${showChatAttachSheet ? " hm-composer-plus--open" : ""}`}
+            aria-label={showChatAttachSheet ? (lang === "el" ? "Κλείσιμο μενού" : "Close menu") : (lang === "el" ? "Προσθήκη" : "Add")}
+            aria-expanded={showChatAttachSheet}
+            aria-haspopup="menu"
+            disabled={loading || recording || chatPendingAttachments.length >= 4}
+            onClick={openChatAttachPicker}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+          {showChatAttachSheet && !isCoarseMobile && (
+            <>
+              <div className="hm-chat-attach-backdrop" onClick={() => setShowChatAttachSheet(false)} aria-hidden="true" />
+              <div className="hm-chat-attach-popover" role="menu">
+                <button type="button" role="menuitem" className="hm-chat-attach-popover__item" onClick={() => pickChatAttachment("gallery")}>
+                  <span className="hm-chat-attach-popover__icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.7"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="M4 16l4.5-4.5 3 3L14 12l6 6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </span>
+                  <span>{lang === "el" ? "Φωτογραφίες" : "Photos"}</span>
+                </button>
+                <button type="button" role="menuitem" className="hm-chat-attach-popover__item" onClick={() => pickChatAttachment("file")}>
+                  <span className="hm-chat-attach-popover__icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9l-4-6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>
+                  </span>
+                  <span>{lang === "el" ? "Αρχεία" : "Files"}</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         {recording ? (
           <div
             aria-hidden="true"
@@ -4781,7 +5158,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ref={inputRef}
             value={input}
             onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage(input)}
+            onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&void sendMessage(input, chatPendingAttachments)}
             placeholder={t("typehere",lang)}
             disabled={loading}
             style={{
@@ -4815,9 +5192,47 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         >
           <ChatMicIcon active={recording} />
         </button>
-        <button type="button" className="hm-composer-action hm-composer-send" onClick={()=>sendMessage(input)} disabled={loading||!input.trim()||recording}>➤</button>
+        <button type="button" className="hm-composer-action hm-composer-send" onClick={()=>void sendMessage(input, chatPendingAttachments)} disabled={loading||(!input.trim()&&!chatPendingAttachments.length)||recording}>➤</button>
         </div>
       </div>}
+
+      {tab === "chat" && showChatAttachSheet && isCoarseMobile && (
+        <AppModalPortal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="hm-overlay hm-overlay--bottom"
+            style={{ background: "rgba(43,58,103,.5)", padding: 0 }}
+            onClick={() => setShowChatAttachSheet(false)}
+          >
+            <div className="hm-chat-attach-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="hm-chat-attach-sheet__title">
+                {lang === "el" ? "Προσθήκη" : "Add"}
+              </div>
+              <div className="hm-chat-attach-sheet__grid" role="menu">
+                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("camera")}>
+                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.7"/></svg>
+                  </span>
+                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Κάμερα" : "Camera"}</span>
+                </button>
+                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("gallery")}>
+                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.7"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="M4 16l4.5-4.5 3 3L14 12l6 6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </span>
+                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Φωτογραφίες" : "Photos"}</span>
+                </button>
+                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("file")}>
+                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9l-4-6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>
+                  </span>
+                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Αρχεία" : "Files"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </AppModalPortal>
+      )}
 
       {/* TAB BAR */}
       <div ref={tabBarRef} className={`hm-app-tabbar${tabBarVisible ? "" : " is-hidden"}`}>

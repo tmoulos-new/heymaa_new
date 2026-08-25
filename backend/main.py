@@ -1719,6 +1719,68 @@ def _is_usable_reply(text: str) -> bool:
     return True
 
 
+def _normalize_b64_data(raw: str) -> str:
+    if not raw:
+        return ""
+    if raw.startswith("data:"):
+        return raw.split(",", 1)[-1]
+    return raw
+
+
+def _attachment_image_parts(attachments) -> list[dict]:
+    parts: list[dict] = []
+    for att in attachments or []:
+        kind = getattr(att, "kind", None) or (att.get("kind") if isinstance(att, dict) else None)
+        data = getattr(att, "data", None) if not isinstance(att, dict) else att.get("data")
+        if kind != "image" or not data:
+            continue
+        mime = getattr(att, "mime", None) or (att.get("mime") if isinstance(att, dict) else None) or "image/jpeg"
+        b64 = _normalize_b64_data(data)
+        if b64:
+            parts.append({"mime_type": mime, "data": b64})
+    return parts
+
+
+def _build_attachment_context(message: str, attachments) -> str:
+    lines = [message.strip()] if (message or "").strip() else []
+    for att in attachments or []:
+        kind = getattr(att, "kind", None) or (att.get("kind") if isinstance(att, dict) else None)
+        name = getattr(att, "name", None) or (att.get("name") if isinstance(att, dict) else None) or "file"
+        text_preview = getattr(att, "text_preview", None)
+        if text_preview is None and isinstance(att, dict):
+            text_preview = att.get("text_preview")
+        data = getattr(att, "data", None) if not isinstance(att, dict) else att.get("data")
+        mime = getattr(att, "mime", None) or (att.get("mime") if isinstance(att, dict) else None) or ""
+        if kind == "image":
+            continue
+        if text_preview:
+            lines.append(f"[Attached file: {name}]\n{text_preview[:4000]}")
+            continue
+        if data and (name.lower().endswith(".pdf") or mime == "application/pdf"):
+            try:
+                try:
+                    from .rag_ingest import read_text_bytes
+                except ImportError:
+                    from rag_ingest import read_text_bytes
+                raw = base64.b64decode(_normalize_b64_data(data))
+                text = read_text_bytes(raw, name)
+                if text.strip():
+                    lines.append(f"[Attached file: {name}]\n{text[:4000]}")
+                    continue
+            except Exception:
+                pass
+        lines.append(f"[Attached file: {name}]")
+    out = "\n\n".join(lines).strip()
+    if not out and attachments:
+        has_image = any(
+            (getattr(a, "kind", None) or (a.get("kind") if isinstance(a, dict) else None)) == "image"
+            for a in attachments
+        )
+        if has_image:
+            return "The user sent an image. Describe what you see and respond helpfully in the user's language."
+    return out
+
+
 async def call_groq(message, history, system_prompt, api_key: str):
     from groq import Groq
     def _run():
@@ -1736,7 +1798,7 @@ async def call_groq(message, history, system_prompt, api_key: str):
         return (response.choices[0].message.content or "").strip()
     return await asyncio.to_thread(_run)
 
-async def call_gemini(message, history, system_prompt, api_key: str):
+async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None):
     # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
     model_candidates = (
         "gemini-3.7-flash",
@@ -1755,7 +1817,11 @@ async def call_gemini(message, history, system_prompt, api_key: str):
             items.append({"role": role, "parts": [{"text": text}]})
         while items and items[0]["role"] != "user":
             items.pop(0)
-        items.append({"role": "user", "parts": [{"text": (message or "")[:2000]}]})
+        user_parts = []
+        for ip in image_parts or []:
+            user_parts.append({"inline_data": {"mime_type": ip["mime_type"], "data": ip["data"]}})
+        user_parts.append({"text": (message or "")[:2000]})
+        items.append({"role": "user", "parts": user_parts})
         return items
 
     def _extract_text(payload: dict) -> str:
@@ -1804,7 +1870,7 @@ async def call_gemini(message, history, system_prompt, api_key: str):
 
     return await asyncio.to_thread(_run)
 
-async def call_claude(message, history, system_prompt, api_key: str):
+async def call_claude(message, history, system_prompt, api_key: str, image_parts=None):
     import anthropic
     def _run():
         client = anthropic.Anthropic(api_key=api_key)
@@ -1812,7 +1878,21 @@ async def call_claude(message, history, system_prompt, api_key: str):
             {"role": h["role"], "content": (h.get("content") or "")[:1500]}
             for h in (history or [])[-6:]
         ]
-        messages.append({"role": "user", "content": (message or "")[:2000]})
+        if image_parts:
+            user_blocks = []
+            for ip in image_parts:
+                user_blocks.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": ip["mime_type"],
+                        "data": ip["data"],
+                    },
+                })
+            user_blocks.append({"type": "text", "text": (message or "")[:2000]})
+            messages.append({"role": "user", "content": user_blocks})
+        else:
+            messages.append({"role": "user", "content": (message or "")[:2000]})
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=_CHAT_MAX_TOKENS,
@@ -1849,12 +1929,20 @@ class ProfileContext(BaseModel):
     pregnancyStatus: Optional[str] = None
     lang: Optional[str] = None
 
+class ChatAttachmentIn(BaseModel):
+    kind: str
+    name: str
+    mime: str = ""
+    data: Optional[str] = None
+    text_preview: Optional[str] = None
+
 class ChatRequest(BaseModel):
     message: str
     history: list = []
     profile: Optional[ProfileContext] = None
     recentMemories: Optional[list[MemoryContext]] = None
     recentDocs: Optional[list[DocContext]] = None
+    attachments: Optional[list[ChatAttachmentIn]] = None
 
 class TTSRequest(BaseModel):
     text: str
@@ -2501,9 +2589,13 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                 promotion_context += f" {promo['link']}"
         system_prompt = build_system_prompt(rag_context, family_context, memories_context, docs_context, promotion_context)
         profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
-        msg_lang = detect_msg_lang(req.message, profile_lang)
+        message_for_llm = _build_attachment_context(req.message, req.attachments)
+        msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
+        image_parts = _attachment_image_parts(req.attachments)
         errors = []
-        if msg_lang in GEMINI_FIRST_LANGS:
+        if image_parts:
+            providers = ["gemini", "claude", "groq"]
+        elif msg_lang in GEMINI_FIRST_LANGS:
             providers = ["gemini", "groq", "claude"]
         elif complex_query:
             providers = ["groq", "gemini", "claude"]
@@ -2511,6 +2603,10 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             providers = ["groq", "gemini", "claude"]
         _prov_keys = _llm_api_keys()
         providers = [p for p in providers if _prov_keys.get(p)]
+        if image_parts and not any(p in providers for p in ("gemini", "claude")):
+            message_for_llm = (message_for_llm or "").strip()
+            if not message_for_llm:
+                message_for_llm = "The user sent an image but vision is unavailable. Ask them to describe it in text."
         if not providers:
             raise HTTPException(
                 status_code=503,
@@ -2520,13 +2616,13 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             try:
                 key = _prov_keys[provider]
                 if provider == "groq":
-                    reply = await call_groq(req.message, req.history, system_prompt, key)
+                    reply = await call_groq(message_for_llm, req.history, system_prompt, key)
                     USAGE_LOG["groq"] += 1
                 elif provider == "gemini":
-                    reply = await call_gemini(req.message, req.history, system_prompt, key)
+                    reply = await call_gemini(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None)
                     USAGE_LOG["gemini"] += 1
                 else:
-                    reply = await call_claude(req.message, req.history, system_prompt, key)
+                    reply = await call_claude(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None)
                     USAGE_LOG["claude"] += 1
                 if not reply:
                     raise RuntimeError(f"{provider} returned empty reply")
