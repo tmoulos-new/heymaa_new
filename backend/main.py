@@ -107,12 +107,14 @@ DEFAULT_LEVELS = [
     {"id": 5, "sort_order": 5, "min_points": 2500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
 ]
 
+# Keep in sync with frontend/src/lib/gamificationCard.ts (GAMIFICATION_POINT_RULES)
 POINT_RULES = {
-    ("submit", "/app/chat/send"): 5,
-    ("submit", "/app/memories/add"): 15,
-    ("submit", "/app/family/add-child"): 25,
-    ("submit", "/app/family/add-member"): 15,
-    ("submit", "/app/profile/save"): 10,
+    ("submit", "/app/memories/add-note"): 5,
+    ("submit", "/app/memories/add-photo"): 10,
+    ("submit", "/app/memories/add-video"): 20,
+    ("submit", "/app/chat/send"): 15,
+    ("submit", "/app/chat/send-video"): 20,
+    ("submit", "/app/milestones/check"): 50,
 }
 
 INVITE_REFERRAL_POINTS = 50
@@ -565,9 +567,11 @@ def _user_point_transactions(user_id: str) -> list:
 
 POINT_PATH_TO_USER_DATA_KEY = {
     "/app/chat/send": "chat",
-    "/app/memories/add": "memories",
-    "/app/family/add-child": "family",
-    "/app/family/add-member": "family",
+    "/app/chat/send-video": "chat",
+    "/app/memories/add-note": "memories",
+    "/app/memories/add-photo": "memories",
+    "/app/memories/add-video": "memories",
+    "/app/milestones/check": "milestones_map",
 }
 
 def _user_data_key_for_point_path(path: str) -> Optional[str]:
@@ -589,10 +593,8 @@ def _user_data_key_for_point_path(path: str) -> Optional[str]:
 
 def _summary_category_for_point_path(path: str) -> Optional[str]:
     path = (path or "").strip()
-    if path == "/app/family/add-child":
-        return "children"
-    if path == "/app/family/add-member":
-        return "members"
+    if path == "/app/milestones/check":
+        return "milestones"
     key = _user_data_key_for_point_path(path)
     if key == "chat":
         return "chat_messages"
@@ -737,6 +739,60 @@ def _referrer_id_for_invite_code(code: str) -> Optional[str]:
             return referrer or None
     except Exception:
         pass
+    return None
+
+def _user_referral_code(user_id: str) -> Optional[str]:
+    if not sb or not user_id:
+        return None
+    try:
+        res = (
+            sb.table("invite_codes")
+            .select("code")
+            .eq("user_id", user_id)
+            .eq("is_deleted", False)
+            .eq("status", "active")
+            .order("created_at")
+            .limit(1)
+            .execute()
+        )
+        if res.data:
+            code = str(res.data[0].get("code") or "").strip()
+            if code:
+                return code
+    except Exception:
+        pass
+    return None
+
+def _ensure_user_referral_code(user_id: str) -> Optional[str]:
+    existing = _user_referral_code(user_id)
+    if existing:
+        return existing
+    if not sb or not user_id:
+        return None
+    import datetime as _dt
+    import secrets
+    now = _dt.datetime.utcnow().isoformat()
+    for _ in range(5):
+        suffix = secrets.token_hex(3).upper()
+        code = f"HEYMAA-{suffix}"
+        try:
+            sb.table("invite_codes").insert(
+                {
+                    "code": code,
+                    "status": "active",
+                    "label": "Referral",
+                    "user_id": user_id,
+                    "is_deleted": False,
+                    "updated_at": now,
+                }
+            ).execute()
+            invalidate_invite_codes_cache()
+            return code
+        except Exception as e:
+            err = str(e).lower()
+            if "duplicate" in err or "unique" in err:
+                continue
+            return None
     return None
 
 def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
@@ -2446,6 +2502,7 @@ def get_me(x_token: Optional[str] = Header(None)):
             raise HTTPException(status_code=401, detail='Invalid session.')
         user = res.data[0]
         user["gamification"] = _user_gamification(auth["user_id"])
+        user["referral_code"] = _ensure_user_referral_code(auth["user_id"])
         return user
     except HTTPException:
         raise

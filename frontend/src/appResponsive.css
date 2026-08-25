@@ -1,4 +1,4 @@
-/* HeyMaa in-app responsive — mobile keeps phone feel; tablet/desktop use full width */
+/* HeyMaa in-app responsive — mobile keeps phone feel; desktop caps main content at 1000px */
 
 :root {
   --hm-cream: #f5f0eb;
@@ -7,6 +7,7 @@
   --hm-logo-purple: #beb4cd;
   --hm-shell-max: 100%;
   --hm-content-max: 100%;
+  --hm-desktop-content-max: 1000px;
   --hm-dialog-pad: 16px;
   --hm-body-pad: 16px;
   --hm-tab-pad: 4px 0 max(8px, env(safe-area-inset-bottom, 0px));
@@ -59,15 +60,16 @@
   }
 }
 
-/* Desktop: true full-bleed shell */
+/* Desktop: full-bleed nav bars; scrollable content centered at 1000px */
 @media (min-width: 1024px) {
   :root {
     --hm-dialog-pad: 32px;
     --hm-body-pad: 28px 40px;
     --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 40px 16px;
+    --hm-content-max: var(--hm-desktop-content-max);
     --hm-sheet-max: min(640px, calc(100% - 64px));
-    --hm-sheet-wide-max: min(1100px, calc(100% - 64px));
+    --hm-sheet-wide-max: min(var(--hm-desktop-content-max), calc(100% - 64px));
   }
 }
 
@@ -111,12 +113,20 @@ body.hm-app-active #root {
   width: 100%;
 }
 
-/* Optional readable inner column for dense text tabs — still full-bleed shell */
-.hm-app-body-inner {
+/* Readable inner column — body scrolls full width; content caps at 1000px on desktop */
+.hm-app-body-inner,
+.hm-app-bar-inner {
   width: 100%;
   max-width: var(--hm-content-max);
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
   box-sizing: border-box;
+}
+
+.hm-app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hm-app-tabbar {
@@ -330,7 +340,7 @@ body.hm-app-active #root {
 
 @media (min-width: 1024px) {
   .hm-threads-sheet {
-    max-width: min(720px, 100%);
+    max-width: min(var(--hm-desktop-content-max), 100%);
   }
 }
 
@@ -526,6 +536,28 @@ body.hm-app-active #root {
   .in-app-subscription-sheet .hm-sheet-panel--wide .pricing-stack {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+.in-app-subscription-sheet .plan-stack.current {
+  border: 2px solid var(--hm-navy);
+  box-shadow: 0 0 0 3px rgba(43, 58, 103, 0.1);
+}
+
+.in-app-subscription-sheet .plan-stack.current .plan-radio {
+  border-color: var(--hm-navy);
+  background: rgba(43, 58, 103, 0.06);
+}
+
+.in-app-subscription-sheet .plan-stack.current .plan-radio.filled .plan-radio-dot {
+  display: block;
+  background: var(--hm-navy);
+}
+
+.in-app-subscription-sheet .plan-badge-corner {
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 /* Public subscription: multi-column on tablet/desktop */
@@ -1048,6 +1080,164 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-gamification-sub {
   font-size: clamp(10px, 1.4vw, 11px);
+}
+
+/* ── Profile gamification card ── */
+.hm-profile-gamification-card {
+  background: linear-gradient(145deg, #ebe4f4 0%, #e4dcf0 48%, #ddd4eb 100%);
+  border: 1px solid rgba(107, 84, 155, 0.18);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-sizing: border-box;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--hm-navy);
+}
+
+.hm-profile-gamification-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hm-profile-gamification-card__level-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(190, 180, 205, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.hm-profile-gamification-card__level-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.hm-profile-gamification-card__level-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.82);
+  line-height: 1.25;
+}
+
+.hm-profile-gamification-card__points {
+  margin-top: 2px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+}
+
+.hm-profile-gamification-card__progress {
+  flex-shrink: 0;
+  width: min(132px, 34%);
+  text-align: right;
+}
+
+.hm-profile-gamification-card__progress-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.52);
+  line-height: 1.2;
+  margin-bottom: 5px;
+}
+
+.hm-profile-gamification-card__progress-track {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+}
+
+.hm-profile-gamification-card__progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #de5a9e 0%, #c9b8e8 100%);
+  transition: width 0.3s ease;
+}
+
+.hm-profile-gamification-card__progress-remaining {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.55);
+  line-height: 1.2;
+}
+
+.hm-profile-gamification-card__divider {
+  height: 1px;
+  background: rgba(43, 58, 103, 0.1);
+  margin: 14px 0;
+}
+
+.hm-profile-gamification-card__rewards-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  line-height: 1.3;
+}
+
+.hm-profile-gamification-card__rewards-text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.62);
+  line-height: 1.45;
+}
+
+.hm-profile-gamification-card__actions {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.58);
+  line-height: 1.5;
+}
+
+.hm-profile-gamification-card__referral {
+  text-align: center;
+}
+
+.hm-profile-gamification-card__referral-code {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.72);
+  line-height: 1.4;
+}
+
+.hm-profile-gamification-card__referral-code strong {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--hm-navy);
+}
+
+.hm-profile-gamification-card__referral-bonus {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b6bb8;
+  line-height: 1.4;
+}
+
+@media (max-width: 420px) {
+  .hm-profile-gamification-card__head {
+    flex-wrap: wrap;
+  }
+
+  .hm-profile-gamification-card__progress {
+    width: 100%;
+    text-align: left;
+    padding-left: 56px;
+    box-sizing: border-box;
+  }
 }
 
 /* ── Icon / control buttons (44px touch target) ── */

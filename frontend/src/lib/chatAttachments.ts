@@ -1,10 +1,10 @@
 import { compressImageDataUrl } from "./memoriesSync";
 
 export type ChatAttachment = {
-  kind: "image" | "file";
+  kind: "image" | "file" | "video";
   name: string;
   mime: string;
-  /** data URL for images (display); base64 without prefix for PDFs */
+  /** data URL for images/video (display); base64 without prefix for PDFs */
   data?: string;
   textPreview?: string;
 };
@@ -30,6 +30,10 @@ export async function fileToChatAttachment(file: File): Promise<ChatAttachment> 
     const compressed = await compressImageDataUrl(dataUrl, 1280, 0.72);
     return { kind: "image", name: file.name, mime: "image/jpeg", data: compressed };
   }
+  if (file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(lower)) {
+    const dataUrl = await readAsDataURL(file);
+    return { kind: "video", name: file.name, mime: file.type || "video/mp4", data: dataUrl };
+  }
   if (file.type === "application/pdf" || lower.endsWith(".pdf")) {
     const dataUrl = await readAsDataURL(file);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
@@ -45,7 +49,7 @@ export async function fileToChatAttachment(file: File): Promise<ChatAttachment> 
 }
 
 export function attachmentPayloadForApi(att: ChatAttachment) {
-  if (att.kind === "image" && att.data) {
+  if ((att.kind === "image" || att.kind === "video") && att.data) {
     const b64 = att.data.includes(",") ? att.data.split(",")[1] : att.data;
     return { kind: att.kind, name: att.name, mime: att.mime, data: b64 };
   }
@@ -59,8 +63,11 @@ export function attachmentPayloadForApi(att: ChatAttachment) {
 }
 
 export function defaultMessageForAttachments(attachments: ChatAttachment[], lang: string): string {
+  const hasVideo = attachments.some((a) => a.kind === "video");
   const hasImage = attachments.some((a) => a.kind === "image");
   const names = attachments.map((a) => a.name).join(", ");
+  if (hasVideo && attachments.length === 1) return lang === "el" ? "🎬 Βίντεο" : "🎬 Video";
+  if (hasVideo) return lang === "el" ? `🎬 ${names}` : `🎬 ${names}`;
   if (hasImage && attachments.length === 1) return lang === "el" ? "📷 Φωτογραφία" : "📷 Photo";
   if (hasImage) return lang === "el" ? `📷 ${names}` : `📷 ${names}`;
   return lang === "el" ? `📎 ${names}` : `📎 ${names}`;

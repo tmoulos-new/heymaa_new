@@ -21,6 +21,7 @@ import { AUTH_LOGO_SRC } from "../auth/authLogo";
 import whatIsImage from "../assets/heymaa-what-is.png";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
 import momentsImage from "../assets/heymaa-moments-collage.png";
+import { mergeGamificationFaqItems } from "../lib/gamificationCard";
 import { displayUppercase } from "../lib/greekText";
 import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
 import { LANGS, mf } from "./homeContent";
@@ -70,9 +71,11 @@ export default function Home() {
   const plans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
   );
-  const faqItems = asObjectArray<HomeFaqItem>(
-    t("faq.items", { returnObjects: true })
-  );
+  const faqItems = useMemo(() => {
+    const base = asObjectArray<HomeFaqItem>(t("faq.items", { returnObjects: true }));
+    const faqLang = homeDisplayLocale(i18n.language) === "el" ? "el" : "en";
+    return mergeGamificationFaqItems(base, faqLang);
+  }, [t, i18n.language]);
   const testimonialItems = asObjectArray<HomeTestimonialItem>(
     t("testimonial.items", { returnObjects: true })
   );

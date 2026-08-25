@@ -11,10 +11,44 @@ export function slotForPlanIndex(index: number): PlanSlot {
 
 export function slotForPaidPlan(plan?: string | null): PlanSlot | null {
   const p = (plan || '').toLowerCase()
-  if (p.includes('annual') || p.includes('year')) return 'annual'
+  if (p.includes('annual') || p.includes('year') || p.includes('ετήσ')) return 'annual'
   if (p.includes('premium')) return 'premium'
   if (p.includes('starter')) return 'starter'
   return null
+}
+
+export function resolveCurrentPlanSlot(
+  snapshot: SubscriptionSnapshot | null,
+): PlanSlot | null {
+  if (!snapshot?.subscription_active) return null
+
+  const status = (snapshot.subscription_status || '').toLowerCase()
+  const paidSlot = slotForPaidPlan(snapshot.plan)
+  const planRaw = (snapshot.plan || '').toLowerCase()
+
+  if (snapshot.is_trial || status === 'trial' || planRaw === 'trial') {
+    return 'trial'
+  }
+  if (paidSlot) return paidSlot
+  if (!snapshot.plan) return 'trial'
+  return null
+}
+
+export function activePlanNameForSlot(
+  slot: PlanSlot,
+  plans: HomePlan[],
+  lang: string,
+): string {
+  const index = PLAN_SLOTS.indexOf(slot)
+  const plan = plans[index]
+  if (plan?.name) return plan.name
+  const fallbacks: Record<PlanSlot, { el: string; en: string }> = {
+    trial: { el: 'Δωρεάν Δοκιμή', en: 'Free trial' },
+    starter: { el: 'Starter', en: 'Starter' },
+    premium: { el: 'Premium', en: 'Premium' },
+    annual: { el: 'Ετήσιο Premium', en: 'Annual Premium' },
+  }
+  return lang === 'el' ? fallbacks[slot].el : fallbacks[slot].en
 }
 
 export function formatTrialEnd(iso: string, locale: string): string {
@@ -64,15 +98,10 @@ export function applySubscriptionPlanState(
     })
   }
 
-  const { subscription_active, is_trial, subscription_status, plan } = snapshot
+  const { subscription_status } = snapshot
   const status = (subscription_status || '').toLowerCase()
-  const paidSlot = slotForPaidPlan(plan)
-  const trialExpired = status === 'trial' && !subscription_active
-  const trialActive = is_trial && subscription_active
-
-  let currentSlot: PlanSlot | null = null
-  if (trialActive) currentSlot = 'trial'
-  else if (subscription_active && paidSlot) currentSlot = paidSlot
+  const trialExpired = status === 'trial' && !snapshot.subscription_active
+  const currentSlot = resolveCurrentPlanSlot(snapshot)
 
   return plans.map((planItem, index) => {
     const slot = slotForPlanIndex(index)

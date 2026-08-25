@@ -17,6 +17,7 @@ import {
   HM_TOKEN_KEY,
   type SubscriptionSnapshot,
 } from '../lib/authApi'
+import { mergeGamificationFaqItems } from '../lib/gamificationCard'
 import {
   applySubscriptionPlanState,
   formatTrialEnd,
@@ -91,9 +92,11 @@ export function SubscriptionPage() {
   const basePlans = asObjectArray<HomePlan>(
     tHome('pricing.plans', { returnObjects: true }),
   )
-  const faqItems = asObjectArray<HomeFaqItem>(
-    tHome('faq.items', { returnObjects: true }),
-  )
+  const faqItems = useMemo(() => {
+    const base = asObjectArray<HomeFaqItem>(tHome('faq.items', { returnObjects: true }))
+    const faqLang = contentLang === 'el' ? 'el' : 'en'
+    return mergeGamificationFaqItems(base, faqLang)
+  }, [tHome, contentLang])
 
   const plans = useMemo(
     () =>

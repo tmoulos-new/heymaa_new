@@ -18,8 +18,9 @@ import {
   type FamilyMemberRecord,
 } from "./lib/familyData";
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
+import { GAMIFICATION_CHAT_VIDEO_PATH, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
-import { levelName, type GamificationStatus } from "./lib/userGamification";
+import { levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
 import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, type SubscriptionSnapshot } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
@@ -47,6 +48,7 @@ import {
 import {
   attachmentPayloadForApi,
   fileToChatAttachment,
+  MAX_CHAT_FILE_BYTES,
   type ChatAttachment,
 } from "./lib/chatAttachments";
 import {
@@ -66,6 +68,7 @@ import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
 import { AppTrialBanner } from "./components/AppTrialBanner";
+import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { AppModalPortal } from "./components/AppModalPortal";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
@@ -215,7 +218,7 @@ let toastSeq = 0;
 interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
 interface Message { role: "user" | "assistant"; content: string; attachments?: ChatAttachment[]; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
-interface Memory { emoji: string; text: string; date: string; img?: string; ref?: string; createdAt?: string; } // ref = child name | "pregnancy" | m:{memberId} | undefined (general)
+interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; } // ref = child name | "pregnancy" | m:{memberId} | undefined (general)
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
@@ -1741,13 +1744,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E6DED6",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
   const [helpMessage, setHelpMessage] = useState("");
   const homeLng = homeDisplayLocale(lang);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
-    return Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
+    const base = Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
+    return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
   }, [tHome, homeLng]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
   const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "+30 210 928 7700");
@@ -1763,6 +1768,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
       .then(res => {
         if (res.data?.gamification) setGamification(res.data.gamification);
+        if (typeof res.data?.referral_code === "string" && res.data.referral_code.trim()) {
+          setReferralCode(res.data.referral_code.trim());
+        }
         if (typeof res.data?.email === "string") setAccountEmail(res.data.email.trim());
       })
       .catch(() => {});
@@ -1919,7 +1927,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
       }
       showToast(t("profile_saved", lang), "ok");
-      track("submit", appPath("profile", "save"), "Save profile");
+    track("click", appPath("profile", "save"), "Save profile");
       setEditNewPassword("");
       setEditConfirmPassword("");
       setShowProfileEdit(false);
@@ -2325,7 +2333,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       setRecording(false);
       try { r?.stop(); } catch { /* ignore */ }
     }
-    track("submit", appPath("chat", "send"), attachments.length ? "Send message with attachment" : "Send message");
+    const hasVideoAttachment = attachments.some((a) => a.kind === "video");
+    track(
+      "submit",
+      hasVideoAttachment ? GAMIFICATION_CHAT_VIDEO_PATH : appPath("chat", "send"),
+      attachments.length ? "Send message with attachment" : "Send message",
+    );
     const userMsg: Message = { role: "user", content: trimmed, attachments: attachments.length ? attachments : undefined };
     const next = [...messages, userMsg]; setMessages(next); setInput(""); setChatPendingAttachments([]); setLoading(true);
     if (isLocalDemoToken(token)) {
@@ -2579,32 +2592,41 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }, 0);
   };
 
-  const addMemory = (imgData?: string) => {
-    if(!memInput.trim()&&!imgData)return;
+  const addMemory = (mediaData?: string, mediaKind?: "photo" | "video") => {
+    if(!memInput.trim()&&!mediaData)return;
     if(activeMemRef==null){
       showToast(t("select_member_first", lang),"err");
       return;
     }
     const ref = activeMemRef === "__general__" ? undefined : activeMemRef;
-    track("submit", appPath("memories", "add"), imgData ? "Add photo memory" : "Add memory", { ref });
+    const pointPath = mediaKind === "video"
+      ? appPath("memories", "add-video")
+      : mediaData
+        ? appPath("memories", "add-photo")
+        : appPath("memories", "add-note");
+    track("submit", pointPath, mediaKind === "video" ? "Add video memory" : mediaData ? "Add photo memory" : "Add memory", { ref });
     const emojis=["😊","🍼","😎","🛁","❤️","🌟","🎉","🌸","🏆","✨"];
-    const textVal = memInput.trim() || "📷";
+    const textVal = memInput.trim() || (mediaKind === "video" ? "🎬" : "📷");
     const date = new Date().toLocaleDateString(lang, { day: "numeric", month: "short" });
     const createdAt = new Date().toISOString();
     const emoji = emojis[memories.length % emojis.length];
     setMemInput("");
-    const commit = (img?: string) => {
+    const commit = (img?: string, video?: string) => {
       setMemories((prev) => {
-        const next: Memory[] = [{ emoji, text: textVal, date, createdAt, img, ref }, ...prev];
+        const next: Memory[] = [{ emoji, text: textVal, date, createdAt, img, video, ref }, ...prev];
         void persistMemoriesDurable(token, next);
         return next;
       });
     };
-    if (!imgData) {
-      commit(undefined);
+    if (!mediaData) {
+      commit(undefined, undefined);
       return;
     }
-    void compressImageDataUrl(imgData).then((img) => commit(img));
+    if (mediaKind === "video") {
+      commit(undefined, mediaData);
+      return;
+    }
+    void compressImageDataUrl(mediaData).then((img) => commit(img, undefined));
   };
 
   const deleteMemory = (index: number) => {
@@ -2649,12 +2671,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const current = !!(milestoneChecksMap[ref]||[])[idx];
     setMilestoneChecksMap(prev => { const arr=[...(prev[ref]||[])]; arr[idx]=!arr[idx]; return {...prev,[ref]:arr}; });
     setLastCheckedMap(prev=>({...prev,[ref]:current?null:idx}));
+    if (!current) {
+      track("submit", appPath("milestones", "check"), "Milestone reached", { ref, idx });
+    }
   };
   const getChecksForRef = (ref: string): boolean[] => milestoneChecksMap[ref]||[];
 
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
-    track("submit", appPath("family", "add-member"), "Add family member");
+    track("click", appPath("family", "add-member"), "Add family member");
     const member: FamilyMemberRecord = {
       id: newFamilyMemberId(),
       name: newMemberName.trim(),
@@ -2671,7 +2696,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const addPet = () => {
     if (!newPetName.trim()) return;
-    track("submit", appPath("family", "add-pet"), "Add family pet");
+    track("click", appPath("family", "add-pet"), "Add family pet");
     const member: FamilyMemberRecord = {
       id: newFamilyMemberId(),
       name: newPetName.trim(),
@@ -2691,7 +2716,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       showToast(lang==="el"?"Επίλεξε φύλο.":"Select gender.", "err");
       return;
     }
-    track("submit", appPath("family", "add-child"), "Add child");
+    track("click", appPath("family", "add-child"), "Add child");
     const updatedChildren = [...familyChildren, {
       name: newChildName.trim(),
       birthDate: newChildBirthDate,
@@ -3697,6 +3722,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           token={token}
           lang={lang}
           trialEndsAt={trialEndsAt}
+          initialSnapshot={subSnapshot}
           onClose={() => setShowSubscriptionSheet(false)}
         />
       )}
@@ -3984,22 +4010,32 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         style={{ display: "none" }}
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
+          if (f.size > MAX_CHAT_FILE_BYTES) {
+            showToast(lang === "el" ? "Το αρχείο είναι πολύ μεγάλο (μέγ. 6MB)." : "File is too large (max 6MB).", "err");
+            e.target.value = "";
+            return;
+          }
           const r = new FileReader();
           r.onload = (ev) => {
             const dataUrl = ev.target?.result as string;
+            const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
             if (photoEditMemIdx != null) {
+              if (isVideo) {
+                showToast(lang === "el" ? "Μόνο φωτογραφίες για επεξεργασία." : "Photos only when editing.", "err");
+                return;
+              }
               const targetIdx = photoEditMemIdx;
               setPhotoEditMemIdx(null);
               void compressImageDataUrl(dataUrl).then((img) => {
-                setMemories((prev) => prev.map((m, i) => (i === targetIdx ? { ...m, img } : m)));
+                setMemories((prev) => prev.map((m, i) => (i === targetIdx ? { ...m, img, video: undefined } : m)));
               });
             } else {
-              addMemory(dataUrl);
+              addMemory(dataUrl, isVideo ? "video" : "photo");
             }
           };
           r.readAsDataURL(f);
@@ -4011,7 +4047,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       <input
         ref={chatFileRef}
         type="file"
-        accept=".pdf,.txt,.md,.markdown,text/plain,application/pdf"
+        accept=".pdf,.txt,.md,.markdown,text/plain,application/pdf,video/*"
         multiple
         style={{ display: "none" }}
         onChange={(e) => {
@@ -4049,7 +4085,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showAccountMenu&&<div className="hm-header-popover-backdrop" onClick={()=>setShowAccountMenu(false)} />}
       {showNotifications&&<div className="hm-header-popover-backdrop" onClick={()=>setShowNotifications(false)} />}
       {/* HEADER */}
-      <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
+      <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
+        <div className="hm-app-bar-inner hm-app-header-inner">
         <div className="hm-header-brand">
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
         </div>
@@ -4076,6 +4113,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button onClick={requestLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
             </div>}
           </div>
+        </div>
         </div>
       </div>
 
@@ -4109,6 +4147,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
       {/* BODY */}
       <div className="hm-app-body" ref={appBodyRef}>
+      <div className="hm-app-body-inner">
 
                 {tab==="profile"&&(
           <AppTabPageShell
@@ -4161,6 +4200,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </div>
               </div>
             </div>
+
+            <ProfileGamificationCard
+              lang={lang}
+              gamification={gamification ?? defaultGamificationStatus()}
+              referralCode={referralCode}
+            />
 
             <AppTabSection
               lang={lang}
@@ -4445,7 +4490,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           />
           <div className="hm-tab-card">
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-              <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+              <HeyMaaAvatar size={32} />
               <div>
                 <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
                 <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${navy}`,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
@@ -4662,7 +4707,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             lang={lang}
             familyChildren={familyChildren}
             members={familyData.members}
-            onDownload={() => track("submit", appPath("memories", "export-booklet"), "Download memories booklet")}
+            onDownload={() => track("click", appPath("memories", "export-booklet"), "Download memories booklet")}
             onSave={saveMemoriesNow}
             saving={memoriesSaving}
             onRemovePhoto={(m) => {
@@ -4780,7 +4825,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               const currentMoveValue = !m.ref || m.ref === "__general__" ? "__general__" : m.ref;
               return (
                 <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none",minWidth:0}}>
-                  {m.img?<img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>:<span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>}
+                  {m.video ? (
+                    <video src={m.video} style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}} muted playsInline />
+                  ) : m.img ? (
+                    <img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
+                  ) : (
+                    <span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>
+                  )}
                   <div style={{flex:1,minWidth:0}}>
                     {editingMemIdx===origIdx?(
                       <div style={{display:"flex",flexDirection:"column" as any,gap:6,marginBottom:4}}>
@@ -4905,7 +4956,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>}
             <div className="hm-tab-card">
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-                <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+                <HeyMaaAvatar size={32} />
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
                   <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
@@ -4936,7 +4987,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>}
             <div className="hm-tab-card">
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-                <div style={{width:32,height:32,borderRadius:"50%",background:navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🐾</div>
+                <HeyMaaAvatar size={32} />
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
                   <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
@@ -5057,6 +5108,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ))}
           </div>}
         </div>}
+      </div>{/* end body inner */}
       </div>{/* end body */}
 
       {/* LANG MISMATCH HINT */}
@@ -5069,6 +5121,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div key={`${att.name}-${i}`} className="hm-chat-attach-preview__item">
                 {att.kind === "image" && att.data ? (
                   <img src={att.data} alt="" className="hm-chat-attach-preview__thumb" />
+                ) : att.kind === "video" && att.data ? (
+                  <video src={att.data} className="hm-chat-attach-preview__thumb" muted playsInline />
                 ) : (
                   <div className="hm-chat-attach-preview__file" aria-hidden="true">📎</div>
                 )}
@@ -5236,7 +5290,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
       {/* TAB BAR */}
       <div ref={tabBarRef} className={`hm-app-tabbar${tabBarVisible ? "" : " is-hidden"}`}>
-        <div className="hm-tab-dock">
+        <div className="hm-tab-dock hm-app-bar-inner">
           {tabs.map(tb=>{
             const active = tab === tb.id;
             return (

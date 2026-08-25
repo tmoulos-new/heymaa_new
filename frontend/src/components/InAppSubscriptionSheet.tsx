@@ -13,7 +13,9 @@ import {
 } from '../lib/authApi'
 import {
   applySubscriptionPlanState,
+  activePlanNameForSlot,
   formatTrialEnd,
+  resolveCurrentPlanSlot,
   slotForPlanIndex,
 } from '../lib/subscriptionPlans'
 
@@ -28,11 +30,13 @@ export function InAppSubscriptionSheet({
   token,
   lang,
   trialEndsAt,
+  initialSnapshot,
   onClose,
 }: {
   token: string
   lang: string
   trialEndsAt?: string | null
+  initialSnapshot?: SubscriptionSnapshot | null
   onClose: () => void
 }) {
   const navigate = useNavigate()
@@ -49,8 +53,8 @@ export function InAppSubscriptionSheet({
   )
 
   const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
-  const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(initialSnapshot ?? null)
+  const [loading, setLoading] = useState(!initialSnapshot)
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -61,6 +65,10 @@ export function InAppSubscriptionSheet({
       document.head.removeChild(link)
     }
   }, [])
+
+  useEffect(() => {
+    if (initialSnapshot) setSnapshot(initialSnapshot)
+  }, [initialSnapshot])
 
   useEffect(() => {
     let cancelled = false
@@ -129,6 +137,12 @@ export function InAppSubscriptionSheet({
     return 'default'
   }, [snapshot])
 
+  const activeSlot = useMemo(() => resolveCurrentPlanSlot(snapshot), [snapshot])
+  const activePlanName = useMemo(
+    () => (activeSlot ? activePlanNameForSlot(activeSlot, basePlans, lang) : null),
+    [activeSlot, basePlans, lang],
+  )
+
   const navy = '#2B3A67'
   const cream = '#F7F1EA'
 
@@ -193,6 +207,38 @@ export function InAppSubscriptionSheet({
                   date: formatTrialEnd(snapshot.trial_ends_at, contentLang),
                 })}
               </p>
+            ) : null}
+            {activePlanName ? (
+              <div
+                className="hm-subscription-active-chip"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginTop: 10,
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  background: '#fff',
+                  border: '1.5px solid rgba(43,58,103,.14)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: navy,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#2D9E6B',
+                    flexShrink: 0,
+                  }}
+                />
+                {lang === 'el'
+                  ? `Ενεργό πακέτο: ${activePlanName}`
+                  : `Active plan: ${activePlanName}`}
+              </div>
             ) : null}
           </div>
         </div>
