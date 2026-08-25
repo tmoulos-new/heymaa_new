@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { PlanCard } from './PlanCard'
 import '../home/home.css'
 import '../appResponsive.css'
 import { homeDisplayLocale } from '../i18n'
 import type { HomePlan } from '../i18n/homeTypes'
+import { continueWithPlan } from '../lib/planCheckoutFlow'
 import {
   fetchSubscriptionStatus,
   type SubscriptionSnapshot,
@@ -33,6 +35,7 @@ export function InAppSubscriptionSheet({
   trialEndsAt?: string | null
   onClose: () => void
 }) {
+  const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const tHome = useCallback(
     (key: string, opts?: Record<string, unknown>) =>
@@ -215,6 +218,9 @@ export function InAppSubscriptionSheet({
                   disabled={trialExpired || isCurrent}
                   buttonState={isCurrent ? 'current' : 'idle'}
                   radioSelected={isCurrent}
+                  onButtonClick={() =>
+                    continueWithPlan(plan.variant || 'trial', navigate)
+                  }
                 />
               )
             })}

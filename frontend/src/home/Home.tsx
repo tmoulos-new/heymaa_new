@@ -22,6 +22,7 @@ import whatIsImage from "../assets/heymaa-what-is.png";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
 import momentsImage from "../assets/heymaa-moments-collage.png";
 import { displayUppercase } from "../lib/greekText";
+import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
 import { LANGS, mf } from "./homeContent";
 import "../auth/appAuth.css";
 import "./home.css";
@@ -78,21 +79,18 @@ export default function Home() {
   const activeTestimonial =
     testimonialItems[testimonialIndex] ?? testimonialItems[0];
 
-  const handlePlanSelect = useCallback((index: number) => {
+  const handlePlanRadioSelect = useCallback((index: number) => {
     const plan = plans[index];
     if (!plan) return;
     setSelectedPlanIndex(index);
-    try {
-      sessionStorage.setItem("hm_intent_plan", plan.variant || "trial");
-    } catch {
-      /* ignore */
-    }
-    // Landing pricing never goes to checkout — always registration first.
-    if (localStorage.getItem(HM_TOKEN_KEY)) {
-      navigate("/subscription");
-    } else {
-      navigate(`${APP_ROUTE}/auth`);
-    }
+    setPlanIntent(plan.variant || "trial");
+  }, [plans]);
+
+  const handlePlanContinue = useCallback((index: number) => {
+    const plan = plans[index];
+    if (!plan) return;
+    setSelectedPlanIndex(index);
+    continueWithPlan(plan.variant || "trial", navigate);
   }, [plans, navigate]);
 
   useEffect(() => {
@@ -365,7 +363,8 @@ export default function Home() {
                       selectMode
                       buttonState={buttonState}
                       radioSelected={radioSelected}
-                      onSelect={() => handlePlanSelect(index)}
+                      onSelect={() => handlePlanRadioSelect(index)}
+                      onButtonClick={() => handlePlanContinue(index)}
                     />
                   );
                 })}

@@ -3,6 +3,7 @@
 :root {
   --hm-cream: #f5f0eb;
   --hm-navy: #2b3a67;
+  --hm-beige: #f8e5d6;
   --hm-shell-max: 100%;
   --hm-content-max: 100%;
   --hm-dialog-pad: 16px;
@@ -11,6 +12,22 @@
   --hm-composer-pad: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
   --hm-sheet-max: 100%;
   --hm-sheet-wide-max: 100%;
+}
+
+.pill-btn-navy {
+  border-radius: 999px;
+  background: var(--hm-navy);
+  color: #fff;
+  border: 1.5px solid var(--hm-navy);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.pill-btn-navy:hover:not(:disabled) {
+  background: var(--hm-beige);
+  color: var(--hm-navy);
+  border-color: var(--hm-beige);
 }
 
 /* Tablet: full width, more breathing room */

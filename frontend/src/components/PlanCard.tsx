@@ -1,5 +1,7 @@
 import type { HomePlan } from '../i18n/homeTypes'
-import { goToVivaCheckout, vivaPlanForVariant, type VivaPlanKey } from '../lib/vivaCheckout'
+import { useNavigate } from 'react-router-dom'
+import { continueWithPlan } from '../lib/planCheckoutFlow'
+import { vivaPlanForVariant, type VivaPlanKey } from '../lib/vivaCheckout'
 
 export type PlanButtonState = 'current' | 'idle' | 'selected'
 
@@ -24,6 +26,7 @@ export function PlanCard({
   selectMode?: boolean
   radioSelected?: boolean
 }) {
+  const navigate = useNavigate()
   const isCurrent = plan.variant === 'current'
   const isTrial = plan.variant === 'trial'
   const hidePrice = isCurrent || isTrial
@@ -37,6 +40,10 @@ export function PlanCard({
 
   const handleClick = () => {
     if (selectMode) {
+      if (onButtonClick) {
+        onButtonClick()
+        return
+      }
       onSelect?.()
       return
     }
@@ -45,9 +52,11 @@ export function PlanCard({
       onButtonClick()
       return
     }
-    if (!productKey) return
-    if (onCheckout) onCheckout(productKey)
-    else goToVivaCheckout(productKey)
+    if (onCheckout && productKey) {
+      onCheckout(productKey)
+      return
+    }
+    continueWithPlan(plan.variant, navigate)
   }
 
   if (layout === 'grid') {
@@ -119,7 +128,7 @@ export function PlanCard({
             className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
             aria-pressed={isRadioFilled}
             aria-label={plan.name}
-            onClick={handleClick}
+            onClick={() => onSelect?.()}
           >
             <span className="plan-radio-dot" />
           </button>

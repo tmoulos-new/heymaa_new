@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppAuthScreen } from '../auth/AppAuthScreen'
 import {
@@ -9,6 +10,7 @@ import {
 import { APP_ROUTE } from '../publicRoutes'
 import { normalizeAppLang } from '../lib/appLang'
 import { stableSk } from '../lib/userDataRecovery'
+import { resumePlanAfterAuth } from '../lib/planCheckoutFlow'
 
 function enterLocalDemo(): string {
   const lang = normalizeAppLang(localStorage.getItem('hm_pre_lang') || 'el', 'el')
@@ -25,6 +27,11 @@ export function AppAuthPage() {
   const mode = search.get('mode') === 'login' ? 'login' : 'signup'
   const wantsAuthForm = search.get('mode') === 'login' || search.get('mode') === 'signup'
 
+  useEffect(() => {
+    if (!existing || wantsAuthForm) return
+    resumePlanAfterAuth(navigate)
+  }, [existing, wantsAuthForm, navigate])
+
   // Localhost without an explicit auth mode: skip the form and open the app shell.
   // /auth?mode=login|signup always shows the real form (needs Supabase).
   if (!existing && isBrowserLocalHost() && !wantsAuthForm) {
@@ -32,7 +39,9 @@ export function AppAuthPage() {
     return <Navigate to={APP_ROUTE} replace />
   }
 
-  if (existing && !wantsAuthForm) return <Navigate to={APP_ROUTE} replace />
+  if (existing && !wantsAuthForm) {
+    return null
+  }
 
   // Opening login/signup while a demo session exists: clear demo so the form can run.
   if (existing && isLocalDemoToken(existing) && wantsAuthForm) {
@@ -42,9 +51,7 @@ export function AppAuthPage() {
   return (
     <AppAuthScreen
       initialMode={mode}
-      onSuccess={() => {
-        navigate(APP_ROUTE, { replace: true })
-      }}
+      onSuccess={() => resumePlanAfterAuth(navigate)}
     />
   )
 }

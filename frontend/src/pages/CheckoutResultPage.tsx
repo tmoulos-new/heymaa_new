@@ -4,6 +4,7 @@ import { HM_TOKEN_KEY } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { normalizeAppLang } from '../lib/appLang'
 import { APP_ROUTE } from '../publicRoutes'
+import { clearPlanIntent } from '../lib/planCheckoutFlow'
 import '../auth/appAuth.css'
 import './checkoutResult.css'
 
@@ -25,6 +26,7 @@ export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure'
 
   useEffect(() => {
     if (!isSuccess) return
+    clearPlanIntent()
     try {
       sessionStorage.removeItem(SUB_SNAPSHOT_CACHE_KEY)
     } catch {

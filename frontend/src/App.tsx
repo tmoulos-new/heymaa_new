@@ -3650,7 +3650,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
       {/* HEADER */}
       <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
-        <div className="hm-header-greeting">{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{vocativeName || "…"}</span> 👋</div>
+        <div className="hm-header-greeting">{t("greeting",lang)} <span style={{color:"#F8E5D6"}}>{vocativeName || "…"}</span> 👋</div>
         <div className="hm-header-actions">
           <button type="button" className="hm-header-lang-btn" onClick={()=>setShowLang(true)}>{L.f} {L.s}</button>
           <div className="hm-header-avatar" onClick={()=>setShowAccountMenu(v=>!v)} style={{background:coral}}>
@@ -3758,7 +3758,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 ) : null}
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:10}}>
                   {(familyChildren.length===0 && !pregnancyActive) && (
-                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(245,197,163,.55)",borderRadius:999,padding:"4px 10px"}}>
+                    <span style={{fontSize:11,fontWeight:600,color:navy,background:"rgba(248,229,214,.55)",borderRadius:999,padding:"4px 10px"}}>
                       {lang==="el"?"Θέλω παιδί":"Want a child"}
                     </span>
                   )}

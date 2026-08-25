@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createVivaCheckout, HM_TOKEN_KEY } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { normalizeAppLang } from '../lib/appLang'
+import { setPlanIntent } from '../lib/planCheckoutFlow'
 import { APP_ROUTE } from '../publicRoutes'
 import '../auth/appAuth.css'
 
@@ -35,6 +36,13 @@ export function CheckoutPage() {
       setError(isEl ? 'Μη έγκυρο πακέτο.' : 'Invalid plan.')
       return
     }
+
+    if (!token) {
+      setPlanIntent(plan)
+      navigate(`${APP_ROUTE}/auth`, { replace: true })
+      return
+    }
+
     let cancelled = false
     createVivaCheckout(plan, lang, token)
       .then((data) => {
@@ -57,9 +65,10 @@ export function CheckoutPage() {
     return () => {
       cancelled = true
     }
-  }, [plan, lang, token, isEl])
+  }, [plan, lang, token, isEl, navigate])
 
   const logoSrc = AUTH_LOGO_SRC
+  const backHref = token ? '/subscription' : '/'
 
   return (
     <div className="app-auth-page">
@@ -86,13 +95,9 @@ export function CheckoutPage() {
           </p>
         ) : null}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="app-auth-google"
-            onClick={() => navigate('/subscription')}
-          >
+          <Link to={backHref} className="app-auth-google" style={{ textDecoration: 'none' }}>
             {isEl ? '← Πίσω στα πακέτα' : '← Back to plans'}
-          </button>
+          </Link>
           {token ? (
             <Link to={APP_ROUTE} className="app-auth-google" style={{ textDecoration: 'none' }}>
               {isEl ? 'Επιστροφή στην εφαρμογή' : 'Back to app'}

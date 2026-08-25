@@ -1771,7 +1771,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate }: { tok
       {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
       {/* HEADER */}
       <div style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-        <div style={{color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F5C5A3"}}>{profile.name}</span> 👋</div>
+        <div style={{color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:16}}>{t("greeting",lang)} <span style={{color:"#F8E5D6"}}>{profile.name}</span> 👋</div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <button onClick={()=>setShowLang(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:999,padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
           <div onClick={()=>setShowAccountMenu(v=>!v)} style={{width:34,height:34,borderRadius:"50%",background:coral,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"'Fraunces',Georgia,serif",fontSize:14,fontWeight:600,cursor:"pointer",position:"relative"}}>

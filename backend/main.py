@@ -4402,7 +4402,7 @@ def _tester_invite_email_html(
     <div style="font-size:22px;font-weight:700;color:#2B3A67;letter-spacing:2px">{invite_code}</div>
   </div>
   <div style="background:#2B3A67;border-radius:12px;padding:20px;margin-bottom:24px">
-    <div style="font-size:13px;color:#F5C5A3;margin-bottom:12px;font-weight:600">📱 Οδηγίες Εισόδου</div>
+    <div style="font-size:13px;color:#F8E5D6;margin-bottom:12px;font-weight:600">📱 Οδηγίες Εισόδου</div>
     <ol style="color:#fff;font-size:13px;line-height:2;margin:0;padding-left:18px">
       <li>Άνοιξε το app <strong>από κινητό</strong> σε <strong>incognito mode</strong></li>
       <li>Επισκέψου: <a href="{APP_URL}" style="color:#4ABEAA">{APP_URL}</a></li>{login_steps}

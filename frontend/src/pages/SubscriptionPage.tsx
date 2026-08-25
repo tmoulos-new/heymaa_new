@@ -24,6 +24,7 @@ import {
 } from '../lib/subscriptionPlans'
 import { LANGS, mf } from '../home/homeContent'
 import { APP_ROUTE } from '../publicRoutes'
+import { continueWithPlan } from '../lib/planCheckoutFlow'
 
 const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
 
@@ -260,7 +261,6 @@ export function SubscriptionPage() {
                     !!snapshot &&
                     !snapshot.subscription_active &&
                     snapshot.subscription_status === 'trial'
-                  const trialSignup = slot === 'trial' && !token
                   const buttonState =
                     plan.variant === 'current' ? 'current' : 'idle'
                   return (
@@ -270,8 +270,8 @@ export function SubscriptionPage() {
                       disabled={trialExpired}
                       buttonState={buttonState}
                       radioSelected={plan.variant === 'current'}
-                      onButtonClick={
-                        trialSignup ? () => navigate(`${APP_ROUTE}/auth`) : undefined
+                      onButtonClick={() =>
+                        continueWithPlan(plan.variant || 'trial', navigate)
                       }
                     />
                   )
@@ -286,7 +286,6 @@ export function SubscriptionPage() {
                     !!snapshot &&
                     !snapshot.subscription_active &&
                     snapshot.subscription_status === 'trial'
-                  const trialSignup = slot === 'trial' && !token
                   const buttonState =
                     plan.variant === 'current' ? 'current' : 'idle'
                   return (
@@ -296,8 +295,8 @@ export function SubscriptionPage() {
                       disabled={trialExpired}
                       buttonState={buttonState}
                       radioSelected={plan.variant === 'current'}
-                      onButtonClick={
-                        trialSignup ? () => navigate(`${APP_ROUTE}/auth`) : undefined
+                      onButtonClick={() =>
+                        continueWithPlan(plan.variant || 'trial', navigate)
                       }
                     />
                   )

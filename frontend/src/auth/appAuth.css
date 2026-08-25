@@ -212,7 +212,7 @@
 .app-auth-primary {
   width: 100%;
   padding: 15px 16px;
-  border: none;
+  border: 1.5px solid #2b3a67;
   border-radius: 999px;
   background: #2b3a67;
   color: #fff;
@@ -220,6 +220,13 @@
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.app-auth-primary:not(:disabled):hover {
+  background: #f8e5d6;
+  color: #2b3a67;
+  border-color: #f8e5d6;
 }
 
 .app-auth-primary:disabled {
