@@ -14,8 +14,42 @@ export type AppNotification = {
 
 const READ_KEY_PREFIX = 'hm_notif_read_'
 
-function daysUntil(iso: string): number {
+export function daysUntilTrialEnd(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+}
+
+function daysUntil(iso: string): number {
+  return daysUntilTrialEnd(iso)
+}
+
+export type TrialBannerInfo = {
+  daysLeft: number
+  endLabel: string
+  urgent: boolean
+  endsToday: boolean
+}
+
+export function getTrialBannerInfo(
+  lang: string,
+  trialEndsAt: string | null | undefined,
+  sub: SubscriptionSnapshot | null,
+): TrialBannerInfo | null {
+  const trialActive =
+    Boolean(sub?.is_trial && sub.subscription_active) ||
+    Boolean(trialEndsAt && !sub)
+
+  if (!trialEndsAt || !trialActive) return null
+
+  const days = daysUntilTrialEnd(trialEndsAt)
+  const daysLeft = Math.max(0, Math.ceil(days))
+  const endLabel = formatTrialEnd(trialEndsAt, lang)
+
+  return {
+    daysLeft,
+    endLabel,
+    urgent: days <= 2,
+    endsToday: days <= 0,
+  }
 }
 
 export function buildAppNotifications(

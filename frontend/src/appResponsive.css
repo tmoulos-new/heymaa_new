@@ -16,6 +16,13 @@
   --hm-tabbar-inset: 84px;
   --hm-tabbar-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --hm-tabbar-duration: 0.32s;
+  /* Stacking: header popovers above page; full modals/sheets above header */
+  --hm-z-tabbar: 220;
+  --hm-z-header-popover: 380;
+  --hm-z-header: 400;
+  --hm-z-overlay: 800;
+  --hm-z-sheet: 850;
+  --hm-z-toast: 9990;
 }
 
 .pill-btn-navy {
@@ -117,7 +124,7 @@ body.hm-app-active #root {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 220;
+  z-index: var(--hm-z-tabbar);
   transform: translate3d(0, 0, 0);
   transition: transform var(--hm-tabbar-duration) var(--hm-tabbar-ease);
   will-change: transform;
@@ -192,12 +199,13 @@ body.hm-app-active #root {
 .hm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 530;
+  z-index: var(--hm-z-overlay);
   background: rgba(43, 58, 103, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--hm-dialog-pad);
+  padding: max(var(--hm-dialog-pad), env(safe-area-inset-top, 0px)) var(--hm-dialog-pad)
+    max(var(--hm-dialog-pad), env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 
@@ -252,7 +260,7 @@ body.hm-app-active #root {
 .hm-sheet-overlay {
   position: fixed;
   inset: 0;
-  z-index: 540;
+  z-index: var(--hm-z-sheet);
   display: flex;
   justify-content: center;
   align-items: stretch;
@@ -321,7 +329,86 @@ body.hm-app-active #root {
   }
 }
 
-/* Trial nudge */
+/* Trial banner — below top nav */
+.hm-trial-banner {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(90deg, #f8e5d6 0%, #fff3e8 100%);
+  border-bottom: 1px solid rgba(43, 58, 103, 0.08);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.hm-trial-banner--urgent {
+  background: linear-gradient(90deg, rgba(224, 123, 84, 0.2) 0%, rgba(248, 229, 214, 0.95) 100%);
+  border-bottom-color: rgba(224, 123, 84, 0.25);
+}
+
+.hm-trial-banner-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.hm-trial-banner-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.hm-trial-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-trial-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  line-height: 1.3;
+}
+
+.hm-trial-banner-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.55);
+  line-height: 1.3;
+}
+
+.hm-trial-banner-cta {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: var(--hm-navy);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: var(--hm-touch-min, 36px);
+}
+
+.hm-trial-banner--urgent .hm-trial-banner-cta {
+  background: #e07b54;
+}
+
+.hm-trial-banner-cta:hover {
+  opacity: 0.92;
+}
+
+/* Trial nudge (legacy floating) */
 .hm-floating-banner {
   left: 50% !important;
   right: auto !important;
@@ -342,6 +429,8 @@ body.hm-app-active #root {
 
 /* Toasts */
 .hm-toast-stack {
+  position: fixed;
+  z-index: var(--hm-z-toast);
   left: 50%;
   right: auto;
   transform: translateX(-50%);
@@ -460,7 +549,41 @@ body.hm-app-active #root {
   width: 100%;
   box-sizing: border-box;
   position: relative;
-  z-index: 560;
+  z-index: var(--hm-z-header);
+}
+
+.hm-header-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--hm-z-header-popover);
+}
+
+.hm-header-account-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  min-width: 200px;
+  z-index: 3;
+}
+
+/* Language picker inside logged-in app — above header, same layer as other modals */
+.hm-app-shell .lang-overlay.open,
+body.hm-app-active .lang-overlay.open {
+  display: flex;
+  z-index: var(--hm-z-overlay);
+}
+
+/* Portaled modals (document.body) — same stacking as in-shell overlays */
+body.hm-app-active .hm-overlay {
+  z-index: var(--hm-z-overlay);
+}
+
+body.hm-app-active .hm-sheet-overlay {
+  z-index: var(--hm-z-sheet);
 }
 
 .hm-header-greeting {
@@ -598,6 +721,8 @@ body.hm-app-active #root {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  position: relative;
+  z-index: calc(var(--hm-z-header) + 1);
 }
 
 .hm-header-lang-btn {
@@ -660,7 +785,7 @@ body.hm-app-active #root {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 14px 40px rgba(43, 58, 103, 0.22);
-  z-index: 620;
+  z-index: 2;
   box-sizing: border-box;
 }
 

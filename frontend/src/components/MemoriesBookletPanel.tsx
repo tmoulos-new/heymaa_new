@@ -11,6 +11,7 @@ import {
   type BookletMemory,
 } from '../lib/memoriesBooklet'
 import { displayUppercase } from '../lib/greekText'
+import { AppModalPortal } from './AppModalPortal'
 
 const LINEN = '#F6F0E8'
 const LINEN_DEEP = '#E8DFD2'
@@ -510,18 +511,13 @@ function BookletFlipbookModal({
     .replace('{total}', String(total))
 
   return (
+    <AppModalPortal>
     <div
       role="dialog"
       aria-modal="true"
+      className="hm-overlay"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
         background: 'rgba(44, 36, 33, .62)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
         backdropFilter: 'blur(6px)',
       }}
       onClick={onClose}
@@ -717,9 +713,11 @@ function BookletFlipbookModal({
           >
             ⬇ {labels.download}
           </button>
+
         </div>
       </div>
     </div>
+    </AppModalPortal>
   )
 }
 

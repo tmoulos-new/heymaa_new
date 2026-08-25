@@ -60,7 +60,9 @@ import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
+import { AppTrialBanner } from "./components/AppTrialBanner";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
+import { AppModalPortal } from "./components/AppModalPortal";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
@@ -2915,7 +2917,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         <div
           className="hm-overlay"
           onClick={e=>{ if(e.target===e.currentTarget) setShowProfileSettings(false); }}
-          style={{zIndex:515}}
         >
           <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:24,padding:"18px 16px 16px",boxShadow:"0 12px 40px rgba(43,58,103,.18)"}}>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14}}>
@@ -3561,7 +3562,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
 
       {/* ADDRESS MODAL */}
-      {showAddressModal&&<div className="hm-overlay" style={{zIndex:510,background:"rgba(43,58,103,.55)"}}>
+      {showAddressModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.55)"}}>
         <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:20,padding:24,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
@@ -3593,7 +3594,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
 
       {/* ARCHIVE MODAL */}
-      {showArchiveModal&&<div className="hm-overlay" style={{zIndex:500,background:"rgba(43,58,103,.5)"}}>
+      {showArchiveModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.5)"}}>
         <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:18,padding:24}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
           <p style={{fontSize:13,color:"#7A7068",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
@@ -3606,7 +3607,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       </div>}
 
       {/* PAST THREADS PANEL */}
-      {showThreads&&<div className="hm-overlay hm-overlay--bottom" onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{zIndex:500,background:"rgba(43,58,103,.5)",padding:0}}>
+      {showThreads&&<div className="hm-overlay hm-overlay--bottom" onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{background:"rgba(43,58,103,.5)",padding:0}}>
         <div className="hm-threads-sheet" style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,maxHeight:"70vh",overflowY:"auto"}}>
           <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
           {threads.length===0&&<div style={{textAlign:"center",color:"#7A7068",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
@@ -3646,8 +3647,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }}
       />
 
-      {showAccountMenu&&<div onClick={()=>setShowAccountMenu(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
-      {showNotifications&&<div onClick={()=>setShowNotifications(false)} style={{position:"fixed",inset:0,zIndex:550}}/>}
+      {showAccountMenu&&<div className="hm-header-popover-backdrop" onClick={()=>setShowAccountMenu(false)} />}
+      {showNotifications&&<div className="hm-header-popover-backdrop" onClick={()=>setShowNotifications(false)} />}
       {/* HEADER */}
       <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
         <div className="hm-header-brand">
@@ -3669,7 +3670,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           />
           <div className="hm-header-avatar" onClick={()=>{ setShowNotifications(false); setShowAccountMenu(v=>!v); }} style={{background:coral}}>
             {displayInitial}
-            {showAccountMenu&&<div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:42,right:0,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.15)",padding:6,minWidth:200,zIndex:600}}>
+            {showAccountMenu&&<div className="hm-header-account-menu" onClick={e=>e.stopPropagation()}>
               <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
               <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
               <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
@@ -3678,6 +3679,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
         </div>
       </div>
+
+      <AppTrialBanner
+        lang={lang}
+        trialEndsAt={trialEndsAt}
+        subSnapshot={subSnapshot}
+        onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
+      />
 
       {gamification && (
         <div className="hm-gamification-bar" style={{background:"#243156",padding:"8px 18px 10px",flexShrink:0,borderBottom:`1px solid rgba(255,255,255,.08)`}}>
@@ -4194,11 +4202,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
           </AppTabSection>
           {treeEdit && (
+            <AppModalPortal>
             <div
               role="dialog"
               aria-modal="true"
               className="hm-overlay hm-overlay--bottom"
-              style={{zIndex:9998,background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
+              style={{background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
               onClick={()=>setTreeEdit(null)}
             >
               <div
@@ -4320,6 +4329,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </div>
               </div>
             </div>
+            </AppModalPortal>
           )}
         </AppTabPageShell>)}
 
@@ -4841,7 +4851,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       </div>
     </div>
     {toasts.length > 0 && (
-      <div aria-live="polite" className="hm-toast-stack" style={{position:"fixed",zIndex:9999,display:"flex",flexDirection:"column",gap:10,pointerEvents:"none"}}>
+      <div aria-live="polite" className="hm-toast-stack" style={{display:"flex",flexDirection:"column",gap:10,pointerEvents:"none"}}>
         {toasts.map(toastItem => (
           <div key={toastItem.id} role="status" style={{
             pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"12px 14px", borderRadius:12,
