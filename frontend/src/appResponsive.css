@@ -1096,6 +1096,7 @@ body.hm-app-active #root {
   font-size: 13px;
   color: rgba(43, 58, 103, 0.65);
   line-height: 1.55;
+  white-space: pre-line;
 }
 
 .hm-subscription-sheet-inner {

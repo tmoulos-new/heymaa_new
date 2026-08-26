@@ -59,46 +59,31 @@ export function gamificationPointsForPath(path: string): number {
   return GAMIFICATION_POINT_RULES.find((r) => r.path === normalized)?.points ?? 0;
 }
 
-function gamificationLevelLabel(
-  level: (typeof GAMIFICATION_LEVELS)[number],
-  lang: string,
-): string {
-  return lang === 'el' ? level.name_el : level.name_en;
-}
-
 /** FAQ entries generated from live rules — appended to home/help FAQ lists */
 export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
   const isEl = lang === 'el';
-  const actionsLine = POINT_ACTIONS.map((a) =>
-    `${isEl ? a.el : a.en} +${a.points}`,
-  ).join(' • ');
-
-  const levelsLine = GAMIFICATION_LEVELS.map((level) => {
-    const name = gamificationLevelLabel(level, lang);
-    const rewards = levelRewardsText(level.number, lang);
-    return isEl
-      ? `${name} (από ${level.min_points} πόντους): ${rewards}`
-      : `${name} (from ${level.min_points} points): ${rewards}`;
-  }).join(' · ');
+  const pointsLines = POINT_ACTIONS.map((a) =>
+    isEl ? `• ${a.el}: +${a.points} πόντοι` : `• ${a.en}: +${a.points} points`,
+  ).join('\n');
 
   return [
     {
       question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
       answer: isEl
-        ? `Κερδίζεις αυτόματα όταν χρησιμοποιείς την εφαρμογή: ${actionsLine}. Το βίντεο (+20) μπορείς να το προσθέσεις σε αναμνήσεις ή chat. Στο «Προφίλ μου» βλέπεις τους πόντους σου και τον κωδικό πρόσκλησης — +${REFERRAL_BONUS_POINTS} πόντοι για κάθε φίλη που εγγράφεται με τον κωδικό σου.`
-        : `You earn points automatically as you use the app: ${actionsLine}. Video (+20) can be added in Memories or Chat. In My profile you see your points and invite code — +${REFERRAL_BONUS_POINTS} points for each friend who signs up with your code.`,
+        ? `Κερδίζεις πόντους αυτόματα όταν:\n${pointsLines}\n\nΒίντεο (+20): σε Αναμνήσεις ή Chat.\nΠρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} πόντοι όταν εγγραφεί με τον κωδικό σου (στο Προφίλ).`
+        : `You earn points automatically when you:\n${pointsLines}\n\nVideo (+20): in Memories or Chat.\nFriend referral: +${REFERRAL_BONUS_POINTS} points when they sign up with your code (in Profile).`,
     },
     {
-      question: isEl ? 'Τι είναι τα επίπεδα (levels);' : 'What are levels?',
+      question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? `Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο. Τα δώρα κάθε επιπέδου: ${levelsLine}. Η πρόοδός σου εμφανίζεται στην κάρτα gamification στο «Προφίλ μου».`
-        : `As you collect points, you level up. Rewards per level: ${levelsLine}. Your progress appears on the gamification card in My profile.`,
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Κάθε επίπεδο ξεκλειδώνει perks — π.χ. προτεραιότητα απαντήσεων ή αποκλειστικές προσφορές. Η πρόοδός σου φαίνεται στην κάρτα πόντων στο Προφίλ.'
+        : 'As you collect points, you level up (from New Mom to HeyMaa Champion). Each level unlocks perks such as priority replies or exclusive offers. Your progress appears on the points card in Profile.',
     },
     {
-      question: isEl ? 'Πού βρίσκω την πρόοδό μου;' : 'Where can I see my progress?',
+      question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
       answer: isEl
-        ? 'Στο tab «Προφίλ» → «Το προφίλ μου», κάτω από την κάρτα με το όνομά σου. Εκεί θα δεις επίπεδο, πόντους, progress bar, δώρα επιπέδου και κωδικό πρόσκλησης.'
-        : 'Open the Profile tab → My profile, below your name card. There you will see your level, points, progress bar, level rewards, and invite code.',
+        ? 'Άνοιξε την καρτέλα «Προφίλ». Κάτω από το όνομά σου θα δεις επίπεδο, πόντους, μπάρα προόδου και κωδικό πρόσκλησης.'
+        : 'Open the Profile tab. Below your name you will see your level, points, progress bar, and invite code.',
     },
   ];
 }

@@ -196,20 +196,36 @@
     "title": "",
     "items": [
       {
+        "question": "What is HeyMaa?",
+        "answer": "HeyMaa is your digital companion through motherhood: AI chat, a family tree, a memory journal, and milestone tracking — all in one app."
+      },
+      {
+        "question": "What can I do in the app?",
+        "answer": "Chat with HeyMaa (text or voice), add family members, save memories with photos, track development milestones, and browse offers — depending on your plan."
+      },
+      {
         "question": "What does the free trial include?",
-        "answer": "14 days full access to all features — unlimited chat, voice messages with usage limits, basic memory. No card needed to get started."
+        "answer": "14 days to try HeyMaa: unlimited chat, voice messages with a monthly cap, and basic memories. No credit card required to start."
+      },
+      {
+        "question": "How do voice messages work?",
+        "answer": "You can listen to HeyMaa's replies (Listen button) and speak in chat using the microphone. Each plan has a monthly voice limit; your remaining quota appears above the chat."
       },
       {
         "question": "Does HeyMaa give medical advice?",
-        "answer": "It is a core design principle of ours that medical advice is never given. For anything related to the health of the child or the mother, HeyMaa refers you exclusively to a doctor or pharmacist."
+        "answer": "No. HeyMaa does not replace a doctor or pharmacist. For any health concern — yours or your child's — always speak with a qualified healthcare professional."
       },
       {
-        "question": "Which languages does it support?",
-        "answer": "HeyMaa works in 17 languages: Greek, English, Italian, German, French, Spanish, Romanian, Bulgarian, Polish, Serbian, Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, and Dutch."
+        "question": "Which languages are supported?",
+        "answer": "We support 17 languages: Greek, English, Italian, German, French, Spanish, Romanian, Bulgarian, Polish, Serbian, Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, and Dutch. Change language in Settings → Language."
       },
       {
-        "question": "Can I cancel my subscription anytime?",
-        "answer": "Of course! You stay in full control. You can stop your monthly subscription whenever you want from your profile settings. With the annual plan, you keep the discounted price (-57%) and cancellation stops auto-renewal. You keep full access until your plan expires."
+        "question": "How do I cancel or change my subscription?",
+        "answer": "Go to Settings → Subscription to view your plan and upgrade. For monthly plans, cancelling stops auto-renewal — you keep access until the period ends. On the annual plan, the discounted price (-57%) applies until expiry."
+      },
+      {
+        "question": "Is my data safe?",
+        "answer": "Yes — your data belongs to you. You can export a copy (JSON) or delete your account from Settings → Privacy & data. See our Privacy Policy for full details."
       }
     ]
   },
