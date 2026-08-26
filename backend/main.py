@@ -2943,11 +2943,13 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             name=name,
             reset_url=f"{APP_URL}?reset=sample-token-el",
             lang="el",
+            app_url=APP_URL,
         )),
         ("password_reset_en", render_password_reset_email(
             name=name,
             reset_url=f"{APP_URL}?reset=sample-token-en",
             lang="en",
+            app_url=APP_URL,
         )),
         ("welcome_trial", render_welcome_trial_email(
             name=name,
@@ -4955,6 +4957,7 @@ def forgot_password(req: EmailRequest):
                 name=user.get("name"),
                 reset_url=reset_url,
                 lang=req.lang,
+                app_url=APP_URL,
             )
             send_email(
                 api_key=RESEND_API_KEY,

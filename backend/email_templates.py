@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from html import escape
 from typing import Optional
@@ -11,17 +12,49 @@ try:
 except ImportError:
     from greek_text import greek_vocative
 
-# Brand palette (matches frontend --hm-* tokens)
+# Brand palette (matches B2C app: home.css + appAuth.css)
 NAVY = "#2B3A67"
 TEAL = "#4ABEAA"
 CREAM = "#F5F0EB"
 BEIGE = "#F8E5D6"
+PEACH = "#F8E5D6"
+CORAL = "#E07B54"
 MUTED = "#7A7068"
 BODY = "#555555"
 BORDER = "#F0EBE6"
 LAVENDER = "#BEB4CD"
+FONT = "'DM Sans', Helvetica, Arial, sans-serif"
+DEFAULT_APP_URL = "https://www.heymaa.ai"
+LOGO_STATIC_PATH = "/static/brand/logo-circle.png"
 
 SUPPORT_EMAIL = "info@heymaa.ai"
+
+
+def _font() -> str:
+    return FONT
+
+
+def _logo_url(app_url: Optional[str] = None) -> str:
+    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
+    if explicit:
+        return explicit
+    base = (app_url or os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
+    return f"{base}{LOGO_STATIC_PATH}"
+
+
+def _brand_header(app_url: Optional[str] = None) -> str:
+    logo = escape(_logo_url(app_url), quote=True)
+    return f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
+  <tr><td align="center">
+    <img src="{logo}" width="80" height="80" alt="HeyMaa"
+      style="display:block;width:80px;height:80px;border-radius:50%;object-fit:cover;
+      box-shadow:0 8px 24px rgba(43,58,103,0.10);margin:0 auto 12px;" />
+    <div style="font-family:{FONT};font-size:22px;font-weight:600;color:{NAVY};line-height:1.2;">
+      Hey<span style="color:{CORAL};">Maa</span>
+    </div>
+  </td></tr>
+</table>"""
 
 
 @dataclass(frozen=True)
@@ -66,32 +99,33 @@ def _plan_label(plan: str, lang: str) -> str:
     return plan or ("Συνδρομή" if lang == "el" else "Subscription")
 
 
-def _email_shell(body_html: str, *, preheader: str = "") -> str:
+def _email_shell(body_html: str, *, preheader: str = "", app_url: Optional[str] = None) -> str:
     preheader_html = ""
     if preheader:
         preheader_html = (
             f'<div style="display:none;max-height:0;overflow:hidden;opacity:0;">'
             f"{escape(preheader)}</div>"
         )
+    font = _font()
     return f"""<!DOCTYPE html>
 <html lang="el">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+</head>
 <body style="margin:0;padding:0;background:{CREAM};">
 {preheader_html}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{CREAM};">
   <tr><td align="center" style="padding:28px 16px;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid {BORDER};overflow:hidden;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid {BORDER};overflow:hidden;box-shadow:0 8px 24px rgba(43,58,103,0.06);">
       <tr><td style="padding:32px 36px 24px;">
-        <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:700;color:{NAVY};line-height:1.2;margin-bottom:4px;">
-          Hey<span style="color:{TEAL};">Maa</span>
-        </div>
-        <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:{MUTED};margin-bottom:24px;">by Care Direct</div>
+        {_brand_header(app_url)}
         {body_html}
       </td></tr>
       <tr><td style="padding:0 36px 28px;">
-        <div style="border-top:1px solid {BORDER};padding-top:16px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;color:{MUTED};line-height:1.6;">
-          HeyMaa · {escape(SUPPORT_EMAIL)}<br>
-          Care Direct — υποστήριξη γονέων &amp; εγκύων
+        <div style="border-top:1px solid {BORDER};padding-top:16px;font-family:{font};font-size:11px;color:{MUTED};line-height:1.6;text-align:center;">
+          © 2026 HeyMaa · Care Direct · {escape(SUPPORT_EMAIL)}
         </div>
       </td></tr>
     </table>
@@ -102,7 +136,7 @@ def _email_shell(body_html: str, *, preheader: str = "") -> str:
 
 def _paragraph(text: str) -> str:
     return (
-        f'<p style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:14px;'
+        f'<p style="font-family:{_font()};font-size:14px;'
         f'color:{BODY};line-height:1.7;margin:0 0 16px;">{text}</p>'
     )
 
@@ -111,11 +145,11 @@ def _greeting(name: Optional[str], lang: str) -> str:
     who = escape(_display_name(name, lang))
     if lang == "en":
         return (
-            f'<p style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:16px;'
+            f'<p style="font-family:{_font()};font-size:16px;'
             f'color:{NAVY};margin:0 0 12px;">Hi <strong>{who}</strong>! 👋</p>'
         )
     return (
-        f'<p style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:16px;'
+        f'<p style="font-family:{_font()};font-size:16px;'
         f'color:{NAVY};margin:0 0 12px;">Γεια σου <strong>{who}</strong>! 👋</p>'
     )
 
@@ -123,18 +157,20 @@ def _greeting(name: Optional[str], lang: str) -> str:
 def _button(href: str, label: str) -> str:
     return (
         f'<p style="margin:24px 0;text-align:center;">'
-        f'<a href="{escape(href, quote=True)}" style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;'
-        f'background:{NAVY};color:#ffffff;padding:12px 28px;border-radius:10px;text-decoration:none;'
-        f'font-size:14px;font-weight:600;display:inline-block;">{escape(label)}</a></p>'
+        f'<a href="{escape(href, quote=True)}" style="font-family:{_font()};'
+        f'background:{NAVY};color:#ffffff;padding:14px 32px;border-radius:999px;text-decoration:none;'
+        f'font-size:15px;font-weight:600;display:inline-block;border:1.5px solid {NAVY};">'
+        f'{escape(label)}</a></p>'
     )
 
 
 def _code_box(label: str, code: str) -> str:
     return (
-        f'<div style="background:{CREAM};border-radius:12px;padding:20px;margin:20px 0;text-align:center;">'
-        f'<div style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:11px;color:{MUTED};'
+        f'<div style="background:{CREAM};border-radius:12px;padding:20px;margin:20px 0;text-align:center;'
+        f'border:1px solid {BORDER};">'
+        f'<div style="font-family:{_font()};font-size:11px;color:{MUTED};'
         f'margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">{escape(label)}</div>'
-        f'<div style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;'
+        f'<div style="font-family:{_font()};font-size:22px;font-weight:700;'
         f'color:{NAVY};letter-spacing:2px;">{escape(code)}</div></div>'
     )
 
@@ -144,10 +180,10 @@ def _steps_panel(title: str, steps: list[str]) -> str:
         f'<li style="margin-bottom:6px;">{step}</li>' for step in steps
     )
     return (
-        f'<div style="background:{NAVY};border-radius:12px;padding:20px;margin:20px 0;">'
-        f'<div style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:13px;'
+        f'<div style="background:{NAVY};border-radius:16px;padding:20px;margin:20px 0;">'
+        f'<div style="font-family:{_font()};font-size:13px;'
         f'color:{BEIGE};margin-bottom:12px;font-weight:600;">{escape(title)}</div>'
-        f'<ol style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;color:#ffffff;'
+        f'<ol style="font-family:{_font()};color:#ffffff;'
         f'font-size:13px;line-height:1.9;margin:0;padding-left:18px;">{items}</ol></div>'
     )
 
@@ -198,7 +234,7 @@ def render_beta_invite_email(
         ]
 
     body = (
-        f'<p style="font-family:\'Segoe UI\',Helvetica,Arial,sans-serif;font-size:16px;color:{NAVY};margin:0 0 12px;">'
+        f'<p style="font-family:{_font()};font-size:16px;color:{NAVY};margin:0 0 12px;">'
         f'Γεια σου <strong>{greet_name}</strong>! 👋</p>'
         + _paragraph(
             f'Σε καλωσορίζουμε στο <strong>HeyMaa Beta</strong>! Είσαι ένας από τους πρώτους '
@@ -218,7 +254,7 @@ def render_beta_invite_email(
     )
     return EmailMessage(
         subject=f"Πρόσκληση Beta — HeyMaa {plan_label} | Κωδικός: {invite_code}",
-        html=_email_shell(body, preheader=f"Ο κωδικός πρόσκλησής σου: {invite_code}"),
+        html=_email_shell(body, preheader=f"Ο κωδικός πρόσκλησής σου: {invite_code}", app_url=app_url),
     )
 
 
@@ -228,6 +264,7 @@ def render_password_reset_email(
     reset_url: str,
     lang: str = "el",
     expires_hours: int = 2,
+    app_url: Optional[str] = None,
 ) -> EmailMessage:
     lang = normalize_email_lang(lang)
     if lang == "en":
@@ -272,7 +309,7 @@ def render_password_reset_email(
         )
         subject = "Επαναφορά κωδικού HeyMaa"
         preheader = "Link επαναφοράς κωδικού για τον λογαριασμό σου"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
 
 
 def render_welcome_trial_email(
@@ -316,7 +353,7 @@ def render_welcome_trial_email(
         )
         subject = "Καλώς ήρθες στην HeyMaa!"
         preheader = f"Ξεκίνησε η δωρεάν δοκιμή {trial_days} ημερών"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
 
 
 def render_subscription_activated_email(
@@ -360,7 +397,7 @@ def render_subscription_activated_email(
         )
         subject = "Η συνδρομή σου στην HeyMaa ενεργοποιήθηκε"
         preheader = f"Ενεργή συνδρομή: {plan_label}"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
 
 
 def render_subscription_welcome_email(
@@ -419,7 +456,7 @@ def render_subscription_welcome_email(
         )
         subject = "Καλώς ήρθες στην HeyMaa — η συνδρομή σου είναι έτοιμη"
         preheader = f"Κωδικός πρόσκλησης: {invite_code}"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
 
 
 def render_password_changed_email(
@@ -459,7 +496,7 @@ def render_password_changed_email(
         )
         subject = "Ο κωδικός σου στην HeyMaa άλλαξε"
         preheader = "Επιβεβαίωση αλλαγής κωδικού"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
 
 
 def send_email(

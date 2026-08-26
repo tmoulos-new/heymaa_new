@@ -34,6 +34,10 @@ const localVercelOutputStatic = path.join(root, '.vercel', 'output', 'static')
 fs.rmSync(out, { recursive: true, force: true })
 copyDir(frontendBuild, out)
 copyDir(adminBuild, path.join(out, 'admin'))
+const repoStatic = path.join(root, 'static')
+if (fs.existsSync(repoStatic)) {
+  copyDir(repoStatic, path.join(out, 'static'))
+}
 
 fs.rmSync(backendPublicDir, { recursive: true, force: true })
 copyDir(out, backendPublicDir)
