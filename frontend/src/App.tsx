@@ -70,6 +70,7 @@ import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
 import { AccountPrivacySheet } from "./components/AccountPrivacySheet";
+import { ChatMedicalDisclaimer } from "./components/ChatMedicalDisclaimer";
 import { AppDialog } from "./components/AppDialog";
 import { DialogPanel } from "./components/ui/DialogPanel";
 import { SheetHeader } from "./components/ui/SheetHeader";
@@ -3797,6 +3798,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           trialEndsAt={trialEndsAt}
           initialSnapshot={subSnapshot}
           onClose={() => setShowSubscriptionSheet(false)}
+          onOpenHelp={() => {
+            setShowSubscriptionSheet(false);
+            setOpenHelpFaq({ 0: true });
+            setHelpMessage("");
+            setShowHelpSupport(true);
+          }}
         />
       )}
 
@@ -4455,6 +4462,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         {/* ── CHAT ── */}
         {tab==="chat"&&(
           <div className="hm-chat-column" style={{display:"flex",flexDirection:"column"}}>
+            <ChatMedicalDisclaimer lang={lang} />
             {/* Voice quota bar */}
             <div style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:"rgba(43,58,103,.55)",marginBottom:4}}>

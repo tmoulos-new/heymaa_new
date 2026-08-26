@@ -34,12 +34,14 @@ export function InAppSubscriptionSheet({
   trialEndsAt,
   initialSnapshot,
   onClose,
+  onOpenHelp,
 }: {
   token: string
   lang: string
   trialEndsAt?: string | null
   initialSnapshot?: SubscriptionSnapshot | null
   onClose: () => void
+  onOpenHelp?: () => void
 }) {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
@@ -81,23 +83,7 @@ export function InAppSubscriptionSheet({
       })
       .catch(() => {
         if (!cancelled) {
-          if (trialEndsAt) {
-            setSnapshot({
-              subscription_active: true,
-              subscription_status: 'trial',
-              trial_ends_at: trialEndsAt,
-              is_trial: true,
-              plan: 'trial',
-            })
-          } else {
-            setSnapshot({
-              subscription_active: true,
-              subscription_status: 'trial',
-              trial_ends_at: null,
-              is_trial: true,
-              plan: 'trial',
-            })
-          }
+          setSnapshot(initialSnapshot ?? null)
         }
       })
       .finally(() => {
@@ -143,6 +129,13 @@ export function InAppSubscriptionSheet({
     () => (activeSlot ? activePlanNameForSlot(activeSlot, basePlans, lang) : null),
     [activeSlot, basePlans, lang],
   )
+
+  const showCancelHelp =
+    !!snapshot?.subscription_active &&
+    !!activeSlot &&
+    activeSlot !== 'trial'
+
+  const supportEmail = 'info@heymaa.ai'
 
   return (
     <AppSheet
@@ -208,6 +201,35 @@ export function InAppSubscriptionSheet({
             })}
           </div>
         )}
+
+        {showCancelHelp ? (
+          <div className="hm-subscription-cancel-card">
+            <div className="hm-subscription-cancel-card__title">
+              {tSub('cancel.title')}
+            </div>
+            <p className="hm-subscription-cancel-card__body">{tSub('cancel.body')}</p>
+            <div className="hm-subscription-cancel-card__actions">
+              <a
+                href={`mailto:${supportEmail}?subject=${encodeURIComponent('HeyMaa — subscription cancel')}`}
+                className="hm-btn hm-btn--secondary hm-btn--block"
+              >
+                {tSub('cancel.emailButton')}
+              </a>
+              {onOpenHelp ? (
+                <button
+                  type="button"
+                  className="hm-btn hm-btn--ghost hm-btn--block"
+                  onClick={() => {
+                    onClose()
+                    onOpenHelp()
+                  }}
+                >
+                  {tSub('cancel.helpButton')}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </AppSheet>
   )

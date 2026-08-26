@@ -4,7 +4,6 @@ import {
   POINT_ACTIONS,
   REFERRAL_BONUS_POINTS,
   levelEmoji,
-  levelRewardsText,
 } from '../lib/gamificationCard'
 
 type Props = {
@@ -17,7 +16,6 @@ export function ProfileGamificationCard({ lang, gamification, referralCode }: Pr
   const isEl = lang === 'el'
   const { level, points, progress_percent, points_to_next, level: currentLevel } = gamification
   const emoji = levelEmoji(level.number)
-  const rewards = levelRewardsText(level.number, lang)
 
   return (
     <div className="hm-profile-gamification-card">
@@ -63,13 +61,11 @@ export function ProfileGamificationCard({ lang, gamification, referralCode }: Pr
 
       <div className="hm-profile-gamification-card__divider" />
 
-      <div className="hm-profile-gamification-card__rewards">
-        <div className="hm-profile-gamification-card__rewards-title">
-          <span aria-hidden="true">🎁</span>
-          {isEl ? 'Δώρα επιπέδου:' : 'Level rewards:'}
-        </div>
-        <p className="hm-profile-gamification-card__rewards-text">{rewards}</p>
-      </div>
+      <p className="hm-profile-gamification-card__progress-hint">
+        {isEl
+          ? 'Η πρόοδός σου αντακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
+          : 'Your progress reflects your activity in the app — chat, memories, and milestones.'}
+      </p>
 
       <div className="hm-profile-gamification-card__divider" />
 

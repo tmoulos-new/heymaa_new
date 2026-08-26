@@ -35,11 +35,11 @@ export const LEVEL_EMOJI: Record<number, string> = {
 };
 
 export const LEVEL_REWARDS: Record<number, { el: string; en: string }> = {
-  1: { el: 'Βασική πρόσβαση • Chat με AI', en: 'Basic access • AI Chat' },
-  2: { el: 'Προτεραιότητα απαντήσεων • Extra prompts', en: 'Priority replies • Extra prompts' },
-  3: { el: 'Αποκλειστικές προσφορές • Premium tips', en: 'Exclusive offers • Premium tips' },
-  4: { el: 'Early access • VIP υποστήριξη', en: 'Early access • VIP support' },
-  5: { el: 'Champion badge • Όλα τα perks', en: 'Champion badge • All perks' },
+  1: { el: 'Νέα Μαμά — ξεκινάς το ταξίδι σου', en: 'New Mom — starting your journey' },
+  2: { el: 'Ενεργή Μαμά — συνεχίζεις δυνατά', en: 'Active Mom — building momentum' },
+  3: { el: 'Αφοσιωμένη Μαμά — κρατάς τη συνέχεια', en: 'Dedicated Mom — staying consistent' },
+  4: { el: 'Super Μαμά — είσαι παντού ενεργή', en: 'Super Mom — deeply engaged' },
+  5: { el: 'HeyMaa Champion — κορυφαία πρόοδος', en: 'HeyMaa Champion — top engagement' },
 };
 
 export function levelEmoji(levelNumber: number): string {
