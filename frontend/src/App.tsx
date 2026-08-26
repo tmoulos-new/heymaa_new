@@ -64,6 +64,7 @@ import {
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { slotForPaidPlan } from "./lib/subscriptionPlans";
+import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
@@ -2419,8 +2420,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setThreads(prev=>[thread,...prev]); setMessages([]); setShowArchiveModal(false); setArchiveTitle("");
   };
 
-  const TTS_QUOTA_BY_TIER: Record<string, number> = { starter: 30, premium: 100, annual: 100 };
-  const ttsQuotaTotal = TTS_QUOTA_BY_TIER["starter"]; // test users default to Starter tier
+  const ttsQuotaTotal = useMemo(
+    () => voiceListenQuotaForSnapshot(subSnapshot),
+    [subSnapshot],
+  );
   const [ttsUsed, setTtsUsed] = useState<number>(() => { try{const n=parseInt(localStorage.getItem(sk(token,"ttsused"))||"0",10);return Number.isFinite(n)?n:0;}catch{return 0;} });
   useEffect(()=>{ if (!cloudReady) return; void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave, cloudReady]);
   const ttsUsedSafe = Number.isFinite(ttsUsed) ? ttsUsed : 0;

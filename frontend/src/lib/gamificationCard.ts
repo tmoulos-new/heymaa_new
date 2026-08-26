@@ -76,8 +76,8 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Κάθε επίπεδο ξεκλειδώνει perks — π.χ. προτεραιότητα απαντήσεων ή αποκλειστικές προσφορές. Η πρόοδός σου φαίνεται στην κάρτα πόντων στο Προφίλ.'
-        : 'As you collect points, you level up (from New Mom to HeyMaa Champion). Each level unlocks perks such as priority replies or exclusive offers. Your progress appears on the points card in Profile.',
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Είναι τρόπος να βλέπεις την πρόοδό σου στην εφαρμογή — η κάρτα πόντων στο Προφίλ δείχνει επίπεδο, πόντους και μπάρα προόδου.'
+        : 'As you collect points, you level up (from New Mom to HeyMaa Champion). It tracks your engagement in the app — the points card in Profile shows your level, points, and progress bar.',
     },
     {
       question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
