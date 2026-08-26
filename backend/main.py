@@ -2140,7 +2140,7 @@ class LoginRequest(BaseModel):
 
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").lower().strip()
 APP_URL = os.getenv("APP_URL", "https://heymaa.vercel.app")
-RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <hello@vdarpp.com>")
+RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <info@heymaa.ai>")
 
 def verify_admin(x_token: Optional[str]) -> str:
     """Require a logged-in user with role=admin (JWT via x-token)."""
