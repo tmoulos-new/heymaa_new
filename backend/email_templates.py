@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import os
 from dataclasses import dataclass
 from html import escape
@@ -12,49 +13,28 @@ try:
 except ImportError:
     from greek_text import greek_vocative
 
-# Brand palette (matches B2C app: home.css + appAuth.css)
+# B2C palette (home.css + appAuth.css)
 NAVY = "#2B3A67"
 TEAL = "#4ABEAA"
 CREAM = "#F5F0EB"
 BEIGE = "#F8E5D6"
 PEACH = "#F8E5D6"
-CORAL = "#E07B54"
 MUTED = "#7A7068"
-BODY = "#555555"
+TEXT = "#2B3A67"
+TEXT_SOFT = "rgba(43, 58, 103, 0.72)"
 BORDER = "#F0EBE6"
-LAVENDER = "#BEB4CD"
+INPUT_BORDER = "rgba(43, 58, 103, 0.14)"
 FONT = "'DM Sans', Helvetica, Arial, sans-serif"
 DEFAULT_APP_URL = "https://www.heymaa.ai"
-LOGO_STATIC_PATH = "/static/brand/logo-circle.png"
+LOGO_CID = "heymaa-logo"
+LOGO_FILENAME = "logo-circle.png"
 
 SUPPORT_EMAIL = "info@heymaa.ai"
 
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+_root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
 
-def _font() -> str:
-    return FONT
-
-
-def _logo_url(app_url: Optional[str] = None) -> str:
-    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
-    if explicit:
-        return explicit
-    base = (app_url or os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
-    return f"{base}{LOGO_STATIC_PATH}"
-
-
-def _brand_header(app_url: Optional[str] = None) -> str:
-    logo = escape(_logo_url(app_url), quote=True)
-    return f"""
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
-  <tr><td align="center">
-    <img src="{logo}" width="80" height="80" alt="HeyMaa"
-      style="display:block;width:80px;height:80px;border-radius:50%;object-fit:cover;
-      box-shadow:0 8px 24px rgba(43,58,103,0.10);margin:0 auto 12px;" />
-    <div style="font-family:{FONT};font-size:22px;font-weight:600;color:{NAVY};line-height:1.2;">
-      Hey<span style="color:{CORAL};">Maa</span>
-    </div>
-  </td></tr>
-</table>"""
+_logo_attachment_cache: Optional[dict] = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +46,79 @@ class EmailMessage:
 def normalize_email_lang(lang: Optional[str]) -> str:
     code = (lang or "el").strip().lower()
     return "en" if code == "en" else "el"
+
+
+def _font() -> str:
+    return FONT
+
+
+def _logo_file_paths() -> list[str]:
+    return [
+        os.path.join(_backend_dir, "static", "brand", LOGO_FILENAME),
+        os.path.join(_root_dir, "static", "brand", LOGO_FILENAME),
+        os.path.join(_root_dir, "frontend", "src", "assets", LOGO_FILENAME),
+    ]
+
+
+def _read_logo_bytes() -> Optional[bytes]:
+    for path in _logo_file_paths():
+        if os.path.isfile(path):
+            with open(path, "rb") as handle:
+                return handle.read()
+    return None
+
+
+def logo_attachment() -> Optional[dict]:
+    """Resend inline attachment for the B2C circular logo (works in Gmail/Outlook)."""
+    global _logo_attachment_cache
+    if _logo_attachment_cache is not None:
+        return _logo_attachment_cache
+
+    raw = _read_logo_bytes()
+    if not raw:
+        _logo_attachment_cache = None
+        return None
+
+    _logo_attachment_cache = {
+        "filename": LOGO_FILENAME,
+        "content": base64.b64encode(raw).decode("ascii"),
+        "content_id": LOGO_CID,
+        "content_type": "image/png",
+    }
+    return _logo_attachment_cache
+
+
+def _logo_src() -> str:
+    if logo_attachment():
+        return f"cid:{LOGO_CID}"
+    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
+    if explicit:
+        return explicit
+    base = (os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
+    return f"{base}/static/brand/{LOGO_FILENAME}"
+
+
+def _brand_header() -> str:
+    logo = escape(_logo_src(), quote=True)
+    font = _font()
+    return f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{NAVY};border-radius:16px 16px 0 0;">
+  <tr>
+    <td align="center" style="padding:16px 24px;">
+      <table role="presentation" cellspacing="0" cellpadding="0">
+        <tr>
+          <td valign="middle" style="padding-right:10px;">
+            <img src="{logo}" width="36" height="36" alt="HeyMaa"
+              style="display:block;width:36px;height:36px;border-radius:50%;border:0;outline:none;" />
+          </td>
+          <td valign="middle" style="font-family:{font};font-size:22px;font-weight:600;color:#ffffff;line-height:1;">
+            Hey<span style="color:{PEACH};">Maa</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>"""
 
 
 def _first_name(name: Optional[str]) -> str:
@@ -99,7 +152,7 @@ def _plan_label(plan: str, lang: str) -> str:
     return plan or ("Συνδρομή" if lang == "el" else "Subscription")
 
 
-def _email_shell(body_html: str, *, preheader: str = "", app_url: Optional[str] = None) -> str:
+def _email_shell(body_html: str, *, preheader: str = "") -> str:
     preheader_html = ""
     if preheader:
         preheader_html = (
@@ -112,32 +165,39 @@ def _email_shell(body_html: str, *, preheader: str = "", app_url: Optional[str] 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
 </head>
 <body style="margin:0;padding:0;background:{CREAM};">
 {preheader_html}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{CREAM};">
-  <tr><td align="center" style="padding:28px 16px;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#ffffff;border-radius:16px;border:1px solid {BORDER};overflow:hidden;box-shadow:0 8px 24px rgba(43,58,103,0.06);">
-      <tr><td style="padding:32px 36px 24px;">
-        {_brand_header(app_url)}
-        {body_html}
-      </td></tr>
-      <tr><td style="padding:0 36px 28px;">
-        <div style="border-top:1px solid {BORDER};padding-top:16px;font-family:{font};font-size:11px;color:{MUTED};line-height:1.6;text-align:center;">
-          © 2026 HeyMaa · Care Direct · {escape(SUPPORT_EMAIL)}
-        </div>
-      </td></tr>
-    </table>
-  </td></tr>
+  <tr>
+    <td align="center" style="padding:24px 16px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
+        <tr><td>{_brand_header()}</td></tr>
+        <tr>
+          <td style="background:#ffffff;padding:32px 28px 24px;border-left:1px solid {BORDER};border-right:1px solid {BORDER};">
+            {body_html}
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ffffff;padding:0 28px 28px;border:1px solid {BORDER};border-top:0;border-radius:0 0 16px 16px;">
+            <div style="border-top:1px solid {BORDER};padding-top:16px;font-family:{font};font-size:11px;color:{MUTED};line-height:1.6;text-align:center;">
+              © 2026 HeyMaa · Care Direct · {escape(SUPPORT_EMAIL)}
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 </table>
 </body></html>"""
 
 
 def _paragraph(text: str) -> str:
     return (
-        f'<p style="font-family:{_font()};font-size:14px;'
-        f'color:{BODY};line-height:1.7;margin:0 0 16px;">{text}</p>'
+        f'<p style="font-family:{_font()};font-size:15px;color:{TEXT_SOFT};'
+        f'line-height:1.65;margin:0 0 16px;">{text}</p>'
     )
 
 
@@ -145,46 +205,49 @@ def _greeting(name: Optional[str], lang: str) -> str:
     who = escape(_display_name(name, lang))
     if lang == "en":
         return (
-            f'<p style="font-family:{_font()};font-size:16px;'
-            f'color:{NAVY};margin:0 0 12px;">Hi <strong>{who}</strong>! 👋</p>'
+            f'<p style="font-family:{_font()};font-size:22px;font-weight:700;'
+            f'color:{TEXT};line-height:1.35;margin:0 0 16px;text-align:center;">'
+            f'Hi <strong>{who}</strong>! 👋</p>'
         )
     return (
-        f'<p style="font-family:{_font()};font-size:16px;'
-        f'color:{NAVY};margin:0 0 12px;">Γεια σου <strong>{who}</strong>! 👋</p>'
+        f'<p style="font-family:{_font()};font-size:22px;font-weight:700;'
+        f'color:{TEXT};line-height:1.35;margin:0 0 16px;text-align:center;">'
+        f'Γεια σου <strong>{who}</strong>! 👋</p>'
     )
 
 
 def _button(href: str, label: str) -> str:
     return (
-        f'<p style="margin:24px 0;text-align:center;">'
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;">'
+        f'<tr><td align="center">'
         f'<a href="{escape(href, quote=True)}" style="font-family:{_font()};'
-        f'background:{NAVY};color:#ffffff;padding:14px 32px;border-radius:999px;text-decoration:none;'
-        f'font-size:15px;font-weight:600;display:inline-block;border:1.5px solid {NAVY};">'
-        f'{escape(label)}</a></p>'
+        f'background:{NAVY};color:#ffffff;padding:15px 32px;border-radius:999px;text-decoration:none;'
+        f'font-size:16px;font-weight:600;display:inline-block;border:1.5px solid {NAVY};">'
+        f'{escape(label)}</a></td></tr></table>'
     )
 
 
 def _code_box(label: str, code: str) -> str:
     return (
-        f'<div style="background:{CREAM};border-radius:12px;padding:20px;margin:20px 0;text-align:center;'
-        f'border:1px solid {BORDER};">'
-        f'<div style="font-family:{_font()};font-size:11px;color:{MUTED};'
-        f'margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">{escape(label)}</div>'
+        f'<div style="background:#ffffff;border-radius:12px;padding:18px 20px;margin:20px 0;text-align:center;'
+        f'border:1.5px solid {INPUT_BORDER};">'
+        f'<div style="font-family:{_font()};font-size:12px;font-weight:600;color:{TEXT};'
+        f'margin-bottom:8px;letter-spacing:0.4px;">{escape(label)}</div>'
         f'<div style="font-family:{_font()};font-size:22px;font-weight:700;'
-        f'color:{NAVY};letter-spacing:2px;">{escape(code)}</div></div>'
+        f'color:{TEXT};letter-spacing:2px;">{escape(code)}</div></div>'
     )
 
 
 def _steps_panel(title: str, steps: list[str]) -> str:
     items = "".join(
-        f'<li style="margin-bottom:6px;">{step}</li>' for step in steps
+        f'<li style="margin-bottom:8px;">{step}</li>' for step in steps
     )
     return (
         f'<div style="background:{NAVY};border-radius:16px;padding:20px;margin:20px 0;">'
         f'<div style="font-family:{_font()};font-size:13px;'
         f'color:{BEIGE};margin-bottom:12px;font-weight:600;">{escape(title)}</div>'
         f'<ol style="font-family:{_font()};color:#ffffff;'
-        f'font-size:13px;line-height:1.9;margin:0;padding-left:18px;">{items}</ol></div>'
+        f'font-size:13px;line-height:1.85;margin:0;padding-left:18px;">{items}</ol></div>'
     )
 
 
@@ -192,13 +255,13 @@ def _help_footer(lang: str) -> str:
     if lang == "en":
         return _paragraph(
             f'Need help? Reply to this email or write to '
-            f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};">{SUPPORT_EMAIL}</a>. '
-            f'Thank you for trusting HeyMaa! 🌸'
+            f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">'
+            f'{SUPPORT_EMAIL}</a>. Thank you for trusting HeyMaa! 🌸'
         )
     return _paragraph(
         f'Αν χρειαστείς βοήθεια, απάντησε σε αυτό το email ή γράψε στο '
-        f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};">{SUPPORT_EMAIL}</a>.<br>'
-        f'Σε ευχαριστούμε που μας εμπιστεύεσαι! 🌸'
+        f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">'
+        f'{SUPPORT_EMAIL}</a>.<br>Σε ευχαριστούμε που μας εμπιστεύεσαι! 🌸'
     )
 
 
@@ -234,19 +297,21 @@ def render_beta_invite_email(
         ]
 
     body = (
-        f'<p style="font-family:{_font()};font-size:16px;color:{NAVY};margin:0 0 12px;">'
+        f'<p style="font-family:{_font()};font-size:22px;font-weight:700;color:{TEXT};'
+        f'line-height:1.35;margin:0 0 16px;text-align:center;">'
         f'Γεια σου <strong>{greet_name}</strong>! 👋</p>'
         + _paragraph(
-            f'Σε καλωσορίζουμε στο <strong>HeyMaa Beta</strong>! Είσαι ένας από τους πρώτους '
-            f'ανθρώπους που θα δοκιμάσουν την εφαρμογή μας. '
-            f'Ο λογαριασμός σου έχει ρυθμιστεί στο πακέτο <strong>{escape(plan_label)}</strong>.'
+            f'Σε καλωσορίζουμε στο <strong style="color:{TEXT};">HeyMaa Beta</strong>! '
+            f'Είσαι ένας από τους πρώτους ανθρώπους που θα δοκιμάσουν την εφαρμογή μας. '
+            f'Ο λογαριασμός σου έχει ρυθμιστεί στο πακέτο <strong style="color:{TEXT};">'
+            f'{escape(plan_label)}</strong>.'
         )
         + _code_box("Κωδικός Πρόσκλησης", invite_code)
         + _steps_panel(
             "📱 Οδηγίες Εισόδου",
             [
                 'Άνοιξε το app <strong>από κινητό</strong> σε <strong>incognito mode</strong>',
-                f'Επισκέψου: <a href="{escape(app_url, quote=True)}" style="color:{TEAL};">{escape(app_url)}</a>',
+                f'Επισκέψου: <a href="{escape(app_url, quote=True)}" style="color:{TEAL};text-decoration:none;">{escape(app_url)}</a>',
                 *login_steps,
             ],
         )
@@ -254,7 +319,7 @@ def render_beta_invite_email(
     )
     return EmailMessage(
         subject=f"Πρόσκληση Beta — HeyMaa {plan_label} | Κωδικός: {invite_code}",
-        html=_email_shell(body, preheader=f"Ο κωδικός πρόσκλησής σου: {invite_code}", app_url=app_url),
+        html=_email_shell(body, preheader=f"Ο κωδικός πρόσκλησής σου: {invite_code}"),
     )
 
 
@@ -266,18 +331,19 @@ def render_password_reset_email(
     expires_hours: int = 2,
     app_url: Optional[str] = None,
 ) -> EmailMessage:
+    del app_url  # logo is embedded; kept for API compatibility
     lang = normalize_email_lang(lang)
     if lang == "en":
         body = (
             _greeting(name, lang)
             + _paragraph(
                 "We received a request to reset your HeyMaa password. "
-                f"The link below is valid for <strong>{expires_hours} hours</strong>."
+                f"The link below is valid for <strong style=\"color:{TEXT};\">{expires_hours} hours</strong>."
             )
             + _button(reset_url, "Reset password")
             + _paragraph(
                 f'If the button does not work, copy this link:<br>'
-                f'<a href="{escape(reset_url, quote=True)}" style="color:{TEAL};word-break:break-all;">'
+                f'<a href="{escape(reset_url, quote=True)}" style="color:{TEAL};word-break:break-all;text-decoration:none;">'
                 f"{escape(reset_url)}</a>"
             )
             + _paragraph(
@@ -293,12 +359,12 @@ def render_password_reset_email(
             _greeting(name, lang)
             + _paragraph(
                 "Λάβαμε αίτημα επαναφοράς κωδικού για τον λογαριασμό σου στην HeyMaa. "
-                f"Το link ισχύει για <strong>{expires_hours} ώρες</strong>."
+                f"Το link ισχύει για <strong style=\"color:{TEXT};\">{expires_hours} ώρες</strong>."
             )
             + _button(reset_url, "Επαναφορά κωδικού")
             + _paragraph(
                 f'Αν το κουμπί δεν λειτουργεί, αντέγραψε αυτό το link:<br>'
-                f'<a href="{escape(reset_url, quote=True)}" style="color:{TEAL};word-break:break-all;">'
+                f'<a href="{escape(reset_url, quote=True)}" style="color:{TEAL};word-break:break-all;text-decoration:none;">'
                 f"{escape(reset_url)}</a>"
             )
             + _paragraph(
@@ -309,7 +375,7 @@ def render_password_reset_email(
         )
         subject = "Επαναφορά κωδικού HeyMaa"
         preheader = "Link επαναφοράς κωδικού για τον λογαριασμό σου"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
 def render_welcome_trial_email(
@@ -325,8 +391,8 @@ def render_welcome_trial_email(
         body = (
             _greeting(name, lang)
             + _paragraph(
-                f"Welcome to <strong>HeyMaa</strong>! Your account is ready with a "
-                f"<strong>{trial_days}-day free trial</strong> ({plan})."
+                f"Welcome to <strong style=\"color:{TEXT};\">HeyMaa</strong>! Your account is ready with a "
+                f"<strong style=\"color:{TEXT};\">{trial_days}-day free trial</strong> ({plan})."
             )
             + _paragraph(
                 "Open the app to chat with HeyMaa, track milestones, save memories, "
@@ -341,8 +407,8 @@ def render_welcome_trial_email(
         body = (
             _greeting(name, lang)
             + _paragraph(
-                f"Καλώς ήρθες στην <strong>HeyMaa</strong>! Ο λογαριασμός σου είναι έτοιμος με "
-                f"<strong>{trial_days} ημέρες δωρεάν δοκιμή</strong> ({plan})."
+                f"Καλώς ήρθες στην <strong style=\"color:{TEXT};\">HeyMaa</strong>! Ο λογαριασμός σου είναι έτοιμος με "
+                f"<strong style=\"color:{TEXT};\">{trial_days} ημέρες δωρεάν δοκιμή</strong> ({plan})."
             )
             + _paragraph(
                 "Άνοιξε την εφαρμογή για να μιλήσεις με την HeyMaa, να καταγράφεις ορόσημα, "
@@ -353,7 +419,7 @@ def render_welcome_trial_email(
         )
         subject = "Καλώς ήρθες στην HeyMaa!"
         preheader = f"Ξεκίνησε η δωρεάν δοκιμή {trial_days} ημερών"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
 def render_subscription_activated_email(
@@ -370,7 +436,7 @@ def render_subscription_activated_email(
             _greeting(name, lang)
             + _paragraph(
                 f"Thank you! Your HeyMaa subscription is now active: "
-                f"<strong>{escape(plan_label)}</strong>."
+                f"<strong style=\"color:{TEXT};\">{escape(plan_label)}</strong>."
             )
             + _paragraph(
                 "You can continue using all features without interruption. "
@@ -386,7 +452,7 @@ def render_subscription_activated_email(
             _greeting(name, lang)
             + _paragraph(
                 f"Ευχαριστούμε! Η συνδρομή σου στην HeyMaa είναι πλέον ενεργή: "
-                f"<strong>{escape(plan_label)}</strong>."
+                f"<strong style=\"color:{TEXT};\">{escape(plan_label)}</strong>."
             )
             + _paragraph(
                 "Μπορείς να συνεχίσεις να χρησιμοποιείς όλες τις δυνατότητες χωρίς διακοπή. "
@@ -397,7 +463,7 @@ def render_subscription_activated_email(
         )
         subject = "Η συνδρομή σου στην HeyMaa ενεργοποιήθηκε"
         preheader = f"Ενεργή συνδρομή: {plan_label}"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
 def render_subscription_welcome_email(
@@ -416,14 +482,14 @@ def render_subscription_welcome_email(
         body = (
             _greeting(name, lang)
             + _paragraph(
-                f"Thank you for your purchase! Your <strong>{escape(plan_label)}</strong> "
+                f"Thank you for your purchase! Your <strong style=\"color:{TEXT};\">{escape(plan_label)}</strong> "
                 f"plan is ready — use the invite code below to create your HeyMaa account."
             )
             + _code_box("Invite code", invite_code)
             + _steps_panel(
                 "Getting started",
                 [
-                    f'Open <a href="{escape(signup_url, quote=True)}" style="color:{TEAL};">HeyMaa</a> on your phone',
+                    f'Open <a href="{escape(signup_url, quote=True)}" style="color:{TEAL};text-decoration:none;">HeyMaa</a> on your phone',
                     "Sign up with the same email you used for payment",
                     f"Enter invite code: <strong>{escape(invite_code)}</strong>",
                     "Set your password and complete your profile",
@@ -438,14 +504,14 @@ def render_subscription_welcome_email(
         body = (
             _greeting(name, lang)
             + _paragraph(
-                f"Ευχαριστούμε για την αγορά σου! Το πακέτο <strong>{escape(plan_label)}</strong> "
+                f"Ευχαριστούμε για την αγορά σου! Το πακέτο <strong style=\"color:{TEXT};\">{escape(plan_label)}</strong> "
                 f"είναι έτοιμο — χρησιμοποίησε τον κωδικό πρόσκλησης παρακάτω για να δημιουργήσεις λογαριασμό HeyMaa."
             )
             + _code_box("Κωδικός πρόσκλησης", invite_code)
             + _steps_panel(
                 "📱 Πρώτα βήματα",
                 [
-                    f'Άνοιξε την <a href="{escape(signup_url, quote=True)}" style="color:{TEAL};">HeyMaa</a> από κινητό',
+                    f'Άνοιξε την <a href="{escape(signup_url, quote=True)}" style="color:{TEAL};text-decoration:none;">HeyMaa</a> από κινητό',
                     "Εγγράψου με το ίδιο email που χρησιμοποίησες στην πληρωμή",
                     f"Βάλε τον κωδικό πρόσκλησης: <strong>{escape(invite_code)}</strong>",
                     "Όρισε κωδικό και ολοκλήρωσε το προφίλ σου",
@@ -456,7 +522,7 @@ def render_subscription_welcome_email(
         )
         subject = "Καλώς ήρθες στην HeyMaa — η συνδρομή σου είναι έτοιμη"
         preheader = f"Κωδικός πρόσκλησης: {invite_code}"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
 def render_password_changed_email(
@@ -474,7 +540,7 @@ def render_password_changed_email(
             )
             + _paragraph(
                 "If you did not make this change, contact us immediately at "
-                f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};">{SUPPORT_EMAIL}</a>.'
+                f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">{SUPPORT_EMAIL}</a>.'
             )
             + _button(app_url, "Open HeyMaa")
             + _help_footer(lang)
@@ -489,14 +555,14 @@ def render_password_changed_email(
             )
             + _paragraph(
                 "Αν δεν έκανες εσύ αυτή την αλλαγή, επικοινώνησε αμέσως μαζί μας στο "
-                f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};">{SUPPORT_EMAIL}</a>.'
+                f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">{SUPPORT_EMAIL}</a>.'
             )
             + _button(app_url, "Άνοιξε την HeyMaa")
             + _help_footer(lang)
         )
         subject = "Ο κωδικός σου στην HeyMaa άλλαξε"
         preheader = "Επιβεβαίωση αλλαγής κωδικού"
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader, app_url=app_url))
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
 def send_email(
@@ -512,13 +578,17 @@ def send_email(
     import resend as _resend
 
     _resend.api_key = api_key
+    payload: dict = {
+        "from": from_address,
+        "to": to.strip(),
+        "subject": message.subject,
+        "html": message.html,
+    }
+    attachment = logo_attachment()
+    if attachment:
+        payload["attachments"] = [attachment]
     try:
-        _resend.Emails.send({
-            "from": from_address,
-            "to": to.strip(),
-            "subject": message.subject,
-            "html": message.html,
-        })
+        _resend.Emails.send(payload)
     except Exception as e:
         return str(e)
     return None

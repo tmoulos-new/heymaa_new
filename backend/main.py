@@ -2139,7 +2139,7 @@ class LoginRequest(BaseModel):
 
 
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").lower().strip()
-APP_URL = os.getenv("APP_URL", "https://heymaa.vercel.app")
+APP_URL = os.getenv("APP_URL", "https://www.heymaa.ai")
 RESEND_FROM = os.getenv("RESEND_FROM", "HeyMaa <info@heymaa.ai>")
 
 def verify_admin(x_token: Optional[str]) -> str:
