@@ -130,12 +130,31 @@ export async function checkEmail(email: string) {
   return axios.post(`${API}/auth/check_email`, { email })
 }
 
+export type PlanEntitlements = {
+  plan_slot: string
+  voice_listen_quota: number
+  full_memory: boolean
+  memory_video: boolean
+  memory_photos: boolean
+  memory_text: boolean
+}
+
+export type VoiceQuota = {
+  period: string
+  used: number
+  limit: number
+  remaining: number
+}
+
 export type SubscriptionSnapshot = {
   subscription_active: boolean
   subscription_status: string | null
   trial_ends_at: string | null
   is_trial: boolean
   plan?: string | null
+  entitlements?: PlanEntitlements
+  voice_quota?: VoiceQuota
+  ok?: boolean
 }
 
 export async function fetchSubscriptionStatus(token: string) {

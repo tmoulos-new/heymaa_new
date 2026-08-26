@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, type SubscriptionSnapshot } from "./lib/authApi";
+import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -65,6 +65,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
+import { memoryVideoAllowed } from "./lib/planEntitlements";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
@@ -1762,7 +1763,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   useEffect(() => {
     fetchSubscriptionStatus(token)
-      .then(setSubSnapshot)
+      .then((data) => {
+        setSubSnapshot(data);
+        if (data.entitlements) setPlanEntitlements(data.entitlements);
+        if (data.voice_quota) setVoiceQuota(data.voice_quota);
+      })
       .catch(() => {
         if (trialEndsAt) {
           setSubSnapshot({
@@ -1856,6 +1861,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
+  const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
+  const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
@@ -2188,7 +2195,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (Object.keys(local.milestones_map).length) setMilestoneChecksMap(local.milestones_map);
         if (local.shopitems?.length) setShopItems(local.shopitems);
         if (local.superitems?.length) setSuperItems(local.superitems);
-        if (local.ttsused != null) setTtsUsed(local.ttsused);
 
         let cloudRaw: Record<string, unknown> = {};
         try {
@@ -2212,7 +2218,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (Object.keys(merged.milestones_map).length) setMilestoneChecksMap(merged.milestones_map);
         if (merged.shopitems?.length) setShopItems(merged.shopitems);
         if (merged.superitems?.length) setSuperItems(merged.superitems);
-        if (merged.ttsused != null) setTtsUsed(merged.ttsused);
 
         await rehomeRecoveredData(token, {
           ...merged,
@@ -2420,14 +2425,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setThreads(prev=>[thread,...prev]); setMessages([]); setShowArchiveModal(false); setArchiveTitle("");
   };
 
-  const ttsQuotaTotal = useMemo(
-    () => voiceListenQuotaForSnapshot(subSnapshot),
-    [subSnapshot],
-  );
-  const [ttsUsed, setTtsUsed] = useState<number>(() => { try{const n=parseInt(localStorage.getItem(sk(token,"ttsused"))||"0",10);return Number.isFinite(n)?n:0;}catch{return 0;} });
-  useEffect(()=>{ if (!cloudReady) return; void sbSave("ttsused", String(ttsUsed)); },[ttsUsed, sbSave, cloudReady]);
-  const ttsUsedSafe = Number.isFinite(ttsUsed) ? ttsUsed : 0;
-  const ttsRemaining = Math.max(0, ttsQuotaTotal - ttsUsedSafe);
+  const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
+  const ttsUsedSafe = voiceQuota?.used ?? 0;
+  const ttsRemaining = voiceQuota?.remaining ?? Math.max(0, ttsQuotaTotal - ttsUsedSafe);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
   const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
@@ -2436,8 +2436,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
     if(ttsRemaining<=0)return;
     setPlayingIndex(idx);
-    try { const ttsLang=lang; const clean=stripMd(text); const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:{"x-token":token}}); const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`); audioRef.current=audio; audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;}; audio.play(); setTtsUsed(u=>u+1); }
-    catch{setPlayingIndex(null);}
+    try {
+      const ttsLang=lang;
+      const clean=stripMd(text);
+      const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:{"x-token":token}});
+      if (res.data?.voice_quota) setVoiceQuota(res.data.voice_quota);
+      const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`);
+      audioRef.current=audio;
+      audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;};
+      audio.play();
+    } catch (err: unknown) {
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      if (status === 429) {
+        showToast(lang === "el" ? "Έφτασες το μηνιαίο όριο φωνητικών." : "Monthly voice limit reached.", "err");
+        fetchSubscriptionStatus(token).then((data) => {
+          if (data.voice_quota) setVoiceQuota(data.voice_quota);
+        }).catch(() => {});
+      }
+      setPlayingIndex(null);
+    }
   };
 
   const stopMicMeter = () => {
@@ -2592,6 +2609,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if(!memInput.trim()&&!mediaData)return;
     if(activeMemRef==null){
       showToast(t("select_member_first", lang),"err");
+      return;
+    }
+    if (mediaKind === "video" && !memoryVideoAllowed(planEntitlements, subSnapshot)) {
+      showToast(
+        lang === "el"
+          ? "Τα βίντεο αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
+          : "Video memories require Full Memory (Starter+).",
+        "err",
+      );
       return;
     }
     const ref = activeMemRef === "__general__" ? undefined : activeMemRef;

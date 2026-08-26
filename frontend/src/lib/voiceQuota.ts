@@ -2,7 +2,7 @@ import type { SubscriptionSnapshot } from './authApi'
 import type { PlanSlot } from './subscriptionPlans'
 import { resolveCurrentPlanSlot } from './subscriptionPlans'
 
-/** Monthly TTS «Listen» quota — keep in sync with pricing in home.json (el/en) */
+/** Monthly TTS «Listen» quota — keep in sync with backend/plan_entitlements.py and home.json pricing */
 export const VOICE_LISTEN_QUOTA_BY_PLAN: Record<PlanSlot, number> = {
   trial: 50,
   starter: 150,

@@ -15,6 +15,25 @@ try:
 except ImportError:
     from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
 
+try:
+    from .plan_entitlements import (
+        VoiceQuotaExceeded,
+        build_status_payload,
+        consume_voice_listen,
+        invite_plan_context,
+        plan_context_from_user_row,
+        validate_memories_payload,
+    )
+except ImportError:
+    from plan_entitlements import (
+        VoiceQuotaExceeded,
+        build_status_payload,
+        consume_voice_listen,
+        invite_plan_context,
+        plan_context_from_user_row,
+        validate_memories_payload,
+    )
+
 _backend_dir = os.path.dirname(__file__)
 _root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
 # On Vercel, use platform env only — never load a packaged .env that could blank secrets.
@@ -2573,10 +2592,10 @@ def redeem_invite(req: InviteRequest):
 async def auth_status(x_token: Optional[str] = Header(None)):
     auth = resolve_auth(x_token)
     active = check_subscription(x_token)
-    payload = {"ok": True, "subscription_active": active}
+    subscription = {"ok": True, "subscription_active": active}
     if auth.get("kind") == "user" and auth.get("user_id"):
-        payload.update(_subscription_status_for_user(auth["user_id"]))
-    return payload
+        subscription.update(_subscription_status_for_user(auth["user_id"]))
+    return build_status_payload(sb, auth, subscription)
 
 @app.get("/profile")
 async def get_profile(x_token: Optional[str] = Header(None)):
@@ -2733,7 +2752,35 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
 
 @app.post("/tts")
-async def tts(req: TTSRequest):
+async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
+    verify_token(x_token)
+    if not check_subscription(x_token):
+        raise HTTPException(status_code=402, detail="Subscription expired")
+    if not sb:
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    user_row = None
+    if auth.get("kind") == "user" and auth.get("user_id"):
+        try:
+            res = (
+                sb.table("users")
+                .select("plan,subscription_status,role")
+                .eq("id", auth["user_id"])
+                .limit(1)
+                .execute()
+            )
+            user_row = res.data[0] if res.data else None
+        except Exception:
+            user_row = None
+    import datetime as _dt
+    updated_at = _dt.datetime.utcnow().isoformat()
+    try:
+        voice_quota = consume_voice_listen(sb, auth, user_row, updated_at)
+    except VoiceQuotaExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Voice quota exceeded ({exc.used}/{exc.limit})",
+        ) from exc
     import edge_tts
     VOICE_MAP = {
         "el":"el-GR-AthinaNeural","en":"en-US-JennyNeural","ar":"ar-EG-SalmaNeural",
@@ -2754,7 +2801,7 @@ async def tts(req: TTSRequest):
     buf.seek(0)
     audio_bytes = buf.read()
     audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-    return {"audio": audio_b64}
+    return {"audio": audio_b64, "voice_quota": voice_quota}
 
 @app.get("/public/offers")
 async def public_offers(lang: str = "el"):
@@ -5356,6 +5403,29 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
     value = body.get("value")
     if not key:
         raise HTTPException(status_code=400, detail="key required")
+    if key in ("ttsused", "tts_usage"):
+        raise HTTPException(status_code=403, detail="Voice usage is managed by the server.")
+    if key == "memories":
+        user_row = None
+        if auth.get("kind") == "user" and auth.get("user_id"):
+            try:
+                res = (
+                    sb.table("users")
+                    .select("plan,subscription_status,role")
+                    .eq("id", auth["user_id"])
+                    .limit(1)
+                    .execute()
+                )
+                user_row = res.data[0] if res.data else None
+            except Exception:
+                user_row = None
+        if auth.get("kind") == "invite":
+            _, entitlements = invite_plan_context()
+        else:
+            _, entitlements = plan_context_from_user_row(user_row)
+        mem_err = validate_memories_payload(value, entitlements)
+        if mem_err:
+            raise HTTPException(status_code=403, detail=mem_err)
     try:
         import datetime as _dt
         updated_at = _dt.datetime.utcnow().isoformat()
