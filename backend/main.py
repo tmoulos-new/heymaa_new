@@ -4770,6 +4770,49 @@ class ChangePasswordRequest(BaseModel):
     password: str
     current_password: Optional[str] = None
 
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
+def _auth_user_export_payload(user_id: str) -> dict:
+    from datetime import datetime, timezone
+
+    auth = {"kind": "user", "user_id": user_id}
+    user_res = sb.table("users").select(
+        "id,email,name,plan,subscription_status,trial_ends_at,created_at,level_id,invite_code"
+    ).eq("id", user_id).limit(1).execute()
+    profile_res = profile_query(auth).execute()
+    data_res = sb.table("user_data").select("key,value,updated_at").eq("user_id", user_id).execute()
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "format": "heymaa_account_export_v1",
+        "user": user_res.data[0] if user_res.data else None,
+        "profile": profile_res.data[0] if profile_res.data else None,
+        "user_data": data_res.data or [],
+        "point_transactions": _user_point_transactions(user_id),
+    }
+
+
+def _purge_user_account(user_id: str) -> None:
+    sb.table("user_data").delete().eq("user_id", user_id).execute()
+    try:
+        sb.table(USER_ACTIVITY_LOG_TABLE).delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
+    try:
+        sb.table(POINT_TRANSACTIONS_TABLE).delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
+    try:
+        sb.table("profiles").delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
+    try:
+        sb.table("users").delete().eq("id", user_id).execute()
+    except Exception:
+        pass
+
 class UserRoleUpdate(BaseModel):
     role: Optional[str] = None
 
@@ -4897,8 +4940,16 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
         raise HTTPException(status_code=404, detail="User not found.")
     row = u.data[0]
     email = row.get("email") or ""
-    # Authenticated profile edit may omit current_password; verify only when provided.
-    if req.current_password:
+    must_change = bool(row.get("must_change_password"))
+    if must_change:
+        if req.current_password:
+            try:
+                _sign_in_with_password_as_user(email, req.current_password.strip())
+            except Exception:
+                raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    elif not (req.current_password or "").strip():
+        raise HTTPException(status_code=400, detail="Current password is required.")
+    else:
         try:
             _sign_in_with_password_as_user(email, req.current_password.strip())
         except Exception:
@@ -4986,6 +5037,54 @@ def reset_password(req: ResetPasswordRequest):
             raise HTTPException(status_code=400, detail="Reset link has expired.")
         sb.auth.admin.update_user_by_id(user["id"], {"password": req.password})
         sb.table("users").update({"reset_token": None, "reset_token_expires": None}).eq("id", user["id"]).execute()
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/export-data")
+def export_account_data(x_token: Optional[str] = Header(None)):
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    if auth["kind"] != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    try:
+        payload = _auth_user_export_payload(auth["user_id"])
+        filename = f"heymaa-data-{auth['user_id'][:8]}.json"
+        return JSONResponse(
+            content=payload,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/auth/delete-account")
+def delete_account(req: DeleteAccountRequest, x_token: Optional[str] = Header(None)):
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    if auth["kind"] != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    user_id = auth["user_id"]
+    password = (req.password or "").strip()
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password is required.")
+    u = sb.table("users").select("email").eq("id", user_id).execute()
+    if not u.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+    email = u.data[0].get("email") or ""
+    try:
+        _sign_in_with_password_as_user(email, password)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Incorrect password.")
+    try:
+        _purge_user_account(user_id)
+        sb.auth.admin.delete_user(user_id)
         return {"ok": True}
     except HTTPException:
         raise

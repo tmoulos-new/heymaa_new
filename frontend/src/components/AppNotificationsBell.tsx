@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { SubscriptionSnapshot } from '../lib/authApi'
 import {
@@ -6,7 +6,6 @@ import {
   markNotificationsRead,
   readNotificationIds,
   type AppNotification,
-  type AppNotificationAction,
 } from '../lib/appNotifications'
 
 type Props = {
@@ -46,6 +45,7 @@ export function AppNotificationsBell({
   onReadChange,
 }: Props) {
   const isEl = lang === 'el'
+  const panelId = useId()
   const notifications = useMemo(
     () => buildAppNotifications(lang, trialEndsAt, subSnapshot),
     [lang, trialEndsAt, subSnapshot],
@@ -71,19 +71,11 @@ export function AppNotificationsBell({
     [token, onReadChange],
   )
 
-  useEffect(() => {
-    if (!open || notifications.length === 0) return
-    markRead(notifications.map((n) => n.id))
-  }, [open, notifications, markRead])
-
-  const runAction = (action?: AppNotificationAction) => {
+  const runAction = (item: AppNotification) => {
+    markRead([item.id])
     onOpenChange(false)
-    if (action === 'subscription_sheet') {
+    if (item.action === 'subscription_sheet') {
       onOpenSubscriptionSheet()
-      return
-    }
-    if (action === 'subscription') {
-      /* navigation handled by Link */
     }
   }
 
@@ -92,8 +84,9 @@ export function AppNotificationsBell({
       <button
         type="button"
         className="hm-header-notif-btn"
-        aria-label={isEl ? 'Ειδοποιήσεις' : 'Notifications'}
+        aria-label={isEl ? 'Ειδοποιήσεις εφαρμογής' : 'App alerts'}
         aria-expanded={open}
+        aria-controls={panelId}
         onClick={() => onOpenChange(!open)}
       >
         <BellIcon />
@@ -105,49 +98,45 @@ export function AppNotificationsBell({
       </button>
 
       {open ? (
-          <div
-            className="hm-notif-panel"
-            role="dialog"
-            aria-label={isEl ? 'Ειδοποιήσεις εφαρμογής' : 'App notifications'}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="hm-notif-panel-head">
-              <span>{isEl ? 'Ειδοποιήσεις' : 'Notifications'}</span>
-              {notifications.length > 0 ? (
-                <span className="hm-notif-panel-count">
-                  {notifications.length}{' '}
-                  {isEl
-                    ? notifications.length === 1
-                      ? 'ενεργή'
-                      : 'ενεργές'
-                    : notifications.length === 1
-                      ? 'active'
-                      : 'active'}
-                </span>
-              ) : null}
-            </div>
-
-            {notifications.length === 0 ? (
-              <div className="hm-notif-empty">
-                <span className="hm-notif-empty-icon" aria-hidden="true">
-                  🔔
-                </span>
-                <p>{isEl ? 'Δεν έχεις νέες ειδοποιήσεις.' : 'No new notifications.'}</p>
-              </div>
-            ) : (
-              <div className="hm-notif-list">
-                {notifications.map((item) => (
-                  <NotificationRow
-                    key={item.id}
-                    item={item}
-                    unread={!readIds.has(item.id)}
-                    isEl={isEl}
-                    onAction={() => runAction(item.action)}
-                  />
-                ))}
-              </div>
-            )}
+        <div
+          id={panelId}
+          className="hm-notif-panel"
+          role="region"
+          aria-label={isEl ? 'Ειδοποιήσεις εφαρμογής' : 'App alerts'}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="hm-notif-panel-head">
+            <span>{isEl ? 'Ειδοποιήσεις' : 'Alerts'}</span>
+            {notifications.length > 0 ? (
+              <span className="hm-notif-panel-count">
+                {unreadCount > 0
+                  ? (isEl ? `${unreadCount} ${unreadCount === 1 ? 'νέα' : 'νέες'}` : `${unreadCount} new`)
+                  : (isEl ? 'Όλες διαβασμένες' : 'All read')}
+              </span>
+            ) : null}
           </div>
+
+          {notifications.length === 0 ? (
+            <div className="hm-notif-empty">
+              <span className="hm-notif-empty-icon" aria-hidden="true">
+                🔔
+              </span>
+              <p>{isEl ? 'Δεν έχεις ενεργές ειδοποιήσεις.' : 'No active alerts right now.'}</p>
+            </div>
+          ) : (
+            <div className="hm-notif-list">
+              {notifications.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  unread={!readIds.has(item.id)}
+                  onOpen={() => markRead([item.id])}
+                  onAction={() => runAction(item)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       ) : null}
     </div>
   )
@@ -156,33 +145,36 @@ export function AppNotificationsBell({
 function NotificationRow({
   item,
   unread,
-  isEl,
+  onOpen,
   onAction,
 }: {
   item: AppNotification
   unread: boolean
-  isEl: boolean
+  onOpen: () => void
   onAction: () => void
 }) {
-  const actionInner = item.actionLabel ? (
-    item.action === 'subscription' ? (
-      <Link to="/subscription" className="hm-notif-action" onClick={onAction}>
-        {item.actionLabel}
-      </Link>
-    ) : (
-      <button type="button" className="hm-notif-action" onClick={onAction}>
-        {item.actionLabel}
-      </button>
-    )
-  ) : null
-
   return (
-    <div className={`hm-notif-item${item.urgent ? ' hm-notif-item--urgent' : ''}${unread ? ' hm-notif-item--unread' : ''}`}>
+    <div
+      className={`hm-notif-item${item.urgent ? ' hm-notif-item--urgent' : ''}${unread ? ' hm-notif-item--unread' : ''}`}
+      onClick={() => {
+        if (unread) onOpen()
+      }}
+    >
       <div className="hm-notif-item-dot" aria-hidden="true" />
       <div className="hm-notif-item-body">
         <div className="hm-notif-item-title">{item.title}</div>
         <p className="hm-notif-item-text">{item.body}</p>
-        {actionInner}
+        {item.actionLabel ? (
+          item.action === 'subscription' ? (
+            <Link to="/subscription" className="hm-notif-action" onClick={(e) => { e.stopPropagation(); onAction() }}>
+              {item.actionLabel}
+            </Link>
+          ) : (
+            <button type="button" className="hm-notif-action" onClick={(e) => { e.stopPropagation(); onAction() }}>
+              {item.actionLabel}
+            </button>
+          )
+        ) : null}
       </div>
     </div>
   )
@@ -200,5 +192,5 @@ export function notificationSummaryLabel(
       ? `${unread} ${unread === 1 ? 'νέα' : 'νέες'}`
       : `${unread} new`
   }
-  return isEl ? 'Ενεργές' : 'Active'
+  return isEl ? 'Διαβασμένες' : 'Read'
 }

@@ -1,3 +1,5 @@
+@import url('../../frontend/src/styles/buttons.css');
+
 :root{
   --navy:#2B3A67;--coral:#E07B54;--teal:#4ABEAA;--cream:#F5F0EB;--gl:#F0EBE6;
   --muted:#7A7068;--border:rgba(43,58,103,.1);--shadow:0 4px 24px rgba(43,58,103,.08);
@@ -163,15 +165,7 @@ textarea{min-height:80px;resize:vertical}
 .row .field-wrap{flex:1;min-width:130px}
 .row .field-wrap input,.row .field-wrap select{margin-bottom:0}
 
-button{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s}
-button:hover{opacity:.92}button:active{transform:scale(.98)}
-button:disabled{opacity:.42;cursor:not-allowed;transform:none}
-button:disabled:hover{opacity:.42}
-button.sec{background:var(--gl);color:var(--navy)}button.teal{background:var(--teal)}
-button.del{background:var(--coral);padding:7px 14px;font-size:12px}
-button.sm{padding:6px 12px;font-size:12px}
-button.ghost{background:transparent;color:var(--muted);padding:8px 12px}
-button.ghost:hover{color:var(--coral);background:rgba(224,123,84,.08);opacity:1}
+/* Form/action buttons: shared/design-system/buttons.css (button, .sec, .del, .ghost, .teal) */
 
 /* ── Stats ── */
 .stat{background:var(--gl);border-radius:12px;padding:16px;text-align:center;border:.5px solid var(--border)}

@@ -380,16 +380,9 @@ export function FamilyTreePanel({
             {onSave && (
               <button
                 type="button"
-                className="pill-btn-navy"
+                className="hm-btn hm-btn--primary hm-btn--pill hm-btn--sm"
                 onClick={onSave}
                 disabled={saving}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '5px 12px',
-                  cursor: saving ? 'default' : 'pointer',
-                  opacity: saving ? 0.55 : 1,
-                }}
               >
                 {saving ? copy.saving : copy.save}
               </button>

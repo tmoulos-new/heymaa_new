@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { PlanCard } from './PlanCard'
+import { AppSheet } from './AppSheet'
+import { SheetHeader } from './ui/SheetHeader'
 import '../home/home.css'
 import '../appResponsive.css'
 import { homeDisplayLocale } from '../i18n'
@@ -79,7 +81,6 @@ export function InAppSubscriptionSheet({
       })
       .catch(() => {
         if (!cancelled) {
-          // Local/demo fallback: treat active free trial as current
           if (trialEndsAt) {
             setSnapshot({
               subscription_active: true,
@@ -143,112 +144,47 @@ export function InAppSubscriptionSheet({
     [activeSlot, basePlans, lang],
   )
 
-  const navy = '#2B3A67'
-  const cream = '#F7F1EA'
-
   return (
-    <div className="in-app-subscription-sheet hm-sheet-overlay" style={{ background: 'rgba(43,58,103,.35)' }}>
-      <div
-        className="hm-sheet-panel hm-sheet-panel--wide hm-sheet-panel--scroll"
-        style={{ background: cream, padding: '16px 18px 32px' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
-          <button
-            type="button"
-            aria-label={lang === 'el' ? 'Πίσω' : 'Back'}
-            onClick={onClose}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              border: '1px solid rgba(43,58,103,.12)',
-              background: '#fff',
-              color: navy,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              padding: 0,
-              marginTop: 2,
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M15 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 22,
-                fontWeight: 700,
-                color: navy,
-                letterSpacing: -0.3,
-              }}
-            >
-              {lang === 'el' ? 'Συνδρομή' : 'Subscription'}
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(43,58,103,.55)' }}>
-              {tSub(`hero.${heroKey}.subtitle`) ||
-                (lang === 'el'
-                  ? 'Δες τα πακέτα και ποιο είναι ενεργό τώρα.'
-                  : 'See plans and which one is active now.')}
-            </p>
-            {snapshot?.is_trial && snapshot.trial_ends_at ? (
-              <p style={{ margin: '8px 0 0', fontSize: 12, color: navy, fontWeight: 600 }}>
-                {tSub('hero.trialEnds', {
-                  date: formatTrialEnd(snapshot.trial_ends_at, contentLang),
-                })}
-              </p>
-            ) : null}
-            {activePlanName ? (
-              <div
-                className="hm-subscription-active-chip"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  marginTop: 10,
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  background: '#fff',
-                  border: '1.5px solid rgba(43,58,103,.14)',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: navy,
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: '#2D9E6B',
-                    flexShrink: 0,
-                  }}
-                />
-                {lang === 'el'
-                  ? `Ενεργό πακέτο: ${activePlanName}`
-                  : `Active plan: ${activePlanName}`}
-              </div>
-            ) : null}
+    <AppSheet
+      open
+      wide
+      onClose={onClose}
+      ariaLabel={lang === 'el' ? 'Συνδρομή' : 'Subscription'}
+    >
+      <div className="hm-subscription-sheet-inner">
+        <SheetHeader
+          title={lang === 'el' ? 'Συνδρομή' : 'Subscription'}
+          subtitle={
+            tSub(`hero.${heroKey}.subtitle`) ||
+            (lang === 'el'
+              ? 'Δες τα πακέτα και ποιο είναι ενεργό τώρα.'
+              : 'See plans and which one is active now.')
+          }
+          onBack={onClose}
+          backLabel={lang === 'el' ? 'Πίσω' : 'Back'}
+        />
+        {snapshot?.is_trial && snapshot.trial_ends_at ? (
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--hm-navy)', fontWeight: 600 }}>
+            {tSub('hero.trialEnds', {
+              date: formatTrialEnd(snapshot.trial_ends_at, contentLang),
+            })}
+          </p>
+        ) : null}
+        {activePlanName ? (
+          <div className="hm-subscription-active-chip">
+            <span className="hm-subscription-active-chip__dot" aria-hidden="true" />
+            {lang === 'el'
+              ? `Ενεργό πακέτο: ${activePlanName}`
+              : `Active plan: ${activePlanName}`}
           </div>
-        </div>
+        ) : null}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 12px', color: 'rgba(43,58,103,.45)', fontSize: 14 }}>
+          <div className="hm-empty-state" style={{ padding: '40px 12px' }}>
             {lang === 'el' ? 'Φόρτωση πακέτων…' : 'Loading plans…'}
           </div>
         ) : (
-          <div className="pricing-stack" style={{ gap: 12 }}>
+          <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>
             {plans.map((plan, index) => {
               const slot = slotForPlanIndex(index)
               const isCurrent = plan.variant === 'current'
@@ -273,6 +209,6 @@ export function InAppSubscriptionSheet({
           </div>
         )}
       </div>
-    </div>
+    </AppSheet>
   )
 }

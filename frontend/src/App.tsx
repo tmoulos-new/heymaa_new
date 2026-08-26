@@ -67,10 +67,21 @@ import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
+import { AccountPrivacySheet } from "./components/AccountPrivacySheet";
+import { AppDialog } from "./components/AppDialog";
+import { DialogPanel } from "./components/ui/DialogPanel";
+import { SheetHeader } from "./components/ui/SheetHeader";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ToastStack, type ToastKind, type ToastItem } from "./components/ToastStack";
+import { AppTourGuide } from "./components/AppTourGuide";
+import {
+  APP_TOUR_STEPS,
+  hasCompletedAppTour,
+  markAppTourCompleted,
+} from "./lib/appTour";
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
-import { AppModalPortal } from "./components/AppModalPortal";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
@@ -211,8 +222,7 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<S
   }
 }
 
-type ToastKind = "ok" | "err";
-type ToastItem = { id: number; text: string; kind: ToastKind; undo?: () => void; undoLabel?: string };
+
 let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
@@ -1511,7 +1521,6 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
   const [done, setDone] = React.useState(false);
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
-  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6};
   const handleReset = async () => {
     if (password.length < 6) { setError("Minimum 6 characters."); return; }
     if (password !== confirm) { setError("Passwords do not match."); return; }
@@ -1536,7 +1545,7 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
           <input style={inp} type="password" placeholder="New password (min 6 chars)" value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
           <input style={inp} type="password" placeholder="Confirm password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleReset()} disabled={loading}/>
           {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
-          <button style={{...btn,opacity:(loading||!password||!confirm)?0.5:1}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading?"Updating...":"Update password →"}</button>
+          <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading?"Updating...":"Update password →"}</button>
         </>)}
       </div>
     </div>
@@ -1561,7 +1570,6 @@ function ChangePasswordScreen({
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false)
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any}
-  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginTop:6}
   const handleChange = async () => {
     if (password.length < 6) { setError(lang==="el"?"Τουλάχιστον 6 χαρακτήρες.":"Min 6 characters."); return; }
     if (password !== confirm) { setError(lang==="el"?"Οι κωδικοί δεν ταιριάζουν.":"Passwords do not match."); return; }
@@ -1583,48 +1591,24 @@ function ChangePasswordScreen({
         <input style={inp} type="password" placeholder={lang==="el"?"Νέος κωδικός":"New password"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
         <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση":"Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleChange()} disabled={loading}/>
         {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
-        <button style={{...btn,opacity:(loading||!password||!confirm)?0.5:1}} onClick={handleChange} disabled={loading||!password||!confirm}>{loading?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
-        <button onClick={() => setShowLogoutConfirm(true)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:14,padding:6,width:"100%"}}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
+        <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleChange} disabled={loading||!password||!confirm}>{loading?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
+        <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:14}} onClick={() => setShowLogoutConfirm(true)}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
       </div>
       {showLogoutConfirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="hm-overlay"
-          style={{ position: "fixed", inset: 0, background: "rgba(43,58,103,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 900 }}
-          onClick={() => setShowLogoutConfirm(false)}
-        >
-          <div
-            className="hm-dialog hm-dialog--sm"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)", maxWidth: 400, width: "100%" }}
-          >
-            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: "#2B3A67", fontWeight: 700, marginBottom: 8 }}>
-              {lang === "el" ? "Αποσύνδεση" : "Log out"}
-            </div>
-            <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
-              {lang === "el"
-                ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
-                : "Are you sure you want to log out?"}
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => { setShowLogoutConfirm(false); onLogout(); }}
-                style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
-              >
-                {lang === "el" ? "Αποσύνδεση" : "Log out"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                style={{ flex: 1, padding: 12, background: "#F5F2ED", color: "#2B3A67", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
-              >
-                {lang === "el" ? "Ακύρωση" : "Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          open={showLogoutConfirm}
+          title={lang === "el" ? "Αποσύνδεση" : "Log out"}
+          message={
+            lang === "el"
+              ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
+              : "Are you sure you want to log out?"
+          }
+          confirmLabel={lang === "el" ? "Αποσύνδεση" : "Log out"}
+          cancelLabel={lang === "el" ? "Ακύρωση" : "Cancel"}
+          variant="danger"
+          onConfirm={() => { setShowLogoutConfirm(false); onLogout(); }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       )}
     </div>
   )
@@ -1661,7 +1645,6 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
   };
   const s: React.CSSProperties = {minHeight:"100dvh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
-  const btn: React.CSSProperties = {width:"100%",padding:14,borderRadius:12,background:"#2B3A67",color:"#fff",border:"none",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginTop:8};
   return (
     <div style={s}>
       {showLang && (
@@ -1676,32 +1659,32 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
       <div className="hm-narrow-form">
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
           <div style={{display:"flex",gap:6,flex:1}}>{[0,1,2,3].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#4ABEAA":i===step?"#2B3A67":"rgba(43,58,103,0.15)",maxWidth:40}}/>)}</div>
-          <button onClick={()=>setShowLang(true)} style={{background:"rgba(43,58,103,0.08)",border:"none",borderRadius:999,padding:"6px 12px",cursor:"pointer",fontSize:13,color:"#2B3A67",marginLeft:12,fontFamily:"inherit"}}>{L.f} {L.s}</button>
+          <button type="button" className="hm-btn hm-btn--secondary hm-btn--pill hm-btn--sm" style={{marginLeft:12,flexShrink:0}} onClick={()=>setShowLang(true)}>{L.f} {L.s}</button>
         </div>
-        {step===0&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>👋</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("welcome",lang)}</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("setup",lang)}</p><input style={inp} placeholder={t("yourname",lang)} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(1)} autoFocus/><button style={btn} onClick={()=>setStep(1)}>{t("letsgo",lang)}</button></>}
+        {step===0&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>👋</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("welcome",lang)}</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("setup",lang)}</p><input style={inp} placeholder={t("yourname",lang)} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(1)} autoFocus/><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(1)}>{t("letsgo",lang)}</button></>}
         {step===1&&<>
           <div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>{isPregnant?"🤰":"👶"}</div>
           <h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("profile2",lang)}</h1>
           <p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:20,lineHeight:1.65}}>{isPregnant===null?t("pregnant_or_baby_q",lang):isPregnant?t("duedatelabel",lang):t("babyinfo_q",lang)}</p>
-          {isPregnant===null&&<div style={{display:"flex",gap:10,marginBottom:10}}>
-            <button style={{...btn,marginTop:0,background:"#fff",color:"#2B3A67",border:"1.5px solid rgba(43,58,103,0.18)"}} onClick={()=>setIsPregnant(true)}>🤰 {t("im_pregnant",lang)}</button>
-            <button style={{...btn,marginTop:0,background:"#fff",color:"#2B3A67",border:"1.5px solid rgba(43,58,103,0.18)"}} onClick={()=>setIsPregnant(false)}>👶 {t("have_baby",lang)}</button>
+          {isPregnant===null&&<div className="hm-btn-row" style={{marginBottom:10}}>
+            <button type="button" className="hm-btn hm-btn--bordered hm-btn--block" style={{marginTop:0,flex:1}} onClick={()=>setIsPregnant(true)}>🤰 {t("im_pregnant",lang)}</button>
+            <button type="button" className="hm-btn hm-btn--bordered hm-btn--block" style={{marginTop:0,flex:1}} onClick={()=>setIsPregnant(false)}>👶 {t("have_baby",lang)}</button>
           </div>}
           {isPregnant===true&&<>
             <input style={inp} type="date" placeholder={t("duedatelabel",lang)} value={dueDate} onChange={e=>setDueDate(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(2)}/>
-            <button style={btn} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
-            <button onClick={()=>setIsPregnant(null)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>
+            <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
+            <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setIsPregnant(null)}>{t("back",lang)}</button>
           </>}
           {isPregnant===false&&<>
             <input style={inp} placeholder={t("childname",lang)} value={childName} onChange={e=>setChildName(e.target.value)}/>
             <input style={inp} type="date" placeholder={t("childbirthdate",lang)} value={childBirthDate} onChange={e=>setChildBirthDate(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(2)}/>
-            <button style={btn} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
-            <button onClick={()=>setIsPregnant(null)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>
+            <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
+            <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setIsPregnant(null)}>{t("back",lang)}</button>
           </>}
-          {isPregnant===null&&<button onClick={()=>setStep(0)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button>}
+          {isPregnant===null&&<button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(0)}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><div className="hm-onboarding-lang-grid">{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} className="hm-onboarding-lang-cell" style={{border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6"}}>{l.f}<div className="hm-onboarding-lang-code">{l.s}</div></div>)}</div><button onClick={()=>setShowLang(true)} style={{width:"100%",padding:10,background:"#F0EBE6",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",color:"#2B3A67",marginBottom:8}}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button style={btn} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button onClick={()=>setStep(1)} style={{background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",marginTop:10,padding:6,width:"100%",textAlign:"center"}}>{t("back",lang)}</button></>}
-        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button style={{...btn,background:"#4ABEAA"}} onClick={save}>{t("enterbtn",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><div className="hm-onboarding-lang-grid">{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} className="hm-onboarding-lang-cell" style={{border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6"}}>{l.f}<div className="hm-onboarding-lang-code">{l.s}</div></div>)}</div><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
+        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button type="button" className="hm-btn hm-btn--accent hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
   );
@@ -1866,6 +1849,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
@@ -1874,6 +1860,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
   const [editNewPassword, setEditNewPassword] = useState("");
   const [editConfirmPassword, setEditConfirmPassword] = useState("");
+  const [editCurrentPassword, setEditCurrentPassword] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const profilePhotoRef = useRef<HTMLInputElement>(null);
 
@@ -1881,6 +1868,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setEditName(profile.name || "");
     setEditNewPassword("");
     setEditConfirmPassword("");
+    setEditCurrentPassword("");
     setEditPhoto(familyData.selfPhoto || null);
     setShowProfileEdit(true);
   };
@@ -1896,6 +1884,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       }
       if (newPw !== confirmPw) {
         showToast(lang === "el" ? "Οι κωδικοί δεν ταιριάζουν." : "Passwords do not match.", "err");
+        return;
+      }
+      if (!editCurrentPassword.trim()) {
+        showToast(lang === "el" ? "Βάλε τον τρέχοντα κωδικό σου." : "Enter your current password.", "err");
         return;
       }
     }
@@ -1917,7 +1909,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       if (newPw) {
         const res = await axios.post(
           `${API}/auth/change-password`,
-          { password: newPw },
+          { password: newPw, current_password: editCurrentPassword.trim() },
           { headers: { "x-token": token } },
         );
         const nextToken = res.data?.token;
@@ -1930,6 +1922,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     track("click", appPath("profile", "save"), "Save profile");
       setEditNewPassword("");
       setEditConfirmPassword("");
+      setEditCurrentPassword("");
       setShowProfileEdit(false);
     } catch (e: any) {
       const msg = apiDetail(e?.response?.data, (e instanceof Error ? e.message : "") || t("save_failed", lang));
@@ -3003,6 +2996,31 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowLogoutConfirm(true);
   };
 
+  const openAccountPrivacy = () => {
+    setShowProfileSettings(false);
+    setShowAccountMenu(false);
+    setShowAccountPrivacy(true);
+  };
+
+  const updateMarketingConsent = async (next: boolean): Promise<boolean> => {
+    const updated: Profile = {
+      ...profile,
+      consentMarketing: next,
+      consentDate: next ? new Date().toISOString() : profile.consentDate,
+    };
+    const ok = await syncProfileSafe(updated);
+    if (ok) {
+      onProfileUpdate(updated);
+      localStorage.setItem(sk(token, "profile"), JSON.stringify(updated));
+    }
+    return ok;
+  };
+
+  const handleAccountDeleted = () => {
+    setShowAccountPrivacy(false);
+    onLogout();
+  };
+
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     onLogout();
@@ -3051,6 +3069,54 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const tabBarRef = useRef<HTMLDivElement>(null);
   const { tabBarVisible, showTabBar } = useAutoHideTabBar(appBodyRef);
 
+  const goToTourStep = useCallback((idx: number) => {
+    const s = APP_TOUR_STEPS[idx];
+    if (s?.tab) {
+      showTabBar();
+      setTab(s.tab);
+    }
+    setTourStep(idx);
+  }, [showTabBar]);
+
+  const startAppTour = useCallback((fromStep = 0) => {
+    setShowProfileSettings(false);
+    setShowAccountMenu(false);
+    setShowNotifications(false);
+    setTourOpen(true);
+    goToTourStep(fromStep);
+  }, [goToTourStep]);
+
+  useEffect(() => {
+    if (hasCompletedAppTour(token)) return;
+    const t = window.setTimeout(() => startAppTour(0), 700);
+    return () => window.clearTimeout(t);
+  }, [token, startAppTour]);
+
+  useEffect(() => {
+    if (!tourOpen) return;
+    setShowAccountMenu(false);
+    setShowNotifications(false);
+  }, [tourOpen]);
+
+  const handleTourNext = useCallback(() => {
+    if (tourStep >= APP_TOUR_STEPS.length - 1) {
+      markAppTourCompleted(token);
+      setTourOpen(false);
+      return;
+    }
+    goToTourStep(tourStep + 1);
+  }, [goToTourStep, token, tourStep]);
+
+  const handleTourBack = useCallback(() => {
+    if (tourStep <= 0) return;
+    goToTourStep(tourStep - 1);
+  }, [goToTourStep, tourStep]);
+
+  const handleTourSkip = useCallback(() => {
+    markAppTourCompleted(token);
+    setTourOpen(false);
+  }, [token]);
+
   useEffect(() => {
     showTabBar();
     const body = appBodyRef.current;
@@ -3074,177 +3140,169 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     <div
       dir={dir}
       className={`hm-app-shell${tabBarVisible ? "" : " hm-tabbar-hidden"}${tab === "chat" ? " hm-tab-chat" : ""}`}
-      style={{fontFamily:"'DM Sans',sans-serif",background:cream}}
     >
 
       {/* PROFILE SETTINGS MENU */}
-      {showProfileSettings&&(
-        <div
-          className="hm-overlay"
-          onClick={e=>{ if(e.target===e.currentTarget) setShowProfileSettings(false); }}
-        >
-          <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:24,padding:"18px 16px 16px",boxShadow:"0 12px 40px rgba(43,58,103,.18)"}}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14}}>
-              <button
-                type="button"
-                aria-label={lang==="el"?"Πίσω":"Back"}
-                onClick={()=>setShowProfileSettings(false)}
-                style={{
-                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
-                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
-                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1,paddingTop:6}}>
-                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:700,color:navy}}>
-                  {lang==="el"?"Ρυθμίσεις":"Settings"}
+      <AppDialog
+        open={showProfileSettings}
+        onClose={() => setShowProfileSettings(false)}
+        size="sm"
+        ariaLabel={lang === "el" ? "Ρυθμίσεις" : "Settings"}
+      >
+        <DialogPanel variant="white" padding="md">
+          <SheetHeader
+            title={lang === "el" ? "Ρυθμίσεις" : "Settings"}
+            onBack={() => setShowProfileSettings(false)}
+            backLabel={lang === "el" ? "Πίσω" : "Back"}
+            compact
+          />
+          <div className="hm-settings-list">
+            {[
+              {
+                key: "edit",
+                icon: "✏️",
+                title: lang==="el"?"Επεξεργασία προφίλ":"Edit profile",
+                subtitle: lang==="el"?"Όνομα, email, κωδικός":"Name, email, password",
+                onClick: () => {
+                  setShowProfileSettings(false);
+                  openProfileEditForm();
+                },
+              },
+              {
+                key: "privacy",
+                icon: "🔐",
+                title: lang==="el"?"Απόρρητο & δεδομένα":"Privacy & data",
+                subtitle: lang==="el"?"Marketing, εξαγωγή, διαγραφή":"Marketing, export, delete",
+                onClick: openAccountPrivacy,
+              },
+              {
+                key: "lang",
+                icon: "🌐",
+                title: lang==="el"?"Γλώσσα":"Language",
+                subtitle: L.n,
+                onClick: () => {
+                  setShowProfileSettings(false);
+                  setShowLang(true);
+                },
+              },
+              {
+                key: "sub",
+                icon: "💳",
+                title: lang==="el"?"Συνδρομή":"Subscription",
+                subtitle: lang==="el"?"Πλάνα, πληρωμές, ανανέωση":"Plans, billing, renew",
+                onClick: () => {
+                  setShowProfileSettings(false);
+                  setShowSubscriptionSheet(true);
+                },
+              },
+              {
+                key: "help",
+                icon: "💬",
+                title: lang==="el"?"Βοήθεια & υποστήριξη":"Help & support",
+                subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
+                onClick: () => {
+                  setShowProfileSettings(false);
+                  setOpenHelpFaq({ 0: true });
+                  setHelpMessage("");
+                  setShowHelpSupport(true);
+                },
+              },
+              {
+                key: "tour",
+                icon: "🧭",
+                title: lang==="el"?"Ξενάγηση εφαρμογής":"App tour",
+                subtitle: lang==="el"?"Δες τις κύριες λειτουργίες":"See how the app works",
+                onClick: () => startAppTour(0),
+              },
+            ].map(item => (
+              <button key={item.key} type="button" className="hm-settings-tile" onClick={item.onClick}>
+                <span className="hm-settings-tile__icon" aria-hidden="true">{item.icon}</span>
+                <span className="hm-settings-tile__body">
+                  <span className="hm-settings-tile__title">{item.title}</span>
+                  <span className="hm-settings-tile__subtitle">{item.subtitle}</span>
                 </span>
-              </div>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {[
-                {
-                  key: "edit",
-                  icon: "✏️",
-                  title: lang==="el"?"Επεξεργασία προφίλ":"Edit profile",
-                  subtitle: lang==="el"?"Όνομα, email, κωδικός":"Name, email, password",
-                  onClick: () => {
-                    setShowProfileSettings(false);
-                    openProfileEditForm();
-                  },
-                },
-                {
-                  key: "sub",
-                  icon: "💳",
-                  title: lang==="el"?"Συνδρομή":"Subscription",
-                  subtitle: lang==="el"?"Πλάνα, πληρωμές, ανανέωση":"Plans, billing, renew",
-                  onClick: () => {
-                    setShowProfileSettings(false);
-                    setShowSubscriptionSheet(true);
-                  },
-                },
-                {
-                  key: "help",
-                  icon: "💬",
-                  title: lang==="el"?"Βοήθεια & υποστήριξη":"Help & support",
-                  subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
-                  onClick: () => {
-                    setShowProfileSettings(false);
-                    setOpenHelpFaq({ 0: true });
-                    setHelpMessage("");
-                    setShowHelpSupport(true);
-                  },
-                },
-              ].map(item => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={item.onClick}
-                  style={{
-                    width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 14px",
-                    border:"none",borderRadius:16,background:"#FFF3E8",cursor:"pointer",
-                    fontFamily:"'DM Sans',sans-serif",textAlign:"left",
-                  }}
-                >
-                  <span style={{fontSize:18,lineHeight:1,width:24,textAlign:"center",flexShrink:0}} aria-hidden="true">{item.icon}</span>
-                  <span style={{flex:1,minWidth:0}}>
-                    <span style={{display:"block",fontSize:14,fontWeight:700,color:navy,lineHeight:1.25}}>{item.title}</span>
-                    <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.5)",marginTop:3,lineHeight:1.3}}>{item.subtitle}</span>
-                  </span>
-                  <span style={{color:"rgba(43,58,103,.3)",fontSize:18,lineHeight:1,flexShrink:0}}>›</span>
-                </button>
-              ))}
-            </div>
+                <span className="hm-settings-tile__chevron" aria-hidden="true">›</span>
+              </button>
+            ))}
           </div>
-        </div>
+          <div className="hm-dialog-footer-links">
+            <Link to={PRIVACY_URL} onClick={() => setShowProfileSettings(false)} className="hm-link-muted">
+              🔒 {lang === "el" ? "Πολιτική Απορρήτου" : "Privacy Policy"}
+            </Link>
+            <Link to={TERMS_URL} onClick={() => setShowProfileSettings(false)} className="hm-link-muted">
+              📄 {lang === "el" ? "Όροι Χρήσης" : "Terms of Use"}
+            </Link>
+          </div>
+        </DialogPanel>
+      </AppDialog>
+
+      {showAccountPrivacy && (
+        <AccountPrivacySheet
+          open={showAccountPrivacy}
+          lang={lang}
+          token={token}
+          consentMarketing={!!profile.consentMarketing}
+          onConsentChange={updateMarketingConsent}
+          onAccountDeleted={handleAccountDeleted}
+          onClose={() => setShowAccountPrivacy(false)}
+          onToast={showToast}
+        />
       )}
 
       {/* HELP & SUPPORT POPUP */}
-      {showHelpSupport&&(
-        <div
-          className="hm-overlay"
-          onClick={e=>{ if(e.target===e.currentTarget) setShowHelpSupport(false); }}
-        >
-          <div className="hm-dialog hm-dialog--md" style={{
-            background:cream,borderRadius:24,padding:"16px 16px 20px",
-            boxShadow:"0 12px 40px rgba(43,58,103,.18)",
-            fontFamily:"'DM Sans',sans-serif",
-          }}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16}}>
-              <button
-                type="button"
-                aria-label={lang==="el"?"Πίσω":"Back"}
-                onClick={()=>setShowHelpSupport(false)}
-                style={{
-                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
-                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
-                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <div style={{minWidth:0,flex:1}}>
-                <div style={{fontSize:18,fontWeight:700,color:navy}}>
-                  {lang==="el"?"Βοήθεια & υποστήριξη":"Help & support"}
-                </div>
-                <p style={{margin:"4px 0 0",fontSize:13,color:"rgba(43,58,103,.55)"}}>
-                  {lang==="el"?"Είμαστε εδώ για σένα":"We're here for you"}
-                </p>
-              </div>
-            </div>
+      <AppDialog
+        open={showHelpSupport}
+        onClose={() => setShowHelpSupport(false)}
+        size="md"
+        ariaLabel={lang === "el" ? "Βοήθεια & υποστήριξη" : "Help & support"}
+      >
+        <DialogPanel variant="cream" padding="md">
+          <SheetHeader
+            title={lang === "el" ? "Βοήθεια & υποστήριξη" : "Help & support"}
+            subtitle={lang === "el" ? "Είμαστε εδώ για σένα" : "We're here for you"}
+            onBack={() => setShowHelpSupport(false)}
+            backLabel={lang === "el" ? "Πίσω" : "Back"}
+          />
 
-            <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+            <div className="hm-section-label">
               {displayUppercase(tHome("faq.label", { lng: homeLng }) || (lang==="el"?"Συχνές ερωτήσεις":"FAQ"), lang)}
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+            <div className="hm-faq-list">
               {helpFaqItems.map((item, i) => {
                 const open = !!openHelpFaq[i];
                 return (
-                  <div key={item.question} style={{background:"#fff",borderRadius:14,overflow:"hidden",boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}>
+                  <div key={item.question} className="hm-faq-item">
                     <button
                       type="button"
+                      className="hm-faq-trigger"
                       onClick={()=>setOpenHelpFaq(prev=>({...prev,[i]:!open}))}
-                      style={{
-                        width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
-                        padding:"12px 14px",border:"none",background:"#fff",cursor:"pointer",
-                        fontFamily:"'DM Sans',sans-serif",textAlign:"left",
-                      }}
                     >
-                      <span style={{fontSize:13.5,fontWeight:600,color:navy,lineHeight:1.35}}>{item.question}</span>
-                      <span style={{color:"rgba(43,58,103,.35)",fontSize:18,lineHeight:1,flexShrink:0,transform:open?"rotate(90deg)":"none"}}>›</span>
+                      <span className="hm-faq-trigger__q">{item.question}</span>
+                      <span className={`hm-faq-trigger__chevron${open ? " hm-faq-trigger__chevron--open" : ""}`} aria-hidden="true">›</span>
                     </button>
                     {open ? (
-                      <div style={{padding:"0 14px 12px",fontSize:13,color:"rgba(43,58,103,.65)",lineHeight:1.55}}>
-                        {item.answer}
-                      </div>
+                      <div className="hm-faq-answer">{item.answer}</div>
                     ) : null}
                   </div>
                 );
               })}
             </div>
 
-            <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+            <div className="hm-section-label">
               {displayUppercase(lang==="el"?"Στείλε μας μήνυμα":"Send us a message", lang)}
             </div>
             <textarea
+              className="hm-textarea hm-input--flush"
               value={helpMessage}
               onChange={e=>setHelpMessage(e.target.value)}
               placeholder={lang==="el"?"Γράψε την ερώτησή σου εδώ...":"Write your question here..."}
               rows={4}
-              style={{
-                width:"100%",boxSizing:"border-box",padding:"12px 14px",border:"none",borderRadius:14,
-                background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:14,color:navy,outline:"none",
-                resize:"vertical",marginBottom:10,boxShadow:"0 1px 4px rgba(43,58,103,.06)",
-              }}
+              style={{ marginBottom: 10, resize: "vertical" }}
             />
             <button
               type="button"
+              className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg"
+              style={{ marginBottom: 14 }}
               onClick={()=>{
                 const body = helpMessage.trim();
                 if (!body) {
@@ -3253,63 +3311,55 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 }
                 window.open(`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}&body=${encodeURIComponent(body)}`);
               }}
-              style={{
-                width:"100%",padding:13,background:navy,color:"#fff",border:"none",borderRadius:14,
-                fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,
-              }}
             >
               {lang==="el"?"Αποστολή μηνύματος":"Send message"}
             </button>
 
-            <div style={{
-              background:"#fff",borderRadius:16,padding:"14px 14px",marginBottom:8,
-              boxShadow:"0 1px 4px rgba(43,58,103,.06)",
-            }}>
-              <div style={{fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:10}}>
+            <div className="hm-contact-card">
+              <div className="hm-section-label">
                 {displayUppercase(lang==="el"?"Επικοινωνία":"Contact", lang)}
               </div>
               <a
                 href={`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}`}
-                style={{display:"flex",alignItems:"center",gap:10,textDecoration:"none",color:navy,marginBottom:10}}
+                className="hm-contact-row"
+                style={{ color: "var(--hm-navy)", marginBottom: 10 }}
               >
-                <span style={{width:34,height:34,borderRadius:10,background:"#FFF3E8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">✉️</span>
+                <span className="hm-contact-icon hm-contact-icon--warm" aria-hidden="true">✉️</span>
                 <span>
                   <span style={{display:"block",fontSize:13,fontWeight:700}}>Email</span>
-                  <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.55)",marginTop:2}}>{helpEmail}</span>
+                  <span style={{display:"block",fontSize:12,color:"var(--hm-muted)",marginTop:2}}>{helpEmail}</span>
                 </span>
               </a>
               <a
                 href={`tel:${helpPhoneTel}`}
-                style={{display:"flex",alignItems:"center",gap:10,textDecoration:"none",color:navy,marginBottom:helpAddress?10:0}}
+                className="hm-contact-row"
+                style={{ color: "var(--hm-navy)", marginBottom: helpAddress ? 10 : 0 }}
               >
-                <span style={{width:34,height:34,borderRadius:10,background:"rgba(74,190,170,.16)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">📞</span>
+                <span className="hm-contact-icon hm-contact-icon--teal" aria-hidden="true">📞</span>
                 <span>
                   <span style={{display:"block",fontSize:13,fontWeight:700}}>{lang==="el"?"Τηλέφωνο":"Phone"}</span>
-                  <span style={{display:"block",fontSize:12,color:"rgba(43,58,103,.55)",marginTop:2}}>{helpPhone}</span>
+                  <span style={{display:"block",fontSize:12,color:"var(--hm-muted)",marginTop:2}}>{helpPhone}</span>
                 </span>
               </a>
               {helpAddress ? (
-                <div style={{display:"flex",alignItems:"flex-start",gap:10,color:"rgba(43,58,103,.7)"}}>
-                  <span style={{width:34,height:34,borderRadius:10,background:"rgba(43,58,103,.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}} aria-hidden="true">📍</span>
+                <div className="hm-contact-row" style={{ color: "rgba(43,58,103,.7)" }}>
+                  <span className="hm-contact-icon hm-contact-icon--muted" aria-hidden="true">📍</span>
                   <span style={{fontSize:12,lineHeight:1.45,paddingTop:6}}>{helpAddress}</span>
                 </div>
               ) : null}
             </div>
-          </div>
-        </div>
-      )}
+        </DialogPanel>
+      </AppDialog>
 
       {/* PROFILE EDIT — popup screen */}
-      {showProfileEdit&&(
-        <div
-          className="hm-overlay"
-          onClick={e=>{ if(e.target===e.currentTarget) setShowProfileEdit(false); }}
-        >
-          <div className="hm-dialog hm-dialog--md" style={{
-            background:cream,borderRadius:24,padding:"18px 20px 22px",
-            fontFamily:"'DM Sans',sans-serif",
-            boxShadow:"0 12px 40px rgba(43,58,103,.18)",
-          }}>
+      <AppDialog
+        open={showProfileEdit}
+        onClose={() => setShowProfileEdit(false)}
+        size="md"
+        ariaLabel={lang === "el" ? "Επεξεργασία προφίλ" : "Edit profile"}
+        closeOnBackdrop={!editSaving}
+      >
+        <DialogPanel variant="cream" padding="lg">
             <input
               ref={profilePhotoRef}
               type="file"
@@ -3325,30 +3375,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 } catch { /* ignore */ }
               }}
             />
-            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:18}}>
-              <button
-                type="button"
-                aria-label={lang==="el"?"Πίσω":"Back"}
-                onClick={()=>setShowProfileEdit(false)}
-                style={{
-                  width:36,height:36,borderRadius:"50%",border:"1px solid rgba(43,58,103,.12)",
-                  background:"#fff",color:navy,cursor:"pointer",display:"flex",alignItems:"center",
-                  justifyContent:"center",flexShrink:0,padding:0,marginTop:2,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <div style={{minWidth:0,flex:1}}>
-                <h1 style={{margin:0,fontSize:20,fontWeight:700,color:navy,letterSpacing:-0.3}}>
-                  {lang==="el"?"Επεξεργασία προφίλ":"Edit profile"}
-                </h1>
-                <p style={{margin:"4px 0 0",fontSize:13,color:"rgba(43,58,103,.55)"}}>
-                  {lang==="el"?"Ενημέρωσε τα στοιχεία σου":"Update your details"}
-                </p>
-              </div>
-            </div>
+            <SheetHeader
+              title={lang==="el"?"Επεξεργασία προφίλ":"Edit profile"}
+              subtitle={lang==="el"?"Ενημέρωσε τα στοιχεία σου":"Update your details"}
+              onBack={()=>setShowProfileEdit(false)}
+              backLabel={lang==="el"?"Πίσω":"Back"}
+            />
 
             <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
               <div style={{position:"relative",width:108,height:108}}>
@@ -3361,7 +3393,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   ) : (
                     <div style={{
                       width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",
-                      background:"#BEB4CD",color:navy,fontFamily:"'DM Sans',sans-serif",fontSize:36,fontWeight:700,
+                      background:"var(--hm-logo-purple)",color:"var(--hm-navy)",fontSize:36,fontWeight:700,
                     }}>{displayInitial}</div>
                   )}
                 </div>
@@ -3371,7 +3403,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   onClick={()=>profilePhotoRef.current?.click()}
                   style={{
                     position:"absolute",right:2,bottom:2,width:34,height:34,borderRadius:"50%",
-                    border:"2px solid #fff",background:navy,color:"#fff",cursor:"pointer",
+                    border:"2px solid #fff",background:"var(--hm-navy)",color:"#fff",cursor:"pointer",
                     display:"flex",alignItems:"center",justifyContent:"center",padding:0,
                     boxShadow:"0 2px 8px rgba(43,58,103,.25)",
                   }}
@@ -3390,10 +3422,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 label: lang==="el"?"Όνομα":"Name",
                 node: (
                   <input
+                    className="hm-input hm-input--flush"
                     value={editName}
                     onChange={e=>setEditName(e.target.value)}
                     placeholder={lang==="el"?"Το όνομά σου":"Your name"}
-                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
                   />
                 ),
               },
@@ -3402,10 +3434,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 label: "Email",
                 node: (
                   <input
+                    className="hm-input hm-input--flush hm-input--readonly"
                     value={accountEmail}
                     readOnly
                     placeholder="email@example.com"
-                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:"rgba(43,58,103,.55)",boxShadow:"0 1px 4px rgba(43,58,103,.06)",cursor:"default"}}
+                  />
+                ),
+              },
+              {
+                key: "current_pw",
+                label: lang==="el"?"Τρέχων κωδικός":"Current password",
+                hint: lang==="el"?"Απαιτείται μόνο αν αλλάζεις κωδικό":"Required only when changing password",
+                node: (
+                  <input
+                    className="hm-input hm-input--flush"
+                    type="password"
+                    value={editCurrentPassword}
+                    onChange={e=>setEditCurrentPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
                   />
                 ),
               },
@@ -3415,12 +3462,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 hint: lang==="el"?"Άφησέ το κενό αν δεν θέλεις να αλλάξεις κωδικό":"Leave blank if you don't want to change password",
                 node: (
                   <input
+                    className="hm-input hm-input--flush"
                     type="password"
                     value={editNewPassword}
                     onChange={e=>setEditNewPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="new-password"
-                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
                   />
                 ),
               },
@@ -3429,41 +3476,38 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 label: lang==="el"?"Επιβεβαίωση κωδικού":"Confirm password",
                 node: (
                   <input
+                    className="hm-input hm-input--flush"
                     type="password"
                     value={editConfirmPassword}
                     onChange={e=>setEditConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="new-password"
-                    style={{width:"100%",padding:"14px 16px",border:"none",borderRadius:16,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,outline:"none",boxSizing:"border-box" as any,color:navy,boxShadow:"0 1px 4px rgba(43,58,103,.06)"}}
                   />
                 ),
               },
             ] as {key:string;label:string;hint?:string;node:React.ReactNode}[]).map(field => (
-              <div key={field.key} style={{marginBottom:16}}>
-                <label style={{display:"block",fontSize:12,fontWeight:700,color:navy,letterSpacing:0.6,marginBottom:8}}>
+              <div key={field.key} className="hm-form-field">
+                <label className="hm-section-label" style={{ marginBottom: 8 }}>
                   {displayUppercase(field.label, lang)}
                 </label>
                 {field.node}
                 {field.hint ? (
-                  <div style={{fontSize:12,color:"rgba(43,58,103,.45)",marginTop:8,lineHeight:1.4}}>{field.hint}</div>
+                  <div className="hm-form-field__hint">{field.hint}</div>
                 ) : null}
               </div>
             ))}
 
             <button
               type="button"
+              className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg"
               onClick={saveProfileEdit}
               disabled={editSaving}
-              style={{
-                width:"100%",padding:14,marginTop:4,background:navy,color:"#fff",border:"none",borderRadius:14,
-                fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:editSaving?"default":"pointer",opacity:editSaving?0.6:1,
-              }}
+              style={{ marginTop: 4, opacity: editSaving ? 0.6 : 1 }}
             >
               {editSaving ? t("saving", lang) : t("save_ok", lang)}
             </button>
-          </div>
-        </div>
-      )}
+        </DialogPanel>
+      </AppDialog>
 
       {/* ADD CHILD — in-app screen */}
       {showAddChild&&(
@@ -3727,23 +3771,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         />
       )}
 
-      {treeEdit && (
-        <AppModalPortal>
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="hm-overlay hm-overlay--bottom"
-          style={{background:"rgba(24,28,42,.5)",backdropFilter:"blur(4px)"}}
-          onClick={()=>setTreeEdit(null)}
-        >
-          <div
-            className="hm-dialog hm-dialog--lg"
-            onClick={(e)=>e.stopPropagation()}
-            style={{background:"#fff",borderRadius:16,padding:16,boxShadow:"0 16px 40px rgba(0,0,0,.18)",marginBottom:8,maxHeight:"min(85vh, 85dvh)"}}
-          >
-            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:700,marginBottom:12}}>
-              {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit.name}
-            </div>
+      <AppDialog
+        open={!!treeEdit}
+        onClose={() => setTreeEdit(null)}
+        size="lg"
+        align="bottom"
+        ariaLabel={lang === "el" ? "Επεξεργασία" : "Edit"}
+      >
+          <div className="hm-tree-edit-panel">
+            <h2 className="hm-dialog-title" style={{ fontSize: 16, marginBottom: 12 }}>
+              {lang==="el"?"Επεξεργασία":"Edit"} · {treeEdit?.name}
+            </h2>
             <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
               <button
                 type="button"
@@ -3771,17 +3809,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               onChange={(e)=>{ void applyTreePhoto(e.target.files?.[0] || null); e.target.value=""; }}
             />
             <input
+              className="hm-input hm-input--compact"
               value={treeEditName}
               onChange={(e)=>setTreeEditName(e.target.value)}
               placeholder={lang==="el"?"Όνομα":"Name"}
-              style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}
+              style={{ marginBottom: 8 }}
             />
-            {treeEdit.memberIndex != null && (
+            {treeEdit && treeEdit.memberIndex != null && (
               <>
-                <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                <div className="hm-section-label" style={{ fontSize: 11, marginBottom: 4 }}>
                   {lang==="el"?"Ρόλος / μετακίνηση στο δέντρο":"Role / move on tree"}
                 </div>
                 <select
+                  className="hm-select hm-input--compact"
                   value={RELATIONSHIP_PRESETS.some(p=>p.value===treeEditRole)?treeEditRole:"Family"}
                   onChange={(e)=>{
                     const role = e.target.value;
@@ -3792,16 +3832,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       changeMemberRelationship(treeEdit.memberIndex, role);
                     }
                   }}
-                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                  style={{ marginBottom: 8 }}
                 >
                   {RELATIONSHIP_PRESETS.map(p=>(
                     <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
                   ))}
                 </select>
-                <div style={{fontSize:11,fontWeight:700,color:"rgba(43,58,103,.55)",marginBottom:4,textTransform:"uppercase" as any,letterSpacing:0.4}}>
+                <div className="hm-section-label" style={{ fontSize: 11, marginBottom: 4 }}>
                   {lang==="el"?"Συγγενής του / της":"Relative of"}
                 </div>
                 <select
+                  className="hm-select hm-input--compact"
                   value={treeEditRelatedTo}
                   onChange={(e)=>{
                     const next = e.target.value;
@@ -3810,159 +3851,169 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       changeMemberRelatedTo(treeEdit.memberIndex, next);
                     }
                   }}
-                  style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any,background:"#fff",color:navy}}
+                  style={{ marginBottom: 8 }}
                 >
                   {relatedToOptions.filter(o=>o.value!==memberMemoryRef(familyData.members[treeEdit.memberIndex!]?.id || "")).map(o=>(
                     <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
                   ))}
                 </select>
-                <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
-                <input value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+                <input className="hm-input hm-input--compact" value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{ marginBottom: 8 }} />
+                <input className="hm-input hm-input--compact" value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{ marginBottom: 8 }} />
               </>
             )}
-            {treeEdit.childIndex != null && (
-              <input value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+            {treeEdit && treeEdit.childIndex != null && (
+              <input className="hm-input hm-input--compact" value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{ marginBottom: 8 }} />
             )}
-            <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap" as any}}>
-              <button type="button" onClick={saveTreeEdit} style={{flex:1,minWidth:90,padding:10,background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}>{t("save",lang)}</button>
-              {(treeEdit.ref || treeEdit.kind === "self") && (
+            <div className="hm-btn-row" style={{ marginTop: 4, flexWrap: "wrap" }}>
+              <button type="button" className="hm-btn hm-btn--primary" onClick={saveTreeEdit} style={{ minWidth: 90 }}>{t("save",lang)}</button>
+              {(treeEdit?.ref || treeEdit?.kind === "self") && (
                 <button
                   type="button"
+                  className="hm-btn hm-btn--outline"
+                  style={{ minWidth: 90 }}
                   onClick={()=>{
-                    setActiveMemRef(treeEdit.kind === "self" ? "__general__" : (treeEdit.ref ?? null));
+                    setActiveMemRef(treeEdit!.kind === "self" ? "__general__" : (treeEdit!.ref ?? null));
                     setTreeEdit(null);
                     setTab("memories");
                   }}
-                  style={{flex:1,minWidth:90,padding:10,background:"#fff",color:navy,border:`1.5px solid ${navy}`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
                 >
                   📝 {t("recentmem",lang)}
                 </button>
               )}
-              {(treeEdit.memberIndex != null || treeEdit.childIndex != null) && (
+              {(treeEdit?.memberIndex != null || treeEdit?.childIndex != null) && (
                 <button
                   type="button"
+                  className="hm-btn hm-btn--destructive-outline"
+                  style={{ minWidth: 90 }}
                   onClick={()=>{
-                    if (treeEdit.memberIndex != null) {
-                      deleteFamilyMember(treeEdit.memberIndex);
+                    if (treeEdit!.memberIndex != null) {
+                      deleteFamilyMember(treeEdit!.memberIndex);
                       setTreeEdit(null);
-                    } else if (treeEdit.childIndex != null) {
-                      requestDeleteChild(treeEdit.childIndex);
+                    } else if (treeEdit!.childIndex != null) {
+                      requestDeleteChild(treeEdit!.childIndex);
                     }
                   }}
-                  style={{flex:1,minWidth:90,padding:10,background:"rgba(224,123,84,.12)",color:"#E07B54",border:`1.5px solid rgba(224,123,84,.45)`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer"}}
                 >
                   🗑 {t("delete_memory",lang)}
                 </button>
               )}
-              <button type="button" onClick={()=>setTreeEdit(null)} style={{padding:"10px 12px",background:gl,color:navy,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("cancel",lang)}</button>
+              <button type="button" className="hm-btn hm-btn--secondary" onClick={()=>setTreeEdit(null)}>{t("cancel",lang)}</button>
             </div>
           </div>
-        </div>
-        </AppModalPortal>
-      )}
+      </AppDialog>
 
       {childDeleteConfirm != null && familyChildren[childDeleteConfirm] && (
-        <AppModalPortal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="hm-overlay"
-            style={{ background: "rgba(43,58,103,.55)" }}
-            onClick={() => setChildDeleteConfirm(null)}
-          >
-            <div
-              className="hm-dialog hm-dialog--sm"
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)" }}
-            >
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: navy, fontWeight: 700, marginBottom: 8 }}>
-                {lang === "el" ? "Διαγραφή παιδιού" : "Delete child"}
-              </div>
-              <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
-                {lang === "el"
-                  ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις τον/την ${familyChildren[childDeleteConfirm].name};`
-                  : `Are you sure you want to delete ${familyChildren[childDeleteConfirm].name}?`}
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={confirmDeleteChild}
-                  style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
-                >
-                  {t("delete_memory", lang)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChildDeleteConfirm(null)}
-                  style={{ flex: 1, padding: 12, background: gl, color: navy, border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
-                >
-                  {t("cancel", lang)}
-                </button>
-              </div>
-            </div>
-          </div>
-        </AppModalPortal>
+        <ConfirmDialog
+          open
+          title={lang === "el" ? "Διαγραφή παιδιού" : "Delete child"}
+          message={
+            lang === "el"
+              ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις τον/την ${familyChildren[childDeleteConfirm].name};`
+              : `Are you sure you want to delete ${familyChildren[childDeleteConfirm].name}?`
+          }
+          confirmLabel={t("delete_memory", lang)}
+          cancelLabel={t("cancel", lang)}
+          variant="danger"
+          onConfirm={confirmDeleteChild}
+          onCancel={() => setChildDeleteConfirm(null)}
+        />
       )}
 
       {showLogoutConfirm && (
-        <AppModalPortal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="hm-overlay"
-            style={{ background: "rgba(43,58,103,.55)" }}
-            onClick={() => setShowLogoutConfirm(false)}
-          >
-            <div
-              className="hm-dialog hm-dialog--sm"
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 8px 40px rgba(43,58,103,.18)" }}
-            >
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 18, color: navy, fontWeight: 700, marginBottom: 8 }}>
-                {lang === "el" ? "Αποσύνδεση" : "Log out"}
-              </div>
-              <p style={{ fontSize: 14, color: "rgba(43,58,103,.65)", lineHeight: 1.55, marginBottom: 20 }}>
-                {lang === "el"
-                  ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
-                  : "Are you sure you want to log out?"}
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={confirmLogout}
-                  style={{ flex: 1, padding: 12, background: "#E07B54", color: "#fff", border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
-                >
-                  {lang === "el" ? "Αποσύνδεση" : "Log out"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutConfirm(false)}
-                  style={{ flex: 1, padding: 12, background: gl, color: navy, border: "none", borderRadius: 10, fontFamily: "'DM Sans',sans-serif", fontSize: 14, cursor: "pointer" }}
-                >
-                  {t("cancel", lang)}
-                </button>
-              </div>
-            </div>
-          </div>
-        </AppModalPortal>
+        <ConfirmDialog
+          open
+          title={lang === "el" ? "Αποσύνδεση" : "Log out"}
+          message={
+            lang === "el"
+              ? "Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;"
+              : "Are you sure you want to log out?"
+          }
+          confirmLabel={lang === "el" ? "Αποσύνδεση" : "Log out"}
+          cancelLabel={t("cancel", lang)}
+          variant="danger"
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       )}
 
       {/* ADDRESS MODAL */}
-      {showAddressModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.55)"}}>
-        <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:20,padding:24,boxShadow:"0 8px 40px rgba(43,58,103,.18)"}}>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,color:"#2B3A67",fontWeight:700,marginBottom:6}}>🏠 {t("delivery_addr",lang)}</div>
-          <p style={{fontSize:13,color:"rgba(43,58,103,.55)",lineHeight:1.6,marginBottom:16}}>{t("delivery_hint",lang)}</p>
-          <input value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{width:"100%",padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:10,color:"#2B3A67"}}/>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            <input value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={t("city_ph",lang)} style={{flex:2,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
-            <input value={addrPostal} onChange={e=>setAddrPostal(e.target.value)} placeholder={t("post_ph",lang)} style={{flex:1,padding:"11px 13px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,color:"#2B3A67"}}/>
+      <AppDialog
+        open={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        size="sm"
+        ariaLabel={t("delivery_addr", lang)}
+      >
+        <DialogPanel variant="white" padding="md">
+          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>🏠 {t("delivery_addr", lang)}</h2>
+          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>{t("delivery_hint", lang)}</p>
+          <input className="hm-input" value={addrStreet} onChange={e=>setAddrStreet(e.target.value)} placeholder={t("street_ph",lang)} style={{ marginBottom: 10 }} />
+          <div className="hm-input-row" style={{ marginBottom: 16 }}>
+            <input className="hm-input hm-input--city" value={addrCity} onChange={e=>setAddrCity(e.target.value)} placeholder={t("city_ph",lang)} />
+            <input className="hm-input" value={addrPostal} onChange={e=>setAddrPostal(e.target.value)} placeholder={t("post_ph",lang)} />
           </div>
-          <button onClick={saveAddress} disabled={!addrStreet.trim()||!addrCity.trim()} style={{width:"100%",padding:13,background:"#2B3A67",color:"#fff",border:"none",borderRadius:12,fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,cursor:"pointer",marginBottom:10,opacity:(!addrStreet.trim()||!addrCity.trim())?0.45:1}}>{t("save_continue",lang)}</button>
-          <button onClick={skipAddress} style={{width:"100%",padding:10,background:"none",border:"none",color:"rgba(43,58,103,.4)",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer"}}>{t("skip_now",lang)}</button>
-        </div>
-      </div>}
+          <button
+            type="button"
+            className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg"
+            onClick={saveAddress}
+            disabled={!addrStreet.trim()||!addrCity.trim()}
+            style={{ marginBottom: 10 }}
+          >
+            {t("save_continue", lang)}
+          </button>
+          <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" onClick={skipAddress}>
+            {t("skip_now", lang)}
+          </button>
+        </DialogPanel>
+      </AppDialog>
 
-      {/* LANG MODAL */}
+      {/* ARCHIVE MODAL */}
+      <AppDialog
+        open={showArchiveModal}
+        onClose={() => setShowArchiveModal(false)}
+        size="sm"
+        ariaLabel={t("nameyourthread", lang)}
+      >
+        <DialogPanel variant="white" padding="md">
+          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>📁 {t("nameyourthread", lang)}</h2>
+          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>{t("archive_hint", lang)}</p>
+          <input
+            className="hm-input"
+            value={archiveTitle}
+            onChange={e=>setArchiveTitle(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&doArchive()}
+            placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."}
+            style={{ marginBottom: 12 }}
+            autoFocus
+          />
+          <div className="hm-btn-row">
+            <button type="button" className="hm-btn hm-btn--primary" onClick={doArchive}>{t("archivethread", lang)} ✓</button>
+            <button type="button" className="hm-btn hm-btn--secondary" onClick={()=>setShowArchiveModal(false)}>{t("cancel", lang)}</button>
+          </div>
+        </DialogPanel>
+      </AppDialog>
+
+      {/* PAST THREADS PANEL */}
+      <AppDialog
+        open={showThreads}
+        onClose={() => setShowThreads(false)}
+        size="md"
+        align="bottom"
+        ariaLabel={t("pastthreads", lang)}
+        panelClassName="hm-dialog--threads"
+      >
+        <div className="hm-threads-sheet">
+          <div className="hm-dialog-title" style={{ textAlign: "center", paddingBottom: 12, borderBottom: "1px solid var(--hm-surface-muted)", marginBottom: 8 }}>
+            📁 {t("pastthreads", lang)}
+          </div>
+          {threads.length===0 && <div className="hm-empty-state">{t("no_archived", lang)}</div>}
+          {threads.map(th=>(
+            <div key={th.id} className="hm-thread-item" onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
+              <div className="hm-thread-item__title">{th.title}</div>
+              <div className="hm-thread-item__meta">{th.date} · {th.messages.length} {t("messages_count", lang)}</div>
+            </div>
+          ))}
+        </div>
+      </AppDialog>
       {showLang && (
         <LanguageFlagOverlay
           open={showLang}
@@ -3978,33 +4029,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           }}
         />
       )}
-
-      {/* ARCHIVE MODAL */}
-      {showArchiveModal&&<div className="hm-overlay" style={{background:"rgba(43,58,103,.5)"}}>
-        <div className="hm-dialog hm-dialog--sm" style={{background:"#fff",borderRadius:18,padding:24}}>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,color:navy,marginBottom:6,fontWeight:600}}>📁 {t("nameyourthread",lang)}</div>
-          <p style={{fontSize:13,color:"rgba(43,58,103,.55)",marginBottom:16,lineHeight:1.5}}>{t("archive_hint",lang)}</p>
-          <input value={archiveTitle} onChange={e=>setArchiveTitle(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doArchive()} placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."} style={{width:"100%",padding:"11px 13px",border:`1.5px solid ${gl}`,borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",boxSizing:"border-box" as any,marginBottom:12}} autoFocus/>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={doArchive} style={{flex:1,padding:11,background:navy,color:"#fff",border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,cursor:"pointer"}}>{t("archivethread",lang)} ✓</button>
-            <button onClick={()=>setShowArchiveModal(false)} style={{flex:1,padding:11,background:gl,color:navy,border:"none",borderRadius:10,fontFamily:"'DM Sans',sans-serif",fontSize:14,cursor:"pointer"}}>{t("cancel",lang)}</button>
-          </div>
-        </div>
-      </div>}
-
-      {/* PAST THREADS PANEL */}
-      {showThreads&&<div className="hm-overlay hm-overlay--bottom" onClick={e=>{if(e.target===e.currentTarget)setShowThreads(false)}} style={{background:"rgba(43,58,103,.5)",padding:0}}>
-        <div className="hm-threads-sheet" style={{background:"#fff",borderRadius:"18px 18px 0 0",padding:16,maxHeight:"70vh",overflowY:"auto"}}>
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,fontWeight:600,textAlign:"center",paddingBottom:12,borderBottom:`1px solid ${gl}`,marginBottom:8}}>📁 {t("pastthreads",lang)}</div>
-          {threads.length===0&&<div style={{textAlign:"center",color:"rgba(43,58,103,.55)",fontSize:13,padding:"20px 0"}}>{t("no_archived",lang)}</div>}
-          {threads.map(th=>(
-            <div key={th.id} style={{padding:"11px 12px",borderRadius:10,background:gl,marginBottom:8,cursor:"pointer"}} onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
-              <div style={{fontSize:13,fontWeight:600,color:navy,marginBottom:2}}>{th.title}</div>
-              <div style={{fontSize:11,color:"rgba(43,58,103,.55)"}}>{th.date} · {th.messages.length} {t("messages_count",lang)}</div>
-            </div>
-          ))}
-        </div>
-      </div>}
 
       {/* FILE INPUT (memories) */}
       <input
@@ -4091,6 +4115,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
         </div>
         <div className="hm-header-actions">
+          <div data-tour="header-notifications">
           <AppNotificationsBell
             lang={lang}
             token={token}
@@ -4104,15 +4129,32 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
             onReadChange={refreshNotifRead}
           />
-          <div className="hm-header-avatar" onClick={()=>{ setShowNotifications(false); setShowAccountMenu(v=>!v); }}>
-            {displayInitial}
-            {showAccountMenu&&<div className="hm-header-account-menu" onClick={e=>e.stopPropagation()}>
-              <button onClick={()=>{setShowAccountMenu(false);openProfileEditForm();setTab("profile");}} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>✏️ {lang==="el"?"Ενημέρωση Στοιχείων":"Update Profile"}</button>
-              <Link to={PRIVACY_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>🔒 {lang==="el"?"Πολιτική Απορρήτου":"Privacy Policy"}</Link>
-              <Link to={TERMS_URL} onClick={()=>setShowAccountMenu(false)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:7,color:"#2B3A67",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,textDecoration:"none",boxSizing:"border-box"}}>📄 {lang==="el"?"Όροι Χρήσης":"Terms of Use"}</Link>
-              <button onClick={requestLogout} style={{width:"100%",textAlign:"left",padding:"8px 10px",background:"none",border:"none",borderRadius:7,color:"#E07B54",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer"}}>🚪 {lang==="el"?"Αποσύνδεση":"Log out"}</button>
-            </div>}
           </div>
+          <button
+            type="button"
+            className="hm-header-avatar hm-header-avatar-btn"
+            aria-label={lang === "el" ? "Λογαριασμός" : "Account"}
+            aria-expanded={showAccountMenu}
+            aria-haspopup="menu"
+            onClick={() => { setShowNotifications(false); setShowAccountMenu((v) => !v); }}
+          >
+            {displayInitial}
+            {showAccountMenu && (
+              <div className="hm-header-account-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setShowAccountMenu(false); setShowProfileSettings(true); setTab("profile"); }}
+                >
+                  ⚙️ {lang === "el" ? "Ρυθμίσεις" : "Settings"}
+                </button>
+                <div className="hm-header-account-menu__divider" role="separator" />
+                <button type="button" role="menuitem" className="hm-menuitem--danger" onClick={requestLogout}>
+                  🚪 {lang === "el" ? "Αποσύνδεση" : "Log out"}
+                </button>
+              </div>
+            )}
+          </button>
         </div>
         </div>
       </div>
@@ -4295,15 +4337,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div className="hm-tab-card hm-tab-card--flush">
                 {[
                   {
-                    key: "notifications",
+                    key: "alerts",
                     icon: "🔔",
                     iconBg: "rgba(255,193,7,.2)",
-                    label: lang==="el"?"Ειδοποιήσεις":"Notifications",
+                    label: lang==="el"?"Ειδοποιήσεις εφαρμογής":"App alerts",
                     value: notificationSummaryLabel(lang, appNotifications.length, notifUnreadCount),
                     onClick: () => {
                       setTab("profile");
                       setShowNotifications(true);
                     },
+                  },
+                  {
+                    key: "privacy",
+                    icon: "🔐",
+                    iconBg: "rgba(74,190,170,.18)",
+                    label: lang==="el"?"Απόρρητο & δεδομένα":"Privacy & data",
+                    value: profile.consentMarketing
+                      ? (lang==="el"?"Marketing: ναι":"Marketing: on")
+                      : (lang==="el"?"Marketing: όχι":"Marketing: off"),
+                    onClick: openAccountPrivacy,
                   },
                   {
                     key: "language",
@@ -4358,7 +4410,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 width:"100%",padding:"14px 12px",marginTop:4,
                 border:".5px solid rgba(43,58,103,.08)",background:"#fff",borderRadius:14,
                 boxSizing:"border-box",
-                color:"#D64545",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
+                color:"var(--hm-destructive)",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
                 cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
               }}
             >
@@ -4388,7 +4440,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {/* Chat toolbar */}
             {threads.length>0&&(
               <div style={{display:"flex",gap:6,marginBottom:10}}>
-                <button onClick={()=>setShowThreads(true)} style={{flex:1,padding:"7px 10px",background:gl,border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,cursor:"pointer",color:navy,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                <button type="button" onClick={()=>setShowThreads(true)} className="hm-btn hm-btn--secondary hm-btn--sm" style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                   🗂️ {t("pastthreads",lang)}
                 </button>
               </div>
@@ -4543,9 +4595,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
                 </div>
                 <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
-                <button onClick={()=>{setActiveMemRef(child.name);setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>📝</button>
-                <button onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}} style={{background:"none",border:"1px solid "+navy,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>🏆</button>
-                <button onClick={()=>requestDeleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
+                <button type="button" className="hm-btn-ghost hm-btn-ghost--sm" onClick={()=>{setActiveMemRef(child.name);setTab("memories");}}>📝</button>
+                <button type="button" className="hm-btn-ghost hm-btn-ghost--sm" onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}}>🏆</button>
+                <button type="button" className="hm-btn hm-btn--danger-soft hm-btn--sm" onClick={()=>requestDeleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} aria-label={lang==="el"?"Διαγραφή":"Delete"}>×</button>
               </div>);
             })}
             <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
@@ -5114,7 +5166,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {/* LANG MISMATCH HINT */}
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
-      {tab==="chat"&&<div className="hm-app-composer" style={{background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)"}}>
+      {tab==="chat"&&<div className="hm-app-composer" data-tour="chat-composer" style={{background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)"}}>
         {chatPendingAttachments.length > 0 && (
           <div className="hm-chat-attach-preview">
             {chatPendingAttachments.map((att, i) => (
@@ -5250,42 +5302,41 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
       </div>}
 
-      {tab === "chat" && showChatAttachSheet && isCoarseMobile && (
-        <AppModalPortal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="hm-overlay hm-overlay--bottom"
-            style={{ background: "rgba(43,58,103,.5)", padding: 0 }}
-            onClick={() => setShowChatAttachSheet(false)}
-          >
-            <div className="hm-chat-attach-sheet" onClick={(e) => e.stopPropagation()}>
-              <div className="hm-chat-attach-sheet__title">
-                {lang === "el" ? "Προσθήκη" : "Add"}
-              </div>
-              <div className="hm-chat-attach-sheet__grid" role="menu">
-                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("camera")}>
-                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.7"/></svg>
-                  </span>
-                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Κάμερα" : "Camera"}</span>
-                </button>
-                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("gallery")}>
-                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.7"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="M4 16l4.5-4.5 3 3L14 12l6 6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Φωτογραφίες" : "Photos"}</span>
-                </button>
-                <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("file")}>
-                  <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9l-4-6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>
-                  </span>
-                  <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Αρχεία" : "Files"}</span>
-                </button>
-              </div>
+      {tab === "chat" && (
+        <AppDialog
+          open={showChatAttachSheet && isCoarseMobile}
+          onClose={() => setShowChatAttachSheet(false)}
+          size="md"
+          align="bottom"
+          ariaLabel={lang === "el" ? "Προσθήκη" : "Add"}
+          panelClassName="hm-dialog--attach"
+        >
+          <div className="hm-chat-attach-sheet">
+            <div className="hm-chat-attach-sheet__title">
+              {lang === "el" ? "Προσθήκη" : "Add"}
+            </div>
+            <div className="hm-chat-attach-sheet__grid" role="menu">
+              <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("camera")}>
+                <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.7"/></svg>
+                </span>
+                <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Κάμερα" : "Camera"}</span>
+              </button>
+              <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("gallery")}>
+                <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.7"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="M4 16l4.5-4.5 3 3L14 12l6 6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </span>
+                <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Φωτογραφίες" : "Photos"}</span>
+              </button>
+              <button type="button" role="menuitem" className="hm-chat-attach-sheet__tile" onClick={() => pickChatAttachment("file")}>
+                <span className="hm-chat-attach-sheet__tile-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M14 3H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9l-4-6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>
+                </span>
+                <span className="hm-chat-attach-sheet__tile-label">{lang === "el" ? "Αρχεία" : "Files"}</span>
+              </button>
             </div>
           </div>
-        </AppModalPortal>
+        </AppDialog>
       )}
 
       {/* TAB BAR */}
@@ -5298,6 +5349,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 key={tb.id}
                 type="button"
                 className="hm-tab-btn"
+                data-tour={`tab-${tb.id}`}
                 onClick={()=>{
                   showTabBar();
                   setTab(tb.id);
@@ -5317,37 +5369,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
       </div>
     </div>
+    <AppTourGuide
+      open={tourOpen}
+      stepIndex={tourStep}
+      lang={lang}
+      userName={vocativeName || displayName}
+      onNext={handleTourNext}
+      onBack={handleTourBack}
+      onSkip={handleTourSkip}
+    />
     {toasts.length > 0 && (
-      <div aria-live="polite" className="hm-toast-stack" style={{display:"flex",flexDirection:"column",gap:10,pointerEvents:"none"}}>
-        {toasts.map(toastItem => (
-          <div key={toastItem.id} role="status" style={{
-            pointerEvents:"auto", fontSize:14, fontWeight:500, lineHeight:1.45, padding:"12px 14px", borderRadius:12,
-            boxShadow:"0 8px 32px rgba(43,58,103,.18)",
-            background:"#fff",
-            color: toastItem.kind === "ok" ? "#2D9E6B" : "#E07B54",
-            border: toastItem.kind === "ok" ? "1.5px solid rgba(45,158,107,.35)" : "1.5px solid rgba(224,123,84,.4)",
-            display:"flex", alignItems:"center", gap:12,
-          }}>
-            <span style={{flex:1}}>{toastItem.text}</span>
-            {toastItem.undo && (
-              <button
-                type="button"
-                onClick={() => {
-                  toastItem.undo?.();
-                  setToasts(prev => prev.filter(x => x.id !== toastItem.id));
-                  showToast(t("undone", lang), "ok");
-                }}
-                style={{
-                  flexShrink:0, padding:"6px 10px", borderRadius:8, border:"none", cursor:"pointer",
-                  background:"#2B3A67", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:700,
-                }}
-              >
-                {toastItem.undoLabel || t("undo", lang)}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+      <ToastStack
+        toasts={toasts}
+        onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))}
+        onUndo={(toastItem) => {
+          toastItem.undo?.();
+          setToasts((prev) => prev.filter((x) => x.id !== toastItem.id));
+          showToast(t("undone", lang), "ok");
+        }}
+        dismissLabel={lang === "el" ? "Κλείσιμο" : "Dismiss"}
+      />
     )}
     </>
   );
