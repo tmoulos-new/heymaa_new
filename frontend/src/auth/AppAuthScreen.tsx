@@ -181,7 +181,7 @@ export function AppAuthScreen({
       await fetch(`${API}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail }),
+        body: JSON.stringify({ email: trimmedEmail, lang }),
       })
       setForgotSent(true)
     } catch {

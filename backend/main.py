@@ -2437,6 +2437,26 @@ def register_user(req: RegisterRequest):
             _award_invite_referral(invite_code, user_id)
         session = _sign_in_with_password_as_user(email, req.password)
         access_token = session.session.access_token
+        if RESEND_API_KEY:
+            try:
+                try:
+                    from .email_templates import render_welcome_trial_email, send_email
+                except ImportError:
+                    from email_templates import render_welcome_trial_email, send_email
+                welcome = render_welcome_trial_email(
+                    name=req.name,
+                    app_url=APP_URL,
+                    trial_days=TRIAL_DAYS,
+                    lang=req.lang,
+                )
+                send_email(
+                    api_key=RESEND_API_KEY,
+                    from_address=RESEND_FROM,
+                    to=email,
+                    message=welcome,
+                )
+            except Exception:
+                pass
         return {'token': access_token, 'plan': 'trial', 'name': req.name}
     except HTTPException:
         if user_id:
@@ -2872,6 +2892,103 @@ async def admin_health(x_token: Optional[str] = Header(None)):
     else:
         status["resend"] = {"ok": False, "msg": "no key"}
     return status
+
+
+class SendEmailSamplesRequest(BaseModel):
+    to: str
+    name: Optional[str] = "Gad"
+
+
+@app.post("/admin/send_email_samples")
+async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Optional[str] = Header(None)):
+    """Send one of each transactional template to the given address (QA / preview)."""
+    verify_admin(x_token)
+    if not RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="RESEND_API_KEY is not configured on the server.")
+    to = (req.to or "").strip().lower()
+    if not to or "@" not in to:
+        raise HTTPException(status_code=400, detail="Valid recipient email required.")
+    try:
+        from .email_templates import (
+            render_beta_invite_email,
+            render_password_changed_email,
+            render_password_reset_email,
+            render_subscription_activated_email,
+            render_subscription_welcome_email,
+            render_welcome_trial_email,
+            send_email,
+        )
+    except ImportError:
+        from email_templates import (
+            render_beta_invite_email,
+            render_password_changed_email,
+            render_password_reset_email,
+            render_subscription_activated_email,
+            render_subscription_welcome_email,
+            render_welcome_trial_email,
+            send_email,
+        )
+    name = (req.name or "Gad").strip() or "Gad"
+    samples = [
+        ("beta_invite", render_beta_invite_email(
+            first_name=name,
+            email=to,
+            invite_code="HEYMAA-SAMPLE",
+            plan_label="Premium",
+            app_url=APP_URL,
+            auth_account_ready=True,
+            temporary_password="sample-temp-123",
+        )),
+        ("password_reset_el", render_password_reset_email(
+            name=name,
+            reset_url=f"{APP_URL}?reset=sample-token-el",
+            lang="el",
+        )),
+        ("password_reset_en", render_password_reset_email(
+            name=name,
+            reset_url=f"{APP_URL}?reset=sample-token-en",
+            lang="en",
+        )),
+        ("welcome_trial", render_welcome_trial_email(
+            name=name,
+            app_url=APP_URL,
+            trial_days=TRIAL_DAYS,
+            lang="el",
+        )),
+        ("subscription_activated", render_subscription_activated_email(
+            name=name,
+            plan="premium",
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("subscription_welcome", render_subscription_welcome_email(
+            name=name,
+            plan="premium",
+            invite_code="LS-sample-invite",
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("password_changed", render_password_changed_email(
+            name=name,
+            app_url=APP_URL,
+            lang="el",
+        )),
+    ]
+    sent = []
+    errors = []
+    for label, message in samples:
+        err = send_email(
+            api_key=RESEND_API_KEY,
+            from_address=RESEND_FROM,
+            to=to,
+            message=message,
+        )
+        if err:
+            errors.append({"template": label, "error": err})
+        else:
+            sent.append({"template": label, "subject": message.subject})
+    return {"ok": len(errors) == 0, "to": to, "sent": sent, "errors": errors}
+
 
 @app.get("/admin/usage")
 async def admin_usage(x_token: Optional[str] = Header(None)):
@@ -4511,63 +4628,6 @@ def supabase_create_auth_user(email: str, user_metadata: dict, password: Optiona
     return user_id
 
 
-def _tester_invite_email_html(
-    first_name: str,
-    email: str,
-    invite_code: str,
-    plan_label: str,
-    *,
-    auth_account_ready: bool = False,
-    temporary_password: Optional[str] = None,
-) -> str:
-    if auth_account_ready and temporary_password:
-        login_steps = f"""
-      <li>Βάλε το email σου: <strong>{email}</strong></li>
-      <li>Προσωρινός κωδικός: <strong>{temporary_password}</strong></li>
-      <li>Σύνδεση — θα σου ζητηθεί να ορίσεις <strong>νέο κωδικό</strong> στην πρώτη είσοδο</li>"""
-    elif auth_account_ready:
-        login_steps = f"""
-      <li>Βάλε το email σου: <strong>{email}</strong></li>
-      <li>Πάτα <strong>«Ξέχασα τον κωδικό»</strong> για να ορίσεις password</li>
-      <li>Άνοιξε το link από το email reset και όρισε κωδικό</li>
-      <li>Σύνδεση με email + password</li>"""
-    else:
-        login_steps = f"""
-      <li>Βάλε το email σου: <strong>{email}</strong></li>
-      <li>Βάλε τον κωδικό πρόσκλησης</li>
-      <li>Φτιάξε τον κωδικό σου (password)</li>"""
-    try:
-        from .greek_text import greek_vocative
-    except ImportError:
-        from greek_text import greek_vocative
-    greet_name = greek_vocative(first_name)
-    return f"""
-<div style="font-family:'Segoe UI',sans-serif;max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:36px;border:1px solid #F0EBE6">
-  <div style="font-size:26px;font-weight:700;color:#2B3A67;margin-bottom:4px">Hey<span style="color:#4ABEAA">Maa</span></div>
-  <div style="font-size:12px;color:#7A7068;margin-bottom:28px">by Care Direct</div>
-  <p style="font-size:16px;color:#2B3A67;margin-bottom:8px">Γεια σου <strong>{greet_name}</strong>! 👋</p>
-  <p style="font-size:14px;color:#555;line-height:1.7;margin-bottom:20px">
-    Σε καλωσορίζουμε στο <strong>HeyMaa Beta</strong>! Είσαι ένας από τους πρώτους ανθρώπους που θα δοκιμάσουν την εφαρμογή μας.
-    Ο λογαριασμός σου έχει ρυθμιστεί στο πακέτο <strong>{plan_label}</strong>.
-  </p>
-  <div style="background:#F5F0EB;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center">
-    <div style="font-size:12px;color:#7A7068;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Κωδικός Πρόσκλησης</div>
-    <div style="font-size:22px;font-weight:700;color:#2B3A67;letter-spacing:2px">{invite_code}</div>
-  </div>
-  <div style="background:#2B3A67;border-radius:12px;padding:20px;margin-bottom:24px">
-    <div style="font-size:13px;color:#F8E5D6;margin-bottom:12px;font-weight:600">📱 Οδηγίες Εισόδου</div>
-    <ol style="color:#fff;font-size:13px;line-height:2;margin:0;padding-left:18px">
-      <li>Άνοιξε το app <strong>από κινητό</strong> σε <strong>incognito mode</strong></li>
-      <li>Επισκέψου: <a href="{APP_URL}" style="color:#4ABEAA">{APP_URL}</a></li>{login_steps}
-    </ol>
-  </div>
-  <p style="font-size:12px;color:#7A7068;line-height:1.6;margin-bottom:0">
-    Αν χρειαστείς βοήθεια ή θες να μοιραστείς σχόλια, απάντησε απευθείας σε αυτό το email.<br>
-    Σε ευχαριστούμε που μας εμπιστεύεσαι! 🌸
-  </p>
-</div>"""
-
-
 def _send_tester_invite_email(
     first_name: str,
     email: str,
@@ -4578,28 +4638,25 @@ def _send_tester_invite_email(
     temporary_password: Optional[str] = None,
 ) -> Optional[str]:
     """Send invite email. Returns None on success, error message on failure."""
-    if not RESEND_API_KEY:
-        return "RESEND_API_KEY is not configured on the server."
-    import resend as _resend
-
-    _resend.api_key = RESEND_API_KEY
     try:
-        _resend.Emails.send({
-            "from": RESEND_FROM,
-            "to": email,
-            "subject": f"Πρόσκληση Beta — HeyMaa {plan_label} | Κωδικός: {invite_code}",
-            "html": _tester_invite_email_html(
-                first_name,
-                email,
-                invite_code,
-                plan_label,
-                auth_account_ready=auth_account_ready,
-                temporary_password=temporary_password,
-            ),
-        })
-    except Exception as e:
-        return str(e)
-    return None
+        from .email_templates import render_beta_invite_email, send_email
+    except ImportError:
+        from email_templates import render_beta_invite_email, send_email
+    message = render_beta_invite_email(
+        first_name=first_name,
+        email=email,
+        invite_code=invite_code,
+        plan_label=plan_label,
+        app_url=APP_URL,
+        auth_account_ready=auth_account_ready,
+        temporary_password=temporary_password,
+    )
+    return send_email(
+        api_key=RESEND_API_KEY,
+        from_address=RESEND_FROM,
+        to=email,
+        message=message,
+    )
 
 
 class TesterInviteRequest(BaseModel):
@@ -4696,6 +4753,7 @@ async def invite_tester(req: TesterInviteRequest, x_token: Optional[str] = Heade
 
 class EmailRequest(BaseModel):
     email: str
+    lang: Optional[str] = "el"
 
 class ResetPasswordRequest(BaseModel):
     token: str
@@ -4848,18 +4906,36 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
         sb.table("users").update({"must_change_password": False}).eq("id", user_id).execute()
         session = _sign_in_with_password_as_user(email, new_password)
         access_token = session.session.access_token
+        if RESEND_API_KEY:
+            try:
+                try:
+                    from .email_templates import render_password_changed_email, send_email
+                except ImportError:
+                    from email_templates import render_password_changed_email, send_email
+                prof = sb.table("users").select("name").eq("id", user_id).execute()
+                user_name = prof.data[0].get("name") if prof.data else None
+                changed = render_password_changed_email(
+                    name=user_name,
+                    app_url=APP_URL,
+                    lang="el",
+                )
+                send_email(
+                    api_key=RESEND_API_KEY,
+                    from_address=RESEND_FROM,
+                    to=email,
+                    message=changed,
+                )
+            except Exception:
+                pass
         return {"ok": True, "token": access_token}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-import resend as resend_client
 
 @app.post("/auth/forgot-password")
 def forgot_password(req: EmailRequest):
     if not ensure_supabase():
         raise HTTPException(status_code=500, detail=_db_unavailable_detail())
     try:
-        resend_client.api_key = RESEND_API_KEY
         res = sb.table("users").select("id,email,name").eq("email", req.email.lower().strip()).execute()
         if not res.data:
             return {"ok": True}
@@ -4870,12 +4946,22 @@ def forgot_password(req: EmailRequest):
         expires = (datetime.utcnow() + timedelta(hours=2)).isoformat()
         sb.table("users").update({"reset_token": token, "reset_token_expires": expires}).eq("id", user["id"]).execute()
         reset_url = f"{APP_URL}?reset={token}"
-        resend_client.Emails.send({
-            "from": RESEND_FROM,
-            "to": user["email"],
-            "subject": "Reset your HeyMaa password",
-            "html": f"<p>Hi {user.get('name','')},</p><p>Click <a href='{reset_url}'>here</a> to reset your password. Link expires in 2 hours.</p><p>If you did not request this, ignore this email.</p>"
-        })
+        if RESEND_API_KEY:
+            try:
+                from .email_templates import render_password_reset_email, send_email
+            except ImportError:
+                from email_templates import render_password_reset_email, send_email
+            message = render_password_reset_email(
+                name=user.get("name"),
+                reset_url=reset_url,
+                lang=req.lang,
+            )
+            send_email(
+                api_key=RESEND_API_KEY,
+                from_address=RESEND_FROM,
+                to=user["email"],
+                message=message,
+            )
         return {"ok": True}
     except HTTPException:
         raise
@@ -5025,6 +5111,37 @@ async def viva_webhook(request: Request):
         result = await handle_viva_webhook(payload, sb)
         if not result.get("ok") and result.get("reason") not in (None, "user_not_found"):
             return JSONResponse(status_code=400, content=result)
+        if (
+            RESEND_API_KEY
+            and result.get("ok")
+            and result.get("outcome") == "success"
+            and result.get("email")
+        ):
+            try:
+                try:
+                    from .email_templates import render_subscription_activated_email, send_email
+                except ImportError:
+                    from email_templates import render_subscription_activated_email, send_email
+                user_email = str(result["email"]).strip().lower()
+                user_name = None
+                if sb:
+                    prof = sb.table("users").select("name").eq("email", user_email).limit(1).execute()
+                    if prof.data:
+                        user_name = prof.data[0].get("name")
+                activated = render_subscription_activated_email(
+                    name=user_name,
+                    plan=str(result.get("plan") or "premium"),
+                    app_url=APP_URL,
+                    lang="el",
+                )
+                send_email(
+                    api_key=RESEND_API_KEY,
+                    from_address=RESEND_FROM,
+                    to=user_email,
+                    message=activated,
+                )
+            except Exception:
+                pass
         return result
     except ValueError as e:
         return JSONResponse(status_code=503, content={"ok": False, "error": str(e)})
@@ -5060,26 +5177,27 @@ async def lemon_webhook(request: Request):
                 }).execute()
             except Exception:
                 pass
-            try:
-                import resend as _resend
-                _resend.api_key = RESEND_API_KEY
-                app_link = f"{APP_URL}?invite={invite_code}"
-                html_body = (
-                    "<div style='font-family:sans-serif;max-width:520px;margin:auto;padding:24px'>"
-                    "<h2 style='color:#2B3A67'>Kalws irthes sto HeyMaa!</h2>"
-                    f"<p>I syndromh sou ({plan}) energopoihthike.</p>"
-                    f"<p><a href='{app_link}' style='background:#2B3A67;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block'>Xekinise to HeyMaa</a></p>"
-                    f"<p style='font-size:12px;color:#888'>Kwdikos: {invite_code}</p>"
-                    "</div>"
-                )
-                _resend.Emails.send({
-                    "from": RESEND_FROM,
-                    "to": customer_email,
-                    "subject": "Kalws irthes sto HeyMaa!",
-                    "html": html_body
-                })
-            except Exception:
-                pass
+            if RESEND_API_KEY:
+                try:
+                    try:
+                        from .email_templates import render_subscription_welcome_email, send_email
+                    except ImportError:
+                        from email_templates import render_subscription_welcome_email, send_email
+                    welcome = render_subscription_welcome_email(
+                        name=attrs.get("user_name") or attrs.get("name"),
+                        plan=plan,
+                        invite_code=invite_code,
+                        app_url=APP_URL,
+                        lang="el",
+                    )
+                    send_email(
+                        api_key=RESEND_API_KEY,
+                        from_address=RESEND_FROM,
+                        to=customer_email,
+                        message=welcome,
+                    )
+                except Exception:
+                    pass
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
