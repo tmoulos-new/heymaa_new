@@ -16,6 +16,11 @@ except ImportError:
     from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
 
 try:
+    from .cors_config import cors_allowed_origins
+except ImportError:
+    from cors_config import cors_allowed_origins
+
+try:
     from .plan_entitlements import (
         VoiceQuotaExceeded,
         build_status_payload,
@@ -1229,9 +1234,18 @@ async def _ensure_supabase_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def _add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]

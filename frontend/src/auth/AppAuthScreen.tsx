@@ -5,10 +5,10 @@ import {
   apiDetail,
   API,
   checkEmail,
-  HM_TOKEN_KEY,
   applyAuthUserName,
   loginUser,
   registerUser,
+  setAuthToken,
 } from '../lib/authApi'
 import { normalizeAppLang, readStoredAppLang, writeStoredAppLang } from '../lib/appLang'
 import { authStrings, PRIVACY_URL, TERMS_URL, localizeAuthApiMessage, type AuthLang } from './authStrings'
@@ -131,7 +131,7 @@ export function AppAuthScreen({
         consent_terms: terms,
         lang,
       })
-      localStorage.setItem(HM_TOKEN_KEY, res.data.token)
+      setAuthToken(res.data.token)
       applyAuthUserName(res.data.token, trimmedName || res.data.name)
       onSuccess(res.data.token)
     } catch (e: unknown) {
@@ -157,7 +157,7 @@ export function AppAuthScreen({
     setError('')
     try {
       const res = await loginUser(trimmedEmail, password)
-      localStorage.setItem(HM_TOKEN_KEY, res.data.token)
+      setAuthToken(res.data.token)
       applyAuthUserName(res.data.token, res.data.name)
       onSuccess(res.data.token)
     } catch (e: unknown) {

@@ -14,7 +14,7 @@ import { normalizeAppLang, writeStoredAppLang } from '../lib/appLang'
 import type { HomeFaqItem, HomePlan } from '../i18n/homeTypes'
 import {
   fetchSubscriptionStatus,
-  HM_TOKEN_KEY,
+  getAuthToken,
   type SubscriptionSnapshot,
 } from '../lib/authApi'
 import { mergeGamificationFaqItems } from '../lib/gamificationCard'
@@ -77,7 +77,7 @@ export function SubscriptionPage() {
   )
   const [langOpen, setLangOpen] = useState(false)
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({})
-  const token = localStorage.getItem(HM_TOKEN_KEY)
+  const token = getAuthToken()
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(() =>
     readCachedSnapshot(token),
   )

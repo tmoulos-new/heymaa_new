@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
-import { API, HM_TOKEN_KEY, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -91,8 +91,7 @@ import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIc
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 import { AUTH_LOGO_SRC } from "./auth/authLogo";
 
-export { HM_TOKEN_KEY } from "./lib/authApi";
-const TOKEN_KEY = HM_TOKEN_KEY;
+export { HM_TOKEN_KEY } from "./lib/authStorage";
 
 function HeyMaaAvatar({ size }: { size: number }) {
   return (
@@ -1923,7 +1922,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         );
         const nextToken = res.data?.token;
         if (typeof nextToken === "string" && nextToken) {
-          localStorage.setItem(TOKEN_KEY, nextToken);
+          setAuthToken(nextToken);
           onTokenUpdate?.(nextToken);
         }
       }
@@ -5434,20 +5433,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 // ── Root ──────────────────────────────────────────────────────
 function ensureLocalDemoToken(): string | null {
   if (!isBrowserLocalHost()) return null
-  const existing = localStorage.getItem(TOKEN_KEY)
+  const existing = getAuthToken()
   if (existing) return existing
   const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el")
   const profile: Profile = { name: "Mama", childName: "", childAge: "", lang }
-  localStorage.setItem(TOKEN_KEY, LOCAL_DEMO_TOKEN)
+  setAuthToken(LOCAL_DEMO_TOKEN)
   localStorage.setItem(sk(LOCAL_DEMO_TOKEN, "profile"), JSON.stringify(profile))
   return LOCAL_DEMO_TOKEN
 }
 
 export default function App() {
-  const [token, setToken] = useState<string|null>(() => localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken());
+  const [token, setToken] = useState<string|null>(() => getAuthToken() || ensureLocalDemoToken());
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
-    const tk=localStorage.getItem(TOKEN_KEY) || ensureLocalDemoToken(); if(!tk)return null;
+    const tk=getAuthToken() || ensureLocalDemoToken(); if(!tk)return null;
     try{
       const stableRaw = localStorage.getItem(sk(tk,"profile"));
       if (stableRaw) return JSON.parse(stableRaw);
@@ -5455,10 +5454,10 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(localStorage.getItem(TOKEN_KEY)) ? true : null));
+  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(getAuthToken()) ? true : null));
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const handleLogout=()=>{localStorage.removeItem(TOKEN_KEY);setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
+  const handleLogout=()=>{clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
@@ -5564,8 +5563,8 @@ export default function App() {
 
   if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
-  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
+  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{setAuthToken(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <Navigate to="/subscription" replace />;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{localStorage.setItem(TOKEN_KEY,tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>;
+  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>;
 }

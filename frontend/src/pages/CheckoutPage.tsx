@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { createVivaCheckout, HM_TOKEN_KEY, apiDetail } from '../lib/authApi'
+import { createVivaCheckout, getAuthToken, apiDetail } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { setPlanIntent } from '../lib/planCheckoutFlow'
 import { useHomeI18nSync } from '../lib/useHomeI18nSync'
@@ -32,7 +32,7 @@ export function CheckoutPage() {
   const [error, setError] = useState('')
   const [purchasing, setPurchasing] = useState(false)
   const [ready, setReady] = useState(false)
-  const token = localStorage.getItem(HM_TOKEN_KEY)
+  const token = getAuthToken()
 
   const plans = useMemo(
     () => asObjectArray<HomePlan>(tHome('pricing.plans', { returnObjects: true })),

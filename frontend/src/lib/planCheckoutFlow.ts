@@ -1,5 +1,5 @@
 import type { NavigateFunction } from 'react-router-dom'
-import { HM_TOKEN_KEY } from './authApi'
+import { hasAuthToken } from './authApi'
 import { APP_ROUTE } from '../publicRoutes'
 import { goToVivaCheckout, vivaPlanForVariant, type VivaPlanKey } from './vivaCheckout'
 
@@ -27,10 +27,6 @@ export function clearPlanIntent(): void {
   } catch {
     /* ignore */
   }
-}
-
-export function hasAuthToken(): boolean {
-  return !!localStorage.getItem(HM_TOKEN_KEY)
 }
 
 /**

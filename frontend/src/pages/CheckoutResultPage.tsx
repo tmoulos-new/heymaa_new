@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { HM_TOKEN_KEY } from '../lib/authApi'
+import { getAuthToken } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { APP_ROUTE } from '../publicRoutes'
 import { clearPlanIntent } from '../lib/planCheckoutFlow'
@@ -13,7 +13,7 @@ const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
 export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure' }) {
   const [search] = useSearchParams()
   const { t, locale } = useHomeI18nSync('subscription')
-  const token = localStorage.getItem(HM_TOKEN_KEY)
+  const token = getAuthToken()
   const tx =
     search.get('t') ||
     search.get('transactionId') ||

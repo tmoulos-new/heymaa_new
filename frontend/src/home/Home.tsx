@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
-import { HM_TOKEN_KEY } from "../lib/authApi";
+import { hasAuthToken } from "../lib/authApi";
 import {
   HOME_I18N_STORAGE_KEY,
   homeDisplayLocale,
@@ -56,12 +56,12 @@ export default function Home() {
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   const goToApp = useCallback(() => {
-    if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
+    if (hasAuthToken()) navigate(APP_ROUTE);
     else navigate(`${APP_ROUTE}/auth`);
   }, [navigate]);
 
   const goToLogin = useCallback(() => {
-    if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE);
+    if (hasAuthToken()) navigate(APP_ROUTE);
     else navigate(`${APP_ROUTE}/auth?mode=login`);
   }, [navigate]);
 

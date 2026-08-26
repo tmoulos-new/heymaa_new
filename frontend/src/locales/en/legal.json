@@ -1,0 +1,100 @@
+{
+  "cookie": {
+    "title": "Cookies & privacy",
+    "body": "We use essential cookies/session storage for sign-in and optional anonymous statistics (Web Vitals) to improve the app. See our",
+    "privacyLink": "Privacy Policy",
+    "accept": "Accept all",
+    "reject": "Essential only"
+  },
+  "shell": {
+    "home": "Home",
+    "relatedTerms": "Terms & Conditions",
+    "relatedPrivacy": "Privacy Policy",
+    "backSignup": "Back to sign up"
+  },
+  "terms": {
+    "title": "Terms & Conditions",
+    "sections": [
+      {
+        "heading": "1. Nature of the Service",
+        "paragraphs": [
+          "HeyMaa is a digital assistant (chatbot/web interface) that provides information, guidance, and support through interaction 24 hours a day, seven days a week. The service is designed for general use and is not intended for specialized matters requiring professional intervention, such as medical diagnoses, prescriptions, legal or financial advice, or any matter that may put your health, safety, rights, or property at risk."
+        ]
+      },
+      {
+        "heading": "2. Limitations & Disclaimers",
+        "list": [
+          "Answers provided through HeyMaa are based on programming, algorithms, and available data. There is no guarantee that this information is accurate, complete, or up to date.",
+          "Use of the information is solely at the user's initiative, who assumes full responsibility for any action based on it.",
+          "The service does not replace a professional (doctor, pharmacist, lawyer, advisor, etc.). For matters requiring specialized assessment, consult a qualified professional.",
+          "The service provider and its partners are not liable for direct or indirect damages, losses, or consequences arising from use or failure to use the service."
+        ]
+      },
+      {
+        "heading": "3. User Responsibility",
+        "list": [
+          "As a user/subscriber, you agree to use the service responsibly and in accordance with the law and ethical standards.",
+          "If you do not agree with any part of this text, please do not use the service."
+        ]
+      },
+      {
+        "heading": "4. Updates & Modifications",
+        "list": [
+          "Care Direct reserves the right to modify, suspend, or discontinue the service or any part of it without notice.",
+          "These terms may be updated from time to time. Continued use of the service constitutes acceptance of the changes."
+        ]
+      },
+      {
+        "heading": "5. Acceptable Use – Prohibitions",
+        "list": [
+          "Misuse of the service for illegal, harmful, misleading, or abusive actions is prohibited.",
+          "Submitting or sharing sensitive personal, business, or medical data through the interface is prohibited."
+        ]
+      },
+      {
+        "heading": "6. Applicable Law & Jurisdiction",
+        "list": [
+          "These terms are governed by the laws of the Hellenic Republic. Any dispute arising from use of the service shall be subject to the competent courts of Athens."
+        ]
+      },
+      {
+        "heading": "7. Contact",
+        "paragraphs": [
+          "For questions or issues regarding HeyMaa or these terms, contact Care Direct at info@caredirect.com or tel. +30 210 9287700."
+        ]
+      }
+    ]
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "sections": [
+      {
+        "heading": "1. Personal Data, Security & Privacy",
+        "list": [
+          "By entering data in HeyMaa, you acknowledge that personal or non-personal data may be collected, stored, and processed in accordance with our Data Protection Policy.",
+          "The service is not a secure or fully private environment for highly sensitive information (such as medical data, financial details, passwords, or confidential business information).",
+          "We recommend not disclosing personal information that is not necessary."
+        ]
+      },
+      {
+        "heading": "2. Updates & Marketing",
+        "list": [
+          "With your consent, you may receive updates from Care Direct and its partners for market research and promotion of products and services.",
+          "Processing for these purposes is based on your consent or, where required, legitimate interest.",
+          "You may withdraw consent for marketing communications at any time."
+        ]
+      },
+      {
+        "heading": "3. Data Protection",
+        "paragraphs": [
+          "CARE DIRECT S.A. (\"Care Direct\") is committed to protecting users' personal data and complying with Greek Law 4624/2019 and the GDPR (Regulation (EU) 2016/679).",
+          "Care Direct does not collect personal data unless you provide it voluntarily.",
+          "Browsing the website does not require sharing personal data. Technical data (e.g. IP) may be used for statistical purposes only.",
+          "Registration may require email, password, and motherhood profile details. Optional: name, phone, address, etc.",
+          "Full list of partners: www.caredirect.com/partners.aspx",
+          "Data is retained as long as necessary for processing purposes. You have rights of access, rectification, erasure, restriction, objection, portability, and the right to lodge a complaint with the supervisory authority."
+        ]
+      }
+    ]
+  }
+}

@@ -2,7 +2,13 @@ import axios from 'axios'
 import { normalizeAppLang } from './appLang'
 import { stableSk } from './userDataRecovery'
 
-export const HM_TOKEN_KEY = 'hm_token'
+export {
+  HM_TOKEN_KEY,
+  getAuthToken,
+  setAuthToken,
+  clearAuthToken,
+  hasAuthToken,
+} from './authStorage'
 /** Local-only session when Supabase/DB is unavailable — never used in production auth. */
 export const LOCAL_DEMO_TOKEN = 'hm_local_demo'
 

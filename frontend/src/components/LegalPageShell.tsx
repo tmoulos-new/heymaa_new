@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { SiteNavbarLogo } from './SiteNavbarLogo'
 import { SiteFooter } from './SiteFooter'
 import { APP_ROUTE } from '../publicRoutes'
-import { HM_TOKEN_KEY } from '../lib/authApi'
+import { hasAuthToken } from '../lib/authApi'
 import { PRIVACY_URL, TERMS_URL } from '../auth/authStrings'
 import { homeDisplayLocale, HOME_I18N_STORAGE_KEY } from '../i18n'
 import { normalizeAppLang, readStoredAppLang } from '../lib/appLang'
@@ -15,23 +15,22 @@ const AUTH_SIGNUP_PATH = `${APP_ROUTE}/auth?mode=signup`
 
 export function LegalPageShell({
   title,
-  breadcrumbCurrent,
+  docKind,
   children,
 }: {
   title: string
-  breadcrumbCurrent: string
+  docKind: 'terms' | 'privacy'
   children: React.ReactNode
 }) {
   const { t, i18n } = useTranslation()
+  const tl = (key: string) => t(key, { ns: 'legal' })
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const fromSignup = search.get('from') === 'signup'
   const contentLang = homeDisplayLocale(readStoredAppLang('el'))
-  const isPrivacy =
-    breadcrumbCurrent.includes('Απορρήτου') ||
-    title.toLowerCase().includes('privacy') ||
-    title.includes('Απορρήτου')
-  const relatedTo = isPrivacy ? TERMS_URL : PRIVACY_URL
+  const relatedTo = docKind === 'privacy' ? TERMS_URL : PRIVACY_URL
+  const relatedLabel =
+    docKind === 'privacy' ? tl('shell.relatedTerms') : tl('shell.relatedPrivacy')
   const relatedQs = fromSignup ? '?from=signup' : ''
 
   useEffect(() => {
@@ -47,7 +46,7 @@ export function LegalPageShell({
   }, [i18n])
 
   const goToLogin = () => {
-    if (localStorage.getItem(HM_TOKEN_KEY)) navigate(APP_ROUTE)
+    if (hasAuthToken()) navigate(APP_ROUTE)
     else navigate(`${APP_ROUTE}/auth?mode=login`)
   }
 
@@ -75,7 +74,7 @@ export function LegalPageShell({
             <Link
               to={AUTH_SIGNUP_PATH}
               className="legal-back-link"
-              aria-label="Επιστροφή στην εγγραφή"
+              aria-label={tl('shell.backSignup')}
             >
               <span className="legal-back-arrow" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -93,28 +92,22 @@ export function LegalPageShell({
         ) : (
           <nav className="legal-breadcrumb" aria-label="Breadcrumb">
             <Link to="/" className="legal-breadcrumb-home">
-              Αρχική
+              {tl('shell.home')}
             </Link>
             <span className="legal-breadcrumb-sep" aria-hidden="true">
               {' '}
               –{' '}
             </span>
             <span className="legal-breadcrumb-current" aria-current="page">
-              {breadcrumbCurrent}
+              {title}
             </span>
           </nav>
         )}
 
         <article className="legal-content">{children}</article>
 
-        <nav className="legal-related" aria-label="Σχετικοί σύνδεσμοι">
-          {isPrivacy ? (
-            <Link to={`${relatedTo}${relatedQs}`}>Όροι &amp; Προϋποθέσεις Χρήσης</Link>
-          ) : (
-            <Link to={`${relatedTo}${relatedQs}`}>
-              Πολιτική Απορρήτου &amp; Προστασίας Δεδομένων
-            </Link>
-          )}
+        <nav className="legal-related" aria-label="Related links">
+          <Link to={`${relatedTo}${relatedQs}`}>{relatedLabel}</Link>
         </nav>
       </div>
 

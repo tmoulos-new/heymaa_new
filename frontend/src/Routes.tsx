@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -17,8 +17,11 @@ import { CheckoutResultPage } from "./pages/CheckoutResultPage";
 import { TermsPage } from "./pages/TermsPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { BrandFavicon } from "./components/BrandFavicon";
+import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { APP_ROUTE } from "./publicRoutes";
-import { HM_TOKEN_KEY } from "./lib/authApi";
+import { hasAuthToken } from "./lib/authApi";
+import reportWebVitals from "./reportWebVitals";
+import { analyticsCookiesAllowed } from "./lib/cookieConsent";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -35,10 +38,22 @@ function PublicHome() {
     const qs = search.toString();
     return <Navigate to={`${APP_ROUTE}${qs ? `?${qs}` : ""}`} replace />;
   }
-  if (localStorage.getItem(HM_TOKEN_KEY)) {
+  if (hasAuthToken()) {
     return <Navigate to={APP_ROUTE} replace />;
   }
   return <Home />;
+}
+
+function AnalyticsConsentGate() {
+  const onConsentChange = useCallback((analytics: boolean) => {
+    if (analytics) reportWebVitals();
+  }, []);
+
+  useEffect(() => {
+    if (analyticsCookiesAllowed()) reportWebVitals();
+  }, []);
+
+  return <CookieConsentBanner onConsentChange={onConsentChange} />;
 }
 
 export default function AppRoutes() {
@@ -46,6 +61,7 @@ export default function AppRoutes() {
     <BrowserRouter>
       <BrandFavicon />
       <ScrollToTop />
+      <AnalyticsConsentGate />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         <Route path={`${APP_ROUTE}/auth`} element={<AppAuthPage />} />

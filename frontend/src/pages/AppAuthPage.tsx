@@ -2,10 +2,12 @@ import { useEffect } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppAuthScreen } from '../auth/AppAuthScreen'
 import {
-  HM_TOKEN_KEY,
   LOCAL_DEMO_TOKEN,
+  clearAuthToken,
+  getAuthToken,
   isBrowserLocalHost,
   isLocalDemoToken,
+  setAuthToken,
 } from '../lib/authApi'
 import { APP_ROUTE } from '../publicRoutes'
 import { normalizeAppLang } from '../lib/appLang'
@@ -15,7 +17,7 @@ import { resumePlanAfterAuth } from '../lib/planCheckoutFlow'
 function enterLocalDemo(): string {
   const lang = normalizeAppLang(localStorage.getItem('hm_pre_lang') || 'el', 'el')
   const profile = { name: 'Mama', childName: '', childAge: '', lang }
-  localStorage.setItem(HM_TOKEN_KEY, LOCAL_DEMO_TOKEN)
+  setAuthToken(LOCAL_DEMO_TOKEN)
   localStorage.setItem(stableSk(LOCAL_DEMO_TOKEN, 'profile'), JSON.stringify(profile))
   return LOCAL_DEMO_TOKEN
 }
@@ -23,7 +25,7 @@ function enterLocalDemo(): string {
 export function AppAuthPage() {
   const navigate = useNavigate()
   const [search] = useSearchParams()
-  const existing = localStorage.getItem(HM_TOKEN_KEY)
+  const existing = getAuthToken()
   const mode = search.get('mode') === 'login' ? 'login' : 'signup'
   const wantsAuthForm = search.get('mode') === 'login' || search.get('mode') === 'signup'
 
@@ -45,7 +47,7 @@ export function AppAuthPage() {
 
   // Opening login/signup while a demo session exists: clear demo so the form can run.
   if (existing && isLocalDemoToken(existing) && wantsAuthForm) {
-    localStorage.removeItem(HM_TOKEN_KEY)
+    clearAuthToken()
   }
 
   return (
