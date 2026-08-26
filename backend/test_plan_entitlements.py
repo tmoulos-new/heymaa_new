@@ -33,6 +33,16 @@ class PlanEntitlementsTests(unittest.TestCase):
         self.assertTrue(ent["memory_video"])
         self.assertTrue(ent["full_memory"])
 
+    def test_validate_memories_blocks_photo_on_trial(self):
+        payload = [{"text": "hi", "img": "data:image/png;base64,abc"}]
+        err = validate_memories_payload(payload, plan_entitlements("trial"))
+        self.assertIsNotNone(err)
+
+    def test_validate_memories_allows_photo_on_starter(self):
+        payload = [{"text": "hi", "img": "data:image/png;base64,abc"}]
+        err = validate_memories_payload(payload, plan_entitlements("starter"))
+        self.assertIsNone(err)
+
     def test_validate_memories_blocks_video_on_trial(self):
         payload = [{"text": "hi", "video": "data:video/mp4;base64,abc"}]
         err = validate_memories_payload(payload, plan_entitlements("trial"))

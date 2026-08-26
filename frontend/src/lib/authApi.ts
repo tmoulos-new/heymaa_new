@@ -2,6 +2,8 @@ import axios from 'axios'
 import { normalizeAppLang } from './appLang'
 import { stableSk } from './userDataRecovery'
 
+axios.defaults.withCredentials = true
+
 export {
   HM_TOKEN_KEY,
   getAuthToken,
@@ -160,6 +162,7 @@ export type SubscriptionSnapshot = {
   plan?: string | null
   entitlements?: PlanEntitlements
   voice_quota?: VoiceQuota
+  cancel_requested?: boolean
   ok?: boolean
 }
 
@@ -167,6 +170,20 @@ export async function fetchSubscriptionStatus(token: string) {
   const res = await axios.get<SubscriptionSnapshot>(`${API}/auth/status`, {
     headers: { 'x-token': token },
   })
+  return res.data
+}
+
+export async function logoutUser(token?: string | null) {
+  const headers = token ? { 'x-token': token } : undefined
+  return axios.post(`${API}/auth/logout`, {}, { headers })
+}
+
+export async function requestSubscriptionCancel(token: string) {
+  const res = await axios.post<{ ok: boolean; cancel_requested?: boolean; message?: string }>(
+    `${API}/auth/cancel-subscription`,
+    {},
+    { headers: { 'x-token': token } },
+  )
   return res.data
 }
 

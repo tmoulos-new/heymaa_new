@@ -11,6 +11,7 @@ import type { HomePlan } from '../i18n/homeTypes'
 import { continueWithPlan } from '../lib/planCheckoutFlow'
 import {
   fetchSubscriptionStatus,
+  requestSubscriptionCancel,
   type SubscriptionSnapshot,
 } from '../lib/authApi'
 import {
@@ -59,6 +60,8 @@ export function InAppSubscriptionSheet({
   const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(initialSnapshot ?? null)
   const [loading, setLoading] = useState(!initialSnapshot)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelError, setCancelError] = useState('')
 
   useEffect(() => {
     const link = document.createElement('link')
@@ -135,6 +138,23 @@ export function InAppSubscriptionSheet({
     !!activeSlot &&
     activeSlot !== 'trial'
 
+  const cancelPending = !!snapshot?.cancel_requested
+
+  const handleCancelRequest = async () => {
+    setCancelError('')
+    setCancelBusy(true)
+    try {
+      const res = await requestSubscriptionCancel(token)
+      setSnapshot((prev) => (prev ? { ...prev, cancel_requested: true } : prev))
+      if (!res.ok) setCancelError(res.message || tSub('cancel.pendingBody'))
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      setCancelError(err.response?.data?.detail || tSub('cancel.pendingBody'))
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
   const supportEmail = 'info@heymaa.ai'
 
   return (
@@ -205,13 +225,30 @@ export function InAppSubscriptionSheet({
         {showCancelHelp ? (
           <div className="hm-subscription-cancel-card">
             <div className="hm-subscription-cancel-card__title">
-              {tSub('cancel.title')}
+              {cancelPending ? tSub('cancel.pendingTitle') : tSub('cancel.title')}
             </div>
-            <p className="hm-subscription-cancel-card__body">{tSub('cancel.body')}</p>
+            <p className="hm-subscription-cancel-card__body">
+              {cancelPending ? tSub('cancel.pendingBody') : tSub('cancel.body')}
+            </p>
+            {cancelError ? (
+              <p className="hm-subscription-cancel-card__body" style={{ color: 'var(--hm-coral, #e85d4c)' }}>
+                {cancelError}
+              </p>
+            ) : null}
             <div className="hm-subscription-cancel-card__actions">
+              {!cancelPending ? (
+                <button
+                  type="button"
+                  className="hm-btn hm-btn--secondary hm-btn--block"
+                  disabled={cancelBusy}
+                  onClick={() => void handleCancelRequest()}
+                >
+                  {cancelBusy ? (lang === 'el' ? 'Αποστολή…' : 'Sending…') : tSub('cancel.requestButton')}
+                </button>
+              ) : null}
               <a
                 href={`mailto:${supportEmail}?subject=${encodeURIComponent('HeyMaa — subscription cancel')}`}
-                className="hm-btn hm-btn--secondary hm-btn--block"
+                className="hm-btn hm-btn--ghost hm-btn--block"
               >
                 {tSub('cancel.emailButton')}
               </a>

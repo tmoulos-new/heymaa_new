@@ -257,19 +257,23 @@ def _memory_items(value: Any) -> list:
 
 
 def validate_memories_payload(value: Any, entitlements: dict[str, Any]) -> Optional[str]:
-    if entitlements.get("memory_video"):
-        return None
+    full_memory = bool(entitlements.get("full_memory"))
+    allow_video = bool(entitlements.get("memory_video"))
     for item in _memory_items(value):
         if not isinstance(item, dict):
             continue
         video = item.get("video")
-        if video and str(video).strip():
+        if video and str(video).strip() and not allow_video:
             return "Video memories require Full Memory (Starter plan or above)."
+        img = item.get("img")
+        if img and str(img).strip() and not full_memory:
+            return "Photo memories require Full Memory (Starter plan or above)."
     return None
 
 
 def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
     user_row = None
+    cancel_requested = False
     if auth.get("kind") == "user" and auth.get("user_id") and sb:
         try:
             res = (
@@ -282,6 +286,18 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
             user_row = res.data[0] if res.data else None
         except Exception:
             user_row = None
+        try:
+            cancel_res = (
+                sb.table("user_data")
+                .select("key")
+                .eq("user_id", auth["user_id"])
+                .eq("key", "subscription_cancel_requested")
+                .limit(1)
+                .execute()
+            )
+            cancel_requested = bool(cancel_res.data)
+        except Exception:
+            cancel_requested = False
     if auth.get("kind") == "invite":
         _, entitlements = invite_plan_context()
     else:
@@ -291,4 +307,5 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
         **subscription,
         "entitlements": entitlements,
         "voice_quota": voice_quota,
+        "cancel_requested": cancel_requested,
     }

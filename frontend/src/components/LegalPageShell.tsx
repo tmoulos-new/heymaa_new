@@ -6,7 +6,7 @@ import { SiteFooter } from './SiteFooter'
 import { APP_ROUTE } from '../publicRoutes'
 import { hasAuthToken } from '../lib/authApi'
 import { PRIVACY_URL, TERMS_URL } from '../auth/authStrings'
-import { homeDisplayLocale, HOME_I18N_STORAGE_KEY } from '../i18n'
+import { HOME_I18N_STORAGE_KEY, homeDisplayLocale, legalUiLang } from '../i18n'
 import { normalizeAppLang, readStoredAppLang } from '../lib/appLang'
 import '../home/home.css'
 import './legalPage.css'
@@ -22,12 +22,14 @@ export function LegalPageShell({
   docKind: 'terms' | 'privacy'
   children: React.ReactNode
 }) {
+  const storedLang = readStoredAppLang('el')
+  const uiLang = legalUiLang(storedLang)
+  const contentLang = homeDisplayLocale(storedLang)
   const { t, i18n } = useTranslation()
-  const tl = (key: string) => t(key, { ns: 'legal' })
+  const tl = (key: string) => t(key, { ns: 'legal', lng: uiLang })
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const fromSignup = search.get('from') === 'signup'
-  const contentLang = homeDisplayLocale(readStoredAppLang('el'))
   const relatedTo = docKind === 'privacy' ? TERMS_URL : PRIVACY_URL
   const relatedLabel =
     docKind === 'privacy' ? tl('shell.relatedTerms') : tl('shell.relatedPrivacy')

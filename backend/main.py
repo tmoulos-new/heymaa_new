@@ -16,6 +16,11 @@ except ImportError:
     from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
 
 try:
+    from .auth_session import clear_session_cookie, session_token_from_request, set_session_cookie
+except ImportError:
+    from auth_session import clear_session_cookie, session_token_from_request, set_session_cookie
+
+try:
     from .cors_config import cors_allowed_origins
 except ImportError:
     from cors_config import cors_allowed_origins
@@ -1231,6 +1236,19 @@ app = FastAPI(title="HeyMaa API")
 @app.middleware("http")
 async def _ensure_supabase_middleware(request: Request, call_next):
     ensure_supabase()
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def _inject_session_cookie_token(request: Request, call_next):
+    """Use HttpOnly session cookie when the client did not send x-token."""
+    has_header = any(name.lower() == b"x-token" for name, _ in request.scope.get("headers", []))
+    if not has_header:
+        cookie_token = session_token_from_request(request)
+        if cookie_token:
+            headers = list(request.scope.get("headers", []))
+            headers.append((b"x-token", cookie_token.encode("latin-1")))
+            request.scope["headers"] = headers
     return await call_next(request)
 
 
@@ -2490,7 +2508,10 @@ def register_user(req: RegisterRequest):
                 )
             except Exception:
                 pass
-        return {'token': access_token, 'plan': 'trial', 'name': req.name}
+        payload = {'token': access_token, 'plan': 'trial', 'name': req.name}
+        response = JSONResponse(content=payload)
+        set_session_cookie(response, access_token)
+        return response
     except HTTPException:
         if user_id:
             try:
@@ -2522,13 +2543,16 @@ def login_user(req: LoginRequest):
         sb.table('users').update({'last_login': datetime.utcnow().isoformat()}).eq('id', user_id).execute()
         u = sb.table('users').select('plan,name,role,must_change_password').eq('id', user_id).execute()
         row = u.data[0] if u.data else {}
-        return {
+        payload = {
             'token': access_token,
             'plan': row.get('plan', 'trial'),
             'name': row.get('name', ''),
             'role': row.get('role'),
             'must_change_password': bool(row.get('must_change_password')),
         }
+        response = JSONResponse(content=payload)
+        set_session_cookie(response, access_token)
+        return response
     except HTTPException:
         raise
     except Exception as e:
@@ -2539,8 +2563,78 @@ def login_user(req: LoginRequest):
 
 @app.post('/auth/logout')
 def logout_user(x_token: Optional[str] = Header(None)):
-    # JWT sessions are stateless; client clears the stored access token.
-    return {'ok': True}
+    response = JSONResponse(content={'ok': True})
+    clear_session_cookie(response)
+    return response
+
+SUBSCRIPTION_CANCEL_KEY = "subscription_cancel_requested"
+
+@app.post("/auth/cancel-subscription")
+def cancel_subscription_request(x_token: Optional[str] = Header(None)):
+    """Record a cancellation request; paid access continues until the billing period ends."""
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=403, detail="Registered account required.")
+    user_id = auth["user_id"]
+    res = sb.table("users").select("plan,subscription_status,email,name").eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found.")
+    row = res.data[0]
+    status = (row.get("subscription_status") or "").lower()
+    plan = (row.get("plan") or "").lower()
+    if status != "active" or plan in ("", "trial"):
+        raise HTTPException(status_code=400, detail="No active paid subscription to cancel.")
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    cancel_payload = {
+        "requested_at": now,
+        "plan": plan,
+        "email": row.get("email"),
+        "name": row.get("name"),
+    }
+    existing = (
+        sb.table("user_data")
+        .select("key")
+        .eq("user_id", user_id)
+        .eq("key", SUBSCRIPTION_CANCEL_KEY)
+        .execute()
+    )
+    fields = {"key": SUBSCRIPTION_CANCEL_KEY, "value": cancel_payload, "updated_at": now}
+    if existing.data:
+        sb.table("user_data").update(fields).eq("user_id", user_id).eq("key", SUBSCRIPTION_CANCEL_KEY).execute()
+    else:
+        sb.table("user_data").insert({**fields, "user_id": user_id}).execute()
+    if RESEND_API_KEY:
+        try:
+            try:
+                from .email_templates import EmailMessage, send_email
+            except ImportError:
+                from email_templates import EmailMessage, send_email
+            support = os.getenv("HEYMAA_SUPPORT_EMAIL", "info@heymaa.ai")
+            cancel_msg = EmailMessage(
+                subject=f"HeyMaa cancel request — {row.get('email') or user_id}",
+                html=(
+                    f"<p>User requested subscription cancellation.</p>"
+                    f"<p>Email: {row.get('email')}</p>"
+                    f"<p>Plan: {plan}</p>"
+                    f"<p>Requested at: {now}</p>"
+                ),
+            )
+            send_email(
+                api_key=RESEND_API_KEY,
+                from_address=RESEND_FROM,
+                to=support,
+                message=cancel_msg,
+            )
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "cancel_requested": True,
+        "message": "Cancellation request received. You keep access until the end of your billing period.",
+    }
 
 @app.get('/auth/me')
 def get_me(x_token: Optional[str] = Header(None)):
@@ -5041,7 +5135,9 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
                 )
             except Exception:
                 pass
-        return {"ok": True, "token": access_token}
+        response = JSONResponse(content={"ok": True, "token": access_token})
+        set_session_cookie(response, access_token)
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

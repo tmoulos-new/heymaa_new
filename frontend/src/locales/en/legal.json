@@ -12,6 +12,7 @@
     "relatedPrivacy": "Privacy Policy",
     "backSignup": "Back to sign up"
   },
+  "notice": "Full legal text is shown in English. A complete Greek version is available when your app language is Greek.",
   "terms": {
     "title": "Terms & Conditions",
     "sections": [
@@ -79,20 +80,27 @@
       {
         "heading": "2. Updates & Marketing",
         "list": [
-          "With your consent, you may receive updates from Care Direct and its partners for market research and promotion of products and services.",
-          "Processing for these purposes is based on your consent or, where required, legitimate interest.",
+          "With your consent, you may receive updates from Care Direct and its partners by email, phone, mail, or newsletters for market research and promotion of products and services.",
+          "Processing for these purposes is based on your consent or, where required, legitimate interest of Care Direct or its partners.",
           "You may withdraw consent for marketing communications at any time."
         ]
       },
       {
         "heading": "3. Data Protection",
         "paragraphs": [
-          "CARE DIRECT S.A. (\"Care Direct\") is committed to protecting users' personal data and complying with Greek Law 4624/2019 and the GDPR (Regulation (EU) 2016/679).",
+          "CARE DIRECT S.A. (\"Care Direct\" or the \"Company\") recognizes the importance of safeguarding personal data and is committed to protecting visitors' and users' information in accordance with Greek Law 4624/2019 and the GDPR (Regulation (EU) 2016/679).",
           "Care Direct does not collect personal data unless you provide it voluntarily.",
-          "Browsing the website does not require sharing personal data. Technical data (e.g. IP) may be used for statistical purposes only.",
-          "Registration may require email, password, and motherhood profile details. Optional: name, phone, address, etc.",
-          "Full list of partners: www.caredirect.com/partners.aspx",
-          "Data is retained as long as necessary for processing purposes. You have rights of access, rectification, erasure, restriction, objection, portability, and the right to lodge a complaint with the supervisory authority."
+          "Browsing the website does not require sharing personal data. Technical data transferred automatically to the web server (such as ISP name, referring pages, pages visited, or IP address) is used for statistical purposes only and the user remains anonymous.",
+          "You provide personal data only if you wish to register for Care Direct services. In that case, you agree that the information you provide is complete, accurate, and true, and that you will update it when it changes.",
+          "Required fields include, indicatively: username, email address, password, member role (e.g. parent, expectant mother), child date(s) of birth, child gender.",
+          "Optional fields may include: first name, last name, address, phone, date of birth, marital status, profession, etc.",
+          "By accepting the terms of use, you may accept newsletters, SMS, phone updates, and postal material from Care Direct and its partners (MATTEL AEBE, FREZYDERM ABEE, Dcode EPE, QED EPE, MAM HELLAS EPE, Procter & Gamble Hellas MEPE, ESSITY HELLAS AE, LEGO System A/S, SEPTONA A.E., MARS HELLAS AEE FOODS) for research and promotion of products and services.",
+          "Visitors are not obliged to complete the above fields. However, without required data, registration as a member is not possible and you may only browse as a guest.",
+          "Care Direct processes personal data based on your consent or legitimate interest. Analytical methods such as profiling may be used to assess interests. Data is retained as long as necessary for these purposes and may be transferred outside the EU (e.g. USA) with appropriate safeguards.",
+          "Users have the right of access, rectification, erasure, restriction, objection, portability, and the right to lodge a complaint with the supervisory authority."
+        ],
+        "htmlParagraphs": [
+          "The full list of partner companies is available at <a href=\"https://www.caredirect.com/partners.aspx\" target=\"_blank\" rel=\"noopener noreferrer\">www.caredirect.com/partners.aspx</a>."
         ]
       }
     ]

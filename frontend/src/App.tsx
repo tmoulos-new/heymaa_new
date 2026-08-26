@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
-import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
@@ -65,7 +65,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
-import { memoryVideoAllowed } from "./lib/planEntitlements";
+import { memoryVideoAllowed, fullMemoryAllowed } from "./lib/planEntitlements";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
@@ -2616,6 +2616,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         lang === "el"
           ? "Τα βίντεο αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
           : "Video memories require Full Memory (Starter+).",
+        "err",
+      );
+      return;
+    }
+    if (mediaKind === "photo" && !fullMemoryAllowed(planEntitlements, subSnapshot)) {
+      showToast(
+        lang === "el"
+          ? "Οι φωτογραφίες αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
+          : "Photo memories require Full Memory (Starter+).",
         "err",
       );
       return;
@@ -5457,7 +5466,7 @@ export default function App() {
   const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(getAuthToken()) ? true : null));
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const handleLogout=()=>{clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
+  const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }

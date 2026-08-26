@@ -33,7 +33,10 @@
   },
   "cancel": {
     "title": "Cancel subscription",
-    "body": "Cancellation is not yet available in the app. Email us and we will help — you keep access until the end of your billing period.",
+    "body": "Request cancellation here. You keep access until the end of your billing period. Our team will confirm by email.",
+    "requestButton": "Request cancellation",
+    "pendingTitle": "Cancellation requested",
+    "pendingBody": "We received your request. You keep access until the end of your billing period.",
     "emailButton": "Email info@heymaa.ai",
     "helpButton": "Help & support"
   },

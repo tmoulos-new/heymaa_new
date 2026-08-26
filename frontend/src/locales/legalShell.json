@@ -1,0 +1,227 @@
+{
+  "it": {
+    "cookie": {
+      "title": "Cookie e privacy",
+      "body": "Usiamo cookie/sessioni essenziali per l'accesso e statistiche anonime opzionali (Web Vitals) per migliorare l'app. Consulta la",
+      "privacyLink": "Informativa sulla privacy",
+      "accept": "Accetta tutti",
+      "reject": "Solo essenziali"
+    },
+    "shell": {
+      "home": "Home",
+      "relatedTerms": "Termini e condizioni",
+      "relatedPrivacy": "Informativa sulla privacy",
+      "backSignup": "Torna alla registrazione"
+    }
+  },
+  "de": {
+    "cookie": {
+      "title": "Cookies & Datenschutz",
+      "body": "Wir verwenden essenzielle Cookies/Sitzungen für die Anmeldung und optionale anonyme Statistiken (Web Vitals). Siehe unsere",
+      "privacyLink": "Datenschutzerklärung",
+      "accept": "Alle akzeptieren",
+      "reject": "Nur essenzielle"
+    },
+    "shell": {
+      "home": "Startseite",
+      "relatedTerms": "Nutzungsbedingungen",
+      "relatedPrivacy": "Datenschutzerklärung",
+      "backSignup": "Zurück zur Registrierung"
+    }
+  },
+  "fr": {
+    "cookie": {
+      "title": "Cookies & confidentialité",
+      "body": "Nous utilisons des cookies/sessions essentiels pour la connexion et des statistiques anonymes optionnelles (Web Vitals). Voir notre",
+      "privacyLink": "Politique de confidentialité",
+      "accept": "Tout accepter",
+      "reject": "Essentiels uniquement"
+    },
+    "shell": {
+      "home": "Accueil",
+      "relatedTerms": "Conditions générales",
+      "relatedPrivacy": "Politique de confidentialité",
+      "backSignup": "Retour à l'inscription"
+    }
+  },
+  "es": {
+    "cookie": {
+      "title": "Cookies y privacidad",
+      "body": "Usamos cookies/sesiones esenciales para iniciar sesión y estadísticas anónimas opcionales (Web Vitals). Consulta nuestra",
+      "privacyLink": "Política de privacidad",
+      "accept": "Aceptar todo",
+      "reject": "Solo esenciales"
+    },
+    "shell": {
+      "home": "Inicio",
+      "relatedTerms": "Términos y condiciones",
+      "relatedPrivacy": "Política de privacidad",
+      "backSignup": "Volver al registro"
+    }
+  },
+  "ro": {
+    "cookie": {
+      "title": "Cookie-uri și confidențialitate",
+      "body": "Folosim cookie-uri/sesiuni esențiale pentru autentificare și statistici anonime opționale (Web Vitals). Vezi",
+      "privacyLink": "Politica de confidențialitate",
+      "accept": "Acceptă tot",
+      "reject": "Doar esențiale"
+    },
+    "shell": {
+      "home": "Acasă",
+      "relatedTerms": "Termeni și condiții",
+      "relatedPrivacy": "Politica de confidențialitate",
+      "backSignup": "Înapoi la înregistrare"
+    }
+  },
+  "bg": {
+    "cookie": {
+      "title": "Бисквитки и поверителност",
+      "body": "Използваме необходими бисквитки/сесии за вход и по избор анонимна статистика (Web Vitals). Вижте нашата",
+      "privacyLink": "Политика за поверителност",
+      "accept": "Приемам всички",
+      "reject": "Само необходимите"
+    },
+    "shell": {
+      "home": "Начало",
+      "relatedTerms": "Общи условия",
+      "relatedPrivacy": "Политика за поверителност",
+      "backSignup": "Обратно към регистрацията"
+    }
+  },
+  "pl": {
+    "cookie": {
+      "title": "Pliki cookie i prywatność",
+      "body": "Używamy niezbędnych plików cookie/sesji do logowania oraz opcjonalnych anonimowych statystyk (Web Vitals). Zobacz",
+      "privacyLink": "Politykę prywatności",
+      "accept": "Akceptuj wszystkie",
+      "reject": "Tylko niezbędne"
+    },
+    "shell": {
+      "home": "Strona główna",
+      "relatedTerms": "Regulamin",
+      "relatedPrivacy": "Polityka prywatności",
+      "backSignup": "Powrót do rejestracji"
+    }
+  },
+  "sr": {
+    "cookie": {
+      "title": "Колачићи и приватност",
+      "body": "Користимо неопходне колачиће/сесије за пријаву и опционе анонимне статистике (Web Vitals). Погледајте нашу",
+      "privacyLink": "Политику приватности",
+      "accept": "Прихвати све",
+      "reject": "Само неопходне"
+    },
+    "shell": {
+      "home": "Почетна",
+      "relatedTerms": "Услови коришћења",
+      "relatedPrivacy": "Политика приватности",
+      "backSignup": "Назад на регистрацију"
+    }
+  },
+  "ar": {
+    "cookie": {
+      "title": "ملفات تعريف الارتباط والخصوصية",
+      "body": "نستخدم ملفات تعريف ارتباط/جلسات أساسية لتسجيل الدخول وإحصاءات مجهولة اختيارية (Web Vitals). راجع",
+      "privacyLink": "سياسة الخصوصية",
+      "accept": "قبول الكل",
+      "reject": "الأساسية فقط"
+    },
+    "shell": {
+      "home": "الرئيسية",
+      "relatedTerms": "الشروط والأحكام",
+      "relatedPrivacy": "سياسة الخصوصية",
+      "backSignup": "العودة للتسجيل"
+    }
+  },
+  "tr": {
+    "cookie": {
+      "title": "Çerezler ve gizlilik",
+      "body": "Giriş için gerekli çerezler/oturumlar ve isteğe bağlı anonim istatistikler (Web Vitals) kullanıyoruz. Bkz.",
+      "privacyLink": "Gizlilik Politikası",
+      "accept": "Tümünü kabul et",
+      "reject": "Yalnızca gerekli"
+    },
+    "shell": {
+      "home": "Ana sayfa",
+      "relatedTerms": "Kullanım koşulları",
+      "relatedPrivacy": "Gizlilik Politikası",
+      "backSignup": "Kayda dön"
+    }
+  },
+  "zh": {
+    "cookie": {
+      "title": "Cookie 与隐私",
+      "body": "我们使用必要的 Cookie/会话用于登录，以及可选的匿名统计（Web Vitals）。请参阅",
+      "privacyLink": "隐私政策",
+      "accept": "全部接受",
+      "reject": "仅必要"
+    },
+    "shell": {
+      "home": "首页",
+      "relatedTerms": "使用条款",
+      "relatedPrivacy": "隐私政策",
+      "backSignup": "返回注册"
+    }
+  },
+  "ja": {
+    "cookie": {
+      "title": "Cookieとプライバシー",
+      "body": "ログインに必要なCookie/セッションと、任意の匿名統計（Web Vitals）を使用します。",
+      "privacyLink": "プライバシーポリシー",
+      "accept": "すべて同意",
+      "reject": "必要なもののみ"
+    },
+    "shell": {
+      "home": "ホーム",
+      "relatedTerms": "利用規約",
+      "relatedPrivacy": "プライバシーポリシー",
+      "backSignup": "登録に戻る"
+    }
+  },
+  "ru": {
+    "cookie": {
+      "title": "Cookie и конфиденциальность",
+      "body": "Мы используем необходимые cookie/сессии для входа и опциональную анонимную статистику (Web Vitals). См.",
+      "privacyLink": "Политику конфиденциальности",
+      "accept": "Принять все",
+      "reject": "Только необходимые"
+    },
+    "shell": {
+      "home": "Главная",
+      "relatedTerms": "Условия использования",
+      "relatedPrivacy": "Политика конфиденциальности",
+      "backSignup": "Назад к регистрации"
+    }
+  },
+  "pt": {
+    "cookie": {
+      "title": "Cookies e privacidade",
+      "body": "Usamos cookies/sessões essenciais para login e estatísticas anónimas opcionais (Web Vitals). Consulte a",
+      "privacyLink": "Política de Privacidade",
+      "accept": "Aceitar tudo",
+      "reject": "Apenas essenciais"
+    },
+    "shell": {
+      "home": "Início",
+      "relatedTerms": "Termos e condições",
+      "relatedPrivacy": "Política de Privacidade",
+      "backSignup": "Voltar ao registo"
+    }
+  },
+  "nl": {
+    "cookie": {
+      "title": "Cookies & privacy",
+      "body": "We gebruiken essentiële cookies/sessies voor inloggen en optionele anonieme statistieken (Web Vitals). Zie ons",
+      "privacyLink": "Privacybeleid",
+      "accept": "Alles accepteren",
+      "reject": "Alleen essentieel"
+    },
+    "shell": {
+      "home": "Home",
+      "relatedTerms": "Algemene voorwaarden",
+      "relatedPrivacy": "Privacybeleid",
+      "backSignup": "Terug naar registratie"
+    }
+  }
+}

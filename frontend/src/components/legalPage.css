@@ -151,3 +151,13 @@
 .legal-related a:hover {
   text-decoration: underline;
 }
+
+.legal-notice {
+  margin: 0 0 1.25rem;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(43, 58, 103, 0.06);
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(43, 58, 103, 0.85);
+}

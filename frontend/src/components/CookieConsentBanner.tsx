@@ -5,6 +5,8 @@ import {
   hasCookieConsentDecision,
   writeCookieConsent,
 } from '../lib/cookieConsent'
+import { readStoredAppLang } from '../lib/appLang'
+import { legalUiLang } from '../i18n'
 import { PRIVACY_URL } from '../auth/authStrings'
 import './cookieConsent.css'
 
@@ -14,7 +16,8 @@ type Props = {
 
 export function CookieConsentBanner({ onConsentChange }: Props) {
   const { t } = useTranslation()
-  const tl = (key: string) => t(key, { ns: 'legal' })
+  const uiLang = legalUiLang(readStoredAppLang('el'))
+  const tl = (key: string) => t(key, { ns: 'legal', lng: uiLang })
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
