@@ -18,7 +18,7 @@
   },
   "whatIs": {
     "title": "What is HeyMaa?",
-    "body": "A smart, dedicated assistant for the demanding yet wonderful everyday life of motherhood. You talk, write or send a photo — whenever you want, whenever you can, whenever you need to. HeyMaa organises and saves your moments into one continuous story. Not perfect, but real.",
+    "body": "A smart, dedicated assistant for the demanding yet wonderful everyday life of motherhood. You talk, write or send a photo — whenever you want, whenever you can, whenever you need to. HeyMaa organises and saves your moments into one continuous story. <span class=\"what-is-closing\">Not perfect, but <span class=\"what-is-closing-accent\">real</span>.</span>",
     "imageAlt": "Child playing with toys and an activity book"
   },
   "feed": {
