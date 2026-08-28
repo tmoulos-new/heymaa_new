@@ -53,6 +53,26 @@ def resolve_plan_slot(
 def plan_entitlements(plan_slot: str) -> dict[str, Any]:
     full_memory = plan_slot != "trial"
     quota = VOICE_LISTEN_QUOTA_BY_PLAN.get(plan_slot, VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
+    # Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts
+    chat_context_by_plan: dict[str, int] = {
+        "trial": 6,
+        "starter": 12,
+        "premium": 24,
+        "annual": 24,
+    }
+    memory_context_by_plan: dict[str, int] = {
+        "trial": 3,
+        "starter": 5,
+        "premium": 10,
+        "annual": 15,
+    }
+    # 0 = unlimited archived conversation threads
+    archived_threads_by_plan: dict[str, int] = {
+        "trial": 3,
+        "starter": 0,
+        "premium": 0,
+        "annual": 0,
+    }
     return {
         "plan_slot": plan_slot,
         "voice_listen_quota": quota,
@@ -60,6 +80,9 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "memory_video": full_memory,
         "memory_photos": True,
         "memory_text": True,
+        "chat_context_messages": chat_context_by_plan.get(plan_slot, 6),
+        "memory_context_count": memory_context_by_plan.get(plan_slot, 3),
+        "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
     }
 
 

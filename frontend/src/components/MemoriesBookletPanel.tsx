@@ -449,7 +449,7 @@ function FlipPageContent({
   )
 }
 
-function BookletFlipbookModal({
+export function BookletFlipbookModal({
   pages,
   labels,
   lang,
@@ -731,6 +731,9 @@ export function MemoriesBookletPanel({
   saving,
   onRemovePhoto,
   onDeleteMemory,
+  variant = 'card',
+  journalName,
+  onClose,
 }: {
   memories: BookletMemory[]
   userName: string
@@ -742,6 +745,10 @@ export function MemoriesBookletPanel({
   saving?: boolean
   onRemovePhoto?: (m: BookletMemory) => void
   onDeleteMemory?: (m: BookletMemory) => void
+  /** card = inline tab block; sheet = inside album modal */
+  variant?: 'card' | 'sheet'
+  journalName?: string
+  onClose?: () => void
 }) {
   const el = lang === 'el'
   const saveLabel = el ? 'Αποθήκευση' : 'Save'
@@ -823,7 +830,10 @@ export function MemoriesBookletPanel({
   }
 
   return (
-    <div className="hm-tab-card" style={{ marginBottom: 14, padding: '16px 14px' }}>
+    <div
+      className={variant === 'card' ? 'hm-tab-card' : 'hm-memory-album-sheet'}
+      style={variant === 'card' ? { marginBottom: 14, padding: '16px 14px' } : undefined}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
         <span style={{ fontSize: 22, lineHeight: 1, opacity: 0.85 }}>✦</span>
         <div style={{ flex: 1 }}>
@@ -831,27 +841,38 @@ export function MemoriesBookletPanel({
             <div className="hm-tab-card-title" style={{ marginBottom: 0 }}>
               {lang === 'el' ? 'Άλμπουμ Αναμνήσεων' : 'Memories Album'}
             </div>
-            {onSave && (
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={saving}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: '#fff',
-                  background: saving ? 'rgba(44,36,33,.45)' : NAVY,
-                  border: 'none',
-                  borderRadius: 999,
-                  padding: '5px 12px',
-                  cursor: saving ? 'default' : 'pointer',
-                  fontFamily: "'DM Sans',sans-serif",
-                  flexShrink: 0,
-                }}
-              >
-                {saving ? savingLabel : saveLabel}
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {onSave && (
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#fff',
+                    background: saving ? 'rgba(44,36,33,.45)' : NAVY,
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '5px 12px',
+                    cursor: saving ? 'default' : 'pointer',
+                    fontFamily: "'DM Sans',sans-serif",
+                  }}
+                >
+                  {saving ? savingLabel : saveLabel}
+                </button>
+              )}
+              {onClose && (
+                <button
+                  type="button"
+                  className="hm-memory-modal__close"
+                  onClick={onClose}
+                  aria-label={lang === 'el' ? 'Κλείσιμο' : 'Close'}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
           <div
             style={{
@@ -862,7 +883,9 @@ export function MemoriesBookletPanel({
               fontFamily: "'DM Sans',sans-serif",
             }}
           >
-            {labels.bookletSubtitle}
+            {journalName
+              ? `${rangeOk ? countInPeriod : memories.length} ${lang === 'el' ? 'αναμνήσεις' : 'memories'} · ${journalName}`
+              : labels.bookletSubtitle}
           </div>
         </div>
       </div>

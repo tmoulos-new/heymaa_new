@@ -1926,12 +1926,13 @@ def _build_attachment_context(message: str, attachments) -> str:
     return out
 
 
-async def call_groq(message, history, system_prompt, api_key: str):
+async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
     from groq import Groq
     def _run():
         client = Groq(api_key=api_key)
         messages = [{"role": "system", "content": system_prompt}]
-        for h in (history or [])[-6:]:
+        limit = max(2, min(int(history_limit or 6), 32))
+        for h in (history or [])[-limit:]:
             messages.append({"role": h["role"], "content": (h.get("content") or "")[:1500]})
         messages.append({"role": "user", "content": (message or "")[:2000]})
         response = client.chat.completions.create(
@@ -1943,7 +1944,7 @@ async def call_groq(message, history, system_prompt, api_key: str):
         return (response.choices[0].message.content or "").strip()
     return await asyncio.to_thread(_run)
 
-async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None):
+async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
     # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
     model_candidates = (
         "gemini-3.7-flash",
@@ -1954,7 +1955,8 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
 
     def _contents():
         items = []
-        for h in (history or [])[-6:]:
+        limit = max(2, min(int(history_limit or 6), 32))
+        for h in (history or [])[-limit:]:
             role = "user" if h.get("role") == "user" else "model"
             text = (h.get("content") or "")[:1500]
             if not text.strip():
@@ -2015,13 +2017,14 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
 
     return await asyncio.to_thread(_run)
 
-async def call_claude(message, history, system_prompt, api_key: str, image_parts=None):
+async def call_claude(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
     import anthropic
     def _run():
         client = anthropic.Anthropic(api_key=api_key)
+        limit = max(2, min(int(history_limit or 6), 32))
         messages = [
             {"role": h["role"], "content": (h.get("content") or "")[:1500]}
-            for h in (history or [])[-6:]
+            for h in (history or [])[-limit:]
         ]
         if image_parts:
             user_blocks = []
@@ -2830,12 +2833,51 @@ async def sync_profile(req: ProfileSyncRequest, x_token: Optional[str] = Header(
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
+def _entitlements_for_token(x_token: str) -> dict:
+    """Resolve plan entitlements for chat limits."""
+    try:
+        auth = resolve_auth(x_token)
+    except Exception:
+        _, ent = plan_context_from_user_row(None)
+        return ent
+    if auth.get("kind") == "invite":
+        _, ent = invite_plan_context()
+        return ent
+    user_row = None
+    grants: list = []
+    if sb and auth.get("user_id"):
+        try:
+            res = (
+                sb.table("users")
+                .select("plan,subscription_status,role,level_id")
+                .eq("id", auth["user_id"])
+                .limit(1)
+                .execute()
+            )
+            user_row = res.data[0] if res.data else None
+        except Exception:
+            user_row = None
+        try:
+            from plan_grants import get_user_plan_grants, plan_context_with_grants
+        except ImportError:
+            from .plan_grants import get_user_plan_grants, plan_context_with_grants
+        grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
+        _, ent = plan_context_with_grants(user_row, grants)
+        return ent
+    _, ent = plan_context_from_user_row(user_row)
+    return ent
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
     verify_token(x_token)
     if not check_subscription(x_token):
         raise HTTPException(status_code=402, detail="Subscription expired")
     try:
+        entitlements = _entitlements_for_token(x_token)
+        chat_context_limit = int(entitlements.get("chat_context_messages") or 6)
+        memory_context_limit = int(entitlements.get("memory_context_count") or 3)
         complex_query = is_complex(req.message)
         rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
         rag_context = build_rag_context(rag_chunks)
@@ -2843,7 +2885,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         memories_context = ""
         if req.recentMemories:
             mem_lines = []
-            for m in req.recentMemories[:5]:
+            for m in req.recentMemories[:memory_context_limit]:
                 line = m.text
                 if m.date: line += f" ({m.date})"
                 if m.ref: line += f" [re: {m.ref}]"
@@ -2894,13 +2936,13 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             try:
                 key = _prov_keys[provider]
                 if provider == "groq":
-                    reply = await call_groq(message_for_llm, req.history, system_prompt, key)
+                    reply = await call_groq(message_for_llm, req.history, system_prompt, key, history_limit=chat_context_limit)
                     USAGE_LOG["groq"] += 1
                 elif provider == "gemini":
-                    reply = await call_gemini(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None)
+                    reply = await call_gemini(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
                     USAGE_LOG["gemini"] += 1
                 else:
-                    reply = await call_claude(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None)
+                    reply = await call_claude(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
                     USAGE_LOG["claude"] += 1
                 if not reply:
                     raise RuntimeError(f"{provider} returned empty reply")
@@ -2909,7 +2951,18 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                 promo_data = None
                 if promo:
                     promo_data = {"title": promo.get("title",""), "body": promo.get("body",""), "link": promo.get("link"), "badge": promo.get("badge","sponsored"), "cta": promo.get("cta")}
-                return {"reply": reply, "provider": provider, "promo": promo_data}
+                memory_suggestion = None
+                try:
+                    from memory_suggestions import detect_memory_suggestion
+                    memory_suggestion = detect_memory_suggestion(
+                        req.message,
+                        profile=req.profile,
+                        recent_memories=req.recentMemories,
+                        lang=msg_lang or profile_lang or "el",
+                    )
+                except Exception:
+                    memory_suggestion = None
+                return {"reply": reply, "provider": provider, "promo": promo_data, "memory_suggestion": memory_suggestion}
             except Exception as e:
                 errors.append(f"{provider}: {e}")
                 continue

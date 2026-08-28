@@ -145,6 +145,9 @@ export type PlanEntitlements = {
   memory_video: boolean
   memory_photos: boolean
   memory_text: boolean
+  chat_context_messages?: number
+  memory_context_count?: number
+  archived_threads_limit?: number
 }
 
 export type VoiceQuota = {

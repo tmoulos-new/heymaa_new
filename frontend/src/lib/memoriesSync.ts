@@ -5,8 +5,13 @@ export type SyncMemory = {
   text: string;
   date: string;
   img?: string;
+  video?: string;
   ref?: string;
   createdAt?: string;
+  description?: string;
+  source?: "manual" | "chat" | "milestone";
+  isMilestone?: boolean;
+  milestoneKey?: string;
 };
 
 const IDB_NAME = "heymaa_v1";

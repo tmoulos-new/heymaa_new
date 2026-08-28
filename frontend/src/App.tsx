@@ -28,7 +28,8 @@ import {
   getPregnancyMilestonesForWeek,
 } from "./lib/milestones";
 import { APP_ROUTE } from "./publicRoutes";
-import { MemoriesBookletPanel } from "./components/MemoriesBookletPanel";
+import { MemoriesTab } from "./components/memories/MemoriesTab";
+import type { MemoryFormValues } from "./components/memories/AddMemoryModal";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import "./appResponsive.css";
@@ -45,6 +46,13 @@ import {
   memoriesHavePhotos,
   parseMemoriesJson,
 } from "./lib/memoriesSync";
+import { buildMilestoneMemory, milestoneMemoryKey } from "./lib/milestoneMemories";
+import {
+  detectMemorySuggestion,
+  findMatchingMilestoneIndex,
+  mapApiMemorySuggestion,
+  type MemorySuggestion,
+} from "./lib/memorySuggestions";
 import {
   attachmentPayloadForApi,
   fileToChatAttachment,
@@ -65,7 +73,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
-import { memoryVideoAllowed, fullMemoryAllowed } from "./lib/planEntitlements";
+import { memoryVideoAllowed, fullMemoryAllowed, chatContextDepth, memoryContextCount, archivedThreadsLimit } from "./lib/planEntitlements";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
@@ -238,8 +246,14 @@ let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
-interface Message { role: "user" | "assistant"; content: string; attachments?: ChatAttachment[]; promo?: {title:string; body:string; link?:string|null; badge?:string; cta?:string|null} | null; }
-interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; } // ref = child name | "pregnancy" | m:{memberId} | undefined (general)
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  attachments?: ChatAttachment[];
+  promo?: { title: string; body: string; link?: string | null; badge?: string; cta?: string | null } | null;
+  memorySuggestion?: MemorySuggestion | null;
+}
+interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
 
@@ -1848,6 +1862,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return latest;
   }, [rewardsSnapshot, subSnapshot]);
 
+  const chatContextLimit = useMemo(
+    () => chatContextDepth(planEntitlements, subSnapshot),
+    [planEntitlements, subSnapshot],
+  );
+  const memoryContextLimit = useMemo(
+    () => memoryContextCount(planEntitlements, subSnapshot),
+    [planEntitlements, subSnapshot],
+  );
+  const threadArchiveLimit = useMemo(
+    () => archivedThreadsLimit(planEntitlements, subSnapshot),
+    [planEntitlements, subSnapshot],
+  );
+
   useEffect(() => {
     if (!accessExpiryInfo?.urgent) return;
     if (readExpiryPopupDismissed(accessExpiryInfo.accessEndsAt)) return;
@@ -1877,13 +1904,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
   const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan().chat as Message[]) || []);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showNewThreadModal, setShowNewThreadModal] = useState(false);
   const [archiveTitle, setArchiveTitle] = useState("");
   const [showThreads, setShowThreads] = useState(false);
 
   const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
-  const [editingMemIdx, setEditingMemIdx] = useState<number|null>(null);
-  const [photoEditMemIdx, setPhotoEditMemIdx] = useState<number | null>(null);
-  const [memEditVal, setMemEditVal] = useState("");
+  const [memPendingPhoto, setMemPendingPhoto] = useState<string | null>(null);
+  const awaitingMemoryPhotoRef = useRef(false);
   const [familyData, setFamilyData] = useState<FamilyData>(() => {
     const recovered = loadFamilyForToken(token);
     return recovered.children.length || recovered.members.length ? recovered : EMPTY_FAMILY;
@@ -1932,7 +1959,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (tab !== "chat") setShowChatAttachSheet(false);
   }, [tab]);
 
-  const [memInput, setMemInput] = useState(""); const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
+  const [shopInput, setShopInput] = useState(""); const [superInput, setSuperInput] = useState("");
   const [loading, setLoading] = useState(false); const [playingIndex, setPlayingIndex] = useState<number|null>(null); const [recording, setRecording] = useState(false);
   const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
@@ -2129,6 +2156,46 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [memories]);
   const pregWeek = pregnancyWeekFromDueDate(profile.dueDate) ?? 1;
   const pregMilestoneList = getPregnancyMilestones(pregWeek, lang);
+
+  const resolveMilestoneLabel = useCallback((ref: string, idx: number): string | null => {
+    if (ref === "pregnancy") return pregMilestoneList[idx] ?? null;
+    const child = familyChildren.find((c) => c.name === ref);
+    const list = child
+      ? getMilestones(ageMonthsFromBirthDate(child.birthDate) ?? parseAgeMonths(profile.childAge), lang)
+      : milestoneList;
+    return list[idx] ?? null;
+  }, [pregMilestoneList, familyChildren, milestoneList, profile.childAge, lang]);
+
+  const getMilestoneLabelsForRef = useCallback((ref: string): string[] => {
+    if (ref === "pregnancy") return pregMilestoneList;
+    const child = familyChildren.find((c) => c.name === ref);
+    return child
+      ? getMilestones(ageMonthsFromBirthDate(child.birthDate) ?? parseAgeMonths(profile.childAge), lang)
+      : milestoneList;
+  }, [pregMilestoneList, familyChildren, milestoneList, profile.childAge, lang]);
+
+  const milestoneMemorySyncedRef = useRef(false);
+  useEffect(() => {
+    if (!memoriesLocalReady || milestoneMemorySyncedRef.current) return;
+    milestoneMemorySyncedRef.current = true;
+    setMemories((prev) => {
+      const missing: Memory[] = [];
+      for (const [ref, checks] of Object.entries(milestoneChecksMap)) {
+        (checks || []).forEach((checked, idx) => {
+          if (!checked) return;
+          const key = milestoneMemoryKey(ref, idx);
+          if (prev.some((m) => m.milestoneKey === key)) return;
+          const label = resolveMilestoneLabel(ref, idx);
+          if (!label) return;
+          missing.push(buildMilestoneMemory({ ref, idx, label, lang }));
+        });
+      }
+      if (!missing.length) return prev;
+      const next = [...missing, ...prev];
+      void persistMemoriesDurable(token, next);
+      return next;
+    });
+  }, [memoriesLocalReady, milestoneChecksMap, resolveMilestoneLabel, lang, token]);
 
   const [offers, setOffers] = useState<any[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
@@ -2424,14 +2491,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       const msg = lang === "el"
         ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat με φωτογραφίες/αρχεία χρειάζεται σύνδεση με πραγματικό λογαριασμό."
         : "Local demo cannot reach the chat API. Sign in with a real account to send photos and files.";
-      setMessages([...next, { role: "assistant", content: msg }]);
+      const demoSuggestion = detectMemorySuggestion(trimmed, {
+        profile: {
+          childName: profile.childName,
+          dueDate: profile.dueDate || null,
+          children: familyChildren.map((c) => ({ name: c.name })),
+        },
+        recentMemories: memories.filter((m) => m.text && m.text !== "📷"),
+        lang,
+      });
+      setMessages([...next, { role: "assistant", content: msg, memorySuggestion: demoSuggestion }]);
       setLoading(false);
       return;
     }
-    // Last 15 memories (text only, no images) for context
-    const recentMemories = memories.slice(0,15).filter(m=>m.text&&m.text!=="📷").map(m=>({text:m.text,date:m.date,ref:m.ref}));
+    // Recent memories (text only) for context — limit by plan
+    const recentMemories = memories
+      .slice(0, memoryContextLimit)
+      .filter((m) => m.text && m.text !== "📷")
+      .map((m) => ({ text: m.text, date: m.date, ref: m.ref }));
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
-    const historyForApi = messages.slice(-12).map((m) => ({
+    const historyForApi = messages.slice(-chatContextLimit).map((m) => ({
       role: m.role,
       content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
     }));
@@ -2459,7 +2538,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         },
         { headers: { "x-token": token }, timeout: 60000 },
       );
-      setMessages([...next, { role: "assistant", content: res.data.reply, promo: res.data.promo || null }]);
+      setMessages([
+        ...next,
+        {
+          role: "assistant",
+          content: res.data.reply,
+          promo: res.data.promo || null,
+          memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
+        },
+      ]);
     } catch (err: any) {
       if (err.response?.status === 401) {
         const msg = lang === "el"
@@ -2500,9 +2587,39 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   // Archive current thread
   const doArchive = () => {
     if (!messages.length) return;
+    if (threadArchiveLimit > 0 && threads.length >= threadArchiveLimit) {
+      showToast(
+        lang === "el"
+          ? `Στο δοκιμαστικό πακέτο μπορείς έως ${threadArchiveLimit} αρχειοθετημένες συνομιλίες. Αναβάθμισε για απεριόριστες.`
+          : `Trial plan allows up to ${threadArchiveLimit} archived conversations. Upgrade for unlimited.`,
+        "err",
+      );
+      return;
+    }
     const title = archiveTitle.trim() || messages[0].content.slice(0,40) + (messages[0].content.length>40?"…":"");
     const thread: Thread = { id: Date.now().toString(), title, date: new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"}), messages: [...messages] };
     setThreads(prev=>[thread,...prev]); setMessages([]); setShowArchiveModal(false); setArchiveTitle("");
+    showToast(lang === "el" ? "Η συνομιλία αρχειοθετήθηκε." : "Conversation archived.", "ok");
+  };
+
+  const requestNewThread = () => {
+    if (!messages.length) return;
+    setShowNewThreadModal(true);
+  };
+
+  const discardCurrentThread = () => {
+    setMessages([]);
+    setShowNewThreadModal(false);
+    showToast(lang === "el" ? "Ξεκίνησε νέα συνομιλία." : "Started a new conversation.", "ok");
+  };
+
+  const openArchiveForNew = () => {
+    setShowNewThreadModal(false);
+    setShowArchiveModal(true);
+  };
+
+  const deleteThread = (threadId: string) => {
+    setThreads((prev) => prev.filter((th) => th.id !== threadId));
   };
 
   const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
@@ -2685,22 +2802,84 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }, 0);
   };
 
-  const addMemory = (mediaData?: string, mediaKind?: "photo" | "video") => {
-    if(!memInput.trim()&&!mediaData)return;
-    if(activeMemRef==null){
-      showToast(t("select_member_first", lang),"err");
-      return;
+  const acceptMemorySuggestion = (assistantIdx: number) => {
+    const suggestion = messages[assistantIdx]?.memorySuggestion;
+    if (!suggestion || suggestion.added || suggestion.dismissed) return;
+
+    const dateIso = suggestion.dateIso || new Date().toISOString().slice(0, 10);
+    const d = new Date(`${dateIso}T12:00:00`);
+    const date = d.toLocaleDateString(lang, { day: "numeric", month: "short" });
+    const createdAt = d.toISOString();
+    const memoryRef =
+      suggestion.ref && suggestion.ref !== "__general__" ? suggestion.ref : undefined;
+
+    let isMilestone = suggestion.kind === "milestone";
+    let milestoneKey: string | undefined;
+
+    if (isMilestone && suggestion.ref) {
+      const labels = getMilestoneLabelsForRef(suggestion.ref);
+      const matchIdx = findMatchingMilestoneIndex(suggestion.text, labels);
+      if (matchIdx !== null) {
+        const key = milestoneMemoryKey(suggestion.ref, matchIdx);
+        if (!memories.some((m) => m.milestoneKey === key)) {
+          milestoneKey = key;
+          setMilestoneChecksMap((prev) => {
+            const arr = [...(prev[suggestion.ref!] || [])];
+            if (arr[matchIdx]) return prev;
+            arr[matchIdx] = true;
+            return { ...prev, [suggestion.ref!]: arr };
+          });
+        }
+      }
     }
-    if (mediaKind === "video" && !memoryVideoAllowed(planEntitlements, subSnapshot)) {
-      showToast(
-        lang === "el"
-          ? "Τα βίντεο αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
-          : "Video memories require Full Memory (Starter+).",
-        "err",
-      );
-      return;
-    }
-    if (mediaKind === "photo" && !fullMemoryAllowed(planEntitlements, subSnapshot)) {
+
+    track("submit", appPath("chat", "add-memory-suggestion"), "Add memory from chat", {
+      kind: suggestion.kind,
+      ref: memoryRef,
+    });
+
+    setMemories((prev) => {
+      const next: Memory[] = [{
+        emoji: suggestion.emoji,
+        text: suggestion.text,
+        description: suggestion.description || undefined,
+        date,
+        createdAt,
+        ref: memoryRef,
+        source: "chat",
+        isMilestone: isMilestone || !!milestoneKey,
+        milestoneKey,
+      }, ...prev];
+      void persistMemoriesDurable(token, next);
+      return next;
+    });
+
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === assistantIdx && m.memorySuggestion
+          ? { ...m, memorySuggestion: { ...m.memorySuggestion, added: true } }
+          : m,
+      ),
+    );
+
+    showToast(
+      lang === "el" ? "Προστέθηκε στις Αναμνήσεις." : "Memory added to your journal.",
+      "ok",
+    );
+  };
+
+  const dismissMemorySuggestion = (assistantIdx: number) => {
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === assistantIdx && m.memorySuggestion
+          ? { ...m, memorySuggestion: { ...m.memorySuggestion, dismissed: true } }
+          : m,
+      ),
+    );
+  };
+
+  const createMemoryFromForm = (values: MemoryFormValues, journalRef: string) => {
+    if (values.img && !fullMemoryAllowed(planEntitlements, subSnapshot)) {
       showToast(
         lang === "el"
           ? "Οι φωτογραφίες αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
@@ -2709,42 +2888,92 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       );
       return;
     }
-    const ref = activeMemRef === "__general__" ? undefined : activeMemRef;
-    const pointPath = mediaKind === "video"
+    if (values.video && !memoryVideoAllowed(planEntitlements, subSnapshot)) {
+      showToast(
+        lang === "el"
+          ? "Τα βίντεο αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
+          : "Video memories require Full Memory (Starter+).",
+        "err",
+      );
+      return;
+    }
+    const ref = journalRef === "__general__" ? undefined : journalRef;
+    const d = new Date(values.dateIso);
+    const date = d.toLocaleDateString(lang, { day: "numeric", month: "short" });
+    const createdAt = d.toISOString();
+    const pointPath = values.video
       ? appPath("memories", "add-video")
-      : mediaData
+      : values.img
         ? appPath("memories", "add-photo")
         : appPath("memories", "add-note");
-    track("submit", pointPath, mediaKind === "video" ? "Add video memory" : mediaData ? "Add photo memory" : "Add memory", { ref });
-    const emojis=["😊","🍼","😎","🛁","❤️","🌟","🎉","🌸","🏆","✨"];
-    const textVal = memInput.trim() || (mediaKind === "video" ? "🎬" : "📷");
-    const date = new Date().toLocaleDateString(lang, { day: "numeric", month: "short" });
-    const createdAt = new Date().toISOString();
-    const emoji = emojis[memories.length % emojis.length];
-    setMemInput("");
+    track("submit", pointPath, values.img ? "Add photo memory" : "Add memory", { ref });
     const commit = (img?: string, video?: string) => {
       setMemories((prev) => {
-        const next: Memory[] = [{ emoji, text: textVal, date, createdAt, img, video, ref }, ...prev];
+        const next: Memory[] = [{
+          emoji: values.emoji,
+          text: values.text,
+          description: values.description || undefined,
+          date,
+          createdAt,
+          img,
+          video,
+          ref,
+          source: "manual",
+        }, ...prev];
         void persistMemoriesDurable(token, next);
         return next;
       });
     };
-    if (!mediaData) {
-      commit(undefined, undefined);
+    if (values.img) {
+      void compressImageDataUrl(values.img).then((img) => commit(img, undefined));
       return;
     }
-    if (mediaKind === "video") {
-      commit(undefined, mediaData);
-      return;
-    }
-    void compressImageDataUrl(mediaData).then((img) => commit(img, undefined));
+    commit(undefined, values.video);
+  };
+
+  const updateMemoryFromForm = (index: number, values: MemoryFormValues) => {
+    const d = new Date(values.dateIso);
+    const date = d.toLocaleDateString(lang, { day: "numeric", month: "short" });
+    const createdAt = d.toISOString();
+    setMemories((prev) => {
+      const next = prev.map((m, i) => {
+        if (i !== index) return m;
+        return {
+          ...m,
+          emoji: values.emoji,
+          text: values.text,
+          description: values.description || undefined,
+          date,
+          createdAt,
+          img: values.img,
+          video: values.video,
+        };
+      });
+      void persistMemoriesDurable(token, next);
+      return next;
+    });
+  };
+
+  const pickMemoryPhoto = () => {
+    awaitingMemoryPhotoRef.current = true;
+    fileRef.current?.click();
+  };
+
+  const findMemoryIndex = (m: Memory) =>
+    memories.findIndex((x) =>
+      (x.createdAt && m.createdAt && x.createdAt === m.createdAt) ||
+      (x.img && m.img && x.img === m.img) ||
+      (x.date === m.date && x.text === m.text && (x.ref || '') === (m.ref || '') && !!x.img === !!m.img),
+    );
+
+  const removeMemoryPhoto = (index: number) => {
+    setMemories((prev) => prev.map((mem, i) => (i === index ? { ...mem, img: undefined, video: undefined } : mem)));
   };
 
   const deleteMemory = (index: number) => {
     const removed = memories[index];
     if (!removed) return;
     setMemories(memories.filter((_, j) => j !== index));
-    if (editingMemIdx === index) setEditingMemIdx(null);
     showUndoToast(
       t("mem_deleted", lang),
       () => setMemories((prev) => {
@@ -2755,35 +2984,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     );
   };
 
-  const removeMemoryPhoto = (index: number) => {
-    setMemories((prev) => prev.map((m, i) => (i === index ? { ...m, img: undefined } : m)));
-  };
-
-  const moveMemory = (index: number, newRefRaw: string) => {
-    const newRef = newRefRaw === "__general__" ? undefined : newRefRaw;
-    setMemories((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, ref: newRef } : m)),
-    );
-    showToast(t("mem_moved", lang));
-    if (newRefRaw && newRefRaw !== activeMemRef) {
-      setActiveMemRef(newRefRaw);
-    }
-  };
-
-  const saveMemoryText = (index: number, text: string) => {
-    const nextText = text.trim();
-    setMemories((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, text: nextText || m.text } : m)),
-    );
-    setEditingMemIdx(null);
-  };
-
-  const toggleMilestone = (ref: string, idx: number) => {
+  const toggleMilestone = (ref: string, idx: number, label: string) => {
     const current = !!(milestoneChecksMap[ref]||[])[idx];
+    const key = milestoneMemoryKey(ref, idx);
     setMilestoneChecksMap(prev => { const arr=[...(prev[ref]||[])]; arr[idx]=!arr[idx]; return {...prev,[ref]:arr}; });
     setLastCheckedMap(prev=>({...prev,[ref]:current?null:idx}));
     if (!current) {
       track("submit", appPath("milestones", "check"), "Milestone reached", { ref, idx });
+      setMemories((prev) => {
+        if (prev.some((m) => m.milestoneKey === key)) return prev;
+        const next: Memory[] = [buildMilestoneMemory({ ref, idx, label, lang }), ...prev];
+        void persistMemoriesDurable(token, next);
+        return next;
+      });
+    } else {
+      setMemories((prev) => {
+        const next = prev.filter((m) => m.milestoneKey !== key);
+        if (next.length !== prev.length) void persistMemoriesDurable(token, next);
+        return next;
+      });
     }
   };
   const getChecksForRef = (ref: string): boolean[] => milestoneChecksMap[ref]||[];
@@ -4113,6 +4332,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </DialogPanel>
       </AppDialog>
 
+      {/* NEW THREAD MODAL */}
+      <AppDialog
+        open={showNewThreadModal}
+        onClose={() => setShowNewThreadModal(false)}
+        size="sm"
+        ariaLabel={t("newthread", lang)}
+      >
+        <DialogPanel variant="white" padding="md">
+          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>＋ {t("newthread", lang)}</h2>
+          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>
+            {lang === "el"
+              ? "Θέλεις να αρχειοθετήσεις αυτή τη συνομιλία πριν ξεκινήσεις νέα;"
+              : "Archive this conversation before starting a new one?"}
+          </p>
+          <div className="hm-btn-row">
+            <button type="button" className="hm-btn hm-btn--primary" onClick={openArchiveForNew}>
+              📁 {t("archivethread", lang)}
+            </button>
+            <button type="button" className="hm-btn hm-btn--secondary" onClick={discardCurrentThread}>
+              {lang === "el" ? "Χωρίς αποθήκευση" : "Discard"}
+            </button>
+            <button type="button" className="hm-btn hm-btn--ghost" onClick={() => setShowNewThreadModal(false)}>
+              {t("cancel", lang)}
+            </button>
+          </div>
+        </DialogPanel>
+      </AppDialog>
+
       {/* ARCHIVE MODAL */}
       <AppDialog
         open={showArchiveModal}
@@ -4154,9 +4401,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
           {threads.length===0 && <div className="hm-empty-state">{t("no_archived", lang)}</div>}
           {threads.map(th=>(
-            <div key={th.id} className="hm-thread-item" onClick={()=>{setMessages(th.messages);setShowThreads(false);}}>
-              <div className="hm-thread-item__title">{th.title}</div>
-              <div className="hm-thread-item__meta">{th.date} · {th.messages.length} {t("messages_count", lang)}</div>
+            <div key={th.id} className="hm-thread-item">
+              <button
+                type="button"
+                className="hm-thread-item__main"
+                onClick={()=>{setMessages(th.messages);setShowThreads(false);}}
+              >
+                <div className="hm-thread-item__title">{th.title}</div>
+                <div className="hm-thread-item__meta">
+                  {th.date} · {th.messages.length} {lang === "el" ? "μηνύματα" : "messages"}
+                </div>
+              </button>
+              <button
+                type="button"
+                className="hm-thread-item__delete"
+                aria-label={lang === "el" ? "Διαγραφή" : "Delete"}
+                onClick={() => deleteThread(th.id)}
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>
@@ -4195,22 +4458,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           r.onload = (ev) => {
             const dataUrl = ev.target?.result as string;
             const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
-            if (photoEditMemIdx != null) {
+            if (awaitingMemoryPhotoRef.current) {
+              awaitingMemoryPhotoRef.current = false;
               if (isVideo) {
-                showToast(lang === "el" ? "Μόνο φωτογραφίες για επεξεργασία." : "Photos only when editing.", "err");
+                showToast(lang === "el" ? "Μόνο φωτογραφίες στο άλμπουμ." : "Photos only for memories.", "err");
+                e.target.value = "";
                 return;
               }
-              const targetIdx = photoEditMemIdx;
-              setPhotoEditMemIdx(null);
-              void compressImageDataUrl(dataUrl).then((img) => {
-                setMemories((prev) => prev.map((m, i) => (i === targetIdx ? { ...m, img, video: undefined } : m)));
-              });
-            } else {
-              addMemory(dataUrl, isVideo ? "video" : "photo");
+              void compressImageDataUrl(dataUrl).then((img) => setMemPendingPhoto(img));
+              e.target.value = "";
+              return;
             }
+            e.target.value = "";
           };
           r.readAsDataURL(f);
-          e.target.value = "";
         }}
       />
 
@@ -4590,13 +4851,41 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
 
             {/* Chat toolbar */}
-            {threads.length>0&&(
-              <div style={{display:"flex",gap:6,marginBottom:10}}>
-                <button type="button" onClick={()=>setShowThreads(true)} className="hm-btn hm-btn--secondary hm-btn--sm" style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                  🗂️ {t("pastthreads",lang)}
+            <div className="hm-chat-toolbar">
+              <button
+                type="button"
+                className="hm-chat-toolbar__btn"
+                onClick={requestNewThread}
+                disabled={!messages.length}
+                title={t("newthread", lang)}
+              >
+                ＋ {t("newthread", lang)}
+              </button>
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  className="hm-chat-toolbar__btn"
+                  onClick={() => setShowArchiveModal(true)}
+                  title={t("archivethread", lang)}
+                >
+                  📁 {t("archivethread", lang)}
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                className="hm-chat-toolbar__btn hm-chat-toolbar__btn--secondary"
+                onClick={() => setShowThreads(true)}
+                title={t("pastthreads", lang)}
+              >
+                🗂️ {t("pastthreads", lang)}
+                {threads.length > 0 && <span className="hm-chat-toolbar__count">{threads.length}</span>}
+              </button>
+            </div>
+            <p className="hm-chat-context-hint">
+              {lang === "el"
+                ? `Η HeyMaa θυμάται τα τελευταία ${chatContextLimit} μηνύματα και ${memoryContextLimit} αποθηκευμένες αναμνήσεις (ανά πακέτο).`
+                : `HeyMaa remembers your last ${chatContextLimit} messages and ${memoryContextLimit} saved memories (plan-based).`}
+            </p>
 
             {messages.length===0&&(
               <div className="hm-tab-card" style={{textAlign:"center",padding:"20px 16px"}}>
@@ -4642,6 +4931,51 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     <UserChatAvatar size={32} name={displayName} photo={familyData.selfPhoto} />
                   </div>
                 )}
+              {msg.role==="assistant"&&msg.memorySuggestion&&!msg.memorySuggestion.dismissed&&(
+                <div className="hm-chat-memory-suggestion" role="region" aria-label={lang==="el"?"Πρόταση αναμνησης":"Memory suggestion"}>
+                  {msg.memorySuggestion.added ? (
+                    <div className="hm-chat-memory-suggestion__done">
+                      <span aria-hidden="true">✓</span>
+                      <span>{lang==="el"?"Προστέθηκε στις Αναμνήσεις":"Added to Memories"}</span>
+                      <button
+                        type="button"
+                        className="hm-chat-memory-suggestion__link"
+                        onClick={()=>{ if(msg.memorySuggestion?.ref) setActiveMemRef(msg.memorySuggestion.ref); else setActiveMemRef("__general__"); setTab("memories"); }}
+                      >
+                        {lang==="el"?"Δες →":"View →"}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="hm-chat-memory-suggestion__head">
+                        <span className="hm-chat-memory-suggestion__emoji" aria-hidden="true">{msg.memorySuggestion.emoji}</span>
+                        <div className="hm-chat-memory-suggestion__meta">
+                          <span className={`hm-chat-memory-suggestion__badge${msg.memorySuggestion.kind==="milestone"?" hm-chat-memory-suggestion__badge--milestone":""}`}>
+                            {msg.memorySuggestion.kind==="milestone"
+                              ? (lang==="el"?"Ορόσημο":"Milestone")
+                              : (lang==="el"?"Στιγμή":"Moment")}
+                          </span>
+                          <p className="hm-chat-memory-suggestion__title">{msg.memorySuggestion.text}</p>
+                        </div>
+                      </div>
+                      {msg.memorySuggestion.description && (
+                        <p className="hm-chat-memory-suggestion__desc">{msg.memorySuggestion.description}</p>
+                      )}
+                      <p className="hm-chat-memory-suggestion__prompt">
+                        {lang==="el"?"Θέλεις να το αποθηκεύσεις στις Αναμνήσεις;":"Save this to your Memories?"}
+                      </p>
+                      <div className="hm-chat-memory-suggestion__actions">
+                        <button type="button" className="hm-chat-memory-suggestion__btn hm-chat-memory-suggestion__btn--primary" onClick={()=>acceptMemorySuggestion(i)}>
+                          {lang==="el"?"Ναι, πρόσθεσέ το":"Yes, add it"}
+                        </button>
+                        <button type="button" className="hm-chat-memory-suggestion__btn hm-chat-memory-suggestion__btn--ghost" onClick={()=>dismissMemorySuggestion(i)}>
+                          {lang==="el"?"Όχι τώρα":"Not now"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 36px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
                   {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{displayUppercase(msg.promo.badge, lang)}</span>}
@@ -4903,215 +5237,37 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
         {/* ── MEMORIES ── */}
         {tab==="memories"&&(
-          <AppTabPageShell title={t("memories", lang)}>
-          <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
-          <MemoriesBookletPanel
-            memories={memories}
-            userName={displayName || profile.name}
+          <MemoriesTab
             lang={lang}
+            title={t("memories", lang)}
+            memories={memories}
+            profileName={displayName || profile.name}
             familyChildren={familyChildren}
             members={familyData.members}
-            onDownload={() => track("click", appPath("memories", "export-booklet"), "Download memories booklet")}
-            onSave={saveMemoriesNow}
-            saving={memoriesSaving}
-            onRemovePhoto={(m) => {
-              const idx = memories.findIndex((x) =>
-                (x.createdAt && m.createdAt && x.createdAt === m.createdAt) ||
-                (x.img && m.img && x.img === m.img) ||
-                (x.date === m.date && x.text === m.text && (x.ref || "") === (m.ref || "") && !!x.img === !!m.img),
-              );
+            pregnancyActive={pregnancyActive}
+            activeMemRef={activeMemRef}
+            setActiveMemRef={setActiveMemRef}
+            photoAllowed={fullMemoryAllowed(planEntitlements, subSnapshot)}
+            videoAllowed={memoryVideoAllowed(planEntitlements, subSnapshot)}
+            onCreateMemory={createMemoryFromForm}
+            onUpdateMemory={updateMemoryFromForm}
+            onDeleteMemory={deleteMemory}
+            onPickPhoto={pickMemoryPhoto}
+            pendingPhoto={memPendingPhoto}
+            onClearPendingPhoto={() => setMemPendingPhoto(null)}
+            onAlbumDownload={() => track("click", appPath("memories", "export-booklet"), "Download memories album")}
+            onSaveMemories={saveMemoriesNow}
+            memoriesSaving={memoriesSaving}
+            onRemoveAlbumPhoto={(m) => {
+              const idx = findMemoryIndex(m);
               if (idx >= 0) removeMemoryPhoto(idx);
             }}
-            onDeleteMemory={(m) => {
-              const idx = memories.findIndex((x) =>
-                (x.createdAt && m.createdAt && x.createdAt === m.createdAt) ||
-                (x.img && m.img && x.img === m.img) ||
-                (x.date === m.date && x.text === m.text && (x.ref || "") === (m.ref || "") && !!x.img === !!m.img),
-              );
+            onDeleteAlbumMemory={(m) => {
+              const idx = findMemoryIndex(m);
               if (idx >= 0) deleteMemory(idx);
             }}
           />
-          {/* Person selector pills — counts only; list opens after selection */}
-          {(()=>{
-            const countFor = (ref: string) => {
-              if (ref === "__general__") {
-                return memories.filter((m) => !m.ref || m.ref === "__general__").length;
-              }
-              const member = familyData.members.find((fm) => memberMemoryRef(fm.id) === ref);
-              return memories.filter((m) => {
-                if (m.ref === ref) return true;
-                return member ? memoryBelongsToMember(m.ref, member, familyData.members) : false;
-              }).length;
-            };
-            const memRefs: {label:string,value:string,count:number}[] = [
-              {label:"🌸 "+(profile.name||t("you_label",lang)),value:"__general__",count:countFor("__general__")},
-            ];
-            if(pregnancyActive) memRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy",count:countFor("pregnancy")});
-            familyChildren.forEach(c=>memRefs.push({label:"👶 "+c.name,value:c.name,count:countFor(c.name)}));
-            familyData.members.forEach(m=>{
-              const ref = memberMemoryRef(m.id);
-              const isPet = classifyKinship(m.relationship)==="pet";
-              memRefs.push({
-                label:(isPet?"🐾 ":"👤 ")+memberDisplayLabel(m, familyData.members),
-                value:ref,
-                count:countFor(ref),
-              });
-            });
-            return (
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-                {memRefs.map((r)=>(
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={()=>setActiveMemRef(prev=>prev===r.value?null:r.value)}
-                    style={{
-                      padding:"5px 11px",
-                      borderRadius:999,
-                      border:"none",
-                      background:activeMemRef===r.value?navy:gl,
-                      color:activeMemRef===r.value?"#fff":"rgba(43,58,103,.55)",
-                      fontFamily:"'DM Sans',sans-serif",
-                      fontSize:12,
-                      fontWeight:600,
-                      cursor:"pointer",
-                      transition:"all .15s",
-                      display:"inline-flex",
-                      alignItems:"center",
-                      gap:6,
-                      maxWidth:"100%",
-                    }}
-                  >
-                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</span>
-                    <span style={{
-                      fontSize:10,
-                      fontWeight:700,
-                      minWidth:18,
-                      height:18,
-                      borderRadius:999,
-                      padding:"0 5px",
-                      display:"inline-flex",
-                      alignItems:"center",
-                      justifyContent:"center",
-                      background:activeMemRef===r.value?"rgba(255,255,255,.22)":"rgba(43,58,103,.12)",
-                      color:activeMemRef===r.value?"#fff":navy,
-                      flexShrink:0,
-                    }}>{r.count}</span>
-                  </button>
-                ))}
-              </div>
-            );
-          })()}
-          {/* Filtered memory list — only when a member is selected */}
-          {activeMemRef==null ? (
-            <div className="hm-tab-empty">{t("selectmem",lang)}</div>
-          ) : (()=>{
-            const filtered = memories.filter((m) => {
-              if (activeMemRef === "__general__") return !m.ref || m.ref === "__general__";
-              if (m.ref === activeMemRef) return true;
-              const member = familyData.members.find((fm) => memberMemoryRef(fm.id) === activeMemRef);
-              return member ? memoryBelongsToMember(m.ref, member, familyData.members) : false;
-            });
-            if(filtered.length===0) return <div style={{fontSize:13,color:"rgba(43,58,103,.55)",textAlign:"center",padding:"20px 0"}}>{t("nomemories",lang)}</div>;
-            return filtered.map((m,i)=>{
-              const origIdx = memories.indexOf(m);
-              const moveOptions: {label:string,value:string}[] = [
-                {label:"🌸 "+(profile.name||t("you_label",lang)),value:"__general__"},
-              ];
-              if(pregnancyActive) moveOptions.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-              familyChildren.forEach(c=>moveOptions.push({label:"👶 "+c.name,value:c.name}));
-              familyData.members.forEach(mem=>{
-                const isPet = classifyKinship(mem.relationship)==="pet";
-                moveOptions.push({
-                  label:(isPet?"🐾 ":"👤 ")+memberDisplayLabel(mem, familyData.members),
-                  value:memberMemoryRef(mem.id),
-                });
-              });
-              const currentMoveValue = !m.ref || m.ref === "__general__" ? "__general__" : m.ref;
-              return (
-                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:i<filtered.length-1?`1px solid ${gl}`:"none",minWidth:0}}>
-                  {m.video ? (
-                    <video src={m.video} style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}} muted playsInline />
-                  ) : m.img ? (
-                    <img src={m.img} alt="" style={{width:48,height:48,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
-                  ) : (
-                    <span style={{fontSize:20,flexShrink:0,lineHeight:1.3}}>{m.emoji}</span>
-                  )}
-                  <div style={{flex:1,minWidth:0}}>
-                    {editingMemIdx===origIdx?(
-                      <div style={{display:"flex",flexDirection:"column" as any,gap:6,marginBottom:4}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          {m.img ? (
-                            <img src={m.img} alt="" style={{width:48,height:48,borderRadius:10,objectFit:"cover",flexShrink:0}}/>
-                          ) : (
-                            <div style={{width:48,height:48,borderRadius:10,background:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
-                              📷
-                            </div>
-                          )}
-                          <div style={{display:"flex",flexDirection:"column" as any,gap:5}}>
-                            <button
-                              onClick={() => { setPhotoEditMemIdx(origIdx); fileRef.current?.click(); }}
-                              style={{padding:"5px 10px",background:"rgba(43,58,103,.08)",border:"none",borderRadius:8,color:"#2B3A67",cursor:"pointer",fontSize:12,fontWeight:700}}
-                            >
-                              {m.img ? t("change_photo",lang) : t("add_photo",lang)}
-                            </button>
-                            {m.img && (
-                              <button
-                                onClick={() => removeMemoryPhoto(origIdx)}
-                                style={{padding:"5px 10px",background:"rgba(224,123,84,0.12)",border:"none",borderRadius:8,color:"#E07B54",cursor:"pointer",fontSize:12,fontWeight:700}}
-                              >
-                                {t("remove_photo",lang)} 🗑️
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <label style={{fontSize:11,color:"rgba(43,58,103,.55)",fontWeight:600}}>{t("move_memory",lang)}</label>
-                        <select
-                          value={currentMoveValue}
-                          onChange={(e)=>moveMemory(origIdx, e.target.value)}
-                          style={{width:"100%",padding:"7px 8px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:navy,background:"#fff"}}
-                        >
-                          {moveOptions.map(opt=>(
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                        <div style={{display:"flex",gap:5}}>
-                          <input
-                            value={memEditVal}
-                            onChange={e=>setMemEditVal(e.target.value)}
-                            onKeyDown={e=>{if(e.key==="Enter"){saveMemoryText(origIdx, memEditVal);}if(e.key==="Escape")setEditingMemIdx(null);}}
-                            autoFocus
-                            style={{flex:1,minWidth:0,padding:"5px 8px",border:"1.5px solid rgba(43,58,103,.18)",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2B3A67",outline:"none"}}
-                          />
-                          <button
-                            onClick={()=>saveMemoryText(origIdx, memEditVal)}
-                            style={{padding:"5px 10px",background:"#2B3A67",color:"#fff",border:"none",borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{fontSize:12.5,color:"#2B3A67",lineHeight:1.45,fontWeight:500,wordBreak:"break-word"}}>
-                        {m.text!=="📷"?m.text:""}
-                      </div>
-                    )}
-                    <div style={{fontSize:10,color:"#C8BFB8",marginTop:2}}>{m.date}</div>
-                  </div>
-                  <div style={{display:"flex",gap:3,flexShrink:0}}>
-                    <button title={t("edit_memory",lang)} onClick={()=>{if(editingMemIdx===origIdx){setEditingMemIdx(null);}else{setMemEditVal(m.text!=="📷"?m.text:"");setEditingMemIdx(origIdx);}}} style={{background:"rgba(43,58,103,.08)",border:"none",borderRadius:7,color:"#2B3A67",cursor:"pointer",fontSize:12,padding:"4px 6px",lineHeight:1}}>✏️</button>
-                    <button title={t("delete_memory",lang)} onClick={()=>deleteMemory(origIdx)} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:"#E07B54",cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600}}>×</button>
-                  </div>
-                </div>
-              );
-            });
-          })()}
-          <div style={{display:"flex",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${gl}`,minWidth:0}}>
-            <input value={memInput} onChange={e=>setMemInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMemory()} placeholder={t("addmemory",lang)} disabled={activeMemRef==null} style={{flex:1,minWidth:0,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#2B3A67",background:"#fff",outline:"none",opacity:activeMemRef==null?0.55:1}}/>
-            <button onClick={()=>fileRef.current?.click()} disabled={activeMemRef==null} style={{padding:"8px 11px",background:gl,color:navy,border:"none",borderRadius:9,fontSize:15,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>📷</button>
-            <button onClick={()=>addMemory()} disabled={activeMemRef==null} style={{padding:"8px 13px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:activeMemRef==null?"default":"pointer",opacity:activeMemRef==null?0.55:1,flexShrink:0}}>＋</button>
-          </div>
-          </div>
-        </AppTabPageShell>)}
+        )}
 
         {/* ── MILESTONES ── */}
         {tab==="milestones"&&(()=>{
@@ -5143,7 +5299,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
-                  <div onClick={()=>toggleMilestone("pregnancy",i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
+                  <div onClick={()=>toggleMilestone("pregnancy",i,m)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
                     <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
                     <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
                   </div>
@@ -5174,7 +5330,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("tickall",lang)}</div>
               {currentMilestoneList.map((m,i)=>(
                 <div key={i}>
-                  <div onClick={()=>toggleMilestone(effectiveRef!,i)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
+                  <div onClick={()=>toggleMilestone(effectiveRef!,i,m)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
                     <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
                     <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
                   </div>
