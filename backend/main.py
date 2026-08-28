@@ -47,6 +47,8 @@ try:
         consume_voice_listen,
         invite_plan_context,
         plan_context_from_user_row,
+        resolve_entitlements_for_auth,
+        validate_docs_payload,
         validate_memories_payload,
     )
 except ImportError:
@@ -56,6 +58,8 @@ except ImportError:
         consume_voice_listen,
         invite_plan_context,
         plan_context_from_user_row,
+        resolve_entitlements_for_auth,
+        validate_docs_payload,
         validate_memories_payload,
     )
 
@@ -5757,33 +5761,14 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
         raise HTTPException(status_code=400, detail="key required")
     if key in ("ttsused", "tts_usage", "plan_grants", "level_rewards_claimed"):
         raise HTTPException(status_code=403, detail="This data is managed by the server.")
-    if key == "memories":
-        user_row = None
-        if auth.get("kind") == "user" and auth.get("user_id"):
-            try:
-                res = (
-                    sb.table("users")
-                    .select("plan,subscription_status,role")
-                    .eq("id", auth["user_id"])
-                    .limit(1)
-                    .execute()
-                )
-                user_row = res.data[0] if res.data else None
-            except Exception:
-                user_row = None
-        if auth.get("kind") == "invite":
-            _, entitlements = invite_plan_context()
+    if key in ("memories", "docs"):
+        entitlements = resolve_entitlements_for_auth(sb, auth)
+        if key == "memories":
+            payload_err = validate_memories_payload(value, entitlements)
         else:
-            try:
-                from .plan_grants import get_user_plan_grants, plan_context_with_grants
-            except ImportError:
-                from plan_grants import get_user_plan_grants, plan_context_with_grants
-
-            grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
-            _, entitlements = plan_context_with_grants(user_row, grants)
-        mem_err = validate_memories_payload(value, entitlements)
-        if mem_err:
-            raise HTTPException(status_code=403, detail=mem_err)
+            payload_err = validate_docs_payload(value, entitlements)
+        if payload_err:
+            raise HTTPException(status_code=403, detail=payload_err)
     try:
         import datetime as _dt
         updated_at = _dt.datetime.utcnow().isoformat()

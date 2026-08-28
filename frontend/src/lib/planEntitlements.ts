@@ -82,6 +82,22 @@ export function memoryVideoAllowed(
   return fullMemoryAllowed(entitlements, snapshot)
 }
 
+export function documentArchiveAllowed(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+): boolean {
+  if (entitlements?.document_archive != null) return entitlements.document_archive
+  return fullMemoryAllowed(entitlements, snapshot)
+}
+
+export function documentUploadAllowed(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+): boolean {
+  if (entitlements?.document_upload != null) return entitlements.document_upload
+  return documentArchiveAllowed(entitlements, snapshot)
+}
+
 export function voiceQuotaFallback(snapshot: SubscriptionSnapshot | null): {
   used: number
   limit: number

@@ -1,5 +1,9 @@
 import type { PlanEntitlements, SubscriptionSnapshot } from './authApi'
-import { archivedThreadsLimit } from './planEntitlements'
+import {
+  archivedThreadsLimit,
+  documentArchiveAllowed,
+  documentUploadAllowed,
+} from './planEntitlements'
 import { activePlanNameForSlot, resolveCurrentPlanSlot, type PlanSlot } from './subscriptionPlans'
 
 /** Gateable product features — keep min plans in sync with marketing / backend. */
@@ -90,6 +94,12 @@ export function featureAllowed(
   }
   if (feature === 'memory_video') {
     if (entitlements?.memory_video != null) return entitlements.memory_video
+  }
+  if (feature === 'document_archive') {
+    return documentArchiveAllowed(entitlements, snapshot)
+  }
+  if (feature === 'document_upload') {
+    return documentUploadAllowed(entitlements, snapshot)
   }
   return planMeetsMinimum(resolveCurrentPlanSlot(snapshot), FEATURE_MIN_PLAN[feature])
 }

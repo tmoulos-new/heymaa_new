@@ -73,6 +73,7 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "premium": 0,
         "annual": 0,
     }
+    document_archive = plan_slot != "trial"
     return {
         "plan_slot": plan_slot,
         "voice_listen_quota": quota,
@@ -80,6 +81,8 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "memory_video": full_memory,
         "memory_photos": True,
         "memory_text": True,
+        "document_archive": document_archive,
+        "document_upload": document_archive,
         "chat_context_messages": chat_context_by_plan.get(plan_slot, 6),
         "memory_context_count": memory_context_by_plan.get(plan_slot, 3),
         "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
@@ -304,6 +307,63 @@ def validate_memories_payload(value: Any, entitlements: dict[str, Any]) -> Optio
         if img and str(img).strip() and not full_memory:
             return "Photo memories require Full Memory (Starter plan or above)."
     return None
+
+
+def _doc_items(value: Any) -> list:
+    parsed = _parse_json_value(value)
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, dict):
+        for key in ("docs", "items", "data"):
+            nested = parsed.get(key)
+            if isinstance(nested, list):
+                return nested
+    return []
+
+
+def validate_docs_payload(value: Any, entitlements: dict[str, Any]) -> Optional[str]:
+    allow_archive = bool(entitlements.get("document_archive"))
+    allow_upload = bool(entitlements.get("document_upload"))
+    items = _doc_items(value)
+    if items and not allow_archive:
+        return "Document archive requires Starter plan or above."
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        file_obj = item.get("file")
+        if not isinstance(file_obj, dict):
+            continue
+        data_url = file_obj.get("dataUrl") or file_obj.get("data_url")
+        if data_url and str(data_url).strip() and not allow_upload:
+            return "Document file uploads require Starter plan or above."
+    return None
+
+
+def resolve_entitlements_for_auth(sb, auth: dict) -> dict[str, Any]:
+    if auth.get("kind") == "invite":
+        _, entitlements = invite_plan_context()
+        return entitlements
+    user_row = None
+    if auth.get("user_id"):
+        try:
+            res = (
+                sb.table("users")
+                .select("plan,subscription_status,role")
+                .eq("id", auth["user_id"])
+                .limit(1)
+                .execute()
+            )
+            user_row = res.data[0] if res.data else None
+        except Exception:
+            user_row = None
+    try:
+        from .plan_grants import get_user_plan_grants, plan_context_with_grants
+    except ImportError:
+        from plan_grants import get_user_plan_grants, plan_context_with_grants
+
+    grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
+    _, entitlements = plan_context_with_grants(user_row, grants)
+    return entitlements
 
 
 def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
