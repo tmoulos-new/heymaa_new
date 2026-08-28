@@ -255,7 +255,7 @@ export default function Home() {
           <div className="what-is-grid">
             <div className="what-is-copy">
               <h2 className="sec-title">{t("whatIs.title")}</h2>
-              <div
+              <p
                 className="what-is-body"
                 dangerouslySetInnerHTML={{ __html: t("whatIs.body") }}
               />
