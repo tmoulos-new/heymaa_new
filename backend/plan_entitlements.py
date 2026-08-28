@@ -222,7 +222,10 @@ def get_voice_quota_for_auth(sb, auth: dict, user_row: Optional[dict] = None) ->
     if auth.get("kind") == "invite":
         _, ent = invite_plan_context()
     else:
-        from plan_grants import get_user_plan_grants, plan_context_with_grants
+        try:
+            from .plan_grants import get_user_plan_grants, plan_context_with_grants
+        except ImportError:
+            from plan_grants import get_user_plan_grants, plan_context_with_grants
 
         grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
         _, ent = plan_context_with_grants(user_row, grants)
@@ -235,7 +238,10 @@ def consume_voice_listen(sb, auth: dict, user_row: Optional[dict], updated_at: s
     if auth.get("kind") == "invite":
         _, ent = invite_plan_context()
     else:
-        from plan_grants import get_user_plan_grants, plan_context_with_grants
+        try:
+            from .plan_grants import get_user_plan_grants, plan_context_with_grants
+        except ImportError:
+            from plan_grants import get_user_plan_grants, plan_context_with_grants
 
         grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
         _, ent = plan_context_with_grants(user_row, grants)
@@ -278,13 +284,22 @@ def validate_memories_payload(value: Any, entitlements: dict[str, Any]) -> Optio
 
 
 def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
-    from plan_grants import (
-        get_user_plan_grants,
-        grant_access_ends_at,
-        plan_context_with_grants,
-        rewards_payload,
-        serialize_active_grants,
-    )
+    try:
+        from .plan_grants import (
+            get_user_plan_grants,
+            grant_access_ends_at,
+            plan_context_with_grants,
+            rewards_payload,
+            serialize_active_grants,
+        )
+    except ImportError:
+        from plan_grants import (
+            get_user_plan_grants,
+            grant_access_ends_at,
+            plan_context_with_grants,
+            rewards_payload,
+            serialize_active_grants,
+        )
 
     user_row = None
     cancel_requested = False

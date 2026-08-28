@@ -6,7 +6,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from plan_entitlements import plan_entitlements, resolve_plan_slot
+try:
+    from .plan_entitlements import plan_entitlements, resolve_plan_slot
+except ImportError:
+    from plan_entitlements import plan_entitlements, resolve_plan_slot
 
 PLAN_GRANTS_KEY = "plan_grants"
 LEVEL_CLAIMS_KEY = "level_rewards_claimed"
@@ -270,7 +273,10 @@ def resolve_plan_slot_from_row(row: Optional[dict]) -> tuple[str, dict[str, Any]
     if not row:
         slot = "trial"
     elif (row.get("role") or "").lower() == "admin":
-        from plan_entitlements import ADMIN_VOICE_QUOTA
+        try:
+            from .plan_entitlements import ADMIN_VOICE_QUOTA
+        except ImportError:
+            from plan_entitlements import ADMIN_VOICE_QUOTA
 
         slot = "annual"
         ent = plan_entitlements(slot)

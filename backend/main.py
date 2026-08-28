@@ -3925,7 +3925,10 @@ async def admin_user_gamification(user_id: str, x_token: Optional[str] = Header(
             raise HTTPException(status_code=404, detail="User not found")
         user = user_res.data[0]
         analysis = _user_gamification_analysis(user_key)
-        from plan_grants import get_user_plan_grants, rewards_payload, serialize_active_grants
+        try:
+            from .plan_grants import get_user_plan_grants, rewards_payload, serialize_active_grants
+        except ImportError:
+            from plan_grants import get_user_plan_grants, rewards_payload, serialize_active_grants
         level_id = int(user.get("level_id") or 1)
         grants = get_user_plan_grants(sb, user_key)
         return {
@@ -4884,7 +4887,10 @@ def _grants_summary_for_users(user_ids: list) -> dict:
         )
         for row in users_res.data or []:
             level_by_user[str(row.get("id"))] = int(row.get("level_id") or 1)
-        from plan_grants import pending_level_rewards, serialize_active_grants
+        try:
+            from .plan_grants import pending_level_rewards, serialize_active_grants
+        except ImportError:
+            from plan_grants import pending_level_rewards, serialize_active_grants
 
         for uid in user_ids:
             grants = grants_by_user.get(uid, [])
@@ -5715,7 +5721,10 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
         if auth.get("kind") == "invite":
             _, entitlements = invite_plan_context()
         else:
-            from plan_grants import get_user_plan_grants, plan_context_with_grants
+            try:
+                from .plan_grants import get_user_plan_grants, plan_context_with_grants
+            except ImportError:
+                from plan_grants import get_user_plan_grants, plan_context_with_grants
 
             grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
             _, entitlements = plan_context_with_grants(user_row, grants)
