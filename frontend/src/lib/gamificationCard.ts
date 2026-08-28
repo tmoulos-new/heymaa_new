@@ -76,13 +76,13 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — πάτα «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πακέτο).'
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — μπορείς να πατήσεις «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πακέτο).'
         : 'As you collect points, you level up (New Mom to HeyMaa Champion). Levels 2–5 grant free Starter/Premium days — tap «Claim your gift!» to activate instantly (stacks with any active free plan).',
     },
     {
       question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
       answer: isEl
-        ? 'Άνοιξε την καρτέλα «Προφίλ». Κάτω από το όνομά σου θα δεις επίπεδο, πόντους, μπάρα προόδου και κωδικό πρόσκλησης.'
+        ? 'Μπορείς να ανοίξεις την καρτέλα «Προφίλ». Κάτω από το όνομά σου θα δεις επίπεδο, πόντους, μπάρα προόδου και κωδικό πρόσκλησης.'
         : 'Open the Profile tab. Below your name you will see your level, points, progress bar, and invite code.',
     },
   ];
