@@ -4899,7 +4899,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 {msg.role==="assistant"?(
                   <div className="hm-chat-message-row">
                     <HeyMaaAvatar size={32} />
-                    <div style={{minWidth:0,flex:1}}>
+                    <div className="hm-chat-message-row__body">
                       <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--assistant" style={{background:chatAssistantBg,color:navy}}>{msg.content}</div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
                         <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>

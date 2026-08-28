@@ -1272,6 +1272,16 @@ body.hm-app-active #root {
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 10px;
+  max-width: 100%;
+}
+
+.hm-chat-message-row__body {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .hm-chat-message-row--user {
@@ -1283,9 +1293,14 @@ body.hm-app-active #root {
   box-sizing: border-box;
   font-size: 13px;
   line-height: 1.55;
-  padding: 11px 14px;
-  max-width: 88%;
+  padding: 11px 16px;
+  max-width: 100%;
+  width: fit-content;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  white-space: pre-wrap;
+  hyphens: auto;
+  overflow-x: clip;
 }
 
 .hm-chat-bubble--assistant {
@@ -1294,7 +1309,10 @@ body.hm-app-active #root {
 
 .hm-chat-bubble--user {
   border-radius: 12px 12px 0 12px;
-  max-width: 82%;
+  max-width: calc(100% - 40px);
+  width: fit-content;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .hm-chat-bubble--typing {
@@ -1545,7 +1563,7 @@ body.hm-app-active #root {
 
   .hm-chat-bubble--user {
     border-radius: 16px 16px 0 16px;
-    max-width: 85%;
+    max-width: calc(100% - 44px);
   }
 
   .hm-chat-bubble--typing {
@@ -1578,14 +1596,18 @@ body.hm-app-active #root {
   }
 }
 
-/* Desktop: wider bubbles inside the 1000px column */
+/* Desktop: wider bubbles inside the content column */
 @media (min-width: 1024px) {
+  .hm-chat-message-row__body {
+    max-width: calc(100% - 44px);
+  }
+
   .hm-chat-column [data-hm-bubble].hm-chat-bubble--assistant {
-    max-width: min(860px, 90%) !important;
+    max-width: min(860px, 100%) !important;
   }
 
   .hm-chat-column [data-hm-bubble].hm-chat-bubble--user {
-    max-width: min(820px, 88%) !important;
+    max-width: min(820px, calc(100% - 44px)) !important;
   }
 }
 
@@ -3120,6 +3142,9 @@ body.hm-app-active .hm-sheet-overlay {
   overflow: hidden;
   background: #fff;
   box-shadow: 0 2px 12px rgba(43, 58, 103, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .hm-memory-card__media {
@@ -3185,6 +3210,7 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   gap: 8px;
   align-items: flex-start;
+  flex: 1;
 }
 
 .hm-memory-card__quote-mark {
@@ -3246,6 +3272,7 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-empty {
   text-align: center;
   padding: 32px 16px 48px;
+  grid-column: 1 / -1;
 }
 
 .hm-memories-empty__icon {
@@ -3800,6 +3827,51 @@ body.hm-app-active .hm-sheet-overlay {
   }
 
   .hm-memories-feed {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .hm-memory-card__media {
+    aspect-ratio: 1 / 1;
+  }
+
+  .hm-memory-card__emoji {
+    font-size: 48px;
+  }
+
+  .hm-memory-card__desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hm-memory-album-preview__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-memories-feed {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .hm-memory-album-preview__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .hm-memories-feed {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
+  }
+
+  .hm-memory-album-preview__grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
