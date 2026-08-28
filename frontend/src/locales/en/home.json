@@ -109,7 +109,8 @@
         "features": [
           "Unlimited Chat",
           "50 Voice/month",
-          "Basic Memory"
+          "Basic Memory (text)",
+          "3 archived conversations"
         ],
         "button": "Select plan",
         "buttonClass": "btn-plan-idle"
@@ -127,7 +128,9 @@
         "features": [
           "Unlimited Chat",
           "150 Voice/month",
-          "Full Memory"
+          "Full Memory",
+          "Document Archive",
+          "Unlimited archived chats"
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -197,15 +200,15 @@
     "items": [
       {
         "question": "What is HeyMaa?",
-        "answer": "HeyMaa is your digital companion through motherhood: AI chat, a family tree, a memory journal, and milestone tracking — all in one app."
+        "answer": "HeyMaa is your digital companion through motherhood: AI chat, a family tree, a memory journal, a milestone timeline, and a document archive — all in one app."
       },
       {
         "question": "What can I do in the app?",
-        "answer": "Chat with HeyMaa (text or voice), add family members, save memories with photos and videos, track development milestones, and browse offers — depending on your plan."
+        "answer": "Chat with HeyMaa (text or voice), build your family tree, save memories, track development milestones on a period-based progress timeline, store medical documents (tests, vaccines, prescriptions), and archive conversations — depending on your plan."
       },
       {
         "question": "What does the free trial include?",
-        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, and basic memory. No credit card required to start."
+        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, basic memory (text only, no photos/videos), and up to 3 archived conversations. No credit card required to start."
       },
       {
         "question": "What happens when the trial ends?",
@@ -213,15 +216,27 @@
       },
       {
         "question": "How do voice messages work?",
-        "answer": "The monthly limit applies to voice playbacks of HeyMaa's replies (Listen button). Your remaining quota appears above the chat.\n\n• Trial: 50/month\n• Starter: 150/month\n• Premium: 400/month\n• Annual Premium: 700/month\n\nYou can speak in chat using the microphone (speech-to-text) without using this quota."
+        "answer": "The monthly limit applies to voice playbacks of HeyMaa's replies (Listen button). Your remaining quota appears above the chat. When it's used up, you'll see an upgrade prompt.\n\n• Trial: 50/month\n• Starter: 150/month\n• Premium: 400/month\n• Annual Premium: 700/month\n\nYou can speak in chat using the microphone (speech-to-text) without using this quota."
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice playbacks and memory differ:\n\n• Trial: 50 voice playbacks, basic memory\n• Starter (€19/month): 150 voice playbacks, full memory\n• Premium (€39/month): 400 voice playbacks, full memory\n• Annual Premium (€199/year): 700 voice playbacks, full memory\n\nSee the Pricing section for details."
+        "answer": "All plans include unlimited chat. Voice playbacks, memory, and other features differ:\n\n• Trial: 50 voice playbacks, basic memory (text), 3 archived conversations\n• Starter (€19/month): 150 voice playbacks, full memory (photos/videos), document archive, unlimited archived chats\n• Premium (€39/month): 400 voice playbacks, full memory, weekly support\n• Annual Premium (€199/year): 700 voice playbacks, full memory, priority support\n\nWhen a feature requires a higher plan, you'll see a message with an UPGRADE button."
       },
       {
         "question": "What is Basic vs Full Memory?",
-        "answer": "Basic Memory (free trial) lets you capture and organize memories. Full Memory (Starter and above) unlocks the full memory experience — journal, photos, videos, and organization by family member."
+        "answer": "Basic Memory (free trial) lets you save and organize text memories. Full Memory (Starter and above) unlocks photos, videos, albums, and organization by family member. Chat may suggest memories — you decide whether to save them."
+      },
+      {
+        "question": "How do milestones work?",
+        "answer": "Development milestones appear in age periods with a progress timeline. You can only tick what has already happened — future milestones show as a preview and can't be ticked yet. When you tick a milestone, it may be added to your memory journal automatically."
+      },
+      {
+        "question": "What is the Document Archive?",
+        "answer": "On the Family tab you can store tests, vaccines, and prescriptions — with category, date, family member, and file attachment. Document Archive is available from Starter; on trial you'll see an upgrade prompt."
+      },
+      {
+        "question": "What is the family tree?",
+        "answer": "On the Family tab you see a visual tree with you, partner, parents, siblings, and children. Tap a card to edit or drag members to rearrange. Each member's memory count appears as a badge on their card."
       },
       {
         "question": "Does HeyMaa give medical advice?",
@@ -233,7 +248,7 @@
       },
       {
         "question": "How do I upgrade my subscription?",
-        "answer": "Open Settings → Subscription, pick a plan, and complete checkout. Your active plan is shown there."
+        "answer": "When you need a feature from a higher plan, a message with an UPGRADE button opens the available plans. You can also go to Settings → Subscription or tap the bell icon (notifications) at the top."
       },
       {
         "question": "How do I cancel my subscription?",

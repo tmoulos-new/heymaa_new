@@ -20,6 +20,9 @@ export type MemoriesTabProps = {
   setActiveMemRef: (ref: string | null) => void
   photoAllowed: boolean
   videoAllowed: boolean
+  onUpgrade?: () => void
+  upgradeFeatureLabel?: string
+  upgradeRequiredPlanLabel?: string
   onCreateMemory: (values: MemoryFormValues, ref: string) => void
   onUpdateMemory: (index: number, values: MemoryFormValues) => void
   onDeleteMemory: (index: number) => void
@@ -58,6 +61,9 @@ export function MemoriesTab({
   setActiveMemRef,
   photoAllowed,
   videoAllowed,
+  onUpgrade,
+  upgradeFeatureLabel,
+  upgradeRequiredPlanLabel,
   onCreateMemory,
   onUpdateMemory,
   onDeleteMemory,
@@ -290,6 +296,9 @@ export function MemoriesTab({
         initial={editIndex != null ? memories[editIndex] : null}
         photoAllowed={photoAllowed}
         videoAllowed={videoAllowed}
+        onUpgrade={onUpgrade}
+        upgradeFeatureLabel={upgradeFeatureLabel}
+        upgradeRequiredPlanLabel={upgradeRequiredPlanLabel}
         onSave={handleSave}
         onPickPhoto={onPickPhoto}
         pendingPhoto={pendingPhoto}

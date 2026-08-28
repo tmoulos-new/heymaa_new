@@ -2193,6 +2193,62 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.42);
 }
 
+.hm-feature-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px 36px;
+}
+
+.hm-feature-gate--compact {
+  padding: 20px 16px 24px;
+  background: rgba(43, 58, 103, 0.03);
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.hm-feature-gate__text {
+  margin: 0 0 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2b3a67;
+  line-height: 1.45;
+  max-width: 300px;
+}
+
+.hm-feature-gate__sub {
+  margin: 0 0 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12.5px;
+  color: rgba(43, 58, 103, 0.58);
+  line-height: 1.45;
+  max-width: 300px;
+}
+
+.hm-feature-gate__btn {
+  padding: 10px 32px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(26, 26, 26, 0.85);
+  background: #2b3a67;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.hm-feature-gate__btn:hover {
+  background: #233059;
+}
+
+.hm-feature-gate--compact .hm-feature-gate__sub {
+  margin-bottom: 14px;
+}
+
 .hm-family-docs__empty-cta {
   width: 100%;
   max-width: 300px;

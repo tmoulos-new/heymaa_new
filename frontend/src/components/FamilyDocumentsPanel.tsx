@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
+import { FeatureUpgradeGate } from './FeatureUpgradeGate'
 import {
   DOC_CATEGORIES,
   type DocCategoryKey,
@@ -26,6 +27,10 @@ export function FamilyDocumentsPanel({
   members,
   pregnancyActive,
   userName,
+  featureAllowed = true,
+  featureLabel,
+  requiredPlanLabel,
+  onUpgrade,
 }: {
   lang: string
   docs: DocEntry[]
@@ -34,6 +39,10 @@ export function FamilyDocumentsPanel({
   members: FamilyMemberRecord[]
   pregnancyActive: boolean
   userName: string
+  featureAllowed?: boolean
+  featureLabel?: string
+  requiredPlanLabel?: string
+  onUpgrade?: () => void
 }) {
   const el = lang === 'el'
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -147,11 +156,19 @@ export function FamilyDocumentsPanel({
     /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : ''
 
   const openForm = () => {
+    if (!featureAllowed) {
+      onUpgrade?.()
+      return
+    }
     resetForm()
     setShowForm(true)
   }
 
   const openEdit = (doc: DocEntry) => {
+    if (!featureAllowed) {
+      onUpgrade?.()
+      return
+    }
     setEditingId(doc.id)
     setFormCat(categoryKeyFromDoc(doc.category))
     setFormTitle(doc.title)
@@ -166,6 +183,10 @@ export function FamilyDocumentsPanel({
 
   const onPickFile = async (file: File | null) => {
     if (!file) return
+    if (!featureAllowed) {
+      onUpgrade?.()
+      return
+    }
     setFileError('')
     try {
       setSaving(true)
@@ -237,11 +258,25 @@ export function FamilyDocumentsPanel({
             <div className="hm-family-docs__title">{copy.title}</div>
             <div className="hm-family-docs__subtitle">{copy.subtitle}</div>
           </div>
-          <button type="button" className="hm-family-docs__add-btn" onClick={openForm} aria-label={copy.add}>
+          <button
+            type="button"
+            className="hm-family-docs__add-btn"
+            onClick={openForm}
+            aria-label={featureAllowed ? copy.add : (el ? 'Upgrade' : 'Upgrade')}
+          >
             +
           </button>
         </div>
 
+        {!featureAllowed && featureLabel && requiredPlanLabel && onUpgrade ? (
+          <FeatureUpgradeGate
+            lang={lang}
+            featureLabel={featureLabel}
+            requiredPlanLabel={requiredPlanLabel}
+            onUpgrade={onUpgrade}
+          />
+        ) : (
+          <>
         {memberRefs.length > 2 && docs.length > 0 && (
           <div className="hm-family-docs__filters">
             <button
@@ -351,6 +386,8 @@ export function FamilyDocumentsPanel({
             })}
           </div>
         )}
+          </>
+        )}
       </div>
 
       {showForm && (
@@ -440,6 +477,16 @@ export function FamilyDocumentsPanel({
             />
 
             <div className="hm-family-docs__field-label">{copy.fileLabel}</div>
+            {!featureAllowed && featureLabel && requiredPlanLabel && onUpgrade ? (
+              <FeatureUpgradeGate
+                lang={lang}
+                featureLabel={featureLabel}
+                requiredPlanLabel={requiredPlanLabel}
+                onUpgrade={onUpgrade}
+                compact
+              />
+            ) : (
+              <>
             <input
               ref={fileRef}
               type="file"
@@ -471,6 +518,8 @@ export function FamilyDocumentsPanel({
               >
                 {copy.removeFile}
               </button>
+            )}
+              </>
             )}
 
             <button

@@ -431,7 +431,7 @@ export function FamilyTreePanel({
               y2={e.y2}
               stroke={e.kind === 'spouse' ? ACCENT : BLOOD_LINE}
               strokeWidth={e.kind === 'spouse' ? 2 : 1.5}
-              strokeLinecap="round"
+              strokeLinecap={e.kind === 'spouse' ? 'round' : 'butt'}
               opacity={drag ? 0.35 : 1}
             />
           ))}

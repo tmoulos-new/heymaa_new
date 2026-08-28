@@ -491,6 +491,16 @@ function nodeSize(kind: KinKind) {
   return isFocusKind(kind) ? { w: FOCUS_W, h: FOCUS_H } : { w: NODE_W, h: NODE_H }
 }
 
+const EDGE_CARD_GAP = 1
+
+function cardBottomY(node: LaidOutNode) {
+  return node.y + nodeSize(node.kind).h / 2 + EDGE_CARD_GAP
+}
+
+function cardTopY(node: LaidOutNode) {
+  return node.y - nodeSize(node.kind).h / 2 - EDGE_CARD_GAP
+}
+
 type LayoutRow = {
   slot: TreeRowSlot
   generation: Generation
@@ -812,7 +822,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     const hubX = preferMidX ?? fromXs.reduce((a, b) => a + b, 0) / fromXs.length
 
     from.forEach((f) => {
-      edges.push({ x1: f.x, y1: f.y + nodeSize(f.kind).h / 2 - 4, x2: f.x, y2: midY, kind: 'blood' })
+      edges.push({ x1: f.x, y1: cardBottomY(f), x2: f.x, y2: midY, kind: 'blood' })
     })
     if (from.length > 1) {
       edges.push({
@@ -827,7 +837,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     const barR = Math.max(hubX, ...tgtXs)
     edges.push({ x1: barL, y1: midY, x2: barR, y2: midY, kind: 'blood' })
     targets.forEach((t) => {
-      edges.push({ x1: t.x, y1: midY, x2: t.x, y2: t.y - nodeSize(t.kind).h / 2 + 4, kind: 'blood' })
+      edges.push({ x1: t.x, y1: midY, x2: t.x, y2: cardTopY(t), kind: 'blood' })
     })
   }
 
@@ -850,7 +860,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     const inward = Math.max(...sibs.map((s) => s.x), anchor.x)
     edges.push({
       x1: anchor.x,
-      y1: anchor.y + FOCUS_H / 2 - 4,
+      y1: cardBottomY(anchor),
       x2: anchor.x,
       y2: joinY,
       kind: 'blood',
@@ -863,7 +873,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
       kind: 'blood',
     })
     sibs.forEach((s) => {
-      edges.push({ x1: s.x, y1: joinY, x2: s.x, y2: s.y - NODE_H / 2 + 4, kind: 'blood' })
+      edges.push({ x1: s.x, y1: joinY, x2: s.x, y2: cardTopY(s), kind: 'blood' })
     })
   }
   linkSiblings(
@@ -892,7 +902,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     sources.forEach((s) => {
       edges.push({
         x1: s.x,
-        y1: s.y + FOCUS_H / 2 - 4,
+        y1: cardBottomY(s),
         x2: s.x,
         y2: midY,
         kind: 'blood',
@@ -920,7 +930,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
         x1: c.x,
         y1: midY,
         x2: c.x,
-        y2: c.y - FOCUS_H / 2 + 4,
+        y2: cardTopY(c),
         kind: 'blood',
       })
     })

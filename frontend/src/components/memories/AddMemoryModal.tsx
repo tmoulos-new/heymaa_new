@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppDialog } from '../AppDialog'
 import { DialogPanel } from '../ui/DialogPanel'
+import { FeatureUpgradeGate } from '../FeatureUpgradeGate'
 import type { AppMemory } from '../../lib/memoryTypes'
 import { MEMORY_EMOJI_OPTIONS } from '../../lib/memoryTypes'
 import { displayUppercase } from '../../lib/greekText'
@@ -21,6 +22,9 @@ type Props = {
   initial?: AppMemory | null
   photoAllowed: boolean
   videoAllowed: boolean
+  onUpgrade?: () => void
+  upgradeFeatureLabel?: string
+  upgradeRequiredPlanLabel?: string
   onSave: (values: MemoryFormValues) => void
   onPickPhoto: () => void
   pendingPhoto?: string | null
@@ -49,6 +53,9 @@ export function AddMemoryModal({
   initial,
   photoAllowed,
   videoAllowed,
+  onUpgrade,
+  upgradeFeatureLabel,
+  upgradeRequiredPlanLabel,
   onSave,
   onPickPhoto,
   pendingPhoto,
@@ -87,6 +94,16 @@ export function AddMemoryModal({
   }
 
   const previewImg = pendingPhoto || initial?.img
+  const mediaAllowed = photoAllowed || videoAllowed
+  const showMediaGate = !mediaAllowed && !previewImg && onUpgrade && upgradeFeatureLabel && upgradeRequiredPlanLabel
+
+  const handlePickPhoto = () => {
+    if (!mediaAllowed) {
+      onUpgrade?.()
+      return
+    }
+    onPickPhoto()
+  }
 
   return (
     <AppDialog
@@ -109,6 +126,15 @@ export function AddMemoryModal({
 
         <div className="hm-memory-modal__section">
           <span className="hm-memory-modal__label">{displayUppercase(el ? 'Φωτογραφίες / βίντεο' : 'Photos / video', lang)}</span>
+          {showMediaGate ? (
+            <FeatureUpgradeGate
+              lang={lang}
+              featureLabel={upgradeFeatureLabel}
+              requiredPlanLabel={upgradeRequiredPlanLabel}
+              onUpgrade={onUpgrade}
+              compact
+            />
+          ) : (
           <div className="hm-memory-modal__media-row">
             {previewImg ? (
               <div className="hm-memory-modal__thumb-wrap">
@@ -123,19 +149,14 @@ export function AddMemoryModal({
               <button
                 type="button"
                 className="hm-memory-modal__add-media"
-                onClick={onPickPhoto}
-                disabled={!photoAllowed && !videoAllowed}
+                onClick={handlePickPhoto}
               >
                 <span className="hm-memory-modal__add-media-plus">+</span>
                 <span>{el ? 'Πρόσθεσε' : 'Add'}</span>
               </button>
             )}
-            {!photoAllowed && !previewImg && (
-              <p className="hm-memory-modal__hint">
-                {el ? 'Οι φωτογραφίες απαιτούν Πλήρη Μνήμη (Starter+).' : 'Photos require Full Memory (Starter+).'}
-              </p>
-            )}
           </div>
+          )}
         </div>
 
         <div className="hm-memory-modal__section">

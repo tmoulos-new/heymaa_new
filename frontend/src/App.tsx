@@ -89,7 +89,15 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { slotForPaidPlan } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
-import { memoryVideoAllowed, fullMemoryAllowed, chatContextDepth, memoryContextCount, archivedThreadsLimit } from "./lib/planEntitlements";
+import { chatContextDepth, memoryContextCount } from "./lib/planEntitlements";
+import {
+  canArchiveAnotherThread,
+  featureAllowed,
+  featureLabel,
+  featureRequiredPlanLabel,
+  nextUpgradePlanLabel,
+} from "./lib/planFeatures";
+import { FeatureUpgradeGate } from "./components/FeatureUpgradeGate";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
@@ -1889,10 +1897,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     () => memoryContextCount(planEntitlements, subSnapshot),
     [planEntitlements, subSnapshot],
   );
-  const threadArchiveLimit = useMemo(
-    () => archivedThreadsLimit(planEntitlements, subSnapshot),
-    [planEntitlements, subSnapshot],
-  );
 
   useEffect(() => {
     if (!accessExpiryInfo?.urgent) return;
@@ -2635,15 +2639,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   // Archive current thread
   const doArchive = () => {
     if (!messages.length) return;
-    if (threadArchiveLimit > 0 && threads.length >= threadArchiveLimit) {
-      showToast(
-        lang === "el"
-          ? `Στο δοκιμαστικό πακέτο μπορείς έως ${threadArchiveLimit} αρχειοθετημένες συνομιλίες. Αναβάθμισε για απεριόριστες.`
-          : `Trial plan allows up to ${threadArchiveLimit} archived conversations. Upgrade for unlimited.`,
-        "err",
-      );
-      return;
-    }
+    if (!canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length)) return;
     const title = archiveTitle.trim() || messages[0].content.slice(0,40) + (messages[0].content.length>40?"…":"");
     const thread: Thread = { id: Date.now().toString(), title, date: new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"}), messages: [...messages] };
     setThreads(prev=>[thread,...prev]); setMessages([]); setShowArchiveModal(false); setArchiveTitle("");
@@ -2673,13 +2669,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
   const ttsUsedSafe = voiceQuota?.used ?? 0;
   const ttsRemaining = voiceQuota?.remaining ?? Math.max(0, ttsQuotaTotal - ttsUsedSafe);
+  const openSubscriptionUpgrade = () => setShowSubscriptionSheet(true);
+  const archiveBlocked = !canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
   const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
   const speak = async (text: string, idx: number) => {
     if(playingIndex===idx){stopAudio();return;}
     if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
-    if(ttsRemaining<=0)return;
+    if(ttsRemaining<=0){
+      openSubscriptionUpgrade();
+      return;
+    }
     setPlayingIndex(idx);
     try {
       const ttsLang=lang;
@@ -2693,7 +2694,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     } catch (err: unknown) {
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       if (status === 429) {
-        showToast(lang === "el" ? "Έφτασες το μηνιαίο όριο φωνητικών." : "Monthly voice limit reached.", "err");
+        openSubscriptionUpgrade();
         fetchSubscriptionStatus(token).then((data) => {
           if (data.voice_quota) setVoiceQuota(data.voice_quota);
         }).catch(() => {});
@@ -2925,22 +2926,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
 
   const createMemoryFromForm = (values: MemoryFormValues, journalRef: string) => {
-    if (values.img && !fullMemoryAllowed(planEntitlements, subSnapshot)) {
-      showToast(
-        lang === "el"
-          ? "Οι φωτογραφίες αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
-          : "Photo memories require Full Memory (Starter+).",
-        "err",
-      );
+    if (values.img && !featureAllowed("full_memory", planEntitlements, subSnapshot)) {
+      openSubscriptionUpgrade();
       return;
     }
-    if (values.video && !memoryVideoAllowed(planEntitlements, subSnapshot)) {
-      showToast(
-        lang === "el"
-          ? "Τα βίντεο αναμνήσεων απαιτούν Πλήρη Μνήμη (Starter+)."
-          : "Video memories require Full Memory (Starter+).",
-        "err",
-      );
+    if (values.video && !featureAllowed("memory_video", planEntitlements, subSnapshot)) {
+      openSubscriptionUpgrade();
       return;
     }
     const ref = journalRef === "__general__" ? undefined : journalRef;
@@ -2978,6 +2969,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
 
   const updateMemoryFromForm = (index: number, values: MemoryFormValues) => {
+    if (values.img && !featureAllowed("full_memory", planEntitlements, subSnapshot)) {
+      openSubscriptionUpgrade();
+      return;
+    }
+    if (values.video && !featureAllowed("memory_video", planEntitlements, subSnapshot)) {
+      openSubscriptionUpgrade();
+      return;
+    }
     const d = new Date(values.dateIso);
     const date = d.toLocaleDateString(lang, { day: "numeric", month: "short" });
     const createdAt = d.toISOString();
@@ -3001,6 +3000,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
 
   const pickMemoryPhoto = () => {
+    if (!featureAllowed("full_memory", planEntitlements, subSnapshot)) {
+      openSubscriptionUpgrade();
+      return;
+    }
     awaitingMemoryPhotoRef.current = true;
     fileRef.current?.click();
   };
@@ -4415,6 +4418,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       >
         <DialogPanel variant="white" padding="md">
           <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>📁 {t("nameyourthread", lang)}</h2>
+          {archiveBlocked ? (
+            <FeatureUpgradeGate
+              lang={lang}
+              featureLabel={featureLabel("archived_threads", lang)}
+              requiredPlanLabel={featureRequiredPlanLabel("archived_threads", lang)}
+              onUpgrade={() => {
+                setShowArchiveModal(false);
+                openSubscriptionUpgrade();
+              }}
+            />
+          ) : (
+            <>
           <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>{t("archive_hint", lang)}</p>
           <input
             className="hm-input"
@@ -4429,6 +4444,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <button type="button" className="hm-btn hm-btn--primary" onClick={doArchive}>{t("archivethread", lang)} ✓</button>
             <button type="button" className="hm-btn hm-btn--secondary" onClick={()=>setShowArchiveModal(false)}>{t("cancel", lang)}</button>
           </div>
+            </>
+          )}
         </DialogPanel>
       </AppDialog>
 
@@ -4506,6 +4523,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
             if (awaitingMemoryPhotoRef.current) {
               awaitingMemoryPhotoRef.current = false;
+              if (!featureAllowed("full_memory", planEntitlements, subSnapshot)) {
+                openSubscriptionUpgrade();
+                e.target.value = "";
+                return;
+              }
               if (isVideo) {
                 showToast(lang === "el" ? "Μόνο φωτογραφίες στο άλμπουμ." : "Photos only for memories.", "err");
                 e.target.value = "";
@@ -4894,6 +4916,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div style={{height:6,borderRadius:99,background:gl,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${Math.min(100, Math.round((ttsUsedSafe/ttsQuotaTotal)*100))}%`,background:ttsRemaining>0?teal:"#E07B54",borderRadius:99,transition:"width .3s"}}/>
               </div>
+              {ttsRemaining <= 0 && (
+                <FeatureUpgradeGate
+                  lang={lang}
+                  featureLabel={featureLabel("voice_listen", lang)}
+                  requiredPlanLabel={nextUpgradePlanLabel(subSnapshot, lang)}
+                  onUpgrade={openSubscriptionUpgrade}
+                  compact
+                />
+              )}
             </div>
 
             {/* Chat toolbar */}
@@ -4948,7 +4979,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     <div className="hm-chat-message-row__body">
                       <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--assistant" style={{background:chatAssistantBg,color:navy}}>{msg.content}</div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                        <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
+                        <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
                       </div>
                     </div>
                   </div>
@@ -5287,6 +5318,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             members={familyData.members}
             pregnancyActive={pregnancyActive}
             userName={displayName || profile.name}
+            featureAllowed={featureAllowed("document_archive", planEntitlements, subSnapshot)}
+            featureLabel={featureLabel("document_archive", lang)}
+            requiredPlanLabel={featureRequiredPlanLabel("document_archive", lang)}
+            onUpgrade={openSubscriptionUpgrade}
           />
         </AppTabPageShell>)}
 
@@ -5302,8 +5337,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             pregnancyActive={pregnancyActive}
             activeMemRef={activeMemRef}
             setActiveMemRef={setActiveMemRef}
-            photoAllowed={fullMemoryAllowed(planEntitlements, subSnapshot)}
-            videoAllowed={memoryVideoAllowed(planEntitlements, subSnapshot)}
+            photoAllowed={featureAllowed("full_memory", planEntitlements, subSnapshot)}
+            videoAllowed={featureAllowed("memory_video", planEntitlements, subSnapshot)}
+            onUpgrade={openSubscriptionUpgrade}
+            upgradeFeatureLabel={featureLabel("full_memory", lang)}
+            upgradeRequiredPlanLabel={featureRequiredPlanLabel("full_memory", lang)}
             onCreateMemory={createMemoryFromForm}
             onUpdateMemory={updateMemoryFromForm}
             onDeleteMemory={deleteMemory}
