@@ -26,13 +26,23 @@ import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
   getMilestonesForAgeMonths,
   getPregnancyMilestonesForWeek,
+  getMilestoneBullets,
 } from "./lib/milestones";
 import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesTab } from "./components/memories/MemoriesTab";
 import type { MemoryFormValues } from "./components/memories/AddMemoryModal";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
 import { FamilyDocumentsPanel } from "./components/FamilyDocumentsPanel";
+import { MilestonesPanel } from "./components/MilestonesPanel";
 import { normalizeDocEntries, type DocEntry } from "./lib/familyDocuments";
+import {
+  currentStageIdForChild,
+  currentStageIdForPregnancy,
+  isLegacyMilestoneChecksMap,
+  migrateMilestoneChecksMap,
+  setCheckForStage,
+  type MilestoneChecksMap,
+} from "./lib/milestoneTimeline";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import "./appResponsive.css";
 import { useTranslation } from "react-i18next";
@@ -48,7 +58,11 @@ import {
   memoriesHavePhotos,
   parseMemoriesJson,
 } from "./lib/memoriesSync";
-import { buildMilestoneMemory, milestoneMemoryKey } from "./lib/milestoneMemories";
+import {
+  buildMilestoneMemory,
+  migrateLegacyMilestoneMemories,
+  milestoneMemoryKey,
+} from "./lib/milestoneMemories";
 import {
   detectMemorySuggestion,
   findMatchingMilestoneIndex,
@@ -1451,6 +1465,11 @@ const TR: Record<string,Record<string,string>> = {
   voicequota:{el:"Φωνητικά μηνύματα",en:"Voice messages",ar:"الرسائل الصوتية",zh:"语音消息",es:"Mensajes de voz",fr:"Messages vocaux",ro:"Mesaje vocale",pl:"Wiadomości głosowe",tr:"Sesli mesajlar",hi:"वॉइस मैसेज",ur:"وائس میسجز",ja:"音声メッセージ",ru:"Голосовые сообщения",de:"Sprachnachrichten",pt:"Mensagens de voz",it:"Messaggi vocali",nl:"Spraakberichten",bn:"ভয়েস মেসেজ",id:"Pesan suara",sw:"Ujumbe wa sauti",fil:"Mga voice message",mr:"व्हॉइस मेसेज",te:"వాయిస్ సందేశాలు"},
   askmaa:{el:"Ρώτα τη Maa →",en:"Ask Maa →",ar:"اسأل Maa →",es:"Preguntar a Maa →",fr:"Demander à Maa →",de:"Maa fragen →",pt:"Perguntar à Maa →",it:"Chiedi a Maa →",ru:"Спросить Maa →",tr:"Maa'ya sor →",hi:"Maa से पूछें →",ur:"Maa سے پوچھیں →",zh:"问Maa →",ja:"Maaに聞く →",nl:"Vraag Maa →",pl:"Zapytaj Maa →",ro:"Întreabă Maa →",bn:"Maa-কে জিজ্ঞেস করুন →",id:"Tanya Maa →",sw:"Uliza Maa →",fil:"Ask Maa →",mr:"Maa ला विचारा →",te:"Maa ని అడగండి →"},
   tickall:{el:"Τίκαρε τα milestones που έχει πετύχει!",en:"Tick the milestones your baby has reached!",ar:"ضعي علامة على الإنجازات!",es:"¡Marca los hitos logrados!",fr:"Cochez les étapes atteintes!",de:"Meilensteine abhaken!",pt:"Assinala os marcos alcançados!",it:"Spunta i traguardi raggiunti!",ru:"Отметьте достигнутые вехи!",tr:"Ulaşılan aşamaları işaretle!",hi:"पूरे माइलस्टोन चुनें!",ur:"سنگ میل نشان لگائیں!",zh:"勾选宝宝达到的里程碑！",ja:"達成したマイルストーンをチェック！",nl:"Vink de behaalde mijlpalen aan!",pl:"Zaznacz osiągnięte etapy!",ro:"Bifează etapele atinse!",bn:"মাইলফলক টিক করুন!",id:"Centang tonggak yang dicapai!",sw:"Weka alama kwa hatua!",fil:"Tick the milestones your baby has reached!",mr:"पूर्ण झालेले टप्पे निवडा!",te:"మైలురాళ్ళను టిక్ చేయండి!"},
+  ms_locked_hint:{el:"Προεπισκόπηση — τα μελλοντικά ορόσημα δεν μπορούν ακόμα να τικαριστούν.",en:"Preview — future milestones can't be ticked yet."},
+  ms_period_progress:{el:"Πρόοδος περιόδου",en:"Period progress"},
+  ms_current_period:{el:"Τρέχων",en:"Current"},
+  ms_next_preview:{el:"Επόμενο",en:"Next"},
+  ms_past_period:{el:"Ολοκληρωμένη περίοδος — μπορείς να τικάρεις ό,τι έχει γίνει.",en:"Past period — tick anything that happened."},
   askaboutmile:{el:"Θέλεις να μάθεις περισσότερα για τα επόμενα milestones;",en:"Want to know more about upcoming milestones?",ar:"تريدين معرفة المزيد عن الإنجازات القادمة؟",es:"¿Quieres saber más sobre los próximos hitos?",fr:"Vous voulez en savoir plus sur les prochaines étapes?",de:"Mehr über kommende Meilensteine erfahren?",pt:"Quer saber mais sobre os próximos marcos?",it:"Vuoi sapere di più sui prossimi traguardi?",ru:"Хочешь узнать больше о следующих вехах?",tr:"Yaklaşan dönüm noktaları hakkında daha fazla bilgi ister misin?",hi:"अगले माइलस्टोन के बारे में जानना चाहती हैं?",ur:"آنے والے سنگ میلوں کے بارے میں جاننا چاہتی ہیں؟",zh:"想了解即将到来的里程碑吗？",ja:"次のマイルストーンについて知りたいですか？",nl:"Meer weten over aankomende mijlpalen?",pl:"Chcesz wiedzieć więcej o nadchodzących etapach?",ro:"Vrei să afli mai multe despre etapele viitoare?",bn:"পরবর্তী মাইলফলক সম্পর্কে জানতে চান?",id:"Ingin tahu lebih tentang tonggak berikutnya?",sw:"Unataka kujua zaidi kuhusu hatua zinazokuja?",fil:"Want to know more about upcoming milestones?",mr:"पुढील टप्प्यांबद्दल अधिक जाणून घ्यायचे आहे?",te:"రాబోయే మైలురాళ్ళ గురించి తెలుసుకోవాలా?"},
   save:{el:"Αποθήκευση",en:"Save",ar:"حفظ",es:"Guardar",fr:"Enregistrer",de:"Speichern",pt:"Guardar",it:"Salva",ru:"Сохранить",tr:"Kaydet",hi:"सहेजें",ur:"محفوظ",zh:"保存",ja:"保存",nl:"Opslaan",pl:"Zapisz",ro:"Salvează",bn:"সংরক্ষণ",id:"Simpan",sw:"Hifadhi",fil:"Save",mr:"जतन करा",te:"సేవ్ చేయి"},
   cancel:{el:"Ακύρωση",en:"Cancel",ar:"إلغاء",es:"Cancelar",fr:"Annuler",de:"Abbrechen",pt:"Cancelar",it:"Annulla",ru:"Отмена",tr:"İptal",hi:"रद्द करें",ur:"منسوخ",zh:"取消",ja:"キャンセル",nl:"Annuleren",pl:"Anuluj",ro:"Anulează",bn:"বাতিল",id:"Batal",sw:"Ghairi",fil:"Cancel",mr:"रद्द करा",te:"రద్దు చేయి"},
@@ -1919,8 +1938,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [cloudReady, setCloudReady] = useState(false);
   const [memoriesLocalReady, setMemoriesLocalReady] = useState(false);
   const [memoriesSaving, setMemoriesSaving] = useState(false);
-  const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => bootLocalScan().milestones_map || {});
-  const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
+  const [milestoneChecksMap, setMilestoneChecksMap] = useState<MilestoneChecksMap>(() => {
+    const raw = (bootLocalScan().milestones_map || {}) as Record<string, unknown>;
+    return raw as MilestoneChecksMap;
+  });
+  const [lastCheckedMap, setLastCheckedMap] = useState<Record<string, { stageId: string; idx: number } | null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
   const [docs, setDocs] = useState<DocEntry[]>(() => normalizeDocEntries(bootLocalScan().docs as unknown[]));
   const [shopItems, setShopItems] = useState<string[]>(() => {
@@ -2138,7 +2160,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [lang, profile.name, partnerMember, familyChildren, familyData.members]);
   const allChildren = familyChildren;
   const primaryChild = allChildren[0];
-  const milestoneList = getMilestones(ageMonthsFromBirthDate(primaryChild?.birthDate) ?? parseAgeMonths(profile.childAge), lang);
   const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang) : profile.childAge;
   const primaryChildName = primaryChild?.name || "Baby";
   const pregnancyActive = !!profile.dueDate && !isDueDatePassed(profile.dueDate) && profile.pregnancyStatus !== "completed";
@@ -2151,24 +2172,42 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return counts;
   }, [memories]);
   const pregWeek = pregnancyWeekFromDueDate(profile.dueDate) ?? 1;
-  const pregMilestoneList = getPregnancyMilestones(pregWeek, lang);
 
-  const resolveMilestoneLabel = useCallback((ref: string, idx: number): string | null => {
-    if (ref === "pregnancy") return pregMilestoneList[idx] ?? null;
-    const child = familyChildren.find((c) => c.name === ref);
-    const list = child
-      ? getMilestones(ageMonthsFromBirthDate(child.birthDate) ?? parseAgeMonths(profile.childAge), lang)
-      : milestoneList;
-    return list[idx] ?? null;
-  }, [pregMilestoneList, familyChildren, milestoneList, profile.childAge, lang]);
+  const resolveStageIdForRef = useCallback(
+    (ref: string): string => {
+      if (ref === "pregnancy") return currentStageIdForPregnancy(pregWeek);
+      const child = familyChildren.find((c) => c.name === ref);
+      const months =
+        (child ? ageMonthsFromBirthDate(child.birthDate) : null) ??
+        parseAgeMonths(profile.childAge);
+      return currentStageIdForChild(months ?? 0);
+    },
+    [pregWeek, familyChildren, profile.childAge],
+  );
 
-  const getMilestoneLabelsForRef = useCallback((ref: string): string[] => {
-    if (ref === "pregnancy") return pregMilestoneList;
-    const child = familyChildren.find((c) => c.name === ref);
-    return child
-      ? getMilestones(ageMonthsFromBirthDate(child.birthDate) ?? parseAgeMonths(profile.childAge), lang)
-      : milestoneList;
-  }, [pregMilestoneList, familyChildren, milestoneList, profile.childAge, lang]);
+  const resolveMilestoneLabel = useCallback(
+    (ref: string, stageId: string, idx: number): string | null => {
+      return getMilestoneBullets(stageId, lang)[idx] ?? null;
+    },
+    [lang],
+  );
+
+  useEffect(() => {
+    setMilestoneChecksMap((prev) => {
+      if (!isLegacyMilestoneChecksMap(prev as unknown as Record<string, unknown>)) return prev;
+      return migrateMilestoneChecksMap(prev as unknown as Record<string, unknown>, resolveStageIdForRef);
+    });
+  }, [resolveStageIdForRef]);
+
+  useEffect(() => {
+    if (!memoriesLocalReady) return;
+    setMemories((prev) => {
+      const next = migrateLegacyMilestoneMemories(prev, resolveStageIdForRef);
+      if (next === prev) return prev;
+      void persistMemoriesDurable(token, next);
+      return next;
+    });
+  }, [memoriesLocalReady, resolveStageIdForRef, token]);
 
   const milestoneMemorySyncedRef = useRef(false);
   useEffect(() => {
@@ -2176,15 +2215,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     milestoneMemorySyncedRef.current = true;
     setMemories((prev) => {
       const missing: Memory[] = [];
-      for (const [ref, checks] of Object.entries(milestoneChecksMap)) {
-        (checks || []).forEach((checked, idx) => {
-          if (!checked) return;
-          const key = milestoneMemoryKey(ref, idx);
-          if (prev.some((m) => m.milestoneKey === key)) return;
-          const label = resolveMilestoneLabel(ref, idx);
-          if (!label) return;
-          missing.push(buildMilestoneMemory({ ref, idx, label, lang }));
-        });
+      for (const [ref, byStage] of Object.entries(milestoneChecksMap)) {
+        for (const [stageId, checks] of Object.entries(byStage || {})) {
+          (checks || []).forEach((checked, idx) => {
+            if (!checked) return;
+            const key = milestoneMemoryKey(ref, stageId, idx);
+            if (prev.some((m) => m.milestoneKey === key)) return;
+            const label = resolveMilestoneLabel(ref, stageId, idx);
+            if (!label) return;
+            missing.push(buildMilestoneMemory({ ref, stageId, idx, label, lang }));
+          });
+        }
       }
       if (!missing.length) return prev;
       const next = [...missing, ...prev];
@@ -2335,7 +2376,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (local.chat.length) setMessages(local.chat as Message[]);
         if (local.threads.length) setThreads(local.threads as Thread[]);
         if (local.docs.length) setDocs(normalizeDocEntries(local.docs as unknown[]));
-        if (Object.keys(local.milestones_map).length) setMilestoneChecksMap(local.milestones_map);
+        if (Object.keys(local.milestones_map).length) {
+          setMilestoneChecksMap(local.milestones_map as unknown as MilestoneChecksMap);
+        }
         if (local.shopitems?.length) setShopItems(local.shopitems);
         if (local.superitems?.length) setSuperItems(local.superitems);
 
@@ -2358,7 +2401,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (merged.chat.length) setMessages(merged.chat as Message[]);
         if (merged.threads.length) setThreads(merged.threads as Thread[]);
         if (merged.docs.length) setDocs(normalizeDocEntries(merged.docs as unknown[]));
-        if (Object.keys(merged.milestones_map).length) setMilestoneChecksMap(merged.milestones_map);
+        if (Object.keys(merged.milestones_map).length) {
+          setMilestoneChecksMap(merged.milestones_map as unknown as MilestoneChecksMap);
+        }
         if (merged.shopitems?.length) setShopItems(merged.shopitems);
         if (merged.superitems?.length) setSuperItems(merged.superitems);
 
@@ -2820,18 +2865,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     let milestoneKey: string | undefined;
 
     if (isMilestone && suggestion.ref) {
-      const labels = getMilestoneLabelsForRef(suggestion.ref);
+      const stageId = resolveStageIdForRef(suggestion.ref);
+      const labels = getMilestoneBullets(stageId, lang);
       const matchIdx = findMatchingMilestoneIndex(suggestion.text, labels);
       if (matchIdx !== null) {
-        const key = milestoneMemoryKey(suggestion.ref, matchIdx);
+        const key = milestoneMemoryKey(suggestion.ref, stageId, matchIdx);
         if (!memories.some((m) => m.milestoneKey === key)) {
           milestoneKey = key;
-          setMilestoneChecksMap((prev) => {
-            const arr = [...(prev[suggestion.ref!] || [])];
-            if (arr[matchIdx]) return prev;
-            arr[matchIdx] = true;
-            return { ...prev, [suggestion.ref!]: arr };
-          });
+          setMilestoneChecksMap((prev) =>
+            setCheckForStage(prev, suggestion.ref!, stageId, matchIdx, true, labels.length),
+          );
         }
       }
     }
@@ -2987,16 +3030,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     );
   };
 
-  const toggleMilestone = (ref: string, idx: number, label: string) => {
-    const current = !!(milestoneChecksMap[ref]||[])[idx];
-    const key = milestoneMemoryKey(ref, idx);
-    setMilestoneChecksMap(prev => { const arr=[...(prev[ref]||[])]; arr[idx]=!arr[idx]; return {...prev,[ref]:arr}; });
-    setLastCheckedMap(prev=>({...prev,[ref]:current?null:idx}));
+  const toggleMilestone = (ref: string, stageId: string, idx: number, label: string) => {
+    const bullets = getMilestoneBullets(stageId, lang);
+    const current = !!(milestoneChecksMap[ref]?.[stageId]?.[idx]);
+    const key = milestoneMemoryKey(ref, stageId, idx);
+    setMilestoneChecksMap((prev) => setCheckForStage(prev, ref, stageId, idx, !current, bullets.length));
+    setLastCheckedMap((prev) => ({ ...prev, [ref]: current ? null : { stageId, idx } }));
     if (!current) {
-      track("submit", appPath("milestones", "check"), "Milestone reached", { ref, idx });
+      track("submit", appPath("milestones", "check"), "Milestone reached", { ref, stageId, idx });
       setMemories((prev) => {
         if (prev.some((m) => m.milestoneKey === key)) return prev;
-        const next: Memory[] = [buildMilestoneMemory({ ref, idx, label, lang }), ...prev];
+        const next: Memory[] = [buildMilestoneMemory({ ref, stageId, idx, label, lang }), ...prev];
         void persistMemoriesDurable(token, next);
         return next;
       });
@@ -3008,7 +3052,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       });
     }
   };
-  const getChecksForRef = (ref: string): boolean[] => milestoneChecksMap[ref]||[];
 
   const addFamilyMember = () => {
     if(!newMemberName.trim())return;
@@ -5286,88 +5329,61 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           const msRefs: {label:string,value:string}[] = [];
           if(profile.dueDate) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
           familyChildren.forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
-          const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value;
+          const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value||"";
           const isPreg = effectiveRef==="pregnancy";
           const currentChild = isPreg?null:familyChildren.find(ch=>ch.name===effectiveRef);
-          const currentChecks = getChecksForRef(effectiveRef||"");
-          const currentLastIdx = lastCheckedMap[effectiveRef||""]??null;
-          const currentMilestoneList = isPreg?pregMilestoneList:(currentChild?getMilestones(ageMonthsFromBirthDate(currentChild.birthDate)??parseAgeMonths(profile.childAge),lang):milestoneList);
+          const childAgeMonths = currentChild
+            ? (ageMonthsFromBirthDate(currentChild.birthDate) ?? parseAgeMonths(profile.childAge))
+            : parseAgeMonths(profile.childAge);
           const currentDisplayAge = currentChild?formatChildAge(currentChild.birthDate,lang):displayAge;
           const currentChildName = currentChild?.name||primaryChildName;
-          const currentCheckedCount = currentChecks.filter(Boolean).length;
+          const msCopy = {
+            milestones: t("milestones", lang),
+            tickall: t("tickall", lang),
+            pregTitle: t("pregnancymilestones_title", lang),
+            pregSub: t("pregnancymilestones_sub", lang),
+            pregCardTitle: t("pregnancycard_title", lang),
+            pregCardBody: t("pregnancycard_body", lang),
+            weekLabel: t("week_label", lang),
+            lockedHint: t("ms_locked_hint", lang),
+            progress: t("ms_period_progress", lang),
+            currentPeriod: t("ms_current_period", lang),
+            nextPreview: t("ms_next_preview", lang),
+            pastPeriod: t("ms_past_period", lang),
+            askaboutmile: t("askaboutmile", lang),
+            askmaa: t("askmaa", lang),
+            nochildyet: t("nochildyet", lang),
+          };
           return (<AppTabPageShell title={t("milestones", lang)}>
-            {msRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-              {msRefs.map((r,i)=>(
-                <button key={i} onClick={()=>setActiveMilestoneRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effectiveRef===r.value?navy:gl,color:effectiveRef===r.value?"#fff":"rgba(43,58,103,.55)",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>
-              ))}
-            </div>}
-            {isPreg&&profile.dueDate&&(<>
-            <div className="hm-tab-card">
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:8,fontWeight:600}}>🤰 {t("pregnancycard_title",lang)}</div>
-              <div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",lineHeight:1.6}}>{t("pregnancycard_body",lang).replace("{week}",String(pregWeek)).replace("{date}",profile.dueDate||"")}</div>
-            </div>
-            <div className="hm-tab-card">
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("pregnancymilestones_title",lang)} · {t("week_label",lang)} {pregWeek}</div>
-              <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("pregnancymilestones_sub",lang)}</div>
-              {currentMilestoneList.map((m,i)=>(
-                <div key={i}>
-                  <div onClick={()=>toggleMilestone("pregnancy",i,m)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
-                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
-                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
-                  </div>
-                  {currentChecks[i]&&currentLastIdx===i&&(
-                    <div className="hm-callout">
-                      {getPregnancyMilestoneMsg(i,currentMilestoneList.length,lang)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {currentCheckedCount>0&&<div className="hm-success-strip">
-              <span>🎉 {t("week_label",lang)} {pregWeek} — {currentCheckedCount}/{currentMilestoneList.length} {t("pregnancymilestones_title",lang)}</span><button onClick={()=>prefillChat(lang==="el"?"Θέλω να προσθέσω ένα νέο milestone":"I want to add a new milestone")} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,lineHeight:1,padding:"0 2px"}}>🚀</button>
-            </div>}
+            <MilestonesPanel
+              lang={lang}
+              refs={msRefs}
+              activeRef={effectiveRef}
+              onActiveRefChange={setActiveMilestoneRef}
+              isPregnancy={isPreg}
+              pregWeek={pregWeek}
+              dueDate={profile.dueDate}
+              ageMonths={childAgeMonths}
+              displayAge={currentDisplayAge}
+              childName={currentChildName}
+              checksMap={milestoneChecksMap}
+              lastChecked={lastCheckedMap[effectiveRef] ?? null}
+              onToggle={toggleMilestone}
+              pregMilestoneMsg={(i, total) => getPregnancyMilestoneMsg(i, total, lang)}
+              childMilestoneMsg={(i, total) => getMilestoneMsg(i, total, lang)}
+              copy={msCopy}
+            />
+            {effectiveRef && (
             <div className="hm-tab-card">
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
                 <HeyMaaAvatar size={32} />
                 <div>
                   <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                  <button onClick={()=>prefillChat(t("askmile_preg_q",lang).replace("{week}",String(pregWeek)))} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                  <button onClick={()=>prefillChat(isPreg?t("askmile_preg_q",lang).replace("{week}",String(pregWeek)):lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
                 </div>
               </div>
             </div>
-            </>)}
-            {currentChild&&(<>
-            <div className="hm-tab-card">
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>{t("milestones",lang)} · {currentChildName} · {currentDisplayAge}</div>
-              <div style={{fontSize:12,color:"rgba(43,58,103,.55)",marginBottom:12}}>{t("tickall",lang)}</div>
-              {currentMilestoneList.map((m,i)=>(
-                <div key={i}>
-                  <div onClick={()=>toggleMilestone(effectiveRef!,i,m)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl,cursor:"pointer"}}>
-                    <div style={{width:22,height:22,borderRadius:"50%",background:currentChecks[i]?navy:gl,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:currentChecks[i]?"#fff":"rgba(43,58,103,.38)",flexShrink:0,border:currentChecks[i]?"none":"2px solid rgba(43,58,103,.2)",transition:"all .2s"}}>{currentChecks[i]?"✓":"○"}</div>
-                    <div style={{fontSize:13,fontWeight:500,color:currentChecks[i]?"#2B3A67":"rgba(43,58,103,.55)",flex:1}}>{m}</div>
-                  </div>
-                  {currentChecks[i]&&currentLastIdx===i&&(
-                    <div className="hm-callout">
-                      {getMilestoneMsg(i,currentMilestoneList.length,lang)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {currentCheckedCount>0&&<div className="hm-success-strip">
-              🎉 {currentChildName} — {currentCheckedCount}/{currentMilestoneList.length} milestones!
-            </div>}
-            <div className="hm-tab-card">
-              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-                <HeyMaaAvatar size={32} />
-                <div>
-                  <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("askaboutmile",lang)}</div>
-                  <button onClick={()=>prefillChat(lang==="el"?"Ποια είναι τα επόμενα milestones για παιδί "+currentDisplayAge+";":lang==="ar"?"ما هي الإنجازات التطورية القادمة لطفل بعمر "+currentDisplayAge+"؟":lang==="zh"?currentDisplayAge+"宝宝接下来的发育里程碑是什么？":lang==="es"?"¿Cuáles son los próximos hitos del desarrollo para un bebé de "+currentDisplayAge+"?":lang==="fr"?"Quelles sont les prochaines étapes du développement pour un bébé de "+currentDisplayAge+"?":lang==="de"?"Was sind die nächsten Entwicklungsmeilensteine für ein Baby im Alter von "+currentDisplayAge+"?":lang==="ru"?"Каковы следующие вехи развития для ребёнка в возрасте "+currentDisplayAge+"?":lang==="tr"?currentDisplayAge+" yaşındaki bebek için sıradaki gelişim aşamaları neler?":lang==="ja"?currentDisplayAge+"の赤ちゃんの次の発達マイルストーンは何ですか？":"What are the next developmental milestones for a baby aged "+currentDisplayAge+"?")} style={{background:"none",border:"1px solid "+navy,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
-                </div>
-              </div>
-            </div>
-            </>)}
-            {!effectiveRef&&<div className="hm-tab-card"><div className="hm-tab-empty">{t("nochildyet",lang)}</div></div>}
+            )}
           </AppTabPageShell>);
         })()}
         {/* ── SHOPPING ── */}

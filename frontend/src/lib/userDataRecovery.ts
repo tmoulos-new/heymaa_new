@@ -22,6 +22,8 @@ import {
   RELATED_TO_SELF,
   type FamilyData,
 } from "./familyData";
+import { mergeMilestoneChecksMaps } from "./milestoneTimeline";
+import type { MilestoneChecksMap } from "./milestoneTimelineTypes";
 
 /** Normalize jsonb values from `/userdata` (already-parsed objects or JSON strings). */
 export function parseUserDataJson(raw: unknown): unknown {
@@ -56,7 +58,7 @@ export type RecoveredUserData = {
   chat: unknown[];
   threads: unknown[];
   docs: unknown[];
-  milestones_map: Record<string, boolean[]>;
+  milestones_map: MilestoneChecksMap;
   shopitems: string[] | null;
   superitems: string[] | null;
   ttsused: number | null;
@@ -261,10 +263,10 @@ export function recoverFromLocalStorageScan(): RecoveredUserData {
   let docs: unknown[] = [];
   for (const raw of buckets.docs || []) docs = arrayRicher(docs, parseJsonArray(raw));
 
-  let milestones_map: Record<string, boolean[]> = {};
+  let milestones_map: Record<string, unknown> = {};
   for (const raw of buckets.milestones_map || []) {
-    const obj = parseJsonObject(raw) as Record<string, boolean[]>;
-    milestones_map = { ...milestones_map, ...obj };
+    const obj = parseJsonObject(raw);
+    milestones_map = mergeMilestoneChecksMaps(milestones_map, obj);
   }
 
   let shopitems: string[] | null = null;
@@ -301,7 +303,7 @@ export function recoverFromLocalStorageScan(): RecoveredUserData {
     chat,
     threads,
     docs,
-    milestones_map,
+    milestones_map: milestones_map as MilestoneChecksMap,
     shopitems,
     superitems,
     ttsused,
@@ -484,10 +486,18 @@ export function mergeCloudUserData(
     if (remote) docs = arrayRicher(docs, remote);
   }
 
-  let milestones_map = { ...local.milestones_map };
+  let milestones_map = mergeMilestoneChecksMaps(
+    local.milestones_map as Record<string, unknown>,
+    {},
+  );
   if (cloud.milestones_map != null) {
-    const remote = asObject(cloud.milestones_map) as Record<string, boolean[]> | null;
-    if (remote) milestones_map = { ...milestones_map, ...remote };
+    const remote = asObject(cloud.milestones_map);
+    if (remote) {
+      milestones_map = mergeMilestoneChecksMaps(
+        milestones_map,
+        remote as Record<string, unknown>,
+      );
+    }
   }
 
   let shopitems = local.shopitems;
@@ -521,7 +531,7 @@ export function mergeCloudUserData(
     chat,
     threads,
     docs,
-    milestones_map,
+    milestones_map: milestones_map as MilestoneChecksMap,
     shopitems,
     superitems,
     ttsused,

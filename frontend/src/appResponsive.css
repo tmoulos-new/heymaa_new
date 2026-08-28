@@ -2539,6 +2539,325 @@ body.hm-app-active .hm-sheet-overlay {
   }
 }
 
+/* ── Milestones timeline ── */
+.hm-ms-ref-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.hm-ms-ref-chip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(43, 58, 103, 0.06);
+  color: rgba(43, 58, 103, 0.55);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hm-ms-ref-chip--active {
+  background: #2b3a67;
+  color: #fff;
+}
+
+.hm-ms-progress-wrap {
+  margin-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+/* Continuous development track (phase B) */
+.hm-ms-track-wrap {
+  margin-bottom: 14px;
+}
+
+.hm-ms-track-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.hm-ms-track {
+  position: relative;
+  min-width: min(100%, 540px);
+  padding: 4px 6px 0;
+}
+
+.hm-ms-track__rail {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 15px;
+  height: 4px;
+  background: rgba(43, 58, 103, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hm-ms-track__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #beb4cd 0%, #2b3a67 100%);
+  transition: width 0.35s ease;
+}
+
+.hm-ms-track__nodes {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.hm-ms-track__node {
+  flex: 1;
+  min-width: 48px;
+  max-width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hm-ms-track__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fbf9f7;
+  border: 2px solid rgba(43, 58, 103, 0.22);
+  box-sizing: border-box;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.hm-ms-track__node-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: rgba(43, 58, 103, 0.42);
+  max-width: 100%;
+}
+
+.hm-ms-track__node--past .hm-ms-track__dot {
+  background: #beb4cd;
+  border-color: #beb4cd;
+}
+
+.hm-ms-track__node--past .hm-ms-track__node-label {
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-ms-track__node--current .hm-ms-track__dot {
+  width: 16px;
+  height: 16px;
+  background: #2b3a67;
+  border-color: #2b3a67;
+  box-shadow: 0 0 0 3px rgba(190, 180, 205, 0.45);
+}
+
+.hm-ms-track__node--current .hm-ms-track__node-label {
+  color: #2b3a67;
+}
+
+.hm-ms-track__node--future .hm-ms-track__dot {
+  background: #fbf9f7;
+  border-color: rgba(43, 58, 103, 0.12);
+}
+
+.hm-ms-track__node--future .hm-ms-track__node-label {
+  color: rgba(43, 58, 103, 0.32);
+}
+
+.hm-ms-track__node--selected .hm-ms-track__node-label {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hm-ms-track__node:hover .hm-ms-track__dot {
+  transform: scale(1.08);
+}
+
+.hm-ms-track__current {
+  margin-top: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.62);
+  text-align: center;
+}
+
+.hm-ms-track__current-arrow {
+  color: #beb4cd;
+}
+
+.hm-ms-next-preview {
+  opacity: 0.92;
+  border: 1px dashed rgba(43, 58, 103, 0.14);
+  background: rgba(43, 58, 103, 0.02);
+}
+
+.hm-ms-next-preview__title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(43, 58, 103, 0.55);
+  margin-bottom: 4px;
+}
+
+.hm-ms-next-preview__sub {
+  font-size: 11px;
+  color: rgba(43, 58, 103, 0.42);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+  .hm-ms-track {
+    min-width: min(100%, 480px);
+  }
+
+  .hm-ms-track__node {
+    min-width: 42px;
+    max-width: 58px;
+  }
+
+  .hm-ms-track__node-label {
+    font-size: 7px;
+  }
+
+  .hm-ms-track__dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .hm-ms-track__node--current .hm-ms-track__dot {
+    width: 14px;
+    height: 14px;
+  }
+
+  .hm-ms-track__current {
+    font-size: 10px;
+  }
+
+  .hm-ms-row__label {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .hm-ms-track__rail {
+    left: 20px;
+    right: 20px;
+  }
+
+  .hm-ms-track__node {
+    min-width: 36px;
+  }
+}
+
+.hm-ms-card-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  color: #2b3a67;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.hm-ms-card-sub {
+  font-size: 12px;
+  color: rgba(43, 58, 103, 0.55);
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
+.hm-ms-group-progress {
+  font-size: 11px;
+  font-weight: 600;
+  color: #beb4cd;
+  margin-bottom: 10px;
+}
+
+.hm-ms-stage {
+  margin-bottom: 8px;
+}
+
+.hm-ms-stage__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(43, 58, 103, 0.42);
+  margin: 10px 0 6px;
+  letter-spacing: 0.3px;
+}
+
+.hm-ms-stage__locked-hint {
+  font-size: 11px;
+  color: rgba(43, 58, 103, 0.45);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: rgba(43, 58, 103, 0.04);
+  border-radius: 8px;
+}
+
+.hm-ms-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(43, 58, 103, 0.06);
+  cursor: pointer;
+}
+
+.hm-ms-row--locked {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.hm-ms-row__check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(43, 58, 103, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(43, 58, 103, 0.38);
+  flex-shrink: 0;
+  border: 2px solid rgba(43, 58, 103, 0.2);
+}
+
+.hm-ms-row--checked .hm-ms-row__check {
+  background: #2b3a67;
+  color: #fff;
+  border: none;
+}
+
+.hm-ms-row--checked .hm-ms-row__label {
+  color: #2b3a67;
+  font-weight: 500;
+}
+
+.hm-ms-row__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.55);
+  flex: 1;
+  line-height: 1.35;
+}
+
 .hm-header-actions {
   display: flex;
   align-items: center;
