@@ -195,9 +195,14 @@ async def retrieve_transaction(transaction_id: str) -> dict:
 
 
 def _subscription_update_fields(plan_key: str) -> dict:
+    try:
+        from subscription_period import subscription_ends_at_iso
+    except ImportError:
+        from .subscription_period import subscription_ends_at_iso
     return {
         "plan": plan_db_value(plan_key),
         "subscription_status": "active",
+        "subscription_ends_at": subscription_ends_at_iso(plan_key),
     }
 
 

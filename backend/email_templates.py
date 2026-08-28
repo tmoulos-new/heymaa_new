@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from html import escape
 from typing import Optional
 
@@ -562,6 +563,55 @@ def render_password_changed_email(
         )
         subject = "Ο κωδικός σου στην HeyMaa άλλαξε"
         preheader = "Επιβεβαίωση αλλαγής κωδικού"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
+def render_access_expiry_reminder_email(
+    *,
+    name: Optional[str],
+    access_ends_at: str,
+    app_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    lang = normalize_email_lang(lang)
+    try:
+        end_dt = datetime.fromisoformat(access_ends_at.replace("Z", "+00:00"))
+        if lang == "en":
+            end_label = end_dt.strftime("%d %B %Y")
+        else:
+            end_label = end_dt.strftime("%d/%m/%Y")
+    except Exception:
+        end_label = access_ends_at[:10]
+
+    if lang == "en":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Your HeyMaa access ends soon — on <strong style=\"color:{TEXT};\">{escape(end_label)}</strong>."
+            )
+            + _paragraph(
+                "Renew or upgrade your plan now so you don't lose chat, memories, and milestones."
+            )
+            + _button(f"{app_url.rstrip('/')}/app", "Renew or upgrade")
+            + _help_footer(lang)
+        )
+        subject = "Your HeyMaa access ends in 2 days"
+        preheader = f"Access ends {end_label}"
+    else:
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Η πρόσβασή σου στην HeyMaa λήγει σύντομα — στις "
+                f"<strong style=\"color:{TEXT};\">{escape(end_label)}</strong>."
+            )
+            + _paragraph(
+                "Ανανέωσε ή αναβάθμισε το πακέτο σου τώρα, για να μη χάσεις chat, αναμνήσεις και ορόσημα."
+            )
+            + _button(f"{app_url.rstrip('/')}/app", "Ανανέωση / Upgrade")
+            + _help_footer(lang)
+        )
+        subject = "Η πρόσβασή σου στην HeyMaa λήγει σε 2 ημέρες"
+        preheader = f"Λήξη πρόσβασης {end_label}"
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 

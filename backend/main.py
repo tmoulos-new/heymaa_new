@@ -26,6 +26,21 @@ except ImportError:
     from cors_config import cors_allowed_origins
 
 try:
+    from .plan_grants import (
+        claim_level_reward,
+        get_user_plan_grants,
+        has_active_plan_grant,
+        rewards_payload,
+    )
+except ImportError:
+    from plan_grants import (
+        claim_level_reward,
+        get_user_plan_grants,
+        has_active_plan_grant,
+        rewards_payload,
+    )
+
+try:
     from .plan_entitlements import (
         VoiceQuotaExceeded,
         build_status_payload,
@@ -540,22 +555,23 @@ def _get_user_level_id(user_id: str) -> int:
         pass
     return 1
 
-def _sync_user_level_id(user_id: str, points: int) -> int:
+def _sync_user_level_id(user_id: str, points: int) -> tuple[int, int, bool]:
     if not sb or not user_id:
-        return 1
+        return 1, 1, False
     level_id = _level_id_for_points(points)
+    previous = 1
     try:
-        current = _get_user_level_id(user_id)
-        if current != level_id:
+        previous = _get_user_level_id(user_id)
+        if previous != level_id:
             sb.table("users").update({"level_id": level_id}).eq("id", user_id).execute()
     except Exception:
         pass
-    return level_id
+    return level_id, previous, previous != level_id
 
 def _user_gamification(user_id: str) -> dict:
     levels = _get_levels()
     points = _get_user_points(user_id)
-    level_id = _sync_user_level_id(user_id, points)
+    level_id, _, _ = _sync_user_level_id(user_id, points)
     current_level = _level_by_id(level_id, levels)
     return _gamification_status(points, levels, current_level=current_level)
 
@@ -743,7 +759,7 @@ def _award_points(user_id: str, amount: int, reason: str, action: str = "", path
             "path": path or None,
         }).execute()
         points = _get_user_points(user_id)
-        _sync_user_level_id(user_id, points)
+        level_id, previous_level_id, level_changed = _sync_user_level_id(user_id, points)
         return points
     except Exception:
         return _get_user_points(user_id)
@@ -840,10 +856,18 @@ def _maybe_award_points(auth: dict, action: str, path: str) -> Optional[dict]:
     user_id = auth.get("user_id")
     if not user_id:
         return None
+    previous_level = _get_user_level_id(user_id)
     amount = _points_for_activity(action, path)
     if amount > 0:
         _award_points(user_id, amount, f"{action}:{path}", action=action, path=path)
-    return _user_gamification(user_id)
+    gamification = _user_gamification(user_id)
+    new_level = int(gamification.get("level", {}).get("number") or previous_level)
+    result = {"gamification": gamification}
+    if new_level > previous_level:
+        result["level_up"] = {"from": previous_level, "to": new_level}
+    if sb:
+        result["rewards"] = rewards_payload(sb, user_id, new_level)
+    return result
 
 def _attach_user_activity_names(rows: list) -> list:
     if not rows:
@@ -1653,8 +1677,10 @@ def _auth_user_row(auth_user) -> dict:
     }
 
 def _subscription_active_for_user(user_id: str) -> bool:
-    """Registered Supabase users: active plan or unexpired trial."""
-    res = sb.table("users").select("subscription_status,trial_ends_at,role").eq("id", user_id).execute()
+    """Registered Supabase users: active plan, unexpired trial, or active reward grant."""
+    if sb and has_active_plan_grant(sb, user_id):
+        return True
+    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,role").eq("id", user_id).execute()
     if not res.data:
         return False
     row = res.data[0]
@@ -1662,7 +1688,17 @@ def _subscription_active_for_user(user_id: str) -> bool:
         return True
     status = (row.get("subscription_status") or "").lower()
     if status == "active":
-        return True
+        sub_ends = row.get("subscription_ends_at")
+        if not sub_ends:
+            return True
+        from datetime import datetime, timezone
+        try:
+            exp_dt = datetime.fromisoformat(str(sub_ends).replace("Z", "+00:00"))
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            return exp_dt >= datetime.now(timezone.utc)
+        except Exception:
+            return True
     if status == "trial":
         trial_ends = row.get("trial_ends_at")
         if not trial_ends:
@@ -1679,15 +1715,16 @@ def _subscription_active_for_user(user_id: str) -> bool:
 
 def _subscription_status_for_user(user_id: str) -> dict:
     """Subscription snapshot for a registered user."""
-    res = sb.table("users").select("subscription_status,trial_ends_at,created_at,role,plan").eq("id", user_id).execute()
+    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,created_at,role,plan").eq("id", user_id).execute()
     if not res.data:
-        return {"subscription_active": False, "subscription_status": None, "trial_ends_at": None, "is_trial": False, "plan": None}
+        return {"subscription_active": False, "subscription_status": None, "trial_ends_at": None, "subscription_ends_at": None, "is_trial": False, "plan": None}
     row = res.data[0]
     if row.get("role") == "admin":
         return {
             "subscription_active": True,
             "subscription_status": row.get("subscription_status") or "active",
             "trial_ends_at": row.get("trial_ends_at"),
+            "subscription_ends_at": row.get("subscription_ends_at"),
             "is_trial": False,
             "plan": row.get("plan"),
         }
@@ -1699,6 +1736,7 @@ def _subscription_status_for_user(user_id: str) -> dict:
         "subscription_active": active,
         "subscription_status": status or None,
         "trial_ends_at": trial_ends,
+        "subscription_ends_at": row.get("subscription_ends_at"),
         "is_trial": is_trial,
         "plan": row.get("plan"),
     }
@@ -2650,6 +2688,8 @@ def get_me(x_token: Optional[str] = Header(None)):
         user = res.data[0]
         user["gamification"] = _user_gamification(auth["user_id"])
         user["referral_code"] = _ensure_user_referral_code(auth["user_id"])
+        level_id = int(user.get("level_id") or 1)
+        user["rewards"] = rewards_payload(sb, auth["user_id"], level_id)
         return user
     except HTTPException:
         raise
@@ -2703,7 +2743,41 @@ async def auth_status(x_token: Optional[str] = Header(None)):
     subscription = {"ok": True, "subscription_active": active}
     if auth.get("kind") == "user" and auth.get("user_id"):
         subscription.update(_subscription_status_for_user(auth["user_id"]))
-    return build_status_payload(sb, auth, subscription)
+    payload = build_status_payload(sb, auth, subscription)
+    if (
+        sb
+        and auth.get("kind") == "user"
+        and auth.get("user_id")
+        and payload.get("access_ends_at")
+        and RESEND_API_KEY
+    ):
+        try:
+            try:
+                from .access_expiry_reminders import maybe_send_access_expiry_reminder
+            except ImportError:
+                from access_expiry_reminders import maybe_send_access_expiry_reminder
+            user_res = (
+                sb.table("users")
+                .select("email,name")
+                .eq("id", auth["user_id"])
+                .limit(1)
+                .execute()
+            )
+            if user_res.data:
+                row = user_res.data[0]
+                maybe_send_access_expiry_reminder(
+                    sb,
+                    user_id=auth["user_id"],
+                    email=row.get("email") or "",
+                    name=row.get("name"),
+                    access_ends_at=payload.get("access_ends_at"),
+                    lang="el",
+                    resend_api_key=RESEND_API_KEY,
+                    resend_from=RESEND_FROM,
+                )
+        except Exception:
+            pass
+    return payload
 
 @app.get("/profile")
 async def get_profile(x_token: Optional[str] = Header(None)):
@@ -3790,7 +3864,7 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
     if not sb:
         return {"users": []}
     try:
-        columns = "id,email,name,plan,subscription_status,trial_ends_at,created_at,last_login,role,must_change_password,level_id"
+        columns = "id,email,name,plan,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role,must_change_password,level_id"
         app_users = _paginate_table_rows("users", columns)
         for row in app_users:
             row["account_kind"] = "registered"
@@ -3820,9 +3894,13 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
         merged.sort(key=lambda u: u.get("created_at") or "", reverse=True)
         user_ids = [u.get("id") for u in merged if u.get("id")]
         summaries = _user_data_summaries_for_users(user_ids)
+        grants_summaries = _grants_summary_for_users(user_ids)
         for u in merged:
             uid = u.get("id")
             u["data_summary"] = summaries.get(uid, dict(EMPTY_USER_DATA_SUMMARY))
+            grant_info = grants_summaries.get(uid, {})
+            u["active_grants"] = grant_info.get("active_grants") or []
+            u["pending_rewards"] = grant_info.get("pending_rewards") or 0
         _attach_user_points_summary(merged)
         return {
             "users": merged,
@@ -3847,9 +3925,14 @@ async def admin_user_gamification(user_id: str, x_token: Optional[str] = Header(
             raise HTTPException(status_code=404, detail="User not found")
         user = user_res.data[0]
         analysis = _user_gamification_analysis(user_key)
+        from plan_grants import get_user_plan_grants, rewards_payload, serialize_active_grants
+        level_id = int(user.get("level_id") or 1)
+        grants = get_user_plan_grants(sb, user_key)
         return {
             "user": user,
             **analysis,
+            "rewards": rewards_payload(sb, user_key, level_id),
+            "active_grants": serialize_active_grants(grants),
         }
     except HTTPException:
         raise
@@ -4752,9 +4835,67 @@ def _user_insert_error_detail(exc: Exception) -> str:
 
 
 def _tester_plan_fields(plan: str) -> dict:
-    if plan == "premium":
-        return {"plan": "premium", "subscription_status": "active"}
-    return {"plan": "starter", "subscription_status": "active"}
+    try:
+        from subscription_period import subscription_ends_at_iso
+    except ImportError:
+        from .subscription_period import subscription_ends_at_iso
+    plan_key = "premium" if plan == "premium" else "starter"
+    return {
+        "plan": plan_key,
+        "subscription_status": "active",
+        "subscription_ends_at": subscription_ends_at_iso(plan_key),
+    }
+
+
+def _grants_summary_for_users(user_ids: list) -> dict:
+    if not sb or not user_ids:
+        return {}
+    result: dict = {uid: {"active_grants": [], "pending_rewards": 0} for uid in user_ids}
+    try:
+        res = (
+            sb.table("user_data")
+            .select("user_id,key,value")
+            .in_("user_id", user_ids)
+            .in_("key", ["plan_grants", "level_rewards_claimed"])
+            .execute()
+        )
+        grants_by_user: dict = {uid: [] for uid in user_ids}
+        claimed_by_user: dict = {uid: set() for uid in user_ids}
+        for row in res.data or []:
+            uid = str(row.get("user_id") or "")
+            if uid not in result:
+                continue
+            key = row.get("key")
+            val = row.get("value")
+            if key == "plan_grants" and isinstance(val, list):
+                grants_by_user[uid] = val
+            elif key == "level_rewards_claimed" and isinstance(val, list):
+                for x in val:
+                    try:
+                        claimed_by_user[uid].add(int(x))
+                    except Exception:
+                        pass
+        level_by_user: dict = {}
+        users_res = (
+            sb.table("users")
+            .select("id,level_id")
+            .in_("id", user_ids)
+            .execute()
+        )
+        for row in users_res.data or []:
+            level_by_user[str(row.get("id"))] = int(row.get("level_id") or 1)
+        from plan_grants import pending_level_rewards, serialize_active_grants
+
+        for uid in user_ids:
+            grants = grants_by_user.get(uid, [])
+            level_id = level_by_user.get(uid, 1)
+            result[uid] = {
+                "active_grants": serialize_active_grants(grants),
+                "pending_rewards": len(pending_level_rewards(level_id, claimed_by_user.get(uid, set()))),
+            }
+    except Exception:
+        pass
+    return result
 
 
 def supabase_create_auth_user(email: str, user_metadata: dict, password: Optional[str] = None) -> str:
@@ -5473,14 +5614,56 @@ async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None
         raise HTTPException(status_code=400, detail="path required")
     if not action:
         raise HTTPException(status_code=400, detail="action required")
-    gamification = _log_user_activity(auth, action, path, label=req.label, details=req.details)
+    award_result = _log_user_activity(auth, action, path, label=req.label, details=req.details)
     response = {"ok": True}
-    if gamification:
+    if award_result:
         amount = _points_for_activity(action, path)
         if amount > 0:
             response["points_awarded"] = amount
-        response["gamification"] = gamification
+        if isinstance(award_result, dict):
+            if award_result.get("gamification"):
+                response["gamification"] = award_result["gamification"]
+            if award_result.get("level_up"):
+                response["level_up"] = award_result["level_up"]
+            if award_result.get("rewards"):
+                response["rewards"] = award_result["rewards"]
+        else:
+            response["gamification"] = award_result
     return response
+
+
+class ClaimLevelRewardRequest(BaseModel):
+    level_id: int
+
+
+@app.get("/gamification/rewards")
+async def get_gamification_rewards(x_token: Optional[str] = Header(None)):
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not sb:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    level_id = _get_user_level_id(auth["user_id"])
+    return rewards_payload(sb, auth["user_id"], level_id)
+
+
+@app.post("/gamification/claim-reward")
+async def claim_gamification_reward(req: ClaimLevelRewardRequest, x_token: Optional[str] = Header(None)):
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if not sb:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    user_id = auth["user_id"]
+    current_level = _get_user_level_id(user_id)
+    try:
+        result = claim_level_reward(sb, user_id, int(req.level_id), current_level)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    subscription = {"ok": True, "subscription_active": check_subscription(x_token)}
+    subscription.update(_subscription_status_for_user(user_id))
+    status = build_status_payload(sb, auth, subscription)
+    return {**result, "status": status}
 
 
 # == User Data Persistence ==
@@ -5513,8 +5696,8 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
     value = body.get("value")
     if not key:
         raise HTTPException(status_code=400, detail="key required")
-    if key in ("ttsused", "tts_usage"):
-        raise HTTPException(status_code=403, detail="Voice usage is managed by the server.")
+    if key in ("ttsused", "tts_usage", "plan_grants", "level_rewards_claimed"):
+        raise HTTPException(status_code=403, detail="This data is managed by the server.")
     if key == "memories":
         user_row = None
         if auth.get("kind") == "user" and auth.get("user_id"):
@@ -5532,7 +5715,10 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
         if auth.get("kind") == "invite":
             _, entitlements = invite_plan_context()
         else:
-            _, entitlements = plan_context_from_user_row(user_row)
+            from plan_grants import get_user_plan_grants, plan_context_with_grants
+
+            grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
+            _, entitlements = plan_context_with_grants(user_row, grants)
         mem_err = validate_memories_payload(value, entitlements)
         if mem_err:
             raise HTTPException(status_code=403, detail=mem_err)

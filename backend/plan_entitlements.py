@@ -222,7 +222,10 @@ def get_voice_quota_for_auth(sb, auth: dict, user_row: Optional[dict] = None) ->
     if auth.get("kind") == "invite":
         _, ent = invite_plan_context()
     else:
-        _, ent = plan_context_from_user_row(user_row)
+        from plan_grants import get_user_plan_grants, plan_context_with_grants
+
+        grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
+        _, ent = plan_context_with_grants(user_row, grants)
     usage = load_tts_usage(sb, auth)
     limit = int(ent.get("voice_listen_quota") or VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     return voice_quota_snapshot(usage, limit)
@@ -232,7 +235,10 @@ def consume_voice_listen(sb, auth: dict, user_row: Optional[dict], updated_at: s
     if auth.get("kind") == "invite":
         _, ent = invite_plan_context()
     else:
-        _, ent = plan_context_from_user_row(user_row)
+        from plan_grants import get_user_plan_grants, plan_context_with_grants
+
+        grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
+        _, ent = plan_context_with_grants(user_row, grants)
     limit = int(ent.get("voice_listen_quota") or VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     usage = load_tts_usage(sb, auth)
     used = int(usage.get("used") or 0)
@@ -272,14 +278,26 @@ def validate_memories_payload(value: Any, entitlements: dict[str, Any]) -> Optio
 
 
 def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
+    from plan_grants import (
+        get_user_plan_grants,
+        grant_access_ends_at,
+        plan_context_with_grants,
+        rewards_payload,
+        serialize_active_grants,
+    )
+
     user_row = None
     cancel_requested = False
-    if auth.get("kind") == "user" and auth.get("user_id") and sb:
+    user_id = auth.get("user_id") if auth.get("kind") == "user" else None
+    grants: list = []
+    if user_id and sb:
+        grants = get_user_plan_grants(sb, user_id)
+    if auth.get("kind") == "user" and user_id and sb:
         try:
             res = (
                 sb.table("users")
-                .select("plan,subscription_status,role")
-                .eq("id", auth["user_id"])
+                .select("plan,subscription_status,role,level_id")
+                .eq("id", user_id)
                 .limit(1)
                 .execute()
             )
@@ -290,7 +308,7 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
             cancel_res = (
                 sb.table("user_data")
                 .select("key")
-                .eq("user_id", auth["user_id"])
+                .eq("user_id", user_id)
                 .eq("key", "subscription_cancel_requested")
                 .limit(1)
                 .execute()
@@ -300,12 +318,27 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
             cancel_requested = False
     if auth.get("kind") == "invite":
         _, entitlements = invite_plan_context()
+        rewards = None
+        access_ends_at = None
     else:
-        _, entitlements = plan_context_from_user_row(user_row)
+        _, entitlements = plan_context_with_grants(user_row, grants)
+        level_id = int((user_row or {}).get("level_id") or 1)
+        rewards = rewards_payload(sb, user_id, level_id) if user_id and sb else None
+        access_ends_at = grant_access_ends_at(
+            grants,
+            subscription.get("trial_ends_at"),
+            subscription.get("subscription_ends_at"),
+        )
     voice_quota = get_voice_quota_for_auth(sb, auth, user_row)
-    return {
+    payload: dict[str, Any] = {
         **subscription,
         "entitlements": entitlements,
         "voice_quota": voice_quota,
         "cancel_requested": cancel_requested,
     }
+    if access_ends_at:
+        payload["access_ends_at"] = access_ends_at
+    if rewards is not None:
+        payload["rewards"] = rewards
+        payload["active_plan_grants"] = serialize_active_grants(grants)
+    return payload

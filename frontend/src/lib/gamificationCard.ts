@@ -36,10 +36,10 @@ export const LEVEL_EMOJI: Record<number, string> = {
 
 export const LEVEL_REWARDS: Record<number, { el: string; en: string }> = {
   1: { el: 'Νέα Μαμά — ξεκινάς το ταξίδι σου', en: 'New Mom — starting your journey' },
-  2: { el: 'Ενεργή Μαμά — συνεχίζεις δυνατά', en: 'Active Mom — building momentum' },
-  3: { el: 'Αφοσιωμένη Μαμά — κρατάς τη συνέχεια', en: 'Dedicated Mom — staying consistent' },
-  4: { el: 'Super Μαμά — είσαι παντού ενεργή', en: 'Super Mom — deeply engaged' },
-  5: { el: 'HeyMaa Champion — κορυφαία πρόοδος', en: 'HeyMaa Champion — top engagement' },
+  2: { el: '7 μέρες δωρεάν Starter', en: '7 days free Starter' },
+  3: { el: '14 μέρες δωρεάν Starter', en: '14 days free Starter' },
+  4: { el: '7 μέρες δωρεάν Premium', en: '7 days free Premium' },
+  5: { el: '14 μέρες δωρεάν Premium', en: '14 days free Premium' },
 };
 
 export function levelEmoji(levelNumber: number): string {
@@ -76,8 +76,8 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Είναι τρόπος να βλέπεις την πρόοδό σου στην εφαρμογή — η κάρτα πόντων στο Προφίλ δείχνει επίπεδο, πόντους και μπάρα προόδου.'
-        : 'As you collect points, you level up (from New Mom to HeyMaa Champion). It tracks your engagement in the app — the points card in Profile shows your level, points, and progress bar.',
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — πάτα «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πακέτο).'
+        : 'As you collect points, you level up (New Mom to HeyMaa Champion). Levels 2–5 grant free Starter/Premium days — tap «Claim your gift!» to activate instantly (stacks with any active free plan).',
     },
     {
       question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',

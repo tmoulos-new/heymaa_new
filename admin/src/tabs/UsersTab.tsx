@@ -356,7 +356,15 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             ? 'auth account only (no app user row)'
             : u.subscription_status === 'trial' && trialEnd
               ? `trial (ends ${trialEnd})`
-              : u.subscription_status || '?'
+              : u.subscription_status === 'active' && u.subscription_ends_at
+                ? `active (renews/ends ${new Date(u.subscription_ends_at).toLocaleDateString()})`
+                : u.subscription_status || '?'
+          const grantSummary =
+            (u.active_grants?.length || 0) > 0
+              ? u.active_grants!
+                  .map((g) => `${g.plan_slot || 'plan'} until ${new Date(g.ends_at).toLocaleDateString()}`)
+                  .join('; ')
+              : ''
           const isAdmin = u.role === 'admin'
           const summaryItems = userDataSummaryItems(u.data_summary)
           const txCounts = u.transaction_counts || {}
@@ -395,6 +403,8 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
               <div className="b">
                 {u.name ? `${u.name} · ` : ''}
                 {statusInfo} · joined {since} · last login {last}
+                {grantSummary ? ` · grants: ${grantSummary}` : ''}
+                {(u.pending_rewards || 0) > 0 ? ` · ${u.pending_rewards} gift(s) pending` : ''}
               </div>
               {hasUserDataSummary(u.data_summary) ? (
                 <div className="list-item-stats">
@@ -610,6 +620,22 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                     />
                   </div>
                 </p>
+              )}
+              {pointsAnalysis.active_grants && pointsAnalysis.active_grants.length > 0 && (
+                <div className="card-desc" style={{ marginTop: 8 }}>
+                  <strong>Active plan grants:</strong>{' '}
+                  {pointsAnalysis.active_grants
+                    .map((g) => `${g.plan_slot || 'plan'} → ${new Date(g.ends_at).toLocaleString()}`)
+                    .join(' · ')}
+                </div>
+              )}
+              {pointsAnalysis.rewards?.pending && pointsAnalysis.rewards.pending.length > 0 && (
+                <div className="card-desc" style={{ marginTop: 8 }}>
+                  <strong>Pending level gifts:</strong>{' '}
+                  {pointsAnalysis.rewards.pending
+                    .map((p) => `Lv${p.level_id} ${p.days}d ${p.plan_slot}`)
+                    .join(' · ')}
+                </div>
               )}
               <h3 style={{ fontSize: 13, margin: '0 0 6px' }}>Progress over time</h3>
               <PointsProgressChart timeline={pointsAnalysis.timeline} />

@@ -6,16 +6,32 @@ import {
   levelEmoji,
 } from '../lib/gamificationCard'
 
+import type { PendingLevelReward } from '../lib/levelRewards'
+import { rewardDescription, rewardTitle } from '../lib/levelRewards'
+
 type Props = {
   lang: string
   gamification: GamificationStatus
   referralCode?: string | null
+  activeGrantEndsAt?: string | null
+  activeGrantPlan?: string | null
+  pendingRewards?: PendingLevelReward[]
+  onClaimPending?: () => void
 }
 
-export function ProfileGamificationCard({ lang, gamification, referralCode }: Props) {
+export function ProfileGamificationCard({
+  lang,
+  gamification,
+  referralCode,
+  activeGrantEndsAt,
+  activeGrantPlan,
+  pendingRewards,
+  onClaimPending,
+}: Props) {
   const isEl = lang === 'el'
   const { level, points, progress_percent, points_to_next, level: currentLevel } = gamification
   const emoji = levelEmoji(level.number)
+  const pending = pendingRewards?.[0]
 
   return (
     <div className="hm-profile-gamification-card">
@@ -59,12 +75,33 @@ export function ProfileGamificationCard({ lang, gamification, referralCode }: Pr
         </div>
       </div>
 
+      {pending && onClaimPending ? (
+        <>
+          <div className="hm-profile-gamification-card__divider" />
+          <button type="button" className="hm-profile-gamification-card__gift-btn" onClick={onClaimPending}>
+            <span className="hm-profile-gamification-card__gift-btn-icon" aria-hidden="true">🎁</span>
+            <span className="hm-profile-gamification-card__gift-btn-copy">
+              <span className="hm-profile-gamification-card__gift-btn-title">
+                {isEl ? 'Δώρο σε αναμονή' : 'Gift waiting'}
+              </span>
+              <span className="hm-profile-gamification-card__gift-btn-sub">
+                {rewardTitle(pending.level_id, lang)} · {rewardDescription(pending, lang)}
+              </span>
+            </span>
+          </button>
+        </>
+      ) : null}
+
       <div className="hm-profile-gamification-card__divider" />
 
       <p className="hm-profile-gamification-card__progress-hint">
-        {isEl
-          ? 'Η πρόοδός σου αντακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
-          : 'Your progress reflects your activity in the app — chat, memories, and milestones.'}
+        {activeGrantEndsAt && activeGrantPlan
+          ? isEl
+            ? `Ενεργό δωρεάν ${activeGrantPlan} μέχρι ${new Date(activeGrantEndsAt).toLocaleDateString('el-GR')}.`
+            : `Active free ${activeGrantPlan} until ${new Date(activeGrantEndsAt).toLocaleDateString('en-GB')}.`
+          : isEl
+            ? 'Η πρόοδός σου αντακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
+            : 'Your progress reflects your activity in the app — chat, memories, and milestones.'}
       </p>
 
       <div className="hm-profile-gamification-card__divider" />

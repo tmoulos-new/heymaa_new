@@ -77,6 +77,7 @@ export interface UserRow {
   created_at?: string
   last_login?: string
   trial_ends_at?: string
+  subscription_ends_at?: string
   role?: string | null
   account_kind?: 'registered' | 'auth_only'
   must_change_password?: boolean
@@ -86,6 +87,17 @@ export interface UserRow {
   level_name_en?: string
   level_name_el?: string
   transaction_counts?: Partial<Record<keyof UserDataSummary, number>>
+  active_grants?: PlanGrantRow[]
+  pending_rewards?: number
+}
+
+export interface PlanGrantRow {
+  id?: string
+  plan_slot?: string
+  starts_at?: string
+  ends_at: string
+  source?: string
+  level_id?: number
 }
 
 export interface GamificationLevel {
@@ -129,6 +141,12 @@ export interface UserGamificationAnalysis {
   breakdown: PointBreakdownEntry[]
   recent_transactions: PointTimelineEntry[]
   transaction_count: number
+  active_grants?: PlanGrantRow[]
+  rewards?: {
+    pending?: { level_id: number; plan_slot: string; days: number }[]
+    claimed_level_ids?: number[]
+    active_grants?: PlanGrantRow[]
+  }
 }
 
 export interface UserDataSummary {

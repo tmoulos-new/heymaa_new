@@ -23,6 +23,8 @@ export type UserActivityResult = {
   ok: boolean;
   points_awarded?: number;
   gamification?: GamificationStatus;
+  level_up?: { from: number; to: number };
+  rewards?: import('./levelRewards').RewardsSnapshot;
 };
 
 export function appPath(...segments: string[]): string {

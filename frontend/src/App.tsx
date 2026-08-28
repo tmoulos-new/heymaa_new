@@ -83,7 +83,16 @@ import {
   markAppTourCompleted,
 } from "./lib/appTour";
 import { AppTrialBanner } from "./components/AppTrialBanner";
+import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
+import { AccessExpiryModal } from "./components/AccessExpiryModal";
 import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
+import {
+  dismissExpiryPopup,
+  getAccessExpiryInfo,
+  readExpiryPopupDismissed,
+} from "./lib/accessExpiry";
+import type { PendingLevelReward, RewardsSnapshot } from "./lib/levelRewards";
+import { dismissRewardLevel, firstUnseenPendingReward } from "./lib/levelRewards";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
@@ -1731,6 +1740,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
+  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
+  const [showLevelRewardSheet, setShowLevelRewardSheet] = useState(false);
+  const [showAccessExpiryModal, setShowAccessExpiryModal] = useState(false);
+  const [pendingLevelReward, setPendingLevelReward] = useState<PendingLevelReward | null>(null);
+  const [rewardsSnapshot, setRewardsSnapshot] = useState<RewardsSnapshot | null>(null);
+  const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
+  const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
+  const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
   const [helpMessage, setHelpMessage] = useState("");
   const homeLng = homeDisplayLocale(lang);
@@ -1757,16 +1774,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           setReferralCode(res.data.referral_code.trim());
         }
         if (typeof res.data?.email === "string") setAccountEmail(res.data.email.trim());
+        if (res.data?.rewards) {
+          setRewardsSnapshot(res.data.rewards);
+          const firstPending = firstUnseenPendingReward(token, res.data.rewards);
+          if (firstPending) {
+            setPendingLevelReward(firstPending);
+            setShowLevelRewardSheet(true);
+          }
+        }
       })
       .catch(() => {});
   }, [token]);
 
+  const applySubscriptionSnapshot = useCallback((data: SubscriptionSnapshot) => {
+    setSubSnapshot(data);
+    if (data.entitlements) setPlanEntitlements(data.entitlements);
+    if (data.voice_quota) setVoiceQuota(data.voice_quota);
+    if (data.rewards) setRewardsSnapshot(data.rewards);
+  }, []);
+
   useEffect(() => {
     fetchSubscriptionStatus(token)
       .then((data) => {
-        setSubSnapshot(data);
-        if (data.entitlements) setPlanEntitlements(data.entitlements);
-        if (data.voice_quota) setVoiceQuota(data.voice_quota);
+        applySubscriptionSnapshot(data);
       })
       .catch(() => {
         if (trialEndsAt) {
@@ -1778,16 +1808,70 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           });
         }
       });
-  }, [token, trialEndsAt]);
+  }, [token, trialEndsAt, applySubscriptionSnapshot]);
+
+  const openPendingReward = useCallback((rewards: RewardsSnapshot | null | undefined, force = false) => {
+    const first = force
+      ? rewards?.pending?.[0]
+      : firstUnseenPendingReward(token, rewards);
+    if (first) {
+      setPendingLevelReward(first);
+      setShowLevelRewardSheet(true);
+    }
+  }, [token]);
 
   const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
     const result = await logUserActivity(token, { action, path, label, details });
     if (result?.gamification) setGamification(result.gamification);
+    if (result?.rewards) setRewardsSnapshot(result.rewards);
+    if (result?.level_up && result.rewards?.pending?.length) {
+      openPendingReward(result.rewards, true);
+    }
     if (result?.points_awarded) {
       const ptsLabel = t("points", lang);
       showToast(`+${result.points_awarded} ${ptsLabel}`, "ok");
     }
-  }, [token, lang]);
+  }, [token, lang, openPendingReward]);
+
+  const accessExpiryInfo = useMemo(
+    () => getAccessExpiryInfo(lang, trialEndsAt, subSnapshot),
+    [lang, trialEndsAt, subSnapshot],
+  );
+
+  const activeRewardGrant = useMemo(() => {
+    const grants = rewardsSnapshot?.active_grants || subSnapshot?.active_plan_grants || [];
+    if (!grants.length) return null;
+    let latest = grants[0];
+    for (const g of grants) {
+      if (new Date(g.ends_at).getTime() > new Date(latest.ends_at).getTime()) latest = g;
+    }
+    return latest;
+  }, [rewardsSnapshot, subSnapshot]);
+
+  useEffect(() => {
+    if (!accessExpiryInfo?.urgent) return;
+    if (readExpiryPopupDismissed(accessExpiryInfo.accessEndsAt)) return;
+    setShowAccessExpiryModal(true);
+  }, [accessExpiryInfo]);
+
+  const handleLevelRewardClaimed = useCallback((payload: {
+    rewards: RewardsSnapshot;
+    status?: SubscriptionSnapshot;
+  }) => {
+    setRewardsSnapshot(payload.rewards);
+    if (payload.status) applySubscriptionSnapshot(payload.status);
+    showToast(
+      lang === "el" ? "Το δώρο ενεργοποιήθηκε! 🎁" : "Your gift is active! 🎁",
+      "ok",
+    );
+    const next = payload.rewards.pending?.[0];
+    if (next) {
+      setPendingLevelReward(next);
+      setShowLevelRewardSheet(true);
+    } else {
+      setPendingLevelReward(null);
+    }
+  }, [applySubscriptionSnapshot, lang]);
 
   // Threads state — bootstrap from full localStorage scan (all past JWT keys)
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
@@ -1859,10 +1943,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [tourStep, setTourStep] = useState(0);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
-  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
-  const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
-  const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
-  const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
@@ -3815,6 +3895,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         />
       )}
 
+      <LevelUpRewardSheet
+        open={showLevelRewardSheet}
+        lang={lang}
+        token={token}
+        reward={pendingLevelReward}
+        onClose={() => {
+          if (pendingLevelReward) dismissRewardLevel(token, pendingLevelReward.level_id);
+          setShowLevelRewardSheet(false);
+        }}
+        onClaimed={handleLevelRewardClaimed}
+      />
+
+      <AccessExpiryModal
+        open={showAccessExpiryModal}
+        lang={lang}
+        info={accessExpiryInfo}
+        onClose={() => {
+          if (accessExpiryInfo) dismissExpiryPopup(accessExpiryInfo.accessEndsAt);
+          setShowAccessExpiryModal(false);
+        }}
+        onRenew={() => setShowSubscriptionSheet(true)}
+      />
+
       <AppDialog
         open={!!treeEdit}
         onClose={() => setTreeEdit(null)}
@@ -4291,6 +4394,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               lang={lang}
               gamification={gamification ?? defaultGamificationStatus()}
               referralCode={referralCode}
+              activeGrantEndsAt={activeRewardGrant?.ends_at}
+              activeGrantPlan={activeRewardGrant?.plan_slot}
+              pendingRewards={rewardsSnapshot?.pending}
+              onClaimPending={() => openPendingReward(rewardsSnapshot, true)}
             />
 
             <AppTabSection
@@ -4494,25 +4601,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {messages.length===0&&(
               <div className="hm-tab-card" style={{textAlign:"center",padding:"20px 16px"}}>
                 <div style={{margin:"0 auto 12px",width:52,height:52}}><HeyMaaAvatar size={52} /></div>
-                <div style={{fontSize:13,color:navy,lineHeight:1.6}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
+                <div className="hm-chat-greeting" style={{color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
               </div>
             )}
 
             {messages.map((msg,i)=>(
               <div key={i}>
                 {msg.role==="assistant"?(
-                  <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}}>
-                    <HeyMaaAvatar size={28} />
+                  <div className="hm-chat-message-row">
+                    <HeyMaaAvatar size={32} />
                     <div style={{minWidth:0,flex:1}}>
-                      <div data-hm-bubble style={{background:chatAssistantBg,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy,maxWidth:"85%"}}>{msg.content}</div>
+                      <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--assistant" style={{background:chatAssistantBg,color:navy}}>{msg.content}</div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                        <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} style={{background:"none",border:"none",fontSize:11,color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer",padding:"4px 0",fontFamily:"inherit"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
+                        <button onClick={()=>speak(msg.content,i)} disabled={ttsRemaining<=0} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:ttsRemaining<=0?"default":"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
                       </div>
                     </div>
                   </div>
                 ):(
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"flex-end",gap:8,margin:"8px 0"}}>
-                    <div data-hm-bubble style={{background:navy,color:"#fff",borderRadius:"11px 11px 0 11px",padding:"10px 13px",fontSize:12.5,lineHeight:1.5,maxWidth:"78%"}}>
+                  <div className="hm-chat-message-row hm-chat-message-row--user">
+                    <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--user" style={{background:navy,color:"#fff"}}>
                       {msg.attachments?.map((att, j) => (
                         att.kind === "image" && att.data ? (
                           <img
@@ -4532,7 +4639,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         <div>{msg.content}</div>
                       )}
                     </div>
-                    <UserChatAvatar size={28} name={displayName} photo={familyData.selfPhoto} />
+                    <UserChatAvatar size={32} name={displayName} photo={familyData.selfPhoto} />
                   </div>
                 )}
               {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 36px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
@@ -4545,9 +4652,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>)}
               </div>
             ))}
-            {loading&&<div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:8}} aria-live="polite" aria-busy="true" aria-label="…">
-              <HeyMaaAvatar size={28} />
-              <div style={{background:chatAssistantBg,borderRadius:"0 11px 11px 11px",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"center",minHeight:40,minWidth:52}}>
+            {loading&&<div className="hm-chat-message-row" aria-live="polite" aria-busy="true" aria-label="…">
+              <HeyMaaAvatar size={32} />
+              <div className="hm-chat-bubble hm-chat-bubble--assistant hm-chat-bubble--typing" style={{background:chatAssistantBg}}>
                 <span
                   aria-hidden="true"
                   style={{
@@ -5236,7 +5343,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ))}
           </div>
         )}
-        <div className="hm-app-composer-inner" style={{display:"flex",gap:8,alignItems:"center",width:"100%"}}>
+        <div className="hm-app-composer-inner">
         <div className="hm-composer-plus-wrap">
           <button
             type="button"
@@ -5312,17 +5419,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&void sendMessage(input, chatPendingAttachments)}
             placeholder={t("typehere",lang)}
             disabled={loading}
+            className="hm-chat-composer-input"
             style={{
-              flex: 1,
-              padding: "9px 13px",
-              borderRadius: 999,
-              border: "1.5px solid rgba(43,58,103,.15)",
-              background: "#fff",
-              fontFamily: "'DM Sans',sans-serif",
-              fontSize: 16,
               color: navy,
-              outline: "none",
-              minWidth: 0,
             }}
           />
         )}

@@ -158,11 +158,15 @@ export type SubscriptionSnapshot = {
   subscription_active: boolean
   subscription_status: string | null
   trial_ends_at: string | null
+  subscription_ends_at?: string | null
   is_trial: boolean
   plan?: string | null
   entitlements?: PlanEntitlements
   voice_quota?: VoiceQuota
   cancel_requested?: boolean
+  access_ends_at?: string | null
+  rewards?: import('./levelRewards').RewardsSnapshot
+  active_plan_grants?: import('./levelRewards').ActivePlanGrant[]
   ok?: boolean
 }
 

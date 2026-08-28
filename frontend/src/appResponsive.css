@@ -2534,3 +2534,144 @@ body.hm-app-active .hm-sheet-overlay {
     animation: none;
   }
 }
+
+.hm-reward-sheet,
+.hm-expiry-modal {
+  padding: 8px 4px 12px;
+  text-align: center;
+}
+
+.hm-reward-sheet__emoji,
+.hm-expiry-modal__icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.hm-reward-sheet__title,
+.hm-expiry-modal__title {
+  margin: 0 0 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--hm-navy, #2b3a67);
+}
+
+.hm-reward-sheet__level {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hm-teal, #4abeaa);
+}
+
+.hm-reward-sheet__body,
+.hm-expiry-modal__body {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(43, 58, 103, 0.72);
+}
+
+.hm-reward-sheet__error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #c0392b;
+}
+
+.hm-reward-sheet__claim,
+.hm-expiry-modal__cta {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--hm-coral, #e07b54);
+  color: #fff;
+}
+
+.hm-reward-sheet__claim:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.hm-reward-sheet__later,
+.hm-expiry-modal__later {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.55);
+  cursor: pointer;
+}
+
+.hm-profile-gamification-card__gift-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid rgba(224, 123, 84, 0.35);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(248, 229, 214, 0.9), rgba(255, 255, 255, 0.95));
+  cursor: pointer;
+  text-align: left;
+}
+
+.hm-profile-gamification-card__gift-btn-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.hm-profile-gamification-card__gift-btn-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-profile-gamification-card__gift-btn-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hm-navy, #2b3a67);
+}
+
+.hm-profile-gamification-card__gift-btn-sub {
+  font-size: 12px;
+  color: rgba(43, 58, 103, 0.65);
+}
+
+.hm-reward-celebration {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10050;
+  overflow: hidden;
+}
+
+.hm-reward-celebration__piece {
+  position: absolute;
+  top: -12px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation: hm-confetti-fall 2s ease-out forwards;
+}
+
+@keyframes hm-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}
