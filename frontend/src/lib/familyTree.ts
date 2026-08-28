@@ -304,9 +304,9 @@ const FOCUS_W = TREE_FOCUS_NODE_W
 const FOCUS_H = TREE_FOCUS_NODE_H
 const H_GAP = 16
 const COUPLE_GAP = 28
-const ROW_GAP = 44
+const ROW_GAP = 52
 const PAD_X = 28
-const PAD_Y = 32
+const PAD_Y = 36
 
 const PALETTE = ['#2B3A67', '#BEB4CD', '#8B9BC4', '#5A6B8F', '#D4C8E8', '#6B7FA8', '#A89FBC']
 
@@ -475,26 +475,6 @@ export function buildHistoryEvents(
   })
 
   return events.sort((a, b) => a.year - b.year || a.detail.localeCompare(b.detail))
-}
-
-function rowTitle(slot: TreeRowSlot, lang: string): string {
-  const el = lang === 'el'
-  switch (slot) {
-    case 'grandparents':
-      return el ? 'Παππούδες & Γιαγιάδες' : 'Grandparents'
-    case 'parents':
-      return el ? 'Γονείς' : 'Parents'
-    case 'couple':
-      return el ? 'Εσύ & σύντροφος' : 'You & partner'
-    case 'siblings':
-      return el ? 'Αδέλφια' : 'Brothers & sisters'
-    case 'children':
-      return el ? 'Παιδιά' : 'Children'
-    case 'pets':
-      return el ? 'Κατοικίδια' : 'Family pets'
-    case 'grandchildren':
-      return el ? 'Εγγόνια' : 'Grandchildren'
-  }
 }
 
 function relatedToMatchesNode(relatedTo: string | undefined, node: { id: string; name: string }): boolean {
@@ -669,12 +649,6 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
       yCenter: y,
       slot: row.slot,
     })
-    generationLabels.push({
-      generation: row.generation,
-      y: y - maxH / 2 - 12,
-      label: rowTitle(row.slot, lang),
-      slot: row.slot,
-    })
 
     if (row.slot === 'couple') {
       const xs = distribute(row.people.length, cx, coupleSlot)
@@ -767,8 +741,27 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
   const nieceNs = nodes.filter((n) => n.kind === 'niece_nephew')
   const grandparentNs = nodes.filter((n) => n.kind === 'grandparent')
   const grandchildNs = nodes.filter((n) => n.kind === 'grandchild')
+  const petNs = nodes.filter((n) => n.kind === 'pet')
 
   const coupleY = rowY.get('couple') ?? selfN?.y ?? 0
+
+  /** Horizontal connector Y in the gap between two row bands (avoids crossing generation titles). */
+  const gapMidY = (fromY: number, toY: number) => {
+    const pickBand = (nodeY: number) =>
+      genBands.reduce((best, b) =>
+        Math.abs(b.yCenter - nodeY) < Math.abs(best.yCenter - nodeY) ? b : best,
+      )
+    const fromBand = pickBand(fromY)
+    const toBand = pickBand(toY)
+    return (fromBand.yBottom + toBand.yTop) / 2
+  }
+
+  const gapBetweenSlots = (fromSlot: TreeRowSlot, toSlot: TreeRowSlot) => {
+    const fromBand = genBands.find((b) => b.slot === fromSlot)
+    const toBand = genBands.find((b) => b.slot === toSlot)
+    if (!fromBand || !toBand) return undefined
+    return (fromBand.yBottom + toBand.yTop) / 2
+  }
 
   partnerNs.forEach((p) => {
     if (!selfN) return
@@ -813,7 +806,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
 
   const dropTo = (from: LaidOutNode[], toY: number, targets: LaidOutNode[], preferMidX?: number) => {
     if (!from.length || !targets.length) return
-    const midY = (from[0].y + toY) / 2
+    const midY = gapMidY(from[0].y, toY)
     const fromXs = from.map((f) => f.x)
     const tgtXs = targets.map((t) => t.x)
     const hubX = preferMidX ?? fromXs.reduce((a, b) => a + b, 0) / fromXs.length
@@ -852,7 +845,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
   const linkSiblings = (sibs: LaidOutNode[], anchor: LaidOutNode | undefined) => {
     if (!sibs.length || !anchor) return
     const sibY = sibs[0].y
-    const joinY = (coupleY + sibY) / 2
+    const joinY = gapBetweenSlots('couple', 'siblings') ?? gapMidY(anchor.y, sibY)
     const outward = Math.min(...sibs.map((s) => s.x), anchor.x)
     const inward = Math.max(...sibs.map((s) => s.x), anchor.x)
     edges.push({
@@ -893,7 +886,7 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
 
   if (childNs.length && (selfN || partnerNs.length)) {
     const sources = [...(selfN ? [selfN] : []), ...partnerNs]
-    const midY = (coupleY + childNs[0].y) / 2
+    const midY = gapBetweenSlots('couple', 'children') ?? gapMidY(coupleY, childNs[0].y)
     const coupleMid = sources.reduce((s, n) => s + n.x, 0) / sources.length
 
     sources.forEach((s) => {
@@ -960,6 +953,11 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
 
   if (grandchildNs.length && childNs.length) {
     dropTo(childNs, grandchildNs[0].y, grandchildNs, cx)
+  }
+
+  if (petNs.length) {
+    const sources = [...(selfN ? [selfN] : []), ...partnerNs]
+    if (sources.length) dropTo(sources, petNs[0].y, petNs, cx)
   }
 
   return {

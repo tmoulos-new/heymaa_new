@@ -31,6 +31,8 @@ import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesTab } from "./components/memories/MemoriesTab";
 import type { MemoryFormValues } from "./components/memories/AddMemoryModal";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
+import { FamilyDocumentsPanel } from "./components/FamilyDocumentsPanel";
+import { normalizeDocEntries, type DocEntry } from "./lib/familyDocuments";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import "./appResponsive.css";
 import { useTranslation } from "react-i18next";
@@ -255,8 +257,6 @@ interface Message {
 }
 interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
-interface DocEntry { title: string; date: string; category: string; ref: string; addedDate: string; }
-
 const LANG_FLAG_EMOJI: Record<string, string> = {
   el: "🇬🇷", en: "🇬🇧", it: "🇮🇹", de: "🇩🇪", fr: "🇫🇷", es: "🇪🇸", ro: "🇷🇴",
   bg: "🇧🇬", pl: "🇵🇱", sr: "🇷🇸", ar: "🇸🇦", tr: "🇹🇷", zh: "🇨🇳", ja: "🇯🇵",
@@ -1922,11 +1922,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<Record<string,boolean[]>>(() => bootLocalScan().milestones_map || {});
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string,number|null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
-  const [docs, setDocs] = useState<DocEntry[]>(() => (bootLocalScan().docs as DocEntry[]) || []);
-  const [activeDocRef, setActiveDocRef] = useState<string>("");
-  const [docTitle, setDocTitle] = useState("");
-  const [docDate, setDocDate] = useState("");
-  const [docCategory, setDocCategory] = useState("");
+  const [docs, setDocs] = useState<DocEntry[]>(() => normalizeDocEntries(bootLocalScan().docs as unknown[]));
   const [shopItems, setShopItems] = useState<string[]>(() => {
     const s = bootLocalScan().shopitems;
     return s?.length ? s : ["Silicone teether","Travel crib","High contrast books","Floor gym"];
@@ -2338,7 +2334,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
         if (local.chat.length) setMessages(local.chat as Message[]);
         if (local.threads.length) setThreads(local.threads as Thread[]);
-        if (local.docs.length) setDocs(local.docs as DocEntry[]);
+        if (local.docs.length) setDocs(normalizeDocEntries(local.docs as unknown[]));
         if (Object.keys(local.milestones_map).length) setMilestoneChecksMap(local.milestones_map);
         if (local.shopitems?.length) setShopItems(local.shopitems);
         if (local.superitems?.length) setSuperItems(local.superitems);
@@ -2361,7 +2357,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         setFamilyData(ensureFamilyMemberIds(merged.family));
         if (merged.chat.length) setMessages(merged.chat as Message[]);
         if (merged.threads.length) setThreads(merged.threads as Thread[]);
-        if (merged.docs.length) setDocs(merged.docs as DocEntry[]);
+        if (merged.docs.length) setDocs(normalizeDocEntries(merged.docs as unknown[]));
         if (Object.keys(merged.milestones_map).length) setMilestoneChecksMap(merged.milestones_map);
         if (merged.shopitems?.length) setShopItems(merged.shopitems);
         if (merged.superitems?.length) setSuperItems(merged.superitems);
@@ -2465,6 +2461,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(()=>{ if (!cloudReady) return; void sbSave("family", normalizeFamilyData(familyData)); },[familyData, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave, cloudReady]);
   useEffect(()=>{ safeLocalSet(sk(token,"docs"), JSON.stringify(docs)); },[docs, token]);
+  useEffect(() => {
+    if (!cloudReady) return;
+    const timer = window.setTimeout(() => {
+      void sbSave("docs", docs);
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [docs, cloudReady, sbSave]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("shopitems", shopItems); },[shopItems, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("superitems", superItems); },[superItems, sbSave, cloudReady]);
 
@@ -5233,6 +5236,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </>)}
           </div>
           </AppTabSection>
+          <FamilyDocumentsPanel
+            lang={lang}
+            docs={docs}
+            onDocsChange={setDocs}
+            familyChildren={familyChildren}
+            members={familyData.members}
+            pregnancyActive={pregnancyActive}
+            userName={displayName || profile.name}
+          />
         </AppTabPageShell>)}
 
         {/* ── MEMORIES ── */}
@@ -5356,45 +5368,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
             </>)}
             {!effectiveRef&&<div className="hm-tab-card"><div className="hm-tab-empty">{t("nochildyet",lang)}</div></div>}
-            {/* ── DOCUMENTS ── */}
-            <div className="hm-tab-card" style={{marginTop:8}}>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:4,fontWeight:600}}>📁 {t("docs_title",lang)}</div>
-              <div style={{fontSize:11.5,color:"rgba(43,58,103,.55)",lineHeight:1.6,marginBottom:12,background:"rgba(43,58,103,.04)",borderRadius:8,padding:"8px 10px"}}>{t("docs_hint",lang)}</div>
-              {(()=>{
-                const docRefs: {label:string,value:string}[] = [{label:"🌸 "+(lang==="el"?"Γενικά":lang==="ar"?"عام":lang==="zh"?"通用":lang==="es"?"General":lang==="fr"?"Général":lang==="de"?"Allgemein":lang==="ru"?"Общее":lang==="tr"?"Genel":lang==="ja"?"一般":"General"),value:""}];
-                if(profile.dueDate) docRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-                familyChildren.forEach(ch=>docRefs.push({label:"👶 "+ch.name,value:ch.name}));
-                familyData.members.forEach(fm=>docRefs.push({label:"👤 "+memberDisplayLabel(fm, familyData.members),value:memberMemoryRef(fm.id)}));
-                const effDocRef = activeDocRef;
-                const filteredDocs = docs.filter(d=>d.ref===effDocRef);
-                return (<>
-                  {docRefs.length>1&&<div style={{display:"flex",gap:6,flexWrap:"wrap" as any,marginBottom:12}}>
-                    {docRefs.map((r,i)=>(<button key={i} onClick={()=>setActiveDocRef(r.value)} style={{padding:"5px 11px",borderRadius:999,border:"none",background:effDocRef===r.value?navy:gl,color:effDocRef===r.value?"#fff":"rgba(43,58,103,.55)",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{r.label}</button>))}
-                  </div>}
-                  {filteredDocs.length===0?<div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",textAlign:"center",padding:"12px 0"}}>{t("docs_empty",lang)}</div>:filteredDocs.map((d,i)=>{
-                    const origIdx=docs.indexOf(d);
-                    return(<div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"10px 0",borderBottom:"1px solid "+gl}}>
-                      <span style={{fontSize:20,flexShrink:0}}>📄</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:600,color:navy}}>{d.title}</div>
-                        {d.category&&<div style={{fontSize:11,color:navy,marginTop:1,opacity:0.72}}>{d.category}</div>}
-                        {d.date&&<div style={{fontSize:10.5,color:"#C8BFB8",marginTop:1}}>{d.date}</div>}
-                        <div style={{fontSize:10,color:"#C8BFB8",marginTop:1}}>{d.addedDate}</div>
-                      </div>
-                      <button onClick={()=>setDocs(docs.filter((_,j)=>j!==origIdx))} style={{background:"none",border:"none",color:"#C8BFB8",cursor:"pointer",fontSize:18,padding:4,flexShrink:0}}>×</button>
-                    </div>);
-                  })}
-                  <div style={{borderTop:"1px solid "+gl,paddingTop:10,marginTop:10,display:"flex",flexDirection:"column" as any,gap:7}}>
-                    <input value={docTitle} onChange={e=>setDocTitle(e.target.value)} placeholder={t("docs_add_title_ph",lang)} style={{width:"100%",padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none",boxSizing:"border-box" as any}}/>
-                    <div style={{display:"flex",gap:7}}>
-                      <input value={docDate} onChange={e=>setDocDate(e.target.value)} placeholder={t("docs_add_date_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
-                      <input value={docCategory} onChange={e=>setDocCategory(e.target.value)} placeholder={t("docs_add_cat_ph",lang)} style={{flex:1,padding:"8px 11px",border:"1.5px solid #DDD7D0",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:12.5,outline:"none"}}/>
-                    </div>
-                    <button onClick={()=>{if(!docTitle.trim())return; setDocs([{title:docTitle.trim(),date:docDate.trim(),category:docCategory.trim(),ref:effDocRef,addedDate:new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"})},...docs]); setDocTitle(""); setDocDate(""); setDocCategory("");}} style={{padding:"9px 14px",background:navy,color:"#fff",border:"none",borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer"}}>🚀</button>
-                  </div>
-                </>);
-              })()}
-            </div>
           </AppTabPageShell>);
         })()}
         {/* ── SHOPPING ── */}

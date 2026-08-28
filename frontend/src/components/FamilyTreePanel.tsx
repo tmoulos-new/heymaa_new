@@ -19,6 +19,7 @@ import {
 const NAVY = '#2B3A67'
 const ACCENT = '#BEB4CD'
 const MUTED = 'rgba(43, 58, 103, 0.55)'
+const BLOOD_LINE = 'rgba(43, 58, 103, 0.32)'
 
 type DragState = {
   memberIndex: number
@@ -93,7 +94,7 @@ function TreeCard({
         y={-h / 2}
         width={w}
         height={h}
-        rx={focus ? 20 : 16}
+        rx={focus ? 18 : 14}
         fill="#fff"
         stroke={
           highlight
@@ -101,15 +102,15 @@ function TreeCard({
             : isYou
               ? NAVY
               : node.kind === 'partner' || node.kind === 'child' || node.kind === 'pet'
-                ? ACCENT
+                ? 'rgba(190,180,205,.75)'
                 : movable
-                  ? 'rgba(190,180,205,.65)'
-                  : 'rgba(43,58,103,.10)'
+                  ? 'rgba(190,180,205,.45)'
+                  : 'rgba(43,58,103,.08)'
         }
-        strokeWidth={highlight || focus ? 2.35 : 1.25}
+        strokeWidth={highlight || focus ? 2 : 1}
         filter="url(#hm-ft-shadow)"
       />
-      <circle cx={0} cy={avatarY} r={avatarR} fill={node.color} />
+      <circle cx={0} cy={avatarY} r={avatarR} fill={node.color} stroke="#fff" strokeWidth={1.5} />
       {node.photo ? (
         <image
           href={node.photo}
@@ -405,54 +406,21 @@ export function FamilyTreePanel({
         <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{copy.subtitle}</div>
       </div>
 
-      <div className="hm-family-tree-panel__canvas" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#fff' }}>
+      <div className="hm-family-tree-panel__canvas">
         <svg
           ref={svgRef}
+          className="hm-family-tree-panel__svg"
           viewBox={`0 0 ${layout.width} ${layout.height}`}
-          width="100%"
-          style={{ display: 'block', minHeight: 280, minWidth: Math.min(layout.width, 440), touchAction: 'none' }}
+          preserveAspectRatio="xMidYMin meet"
           onPointerMove={onPointerMove}
           onPointerUp={finishDrag}
           onPointerCancel={finishDrag}
         >
           <defs>
-            <filter id="hm-ft-shadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="rgba(43,58,103,.10)" />
+            <filter id="hm-ft-shadow" x="-25%" y="-25%" width="150%" height="150%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="rgba(43,58,103,.08)" />
             </filter>
           </defs>
-
-          {layout.genBands.map((b) => (
-            <rect
-              key={`band-${b.slot}`}
-              x={8}
-              y={b.yTop}
-              width={layout.width - 16}
-              height={b.yBottom - b.yTop}
-              rx={14}
-              fill={hoverSlot === b.slot && drag ? 'rgba(190,180,205,.22)' : b.slot === 'couple' || b.slot === 'children' || b.slot === 'pets' ? 'rgba(43,58,103,.04)' : 'transparent'}
-              stroke={hoverSlot === b.slot && drag ? ACCENT : 'transparent'}
-              strokeWidth={1.5}
-              strokeDasharray={drag ? '5 4' : undefined}
-            />
-          ))}
-
-          {layout.generationLabels.map((g) => (
-            <text
-              key={g.slot}
-              x={layout.width / 2}
-              y={g.y}
-              textAnchor="middle"
-              fontSize={9}
-              fontWeight={700}
-              fill={hoverSlot === g.slot && drag ? ACCENT : 'rgba(43,58,103,.35)'}
-              fontFamily="'DM Sans', sans-serif"
-              letterSpacing={0.8}
-            >
-              {drag && hoverSlot === g.slot
-                ? `↓ ${displayUppercase(copy.dropHere, lang)}`
-                : displayUppercase(g.label, lang)}
-            </text>
-          ))}
 
           {layout.edges.map((e, i) => (
             <line
@@ -461,10 +429,10 @@ export function FamilyTreePanel({
               y1={e.y1}
               x2={e.x2}
               y2={e.y2}
-              stroke={e.kind === 'spouse' ? ACCENT : 'rgba(43,58,103,.20)'}
-              strokeWidth={e.kind === 'spouse' ? 2.25 : 1.5}
+              stroke={e.kind === 'spouse' ? ACCENT : BLOOD_LINE}
+              strokeWidth={e.kind === 'spouse' ? 2 : 1.5}
               strokeLinecap="round"
-              opacity={drag ? 0.35 : e.kind === 'spouse' ? 0.85 : 1}
+              opacity={drag ? 0.35 : 1}
             />
           ))}
 
@@ -474,15 +442,46 @@ export function FamilyTreePanel({
               <text
                 key={`heart-${i}`}
                 x={(e.x1 + e.x2) / 2}
-                y={(e.y1 + e.y2) / 2 + 4}
+                y={(e.y1 + e.y2) / 2 + 3}
                 textAnchor="middle"
-                fontSize={10}
+                fontSize={9}
                 fill={ACCENT}
-                opacity={drag ? 0.35 : 1}
+                opacity={drag ? 0.35 : 0.9}
               >
                 ♡
               </text>
             ))}
+
+          {drag &&
+            hoverSlot &&
+            layout.genBands
+              .filter((b) => b.slot === hoverSlot)
+              .map((b) => (
+                <g key={`drop-${b.slot}`} pointerEvents="none">
+                  <rect
+                    x={12}
+                    y={b.yTop}
+                    width={layout.width - 24}
+                    height={b.yBottom - b.yTop}
+                    rx={10}
+                    fill="rgba(190,180,205,.14)"
+                    stroke={ACCENT}
+                    strokeWidth={1.25}
+                    strokeDasharray="5 4"
+                  />
+                  <text
+                    x={layout.width / 2}
+                    y={(b.yTop + b.yBottom) / 2 + 4}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fontWeight={700}
+                    fill={ACCENT}
+                    fontFamily="'DM Sans', sans-serif"
+                  >
+                    {displayUppercase(copy.dropHere, lang)}
+                  </text>
+                </g>
+              ))}
 
           {layout.nodes.map((n) => (
             <TreeCard
@@ -520,75 +519,39 @@ export function FamilyTreePanel({
         </svg>
       </div>
 
-      <div className="hm-family-tree-panel__history" style={{ padding: '0 14px 12px', background: '#fff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: NAVY, fontWeight: 700 }}>
-            {copy.history}
-          </div>
+      <div className="hm-family-tree-panel__history">
+        <div className="hm-family-tree-panel__history-head">
+          <div className="hm-family-tree-panel__history-title">{copy.history}</div>
           <button
             type="button"
+            className="hm-family-tree-panel__history-toggle"
             onClick={() => setShowHistory((v) => !v)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: ACCENT,
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: "'DM Sans', sans-serif",
-            }}
           >
             {showHistory ? copy.hideHistory : copy.showHistory}
           </button>
         </div>
 
-        {showHistory && (
-          history.length === 0 ? (
-            <div style={{ fontSize: 11.5, color: MUTED, padding: '6px 0 2px' }}>{copy.noHistory}</div>
+        {showHistory &&
+          (history.length === 0 ? (
+            <div className="hm-family-tree-panel__history-empty">{copy.noHistory}</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 15,
-                  top: 6,
-                  bottom: 6,
-                  width: 2,
-                  background: 'linear-gradient(180deg, #BEB4CD, rgba(190, 180, 205, 0.15))',
-                  borderRadius: 2,
-                }}
-              />
+            <div className="hm-family-tree-panel__timeline">
+              <div className="hm-family-tree-panel__timeline-rail" />
               {history.map((ev) => (
-                <div key={ev.id} style={{ display: 'flex', gap: 12, padding: '7px 0', alignItems: 'flex-start' }}>
-                  <div
-                    style={{
-                      width: 32,
-                      flexShrink: 0,
-                      textAlign: 'center',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      color: NAVY,
-                      zIndex: 1,
-                      background: '#fff',
-                      borderRadius: 8,
-                      padding: '2px 0',
-                    }}
-                  >
-                    {ev.year}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: ACCENT, letterSpacing: 0.4 }}>
+                <div key={ev.id} className="hm-family-tree-panel__timeline-row">
+                  <div className="hm-family-tree-panel__timeline-year">{ev.year}</div>
+                  <div className="hm-family-tree-panel__timeline-body">
+                    <div className="hm-family-tree-panel__timeline-label">
                       {displayUppercase(ev.label, lang)}
                     </div>
-                    <div style={{ fontSize: 12, color: NAVY, fontWeight: 500, lineHeight: 1.35 }}>{ev.detail}</div>
+                    <div className="hm-family-tree-panel__timeline-detail">{ev.detail}</div>
                   </div>
                 </div>
               ))}
             </div>
-          )
-        )}
+          ))}
 
-        <div style={{ fontSize: 10.5, color: '#A89F98', textAlign: 'center', marginTop: 10 }}>
+        <div className="hm-family-tree-panel__hint">
           {people.length <= 1 ? copy.empty : copy.tapHint}
         </div>
       </div>
