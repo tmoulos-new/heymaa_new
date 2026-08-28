@@ -1222,6 +1222,129 @@ body.hm-app-active #root {
 .hm-app-composer-inner {
   width: 100%;
   max-width: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .hm-app-composer .hm-app-composer-inner,
+  .hm-app-composer .hm-chat-attach-preview {
+    max-width: var(--hm-desktop-content-max);
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+.hm-chat-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hm-chat-message-row--user {
+  justify-content: flex-end;
+  margin: 10px 0;
+}
+
+.hm-chat-bubble {
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 11px 14px;
+  max-width: 88%;
+  word-break: break-word;
+}
+
+.hm-chat-bubble--assistant {
+  border-radius: 0 12px 12px 12px;
+}
+
+.hm-chat-bubble--user {
+  border-radius: 12px 12px 0 12px;
+  max-width: 82%;
+}
+
+.hm-chat-bubble--typing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 56px;
+}
+
+.hm-chat-greeting {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.hm-chat-listen-btn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-family: inherit;
+}
+
+.hm-chat-composer-input {
+  flex: 1;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(43, 58, 103, 0.15);
+  background: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  outline: none;
+  min-width: 0;
+}
+
+@media (min-width: 700px) {
+  .hm-chat-message-row {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .hm-chat-message-row--user {
+    margin: 12px 0;
+  }
+
+  .hm-chat-bubble {
+    font-size: 16px;
+    line-height: 1.65;
+    padding: 14px 18px;
+  }
+
+  .hm-chat-bubble--assistant {
+    border-radius: 0 16px 16px 16px;
+  }
+
+  .hm-chat-bubble--user {
+    border-radius: 16px 16px 0 16px;
+    max-width: 85%;
+  }
+
+  .hm-chat-bubble--typing {
+    min-height: 48px;
+    min-width: 64px;
+    padding: 16px 20px;
+  }
+
+  .hm-chat-greeting {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .hm-chat-listen-btn {
+    font-size: 13px;
+    padding: 5px 0;
+  }
+
+  .hm-app-composer input.hm-chat-composer-input {
+    font-size: 17px;
+    padding: 11px 16px;
+  }
 }
 
 /* iOS Safari zooms focused inputs below 16px — keep composer text at 16px on phones */
@@ -1232,10 +1355,14 @@ body.hm-app-active #root {
   }
 }
 
-/* Keep chat bubbles readable on ultra-wide screens */
+/* Desktop: wider bubbles inside the 1000px column */
 @media (min-width: 1024px) {
-  .hm-chat-column [data-hm-bubble] {
-    max-width: min(720px, 72%) !important;
+  .hm-chat-column [data-hm-bubble].hm-chat-bubble--assistant {
+    max-width: min(860px, 90%) !important;
+  }
+
+  .hm-chat-column [data-hm-bubble].hm-chat-bubble--user {
+    max-width: min(820px, 88%) !important;
   }
 }
 
