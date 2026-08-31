@@ -18,9 +18,9 @@ import {
   type FamilyMemberRecord,
 } from "./lib/familyData";
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
-import { GAMIFICATION_CHAT_VIDEO_PATH, mergeGamificationFaqItems } from "./lib/gamificationCard";
+import { GAMIFICATION_CHAT_VIDEO_PATH, gamificationPointsForPath, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
-import { levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
+import { applyPointsDelta, levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
 import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
@@ -131,6 +131,7 @@ import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { ChatIconRail } from "./components/ChatIconRail";
+import { ChatLibraryPanel, collectChatLibraryItems, removeMessageAttachment, type ChatLibraryItem } from "./components/ChatLibraryPanel";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 import { AUTH_LOGO_SRC } from "./auth/authLogo";
 
@@ -1486,9 +1487,17 @@ const TR: Record<string,Record<string,string>> = {
   newthread:{el:"Νέα συνομιλία",en:"New conversation",ar:"محادثة جديدة",es:"Nueva conversación",fr:"Nouvelle conversation",de:"Neues Gespräch",pt:"Nova conversa",it:"Nuova conversazione",ru:"Новый разговор",tr:"Yeni konuşma",hi:"नई बातचीत",ur:"نئی بات",zh:"新对话",ja:"新しい会話",nl:"Nieuw gesprek",pl:"Nowa rozmowa",ro:"Conversație nouă",bn:"নতুন কথোপকথন",id:"Percakapan baru",sw:"Mazungumzo mapya",fil:"New conversation",mr:"नवीन संवाद",te:"కొత్త సంభాషణ"},
   search_chats:{el:"Αναζήτηση συνομιλιών",en:"Search conversations"},
   chat_library:{el:"Βιβλιοθήκη",en:"Library"},
-  search_chats_ph:{el:"Αναζήτηση μηνυμάτων ή συνομιλιών...",en:"Search messages or conversations..."},
+  search_chats_ph:{el:"Αναζήτηση συνομιλιών",en:"Search conversations"},
   no_search_hits:{el:"Δεν βρέθηκαν συνομιλίες.",en:"No conversations found."},
+  search_recent:{el:"Πρόσφατες",en:"Recent"},
+  search_today:{el:"Σήμερα",en:"Today"},
+  search_yesterday:{el:"Χθες",en:"Yesterday"},
   library_empty:{el:"Δεν υπάρχουν εικόνες στις συνομιλίες ακόμα.",en:"No images in conversations yet."},
+  library_docs:{el:"Έγγραφα",en:"Documents"},
+  library_media:{el:"Μέσα",en:"Media"},
+  library_docs_empty:{el:"Δεν υπάρχουν έγγραφα στις συνομιλίες ακόμα.",en:"No documents in conversations yet."},
+  library_delete_title:{el:"Διαγραφή στοιχείου;",en:"Delete item?"},
+  library_delete_msg:{el:"Δεν είναι δυνατή η αναίρεση αυτής της ενέργειας. Το στοιχείο θα διαγραφεί από τη συνομιλία όπου δημιουργήθηκε.",en:"This action cannot be undone. The item will be deleted from the chat where it was created."},
   current_chat:{el:"Τρέχουσα συνομιλία",en:"Current conversation"},
   archivethread:{el:"Αρχειοθέτηση",en:"Archive",ar:"أرشفة",es:"Archivar",fr:"Archiver",de:"Archivieren",pt:"Arquivar",it:"Archivia",ru:"Архивировать",tr:"Arşivle",hi:"संग्रहीत करें",ur:"آرکائیو",zh:"归档",ja:"アーカイブ",nl:"Archiveren",pl:"Archiwizuj",ro:"Arhivează",bn:"আর্কাইভ করুন",id:"Arsipkan",sw:"Hifadhi",fil:"Archive",mr:"संग्रहित करा",te:"ఆర్కైవ్ చేయి"},
   pastthreads:{el:"Παλαιές συνομιλίες",en:"Past conversations",ar:"المحادثات السابقة",es:"Conversaciones anteriores",fr:"Conversations passées",de:"Vergangene Gespräche",pt:"Conversas anteriores",it:"Conversazioni passate",ru:"Прошлые разговоры",tr:"Geçmiş konuşmalar",hi:"पुरानी बातचीत",ur:"پرانی باتیں",zh:"过去的对话",ja:"過去の会話",nl:"Eerdere gesprekken",pl:"Poprzednie rozmowy",ro:"Conversații vechi",bn:"পুরানো কথোপকথন",id:"Percakapan lama",sw:"Mazungumzo ya zamani",fil:"Past conversations",mr:"जुने संवाद",te:"పాత సంభాషణలు"},
@@ -1877,7 +1886,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
     if (result?.points_awarded) {
       const ptsLabel = t("points", lang);
-      showToast(`+${result.points_awarded} ${ptsLabel}`, "ok");
+      const awarded = result.points_awarded;
+      showToast(`${awarded > 0 ? "+" : ""}${awarded} ${ptsLabel}`, "ok");
     }
   }, [token, lang, openPendingReward]);
 
@@ -1937,7 +1947,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showChatLibrary, setShowChatLibrary] = useState(false);
-  const [libraryPreview, setLibraryPreview] = useState<{ src: string; name: string } | null>(null);
+  const [libraryPreview, setLibraryPreview] = useState<{ src: string; name: string; kind?: "image" | "video" } | null>(null);
+  const [libraryDeleteTarget, setLibraryDeleteTarget] = useState<ChatLibraryItem | null>(null);
 
   const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
   const [memPendingPhoto, setMemPendingPhoto] = useState<string | null>(null);
@@ -2663,42 +2674,72 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const chatSearchHits = useMemo(() => {
     const needle = chatSearchQuery.trim().toLowerCase();
-    const hits: { id: string; title: string; snippet: string; thread?: Thread }[] = [];
+    const locale = lang === "el" ? "el-GR" : "en-GB";
+    const dateLabel = (ts: number | null) => {
+      if (!ts) return t("search_today", lang);
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return t("search_today", lang);
+      const today = new Date();
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const diffDays = Math.round((startToday - startThat) / 86400000);
+      if (diffDays === 0) return t("search_today", lang);
+      if (diffDays === 1) return t("search_yesterday", lang);
+      return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
+    };
+    const titleOf = (msgs: Message[], fallback: string) => {
+      const first = msgs.find((m) => m.role === "user" && (m.content || "").trim()) || msgs[0];
+      const text = (first?.content || fallback).replace(/\s+/g, " ").trim();
+      if (!text) return fallback;
+      return text.length > 64 ? `${text.slice(0, 64)}…` : text;
+    };
     const blobOf = (msgs: Message[]) =>
       msgs.map((m) => `${m.content || ""} ${(m.attachments || []).map((a) => a.name).join(" ")}`).join(" ").toLowerCase();
-    const snippetOf = (msgs: Message[]) => {
-      const match = needle
-        ? msgs.find((m) => `${m.content || ""}`.toLowerCase().includes(needle))
-        : msgs[msgs.length - 1];
-      return (match?.content || "").replace(/\s+/g, " ").slice(0, 140);
-    };
-    if (messages.length && (!needle || blobOf(messages).includes(needle) || t("current_chat", lang).toLowerCase().includes(needle))) {
-      hits.push({ id: "__current__", title: t("current_chat", lang), snippet: snippetOf(messages) });
+    const hits: { id: string; title: string; dateLabel: string; thread?: Thread }[] = [];
+    if (messages.length && (!needle || blobOf(messages).includes(needle) || titleOf(messages, t("current_chat", lang)).toLowerCase().includes(needle))) {
+      hits.push({
+        id: "__current__",
+        title: titleOf(messages, t("current_chat", lang)),
+        dateLabel: dateLabel(Date.now()),
+      });
     }
     threads.forEach((th) => {
       const hay = `${th.title} ${blobOf(th.messages)}`.toLowerCase();
       if (!needle || hay.includes(needle)) {
-        hits.push({ id: th.id, title: th.title, snippet: snippetOf(th.messages) || th.date, thread: th });
+        const idTs = Number(th.id);
+        hits.push({
+          id: th.id,
+          title: th.title || titleOf(th.messages, t("pastthreads", lang)),
+          dateLabel: Number.isFinite(idTs) ? dateLabel(idTs) : (th.date || dateLabel(null)),
+          thread: th,
+        });
       }
     });
     return hits;
   }, [chatSearchQuery, messages, threads, lang]);
 
-  const chatLibraryImages = useMemo(() => {
-    const out: { src: string; name: string; key: string }[] = [];
-    const add = (msgs: Message[], prefix: string) => {
-      msgs.forEach((m, i) => {
-        m.attachments?.forEach((att, j) => {
-          if (att.kind === "image" && att.data) {
-            out.push({ src: att.data, name: att.name, key: `${prefix}-${i}-${j}` });
-          }
-        });
-      });
-    };
-    add(messages, "live");
-    threads.forEach((th) => add(th.messages, th.id));
-    return out;
-  }, [messages, threads]);
+  const chatLibrary = useMemo(
+    () => collectChatLibraryItems(messages, threads, t("current_chat", lang)),
+    [messages, threads, lang],
+  );
+
+  const confirmLibraryDelete = () => {
+    const item = libraryDeleteTarget;
+    if (!item) return;
+    if (item.source === "live") {
+      setMessages((prev) => removeMessageAttachment(prev, item.msgIndex, item.attIndex));
+    } else {
+      setThreads((prev) =>
+        prev.map((th) =>
+          th.id === item.source
+            ? { ...th, messages: removeMessageAttachment(th.messages, item.msgIndex, item.attIndex) }
+            : th,
+        ),
+      );
+    }
+    if (libraryPreview && libraryPreview.src === item.href) setLibraryPreview(null);
+    setLibraryDeleteTarget(null);
+  };
 
   const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
   const ttsUsedSafe = voiceQuota?.used ?? 0;
@@ -3075,10 +3116,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const bullets = getMilestoneBullets(stageId, lang);
     const current = !!(milestoneChecksMap[ref]?.[stageId]?.[idx]);
     const key = milestoneMemoryKey(ref, stageId, idx);
+    const activityPath = appPath("milestones", current ? "uncheck" : "check");
     setMilestoneChecksMap((prev) => setCheckForStage(prev, ref, stageId, idx, !current, bullets.length));
     setLastCheckedMap((prev) => ({ ...prev, [ref]: current ? null : { stageId, idx } }));
+    setGamification((prev) => applyPointsDelta(prev || defaultGamificationStatus(), gamificationPointsForPath(activityPath)));
     if (!current) {
-      track("submit", appPath("milestones", "check"), "Milestone reached", { ref, stageId, idx });
+      track("submit", activityPath, "Milestone reached", { ref, stageId, idx });
       setMemories((prev) => {
         if (prev.some((m) => m.milestoneKey === key)) return prev;
         const next: Memory[] = [buildMilestoneMemory({ ref, stageId, idx, label, lang }), ...prev];
@@ -3086,6 +3129,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         return next;
       });
     } else {
+      track("submit", activityPath, "Milestone unchecked", { ref, stageId, idx });
       setMemories((prev) => {
         const next = prev.filter((m) => m.milestoneKey !== key);
         if (next.length !== prev.length) void persistMemoriesDurable(token, next);
@@ -4429,82 +4473,115 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       <AppDialog
         open={showChatSearch}
         onClose={() => setShowChatSearch(false)}
-        size="md"
+        size="lg"
         ariaLabel={t("search_chats", lang)}
+        panelClassName="hm-dialog--chat-search"
       >
         <DialogPanel variant="white" padding="md">
-          <SheetHeader
-            title={t("search_chats", lang)}
-            onBack={() => setShowChatSearch(false)}
-            backLabel={lang === "el" ? "Πίσω" : "Back"}
-            compact
-          />
-          <input
-            className="hm-chat-search-input"
-            type="search"
-            value={chatSearchQuery}
-            onChange={(e) => setChatSearchQuery(e.target.value)}
-            placeholder={t("search_chats_ph", lang)}
-            autoFocus
-          />
-          {chatSearchHits.length === 0 ? (
-            <div className="hm-empty-state">{t("no_search_hits", lang)}</div>
-          ) : (
-            <div className="hm-chat-search-list">
-            {chatSearchHits.map((hit) => (
+          <div className="hm-chat-search">
+            <div className="hm-chat-search-top">
               <button
-                key={hit.id}
                 type="button"
-                className="hm-chat-search-hit"
-                onClick={() => {
-                  if (hit.thread) setMessages(hit.thread.messages);
-                  setShowChatSearch(false);
-                }}
+                className="hm-icon-btn-back"
+                aria-label={lang === "el" ? "Πίσω" : "Back"}
+                onClick={() => setShowChatSearch(false)}
               >
-                <div className="hm-chat-search-hit__title">{hit.title}</div>
-                {hit.snippet ? <div className="hm-chat-search-hit__snippet">{hit.snippet}</div> : null}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
-            ))}
+              <label className="hm-chat-search-pill">
+                <span className="hm-chat-search-pill__icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="6.25" stroke="currentColor" strokeWidth="1.75"/>
+                    <path d="M16 16l4.2 4.2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                  </svg>
+                </span>
+                <input
+                  className="hm-chat-search-pill__input"
+                  type="search"
+                  value={chatSearchQuery}
+                  onChange={(e) => setChatSearchQuery(e.target.value)}
+                  placeholder={t("search_chats", lang)}
+                  autoFocus
+                />
+              </label>
             </div>
-          )}
+            {chatSearchHits.length === 0 ? (
+              <div className="hm-empty-state">{t("no_search_hits", lang)}</div>
+            ) : (
+              <div className="hm-chat-search-body">
+                {!chatSearchQuery.trim() ? (
+                  <div className="hm-chat-search-kicker">{t("search_recent", lang)}</div>
+                ) : null}
+                <div className="hm-chat-search-list">
+                  {chatSearchHits.map((hit) => (
+                    <button
+                      key={hit.id}
+                      type="button"
+                      className="hm-chat-search-row"
+                      onClick={() => {
+                        if (hit.thread) setMessages(hit.thread.messages);
+                        setShowChatSearch(false);
+                      }}
+                    >
+                      <span className="hm-chat-search-row__title">{hit.title}</span>
+                      <span className="hm-chat-search-row__date">{hit.dateLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </DialogPanel>
       </AppDialog>
 
       <AppDialog
         open={showChatLibrary}
-        onClose={() => { setShowChatLibrary(false); setLibraryPreview(null); }}
-        size="md"
+        onClose={() => { setShowChatLibrary(false); setLibraryPreview(null); setLibraryDeleteTarget(null); }}
+        size="lg"
         ariaLabel={t("chat_library", lang)}
+        panelClassName="hm-dialog--library"
       >
         <DialogPanel variant="white" padding="md">
           <SheetHeader
             title={t("chat_library", lang)}
-            onBack={() => { setShowChatLibrary(false); setLibraryPreview(null); }}
+            onBack={() => { setShowChatLibrary(false); setLibraryPreview(null); setLibraryDeleteTarget(null); }}
             backLabel={lang === "el" ? "Πίσω" : "Back"}
             compact
           />
-          {libraryPreview ? (
-            <button type="button" className="hm-chat-library-cell" style={{ aspectRatio: "auto", width: "100%" }} onClick={() => setLibraryPreview(null)}>
-              <img className="hm-chat-library-preview" src={libraryPreview.src} alt={libraryPreview.name} />
-            </button>
-          ) : chatLibraryImages.length === 0 ? (
-            <div className="hm-empty-state">{t("library_empty", lang)}</div>
-          ) : (
-            <div className="hm-chat-library-grid">
-              {chatLibraryImages.map((img) => (
-                <button
-                  key={img.key}
-                  type="button"
-                  className="hm-chat-library-cell"
-                  onClick={() => setLibraryPreview({ src: img.src, name: img.name })}
-                >
-                  <img src={img.src} alt={img.name} />
-                </button>
-              ))}
-            </div>
-          )}
+          <ChatLibraryPanel
+            documents={chatLibrary.documents}
+            media={chatLibrary.media}
+            preview={libraryPreview}
+            docsTitle={t("library_docs", lang)}
+            mediaTitle={t("library_media", lang)}
+            docsEmpty={t("library_docs_empty", lang)}
+            mediaEmpty={t("library_empty", lang)}
+            deleteLabel={t("delete_memory", lang)}
+            onPreview={(item) => {
+              if (!item.href) return;
+              if (item.kind === "file") {
+                window.open(item.href, "_blank", "noopener,noreferrer");
+                return;
+              }
+              setLibraryPreview({ src: item.href, name: item.name, kind: item.kind });
+            }}
+            onClosePreview={() => setLibraryPreview(null)}
+            onRequestDelete={(item) => setLibraryDeleteTarget(item)}
+          />
         </DialogPanel>
       </AppDialog>
+      <ConfirmDialog
+        open={!!libraryDeleteTarget}
+        title={t("library_delete_title", lang)}
+        message={t("library_delete_msg", lang)}
+        confirmLabel={t("delete_memory", lang)}
+        cancelLabel={t("cancel", lang)}
+        variant="danger"
+        onConfirm={confirmLibraryDelete}
+        onCancel={() => setLibraryDeleteTarget(null)}
+      />
       {showLang && (
         <LanguageFlagOverlay
           open={showLang}
@@ -4697,6 +4774,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           }}
           onLibrary={() => {
             setLibraryPreview(null);
+            setLibraryDeleteTarget(null);
             setShowChatLibrary(true);
           }}
           newChatDisabled={!messages.length && !input.trim() && !chatPendingAttachments.length}

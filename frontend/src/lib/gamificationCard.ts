@@ -56,6 +56,10 @@ export function gamificationPointsForPath(path: string): number {
   if (normalized === GAMIFICATION_CHAT_VIDEO_PATH) {
     return GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 20;
   }
+  if (normalized === '/app/milestones/uncheck') {
+    const checkPts = GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 50;
+    return -checkPts;
+  }
   return GAMIFICATION_POINT_RULES.find((r) => r.path === normalized)?.points ?? 0;
 }
 
@@ -70,8 +74,8 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     {
       question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
       answer: isEl
-        ? `Κερδίζεις πόντους αυτόματα όταν:\n${pointsLines}\n\nΒίντεο (+20): σε Αναμνήσεις ή Chat.\nΠρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} πόντοι όταν εγγραφεί με τον κωδικό σου (στο Προφίλ).`
-        : `You earn points automatically when you:\n${pointsLines}\n\nVideo (+20): in Memories or Chat.\nFriend referral: +${REFERRAL_BONUS_POINTS} points when they sign up with your code (in Profile).`,
+        ? `Κερδίζεις πόντους αυτόματα όταν:\n${pointsLines}\n\nΑν ξετικάρεις ορόσημο, αφαιρούνται οι 50 πόντοι.\nΒίντεο (+20): σε Αναμνήσεις ή Chat.\nΠρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} πόντοι όταν εγγραφεί με τον κωδικό σου (στο Προφίλ).`
+        : `You earn points automatically when you:\n${pointsLines}\n\nUnticking a milestone removes the 50 points.\nVideo (+20): in Memories or Chat.\nFriend referral: +${REFERRAL_BONUS_POINTS} points when they sign up with your code (in Profile).`,
     },
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',

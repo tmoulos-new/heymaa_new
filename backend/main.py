@@ -163,6 +163,7 @@ POINT_RULES = {
     ("submit", "/app/chat/send"): 15,
     ("submit", "/app/chat/send-video"): 20,
     ("submit", "/app/milestones/check"): 50,
+    ("submit", "/app/milestones/uncheck"): -50,
 }
 
 INVITE_REFERRAL_POINTS = 50
@@ -621,6 +622,7 @@ POINT_PATH_TO_USER_DATA_KEY = {
     "/app/memories/add-photo": "memories",
     "/app/memories/add-video": "memories",
     "/app/milestones/check": "milestones_map",
+    "/app/milestones/uncheck": "milestones_map",
 }
 
 def _user_data_key_for_point_path(path: str) -> Optional[str]:
@@ -642,7 +644,7 @@ def _user_data_key_for_point_path(path: str) -> Optional[str]:
 
 def _summary_category_for_point_path(path: str) -> Optional[str]:
     path = (path or "").strip()
-    if path == "/app/milestones/check":
+    if path in ("/app/milestones/check", "/app/milestones/uncheck"):
         return "milestones"
     key = _user_data_key_for_point_path(path)
     if key == "chat":
@@ -751,9 +753,67 @@ def _attach_user_points_summary(users: list) -> None:
             user["level_name_en"] = level_row.get("name_en")
             user["level_name_el"] = level_row.get("name_el")
 
+def _credit_path_for_debit(path: str) -> str:
+    path = (path or "").strip()
+    if path.endswith("/uncheck"):
+        return f"{path[:-len('uncheck')]}check"
+    return path
+
+
+def _reverse_matching_credits(user_id: str, abs_amount: int, path: str) -> int:
+    """Undo matching positive txs (fallback when the DB rejects negative amounts)."""
+    if not sb or not user_id or abs_amount <= 0:
+        return 0
+    credit_path = _credit_path_for_debit(path)
+    reversed_total = 0
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("id,amount")
+            .eq("user_id", user_id)
+            .eq("path", credit_path)
+            .gt("amount", 0)
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        remaining = abs_amount
+        for row in res.data or []:
+            if remaining <= 0:
+                break
+            amt = int(row.get("amount") or 0)
+            tx_id = row.get("id")
+            if amt <= 0 or not tx_id:
+                continue
+            sb.table(POINT_TRANSACTIONS_TABLE).delete().eq("id", tx_id).eq("user_id", user_id).execute()
+            reversed_total += amt
+            remaining -= amt
+    except Exception:
+        pass
+    return reversed_total
+
+
 def _award_points(user_id: str, amount: int, reason: str, action: str = "", path: str = "") -> int:
-    if not sb or not user_id or amount <= 0:
+    if not sb or not user_id or amount == 0:
         return _get_user_points(user_id)
+    if amount < 0:
+        current = _get_user_points(user_id)
+        amount = max(amount, -current)
+        if amount == 0:
+            return current
+        try:
+            sb.table(POINT_TRANSACTIONS_TABLE).insert({
+                "user_id": user_id,
+                "amount": amount,
+                "reason": reason[:200],
+                "action": action or None,
+                "path": path or None,
+            }).execute()
+        except Exception:
+            _reverse_matching_credits(user_id, -amount, path)
+        points = _get_user_points(user_id)
+        _sync_user_level_id(user_id, points)
+        return points
     try:
         sb.table(POINT_TRANSACTIONS_TABLE).insert({
             "user_id": user_id,
@@ -763,7 +823,7 @@ def _award_points(user_id: str, amount: int, reason: str, action: str = "", path
             "path": path or None,
         }).execute()
         points = _get_user_points(user_id)
-        level_id, previous_level_id, level_changed = _sync_user_level_id(user_id, points)
+        _sync_user_level_id(user_id, points)
         return points
     except Exception:
         return _get_user_points(user_id)
@@ -862,7 +922,7 @@ def _maybe_award_points(auth: dict, action: str, path: str) -> Optional[dict]:
         return None
     previous_level = _get_user_level_id(user_id)
     amount = _points_for_activity(action, path)
-    if amount > 0:
+    if amount != 0:
         _award_points(user_id, amount, f"{action}:{path}", action=action, path=path)
     gamification = _user_gamification(user_id)
     new_level = int(gamification.get("level", {}).get("number") or previous_level)
@@ -5682,7 +5742,7 @@ async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None
     response = {"ok": True}
     if award_result:
         amount = _points_for_activity(action, path)
-        if amount > 0:
+        if amount != 0:
             response["points_awarded"] = amount
         if isinstance(award_result, dict):
             if award_result.get("gamification"):
