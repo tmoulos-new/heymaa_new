@@ -129,6 +129,7 @@ import { dismissRewardLevel, firstUnseenPendingReward } from "./lib/levelRewards
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
+import { getLanguagePickerItem } from "./lib/languagePicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 import { AUTH_LOGO_SRC } from "./auth/authLogo";
@@ -1674,7 +1675,6 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; }
   });
   const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
-  const L = getLang(lang);
   useEffect(() => {
     if (isLocalDemoToken(token)) return;
     let cancelled = false;
@@ -1703,8 +1703,9 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
       {showLang && (
         <LanguageFlagOverlay
           open={showLang}
-          title={`🌐 ${t("selectlang", lang)}`}
+          title={t("selectlang", lang)}
           currentLang={lang}
+          raised
           onClose={() => setShowLang(false)}
           onSelect={(code) => setLang(normalizeAppLang(code))}
         />
@@ -1712,7 +1713,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
       <div className="hm-narrow-form">
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
           <div style={{display:"flex",gap:6,flex:1}}>{[0,1,2,3].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#4ABEAA":i===step?"#2B3A67":"rgba(43,58,103,0.15)",maxWidth:40}}/>)}</div>
-          <button type="button" className="hm-btn hm-btn--secondary hm-btn--pill hm-btn--sm" style={{marginLeft:12,flexShrink:0}} onClick={()=>setShowLang(true)}>{L.f} {L.s}</button>
+          <button type="button" className="hm-btn hm-btn--secondary hm-btn--pill hm-btn--sm" style={{marginLeft:12,flexShrink:0}} onClick={()=>setShowLang(true)}>{getLanguagePickerItem(lang).displayCode}</button>
         </div>
         {step===0&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>👋</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("welcome",lang)}</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("setup",lang)}</p><input style={inp} placeholder={t("yourname",lang)} value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(1)} autoFocus/><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(1)}>{t("letsgo",lang)}</button></>}
         {step===1&&<>
@@ -1736,7 +1737,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(0)}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><div className="hm-onboarding-lang-grid">{LANGS.slice(0,8).map(l=><div key={l.c} onClick={()=>setLang(normalizeAppLang(l.c))} className="hm-onboarding-lang-cell" style={{border:`2px solid ${l.c===lang?"#2B3A67":"transparent"}`,background:l.c===lang?"#fff":"#F0EBE6"}}>{l.f}<div className="hm-onboarding-lang-code">{l.s}</div></div>)}</div><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>🌐 {t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><button type="button" className="lang-row is-selected" style={{marginBottom:10}} onClick={()=>setShowLang(true)}><span className="lang-row__code">{getLanguagePickerItem(lang).displayCode}</span><span className="lang-row__name">{getLanguagePickerItem(lang).name}</span><span className="lang-row__radio" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.2l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span></button><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>{t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
         {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button type="button" className="hm-btn hm-btn--accent hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
@@ -1791,7 +1792,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
-  const [helpMessage, setHelpMessage] = useState("");
   const homeLng = homeDisplayLocale(lang);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
@@ -3592,7 +3592,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 onClick: () => {
                   setShowProfileSettings(false);
                   setOpenHelpFaq({ 0: true });
-                  setHelpMessage("");
                   setShowHelpSupport(true);
                 },
               },
@@ -3676,33 +3675,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 );
               })}
             </div>
-
-            <div className="hm-section-label">
-              {displayUppercase(lang==="el"?"Στείλε μας μήνυμα":"Send us a message", lang)}
-            </div>
-            <textarea
-              className="hm-textarea hm-input--flush"
-              value={helpMessage}
-              onChange={e=>setHelpMessage(e.target.value)}
-              placeholder={lang==="el"?"Γράψε την ερώτησή σου εδώ...":"Write your question here..."}
-              rows={4}
-              style={{ marginBottom: 10, resize: "vertical" }}
-            />
-            <button
-              type="button"
-              className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg"
-              style={{ marginBottom: 14 }}
-              onClick={()=>{
-                const body = helpMessage.trim();
-                if (!body) {
-                  showToast(lang==="el"?"Γράψε πρώτα το μήνυμά σου.":"Write your message first.", "err");
-                  return;
-                }
-                window.open(`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}&body=${encodeURIComponent(body)}`);
-              }}
-            >
-              {lang==="el"?"Αποστολή μηνύματος":"Send message"}
-            </button>
 
             <div className="hm-contact-card">
               <div className="hm-section-label">
@@ -4160,7 +4132,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           onOpenHelp={() => {
             setShowSubscriptionSheet(false);
             setOpenHelpFaq({ 0: true });
-            setHelpMessage("");
             setShowHelpSupport(true);
           }}
         />
@@ -4493,8 +4464,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showLang && (
         <LanguageFlagOverlay
           open={showLang}
-          title={`🌐 ${t("selectlang", lang)}`}
+          title={t("selectlang", lang)}
           currentLang={lang}
+          raised
           onClose={() => setShowLang(false)}
           onSelect={(code) => {
             const nextLang = writeStoredAppLang(code);

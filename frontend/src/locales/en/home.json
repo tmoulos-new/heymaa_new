@@ -7,7 +7,11 @@
     "logoAlt": "HeyMaa logo"
   },
   "langPicker": {
-    "title": "🌐 Select language"
+    "title": "Choose language",
+    "search": "Search language...",
+    "select": "Select",
+    "empty": "No language found",
+    "close": "Close"
   },
   "hero": {
     "badge": "The first AI app for moms",

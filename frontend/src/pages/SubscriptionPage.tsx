@@ -24,7 +24,8 @@ import {
   formatTrialEnd,
   slotForPlanIndex,
 } from '../lib/subscriptionPlans'
-import { LANGS, mf } from '../home/homeContent'
+import { LANGS } from '../home/homeContent'
+import { LanguageFlagOverlay, LanguageTriggerCode } from '../components/LanguageFlagPicker'
 import { APP_ROUTE } from '../publicRoutes'
 import { continueWithPlan } from '../lib/planCheckoutFlow'
 
@@ -59,10 +60,6 @@ const TABLER_ICONS =
 
 function asObjectArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : []
-}
-
-function FlagHtml({ html }: { html: string }) {
-  return <span dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 export function SubscriptionPage() {
@@ -170,42 +167,17 @@ export function SubscriptionPage() {
 
   return (
     <div className="subscription-page">
-      <div
-        className={`lang-overlay${langOpen ? ' open' : ''}`}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setLangOpen(false)
-        }}
-        role="presentation"
-      >
-        <div className="lang-box">
-          <div className="lang-box-hdr">
-            <div className="lang-box-title">{tHome('langPicker.title')}</div>
-            <button
-              type="button"
-              className="lang-close"
-              onClick={() => setLangOpen(false)}
-              aria-label={tHome('langPicker.close')}
-            >
-              ×
-            </button>
-          </div>
-          <div className="flag-grid">
-            {LANGS.map((l) => (
-              <button
-                key={l.code}
-                type="button"
-                className={`flag-item${l.code === preferredLang ? ' active' : ''}`}
-                onClick={() => setLang(l.code)}
-              >
-                <FlagHtml html={mf(l.code, 40, 27)} />
-                <span className="flag-lname">{l.name}</span>
-                <span className="flag-lvoice">{l.voice}</span>
-                <span className="active-pip" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <LanguageFlagOverlay
+        open={langOpen}
+        title={String(tHome('langPicker.title'))}
+        currentLang={preferredLang}
+        onClose={() => setLangOpen(false)}
+        onSelect={setLang}
+        searchPlaceholder={String(tHome('langPicker.search'))}
+        selectLabel={String(tHome('langPicker.select'))}
+        emptyLabel={String(tHome('langPicker.empty'))}
+        closeLabel={String(tHome('nav.close'))}
+      />
 
       <nav className="navbar">
         <SiteNavbarLogo alt={tSub('nav.logoAlt')} />
@@ -215,7 +187,7 @@ export function SubscriptionPage() {
             className="lang-trigger"
             onClick={() => setLangOpen(true)}
           >
-            <FlagHtml html={mf(preferredLang, 22, 15)} />
+            <LanguageTriggerCode code={preferredLang} />
             <span>{langMeta.name}</span>
             <i className="ti ti-chevron-down" style={{ fontSize: 11 }} />
           </button>
