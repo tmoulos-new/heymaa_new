@@ -399,7 +399,14 @@ export function FamilyTreePanel({
                 padding: '3px 8px',
               }}
             >
-              {people.length} {el ? 'μέλη' : 'people'}
+              {people.length}{' '}
+              {el
+                ? people.length === 1
+                  ? 'μέλος'
+                  : 'μέλη'
+                : people.length === 1
+                  ? 'person'
+                  : 'people'}
             </div>
           </div>
         </div>

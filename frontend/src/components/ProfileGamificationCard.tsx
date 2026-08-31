@@ -100,7 +100,7 @@ export function ProfileGamificationCard({
             ? `Ενεργό δωρεάν ${activeGrantPlan} μέχρι ${new Date(activeGrantEndsAt).toLocaleDateString('el-GR')}.`
             : `Active free ${activeGrantPlan} until ${new Date(activeGrantEndsAt).toLocaleDateString('en-GB')}.`
           : isEl
-            ? 'Η πρόοδός σου αντακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
+            ? 'Η πρόοδός σου αντανακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
             : 'Your progress reflects your activity in the app — chat, memories, and milestones.'}
       </p>
 

@@ -36,7 +36,8 @@ export function PlanCard({
     buttonState ??
     (isCurrent ? 'current' : plan.featured ? 'selected' : 'idle')
   const isSelected = resolvedButtonState === 'selected'
-  const isRadioFilled = radioSelected ?? isSelected
+  const isRadioFilled = radioSelected ?? (isCurrent || isSelected)
+  const features = Array.isArray(plan.features) ? plan.features : []
 
   const handleClick = () => {
     if (selectMode) {
@@ -76,7 +77,7 @@ export function PlanCard({
         <div className="plan-period">{plan.period}</div>
         <div className="plan-save">{plan.save || '\u00a0'}</div>
         <ul className="plan-feats">
-          {plan.features.map((feature) => (
+          {features.map((feature) => (
             <li key={feature}>
               <i className="ti ti-check" />
               {feature}
@@ -100,7 +101,7 @@ export function PlanCard({
     'plan-stack',
     isCurrent ? 'current' : plan.variant,
     isRadioFilled ? 'selected' : '',
-    !isCurrent && (plan.featured || plan.badge) ? 'highlighted' : '',
+    !isCurrent && !isRadioFilled && (plan.featured || plan.badge) ? 'highlighted' : '',
     plan.badge ? 'has-badge' : '',
     selectMode ? 'selectable' : '',
   ]
@@ -161,7 +162,7 @@ export function PlanCard({
         )}
       </div>
       <ul className="plan-feats">
-        {plan.features.map((feature) => (
+        {features.map((feature) => (
           <li key={feature}>
             <i className="ti ti-check" />
             {feature}

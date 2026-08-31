@@ -17,6 +17,17 @@ export function slotForPaidPlan(plan?: string | null): PlanSlot | null {
   return null
 }
 
+export function indexForPlanSlot(slot: PlanSlot): number {
+  const index = PLAN_SLOTS.indexOf(slot)
+  return index >= 0 ? index : 0
+}
+
+function isFreePlanName(plan?: string | null): boolean {
+  const p = (plan || '').trim().toLowerCase()
+  if (!p) return false
+  return p === 'free' || p === 'trial' || p.startsWith('free ') || p.includes('δωρεάν')
+}
+
 function slotFromEntitlements(snapshot: SubscriptionSnapshot): PlanSlot | null {
   const slot = (snapshot.entitlements?.plan_slot || '').toLowerCase()
   if (slot === 'trial' || slot === 'starter' || slot === 'premium' || slot === 'annual') {
@@ -28,24 +39,38 @@ function slotFromEntitlements(snapshot: SubscriptionSnapshot): PlanSlot | null {
 export function resolveCurrentPlanSlot(
   snapshot: SubscriptionSnapshot | null,
 ): PlanSlot | null {
-  if (!snapshot?.subscription_active) return null
+  if (!snapshot) return null
+
+  const entSlot = slotFromEntitlements(snapshot)
+  if (snapshot.subscription_active && entSlot && entSlot !== 'trial') return entSlot
 
   const status = (snapshot.subscription_status || '').toLowerCase()
   const planRaw = (snapshot.plan || '').toLowerCase()
 
-  if (snapshot.is_trial || status === 'trial' || planRaw === 'trial') {
+  if (
+    snapshot.is_trial ||
+    status === 'trial' ||
+    planRaw === 'trial' ||
+    isFreePlanName(snapshot.plan)
+  ) {
     return 'trial'
   }
 
   const paidSlot = slotForPaidPlan(snapshot.plan)
-  if (paidSlot) return paidSlot
+  if (paidSlot && snapshot.subscription_active) return paidSlot
 
-  const entSlot = slotFromEntitlements(snapshot)
-  if (entSlot && entSlot !== 'trial') return entSlot
+  if (entSlot === 'trial') return 'trial'
 
-  if (status === 'active') return 'starter'
+  if (status === 'active' && snapshot.subscription_active) return 'starter'
 
   return 'trial'
+}
+
+/** Slot to highlight on plan cards. Defaults to the free trial when unknown. */
+export function displaySelectedPlanSlot(
+  snapshot: SubscriptionSnapshot | null,
+): PlanSlot {
+  return resolveCurrentPlanSlot(snapshot) ?? 'trial'
 }
 
 export function activePlanNameForSlot(
@@ -91,15 +116,33 @@ export function applySubscriptionPlanState(
   hasToken: boolean,
 ): HomePlan[] {
   if (!snapshot) {
+    const selectedSlot = displaySelectedPlanSlot(null)
     if (hasToken) {
-      return plans.map((plan) =>
-        plan.variant === 'current' || plan.variant === 'trial'
-          ? { ...plan, variant: '', badge: '', badgeColor: '', featured: false }
-          : { ...plan, featured: !!plan.featured },
-      )
+      return plans.map((plan, index) => {
+        const slot = slotForPlanIndex(index)
+        if (slot === selectedSlot) {
+          return {
+            ...plan,
+            variant: 'current',
+            featured: true,
+            badge: labels.currentBadge,
+            badgeColor: '#2B3A67',
+            button: labels.currentButton,
+            buttonClass: 'btn-plan-current',
+          }
+        }
+        return {
+          ...plan,
+          variant:
+            plan.variant === 'current' || plan.variant === 'trial' ? '' : plan.variant,
+          featured: false,
+        }
+      })
     }
     return plans.map((plan, index) => {
-      if (slotForPlanIndex(index) !== 'trial') return plan
+      if (slotForPlanIndex(index) !== selectedSlot) {
+        return { ...plan, featured: false }
+      }
       return {
         ...plan,
         variant: '',
@@ -115,7 +158,7 @@ export function applySubscriptionPlanState(
   const { subscription_status } = snapshot
   const status = (subscription_status || '').toLowerCase()
   const trialExpired = status === 'trial' && !snapshot.subscription_active
-  const currentSlot = resolveCurrentPlanSlot(snapshot)
+  const currentSlot = displaySelectedPlanSlot(snapshot)
 
   return plans.map((planItem, index) => {
     const slot = slotForPlanIndex(index)

@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
-import { hasAuthToken } from "../lib/authApi";
+import {
+  fetchSubscriptionStatus,
+  getAuthToken,
+  hasAuthToken,
+  type SubscriptionSnapshot,
+} from "../lib/authApi";
 import {
   HOME_I18N_STORAGE_KEY,
   homeDisplayLocale,
@@ -23,6 +28,12 @@ import ctaMomImage from "../assets/heymaa-cta-mom.png";
 import momentsImage from "../assets/heymaa-moments-collage.png";
 import { displayUppercase } from "../lib/greekText";
 import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
+import {
+  applySubscriptionPlanState,
+  displaySelectedPlanSlot,
+  indexForPlanSlot,
+  slotForPlanIndex,
+} from "../lib/subscriptionPlans";
 import { LANGS, mf } from "./homeContent";
 import "../auth/appAuth.css";
 import "./home.css";
@@ -50,9 +61,12 @@ export default function Home() {
   const [langOpen, setLangOpen] = useState(false);
   const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
+  const [userPickedPlan, setUserPickedPlan] = useState(false);
+  const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const navbarRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const token = getAuthToken();
 
   const goToApp = useCallback(() => {
     if (hasAuthToken()) navigate(APP_ROUTE);
@@ -67,9 +81,26 @@ export default function Home() {
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })
   );
-  const plans = asObjectArray<HomePlan>(
+  const basePlans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
   );
+  const plans = useMemo(
+    () =>
+      applySubscriptionPlanState(
+        basePlans,
+        snapshot,
+        {
+          currentBadge: t("plan.currentBadge", { ns: "subscription" }),
+          currentButton: t("plan.currentButton", { ns: "subscription" }),
+          expiredBadge: t("trial.expiredBadge", { ns: "subscription" }),
+          expiredButton: t("trial.expiredButton", { ns: "subscription" }),
+          signupButton: t("trial.signupButton", { ns: "subscription" }),
+        },
+        !!token,
+      ),
+    [basePlans, snapshot, t, token],
+  );
+  const currentPlanIndex = indexForPlanSlot(displaySelectedPlanSlot(snapshot));
   const faqItems = useMemo(
     () => asObjectArray<HomeFaqItem>(t("faq.landingItems", { returnObjects: true })),
     [t],
@@ -81,18 +112,40 @@ export default function Home() {
     testimonialItems[testimonialIndex] ?? testimonialItems[0];
 
   const handlePlanRadioSelect = useCallback((index: number) => {
-    const plan = plans[index];
-    if (!plan) return;
+    const slot = slotForPlanIndex(index);
+    setUserPickedPlan(true);
     setSelectedPlanIndex(index);
-    setPlanIntent(plan.variant || "trial");
-  }, [plans]);
+    setPlanIntent(slot);
+  }, []);
 
   const handlePlanContinue = useCallback((index: number) => {
-    const plan = plans[index];
-    if (!plan) return;
+    const slot = slotForPlanIndex(index);
+    setUserPickedPlan(true);
     setSelectedPlanIndex(index);
-    continueWithPlan(plan.variant || "trial", navigate);
-  }, [plans, navigate]);
+    continueWithPlan(slot, navigate);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!token) {
+      setSnapshot(null);
+      return;
+    }
+    let cancelled = false;
+    fetchSubscriptionStatus(token)
+      .then((data) => {
+        if (!cancelled) setSnapshot(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshot(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!userPickedPlan) setSelectedPlanIndex(currentPlanIndex);
+  }, [currentPlanIndex, userPickedPlan]);
 
   useEffect(() => {
     document.title = "HeyMaa";
@@ -356,7 +409,12 @@ export default function Home() {
               <div className="pricing-cards-grid">
                 {plans.map((plan, index) => {
                   const radioSelected = selectedPlanIndex === index;
-                  const buttonState = radioSelected ? "selected" : "idle";
+                  const isCurrentPlan = plan.variant === "current";
+                  const buttonState = isCurrentPlan
+                    ? "current"
+                    : radioSelected
+                      ? "selected"
+                      : "idle";
                   return (
                     <PlanCard
                       plan={plan}

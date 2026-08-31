@@ -17,8 +17,8 @@ import {
 import {
   applySubscriptionPlanState,
   activePlanNameForSlot,
+  displaySelectedPlanSlot,
   formatTrialEnd,
-  resolveCurrentPlanSlot,
   slotForPlanIndex,
 } from '../lib/subscriptionPlans'
 
@@ -127,7 +127,7 @@ export function InAppSubscriptionSheet({
     return 'default'
   }, [snapshot])
 
-  const activeSlot = useMemo(() => resolveCurrentPlanSlot(snapshot), [snapshot])
+  const activeSlot = useMemo(() => displaySelectedPlanSlot(snapshot), [snapshot])
   const activePlanRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {

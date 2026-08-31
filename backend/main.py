@@ -21,9 +21,9 @@ except ImportError:
     from auth_session import clear_session_cookie, session_token_from_request, set_session_cookie
 
 try:
-    from .cors_config import cors_allowed_origins
+    from .cors_config import cors_allowed_origin_regex, cors_allowed_origins
 except ImportError:
-    from cors_config import cors_allowed_origins
+    from cors_config import cors_allowed_origin_regex, cors_allowed_origins
 
 try:
     from .plan_grants import (
@@ -1292,9 +1292,10 @@ async def _add_security_headers(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_allowed_origins(),
+    allow_origin_regex=cors_allowed_origin_regex(),
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 def invalidate_system_prompt_cache():

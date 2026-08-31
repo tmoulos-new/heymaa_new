@@ -20,6 +20,7 @@ import {
 import { mergeGamificationFaqItems } from '../lib/gamificationCard'
 import {
   applySubscriptionPlanState,
+  displaySelectedPlanSlot,
   formatTrialEnd,
   slotForPlanIndex,
 } from '../lib/subscriptionPlans'
@@ -162,6 +163,8 @@ export function SubscriptionPage() {
     setOpenFaqs((prev) => ({ ...prev, [i]: !prev[i] }))
   }
 
+  const selectedSlot = displaySelectedPlanSlot(snapshot)
+
   const goApp = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
   const goLogin = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth?mode=login`)
 
@@ -259,22 +262,23 @@ export function SubscriptionPage() {
               <div className="pricing-trial-col">
                 {plans.slice(0, 1).map((plan, index) => {
                   const slot = slotForPlanIndex(index)
+                  const isSelected = selectedSlot === slot
                   const trialExpired =
                     slot === 'trial' &&
                     !!snapshot &&
                     !snapshot.subscription_active &&
                     snapshot.subscription_status === 'trial'
                   const buttonState =
-                    plan.variant === 'current' ? 'current' : 'idle'
+                    plan.variant === 'current' ? 'current' : isSelected ? 'selected' : 'idle'
                   return (
                     <PlanCard
                       plan={plan}
                       key={plan.name}
                       disabled={trialExpired}
                       buttonState={buttonState}
-                      radioSelected={plan.variant === 'current'}
+                      radioSelected={isSelected}
                       onButtonClick={() =>
-                        continueWithPlan(plan.variant || 'trial', navigate)
+                        continueWithPlan(plan.variant === 'current' ? slot : plan.variant || slot, navigate)
                       }
                     />
                   )
@@ -284,22 +288,23 @@ export function SubscriptionPage() {
                 {plans.slice(1).map((plan, offset) => {
                   const index = offset + 1
                   const slot = slotForPlanIndex(index)
+                  const isSelected = selectedSlot === slot
                   const trialExpired =
                     slot === 'trial' &&
                     !!snapshot &&
                     !snapshot.subscription_active &&
                     snapshot.subscription_status === 'trial'
                   const buttonState =
-                    plan.variant === 'current' ? 'current' : 'idle'
+                    plan.variant === 'current' ? 'current' : isSelected ? 'selected' : 'idle'
                   return (
                     <PlanCard
                       plan={plan}
                       key={plan.name}
                       disabled={trialExpired}
                       buttonState={buttonState}
-                      radioSelected={plan.variant === 'current'}
+                      radioSelected={isSelected}
                       onButtonClick={() =>
-                        continueWithPlan(plan.variant || 'trial', navigate)
+                        continueWithPlan(plan.variant === 'current' ? slot : plan.variant || slot, navigate)
                       }
                     />
                   )

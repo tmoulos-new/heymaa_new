@@ -88,7 +88,7 @@ import {
   clearBootLocalScanCache,
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
-import { slotForPaidPlan } from "./lib/subscriptionPlans";
+import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { chatContextDepth, memoryContextCount } from "./lib/planEntitlements";
 import {
@@ -3433,15 +3433,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   ];
 
   const profilePlanLabel = useMemo(() => {
-    if (subSnapshot?.is_trial && subSnapshot.subscription_active) return "Free";
-    const paidSlot = slotForPaidPlan(subSnapshot?.plan);
-    if (paidSlot === "starter") return "Starter";
-    if (paidSlot === "premium") return "Premium";
-    if (paidSlot === "annual") return lang === "el" ? "Ετήσιο Premium" : "Annual Premium";
-    if (subSnapshot?.subscription_active && subSnapshot.plan) {
-      return String(subSnapshot.plan);
-    }
-    return "Free";
+    const slot = displaySelectedPlanSlot(subSnapshot)
+    if (slot === "trial") return lang === "el" ? "Δωρεάν" : "Free"
+    if (slot === "starter") return "Starter"
+    if (slot === "premium") return "Premium"
+    if (slot === "annual") return lang === "el" ? "Ετήσιο Premium" : "Annual Premium"
+    return lang === "el" ? "Δωρεάν" : "Free"
   }, [subSnapshot, lang]);
 
   const appNotifications = useMemo(
