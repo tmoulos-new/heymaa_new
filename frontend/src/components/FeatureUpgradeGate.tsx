@@ -19,7 +19,7 @@ export function FeatureUpgradeGate({
     <div className={`hm-feature-gate${compact ? ' hm-feature-gate--compact' : ''}`}>
       <p className="hm-feature-gate__text">
         {el
-          ? `Το feature «${featureLabel}» είναι διαθέσιμο μόνο στο πακέτο ${requiredPlanLabel}.`
+          ? `Το feature «${featureLabel}» είναι διαθέσιμο μόνο στο πλάνο ${requiredPlanLabel}.`
           : `«${featureLabel}» is only available on the ${requiredPlanLabel} plan.`}
       </p>
       <p className="hm-feature-gate__sub">

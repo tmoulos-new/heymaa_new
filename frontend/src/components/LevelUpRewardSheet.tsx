@@ -75,7 +75,7 @@ export function LevelUpRewardSheet({
         <p className="hm-reward-sheet__level">{title}</p>
         <p className="hm-reward-sheet__body">
           {isEl
-            ? `Κέρδισες: ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως και στοιβάζεται με τυχόν ενεργό δωρεάν πακέτο.`
+            ? `Κέρδισες: ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως και στοιβάζεται με τυχόν ενεργό δωρεάν πλάνο.`
             : `You earned: ${desc}. Claim now — it activates immediately and stacks with any active free plan.`}
         </p>
         {error ? <p className="hm-reward-sheet__error">{error}</p> : null}

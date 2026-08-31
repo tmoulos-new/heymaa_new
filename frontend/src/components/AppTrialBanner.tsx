@@ -37,7 +37,7 @@ export function AppTrialBanner({
         ? `Απομένουν ${daysLeft} ημέρες στη δωρεάν δοκιμή`
         : `${daysLeft} days left on your free trial`
 
-  const cta = isEl ? 'Δες πακέτα' : 'View plans'
+  const cta = isEl ? 'Δες πλάνα' : 'View plans'
 
   return (
     <div

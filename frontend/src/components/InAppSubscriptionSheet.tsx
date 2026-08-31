@@ -180,7 +180,7 @@ export function InAppSubscriptionSheet({
           subtitle={
             tSub(`hero.${heroKey}.subtitle`) ||
             (lang === 'el'
-              ? 'Δες τα πακέτα και ποιο είναι ενεργό τώρα.'
+              ? 'Δες τα πλάνα και ποιο είναι ενεργό τώρα.'
               : 'See plans and which one is active now.')
           }
           onBack={onClose}
@@ -197,14 +197,14 @@ export function InAppSubscriptionSheet({
           <div className="hm-subscription-active-chip">
             <span className="hm-subscription-active-chip__dot" aria-hidden="true" />
             {lang === 'el'
-              ? `Ενεργό πακέτο: ${activePlanName}`
+              ? `Ενεργό πλάνο: ${activePlanName}`
               : `Active plan: ${activePlanName}`}
           </div>
         ) : null}
 
         {loading ? (
           <div className="hm-empty-state" style={{ padding: '40px 12px' }}>
-            {lang === 'el' ? 'Φόρτωση πακέτων…' : 'Loading plans…'}
+            {lang === 'el' ? 'Φόρτωση πλάνων…' : 'Loading plans…'}
           </div>
         ) : (
           <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>

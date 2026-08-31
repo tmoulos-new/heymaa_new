@@ -77,9 +77,9 @@ export function buildAppNotifications(
         id: `trial_today_${trialEndsAt}`,
         title: isEl ? 'Η δοκιμή λήγει σήμερα' : 'Trial ends today',
         body: isEl
-          ? `Η δωρεάν δοκιμή σου λήγει σήμερα (${endLabel}). Επίλεξε πακέτο για να συνεχίσεις την HeyMaa.`
+          ? `Η δωρεάν δοκιμή σου λήγει σήμερα (${endLabel}). Επίλεξε πλάνο για να συνεχίσεις την HeyMaa.`
           : `Your free trial ends today (${endLabel}). Choose a plan to keep using HeyMaa.`,
-        actionLabel: isEl ? 'Επιλογή πακέτου' : 'Select plan',
+        actionLabel: isEl ? 'Επιλογή πλάνου' : 'Select plan',
         action: 'subscription',
         urgent: true,
       })
@@ -90,9 +90,9 @@ export function buildAppNotifications(
           ? `Η δοκιμή λήγει σε ${roundedDays} ${roundedDays === 1 ? 'ημέρα' : 'ημέρες'}`
           : `Trial ends in ${roundedDays} day${roundedDays === 1 ? '' : 's'}`,
         body: isEl
-          ? `Η δωρεάν δοκιμή σου λήγει ${endLabel}. Επίλεξε πακέτο πριν λήξει η πρόσβαση.`
+          ? `Η δωρεάν δοκιμή σου λήγει ${endLabel}. Επίλεξε πλάνο πριν λήξει η πρόσβαση.`
           : `Your free trial ends ${endLabel}. Pick a plan before access ends.`,
-        actionLabel: isEl ? 'Επιλογή πακέτου' : 'Select plan',
+        actionLabel: isEl ? 'Επιλογή πλάνου' : 'Select plan',
         action: 'subscription',
         urgent: true,
       })
@@ -103,9 +103,9 @@ export function buildAppNotifications(
           ? `Απομένουν ${roundedDays} ημέρες δοκιμής`
           : `${roundedDays} days left on your trial`,
         body: isEl
-          ? `Η δοκιμή σου λήγει ${endLabel}. Δες τα διαθέσιμα πακέτα όποτε θέλεις.`
+          ? `Η δοκιμή σου λήγει ${endLabel}. Δες τα διαθέσιμα πλάνα όποτε θέλεις.`
           : `Your trial ends ${endLabel}. Browse plans whenever you are ready.`,
-        actionLabel: isEl ? 'Δες τα πακέτα' : 'View plans',
+        actionLabel: isEl ? 'Δες τα πλάνα' : 'View plans',
         action: 'subscription_sheet',
       })
     } else {
@@ -115,7 +115,7 @@ export function buildAppNotifications(
         body: isEl
           ? `Απολαμβάνεις δωρεάν πρόσβαση μέχρι ${endLabel}.`
           : `You have free access until ${endLabel}.`,
-        actionLabel: isEl ? 'Δες τα πακέτα' : 'View plans',
+        actionLabel: isEl ? 'Δες τα πλάνα' : 'View plans',
         action: 'subscription_sheet',
       })
     }
@@ -128,7 +128,7 @@ export function buildAppNotifications(
       body: isEl
         ? 'Η δοκιμή σου έχει λήξει. Ανανέωσε τη συνδρομή σου για να συνεχίσεις.'
         : 'Your trial has ended. Renew your subscription to continue.',
-      actionLabel: isEl ? 'Επιλογή πακέτου' : 'Select plan',
+      actionLabel: isEl ? 'Επιλογή πλάνου' : 'Select plan',
       action: 'subscription',
       urgent: true,
     })
@@ -137,7 +137,7 @@ export function buildAppNotifications(
       id: 'subscription_inactive',
       title: isEl ? 'Η συνδρομή δεν είναι ενεργή' : 'Subscription inactive',
       body: isEl
-        ? 'Η συνδρομή σου δεν είναι ενεργή. Επίλεξε πακέτο για πλήρη πρόσβαση.'
+        ? 'Η συνδρομή σου δεν είναι ενεργή. Επίλεξε πλάνο για πλήρη πρόσβαση.'
         : 'Your subscription is not active. Choose a plan for full access.',
       actionLabel: isEl ? 'Ανανέωση' : 'Renew',
       action: 'subscription',

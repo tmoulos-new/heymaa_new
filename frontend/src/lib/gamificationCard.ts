@@ -80,7 +80,7 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — μπορείς να πατήσεις «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πακέτο).'
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — μπορείς να πατήσεις «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πλάνο).'
         : 'As you collect points, you level up (New Mom to HeyMaa Champion). Levels 2–5 grant free Starter/Premium days — tap «Claim your gift!» to activate instantly (stacks with any active free plan).',
     },
     {

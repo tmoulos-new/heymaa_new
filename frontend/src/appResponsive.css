@@ -5003,7 +5003,7 @@ body.hm-app-active .hm-sheet-overlay {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 8px 8px 8px 14px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -5028,8 +5028,25 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-album-inline__chevron {
-  color: rgba(43, 58, 103, 0.45);
-  font-size: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--hm-border);
+  background: #fff;
+  color: var(--hm-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hm-memories-album-inline__chevron svg {
+  transform: rotate(180deg);
+  transition: transform 0.15s ease;
+}
+
+.hm-memories-album-inline__toggle[aria-expanded="true"] .hm-memories-album-inline__chevron svg {
+  transform: rotate(-90deg);
 }
 
 .hm-memories-album-inline__body {

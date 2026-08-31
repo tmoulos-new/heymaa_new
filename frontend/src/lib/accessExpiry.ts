@@ -148,7 +148,7 @@ export function expiryPopupCopy(info: AccessExpiryInfo, lang: string): {
     return {
       title: isEl ? 'Η πρόσβασή σου λήγει σήμερα' : 'Your access ends today',
       body: isEl
-        ? `Η πρόσβαση στην HeyMaa λήγει σήμερα (${info.endLabel}). Ανανέωσε ή αναβάθμισε το πακέτο σου για να συνεχίσεις.`
+        ? `Η πρόσβαση στην HeyMaa λήγει σήμερα (${info.endLabel}). Ανανέωσε ή αναβάθμισε το πλάνο σου για να συνεχίσεις.`
         : `Your HeyMaa access ends today (${info.endLabel}). Renew or upgrade your plan to continue.`,
       cta: isEl ? 'Ανανέωση / Upgrade' : 'Renew / Upgrade',
     }
@@ -160,9 +160,9 @@ export function expiryPopupCopy(info: AccessExpiryInfo, lang: string): {
         ? `Το δωρεάν ${plan} λήγει σε ${info.daysLeft} ${info.daysLeft === 1 ? 'ημέρα' : 'ημέρες'}`
         : `Free ${plan} ends in ${info.daysLeft} day${info.daysLeft === 1 ? '' : 's'}`,
       body: isEl
-        ? `Το δωρεάν πακέτο ${plan} από την ανταμοιβή επίπεδου λήγει ${info.endLabel}. Ανανέωσε ή αναβάθμισε για απρόσκοπτη πρόσβαση.`
+        ? `Το δωρεάν πλάνο ${plan} από την ανταμοιβή επίπεδου λήγει ${info.endLabel}. Ανανέωσε ή αναβάθμισε για απρόσκοπτη πρόσβαση.`
         : `Your free ${plan} level reward ends ${info.endLabel}. Renew or upgrade for uninterrupted access.`,
-      cta: isEl ? 'Δες πακέτα' : 'View plans',
+      cta: isEl ? 'Δες πλάνα' : 'View plans',
     }
   }
 
@@ -171,7 +171,7 @@ export function expiryPopupCopy(info: AccessExpiryInfo, lang: string): {
       ? `Απομένουν ${info.daysLeft} ${info.daysLeft === 1 ? 'ημέρα' : 'ημέρες'}`
       : `${info.daysLeft} day${info.daysLeft === 1 ? '' : 's'} left`,
     body: isEl
-      ? `Η πρόσβασή σου λήγει ${info.endLabel}. Επίλεξε ή ανανέωσε πακέτο πριν λήξει.`
+      ? `Η πρόσβασή σου λήγει ${info.endLabel}. Επίλεξε ή ανανέωσε πλάνο πριν λήξει.`
       : `Your access ends ${info.endLabel}. Choose or renew a plan before it expires.`,
     cta: isEl ? 'Ανανέωση / Upgrade' : 'Renew / Upgrade',
   }
