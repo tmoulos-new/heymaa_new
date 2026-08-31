@@ -92,7 +92,6 @@ import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { chatContextDepth, memoryContextCount } from "./lib/planEntitlements";
 import {
-  canArchiveAnotherThread,
   featureAllowed,
   featureLabel,
   featureRequiredPlanLabel,
@@ -131,6 +130,7 @@ import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
+import { ChatIconRail } from "./components/ChatIconRail";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 import { AUTH_LOGO_SRC } from "./auth/authLogo";
 
@@ -1484,6 +1484,12 @@ const TR: Record<string,Record<string,string>> = {
   save:{el:"Αποθήκευση",en:"Save",ar:"حفظ",es:"Guardar",fr:"Enregistrer",de:"Speichern",pt:"Guardar",it:"Salva",ru:"Сохранить",tr:"Kaydet",hi:"सहेजें",ur:"محفوظ",zh:"保存",ja:"保存",nl:"Opslaan",pl:"Zapisz",ro:"Salvează",bn:"সংরক্ষণ",id:"Simpan",sw:"Hifadhi",fil:"Save",mr:"जतन करा",te:"సేవ్ చేయి"},
   cancel:{el:"Ακύρωση",en:"Cancel",ar:"إلغاء",es:"Cancelar",fr:"Annuler",de:"Abbrechen",pt:"Cancelar",it:"Annulla",ru:"Отмена",tr:"İptal",hi:"रद्द करें",ur:"منسوخ",zh:"取消",ja:"キャンセル",nl:"Annuleren",pl:"Anuluj",ro:"Anulează",bn:"বাতিল",id:"Batal",sw:"Ghairi",fil:"Cancel",mr:"रद्द करा",te:"రద్దు చేయి"},
   newthread:{el:"Νέα συνομιλία",en:"New conversation",ar:"محادثة جديدة",es:"Nueva conversación",fr:"Nouvelle conversation",de:"Neues Gespräch",pt:"Nova conversa",it:"Nuova conversazione",ru:"Новый разговор",tr:"Yeni konuşma",hi:"नई बातचीत",ur:"نئی بات",zh:"新对话",ja:"新しい会話",nl:"Nieuw gesprek",pl:"Nowa rozmowa",ro:"Conversație nouă",bn:"নতুন কথোপকথন",id:"Percakapan baru",sw:"Mazungumzo mapya",fil:"New conversation",mr:"नवीन संवाद",te:"కొత్త సంభాషణ"},
+  search_chats:{el:"Αναζήτηση συνομιλιών",en:"Search conversations"},
+  chat_library:{el:"Βιβλιοθήκη",en:"Library"},
+  search_chats_ph:{el:"Αναζήτηση μηνυμάτων ή συνομιλιών...",en:"Search messages or conversations..."},
+  no_search_hits:{el:"Δεν βρέθηκαν συνομιλίες.",en:"No conversations found."},
+  library_empty:{el:"Δεν υπάρχουν εικόνες στις συνομιλίες ακόμα.",en:"No images in conversations yet."},
+  current_chat:{el:"Τρέχουσα συνομιλία",en:"Current conversation"},
   archivethread:{el:"Αρχειοθέτηση",en:"Archive",ar:"أرشفة",es:"Archivar",fr:"Archiver",de:"Archivieren",pt:"Arquivar",it:"Archivia",ru:"Архивировать",tr:"Arşivle",hi:"संग्रहीत करें",ur:"آرکائیو",zh:"归档",ja:"アーカイブ",nl:"Archiveren",pl:"Archiwizuj",ro:"Arhivează",bn:"আর্কাইভ করুন",id:"Arsipkan",sw:"Hifadhi",fil:"Archive",mr:"संग्रहित करा",te:"ఆర్కైవ్ చేయి"},
   pastthreads:{el:"Παλαιές συνομιλίες",en:"Past conversations",ar:"المحادثات السابقة",es:"Conversaciones anteriores",fr:"Conversations passées",de:"Vergangene Gespräche",pt:"Conversas anteriores",it:"Conversazioni passate",ru:"Прошлые разговоры",tr:"Geçmiş konuşmalar",hi:"पुरानी बातचीत",ur:"پرانی باتیں",zh:"过去的对话",ja:"過去の会話",nl:"Eerdere gesprekken",pl:"Poprzednie rozmowy",ro:"Conversații vechi",bn:"পুরানো কথোপকথন",id:"Percakapan lama",sw:"Mazungumzo ya zamani",fil:"Past conversations",mr:"जुने संवाद",te:"పాత సంభాషణలు"},
   nameyourthread:{el:"Δώσε τίτλο στη συνομιλία",en:"Name this conversation",ar:"سمّي هذه المحادثة",es:"Nombra esta conversación",fr:"Nommez cette conversation",de:"Gespräch benennen",pt:"Nomeia esta conversa",it:"Dai un nome alla conversazione",ru:"Назовите разговор",tr:"Konuşmayı adlandır",hi:"बातचीत का नाम दें",ur:"بات کا نام دیں",zh:"为对话命名",ja:"会話に名前をつけて",nl:"Gesprek een naam geven",pl:"Nazwij rozmowę",ro:"Denumește conversația",bn:"কথোপকথনের নাম দিন",id:"Beri nama percakapan",sw:"Ipe jina mazungumzo",fil:"Name this conversation",mr:"संवादाला नाव द्या",te:"సంభాషణకు పేరు పెట్టండి"},
@@ -1927,10 +1933,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   // Threads state — bootstrap from full localStorage scan (all past JWT keys)
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
   const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan().chat as Message[]) || []);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [showNewThreadModal, setShowNewThreadModal] = useState(false);
-  const [archiveTitle, setArchiveTitle] = useState("");
   const [showThreads, setShowThreads] = useState(false);
+  const [showChatSearch, setShowChatSearch] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [showChatLibrary, setShowChatLibrary] = useState(false);
+  const [libraryPreview, setLibraryPreview] = useState<{ src: string; name: string } | null>(null);
 
   const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
   const [memPendingPhoto, setMemPendingPhoto] = useState<string | null>(null);
@@ -2637,35 +2644,61 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setTimeout(()=>{ setInput(text); inputRef.current?.focus(); }, 80);
   };
 
-  // Archive current thread
-  const doArchive = () => {
-    if (!messages.length) return;
-    if (!canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length)) return;
-    const title = archiveTitle.trim() || messages[0].content.slice(0,40) + (messages[0].content.length>40?"…":"");
-    const thread: Thread = { id: Date.now().toString(), title, date: new Date().toLocaleDateString(lang,{day:"numeric",month:"short",year:"numeric"}), messages: [...messages] };
-    setThreads(prev=>[thread,...prev]); setMessages([]); setShowArchiveModal(false); setArchiveTitle("");
-    showToast(lang === "el" ? "Η συνομιλία αρχειοθετήθηκε." : "Conversation archived.", "ok");
-  };
-
   const requestNewThread = () => {
-    if (!messages.length) return;
-    setShowNewThreadModal(true);
-  };
-
-  const discardCurrentThread = () => {
+    if (!messages.length && !input.trim() && !chatPendingAttachments.length) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingIndex(null);
     setMessages([]);
-    setShowNewThreadModal(false);
-    showToast(lang === "el" ? "Ξεκίνησε νέα συνομιλία." : "Started a new conversation.", "ok");
-  };
-
-  const openArchiveForNew = () => {
-    setShowNewThreadModal(false);
-    setShowArchiveModal(true);
+    setInput("");
+    setChatPendingAttachments([]);
+    setShowChatAttachSheet(false);
   };
 
   const deleteThread = (threadId: string) => {
     setThreads((prev) => prev.filter((th) => th.id !== threadId));
   };
+
+  const chatSearchHits = useMemo(() => {
+    const needle = chatSearchQuery.trim().toLowerCase();
+    const hits: { id: string; title: string; snippet: string; thread?: Thread }[] = [];
+    const blobOf = (msgs: Message[]) =>
+      msgs.map((m) => `${m.content || ""} ${(m.attachments || []).map((a) => a.name).join(" ")}`).join(" ").toLowerCase();
+    const snippetOf = (msgs: Message[]) => {
+      const match = needle
+        ? msgs.find((m) => `${m.content || ""}`.toLowerCase().includes(needle))
+        : msgs[msgs.length - 1];
+      return (match?.content || "").replace(/\s+/g, " ").slice(0, 140);
+    };
+    if (messages.length && (!needle || blobOf(messages).includes(needle) || t("current_chat", lang).toLowerCase().includes(needle))) {
+      hits.push({ id: "__current__", title: t("current_chat", lang), snippet: snippetOf(messages) });
+    }
+    threads.forEach((th) => {
+      const hay = `${th.title} ${blobOf(th.messages)}`.toLowerCase();
+      if (!needle || hay.includes(needle)) {
+        hits.push({ id: th.id, title: th.title, snippet: snippetOf(th.messages) || th.date, thread: th });
+      }
+    });
+    return hits;
+  }, [chatSearchQuery, messages, threads, lang]);
+
+  const chatLibraryImages = useMemo(() => {
+    const out: { src: string; name: string; key: string }[] = [];
+    const add = (msgs: Message[], prefix: string) => {
+      msgs.forEach((m, i) => {
+        m.attachments?.forEach((att, j) => {
+          if (att.kind === "image" && att.data) {
+            out.push({ src: att.data, name: att.name, key: `${prefix}-${i}-${j}` });
+          }
+        });
+      });
+    };
+    add(messages, "live");
+    threads.forEach((th) => add(th.messages, th.id));
+    return out;
+  }, [messages, threads]);
 
   const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
   const ttsUsedSafe = voiceQuota?.used ?? 0;
@@ -2676,7 +2709,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       .catch(() => {});
     setShowSubscriptionSheet(true);
   }, [token, applySubscriptionSnapshot]);
-  const archiveBlocked = !canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
   const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
@@ -4355,74 +4387,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </DialogPanel>
       </AppDialog>
 
-      {/* NEW THREAD MODAL */}
-      <AppDialog
-        open={showNewThreadModal}
-        onClose={() => setShowNewThreadModal(false)}
-        size="sm"
-        ariaLabel={t("newthread", lang)}
-      >
-        <DialogPanel variant="white" padding="md">
-          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>＋ {t("newthread", lang)}</h2>
-          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>
-            {lang === "el"
-              ? "Θέλεις να αρχειοθετήσεις αυτή τη συνομιλία πριν ξεκινήσεις νέα;"
-              : "Archive this conversation before starting a new one?"}
-          </p>
-          <div className="hm-btn-row">
-            <button type="button" className="hm-btn hm-btn--primary" onClick={openArchiveForNew}>
-              📁 {t("archivethread", lang)}
-            </button>
-            <button type="button" className="hm-btn hm-btn--secondary" onClick={discardCurrentThread}>
-              {lang === "el" ? "Χωρίς αποθήκευση" : "Discard"}
-            </button>
-            <button type="button" className="hm-btn hm-btn--ghost" onClick={() => setShowNewThreadModal(false)}>
-              {t("cancel", lang)}
-            </button>
-          </div>
-        </DialogPanel>
-      </AppDialog>
-
-      {/* ARCHIVE MODAL */}
-      <AppDialog
-        open={showArchiveModal}
-        onClose={() => setShowArchiveModal(false)}
-        size="sm"
-        ariaLabel={t("nameyourthread", lang)}
-      >
-        <DialogPanel variant="white" padding="md">
-          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>📁 {t("nameyourthread", lang)}</h2>
-          {archiveBlocked ? (
-            <FeatureUpgradeGate
-              lang={lang}
-              featureLabel={featureLabel("archived_threads", lang)}
-              requiredPlanLabel={featureRequiredPlanLabel("archived_threads", lang)}
-              onUpgrade={() => {
-                setShowArchiveModal(false);
-                openSubscriptionUpgrade();
-              }}
-            />
-          ) : (
-            <>
-          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>{t("archive_hint", lang)}</p>
-          <input
-            className="hm-input"
-            value={archiveTitle}
-            onChange={e=>setArchiveTitle(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&doArchive()}
-            placeholder={messages[0]?.content.slice(0,40)||"Τίτλος..."}
-            style={{ marginBottom: 12 }}
-            autoFocus
-          />
-          <div className="hm-btn-row">
-            <button type="button" className="hm-btn hm-btn--primary" onClick={doArchive}>{t("archivethread", lang)} ✓</button>
-            <button type="button" className="hm-btn hm-btn--secondary" onClick={()=>setShowArchiveModal(false)}>{t("cancel", lang)}</button>
-          </div>
-            </>
-          )}
-        </DialogPanel>
-      </AppDialog>
-
       {/* PAST THREADS PANEL */}
       <AppDialog
         open={showThreads}
@@ -4460,6 +4424,86 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
           ))}
         </div>
+      </AppDialog>
+
+      <AppDialog
+        open={showChatSearch}
+        onClose={() => setShowChatSearch(false)}
+        size="md"
+        ariaLabel={t("search_chats", lang)}
+      >
+        <DialogPanel variant="white" padding="md">
+          <SheetHeader
+            title={t("search_chats", lang)}
+            onBack={() => setShowChatSearch(false)}
+            backLabel={lang === "el" ? "Πίσω" : "Back"}
+            compact
+          />
+          <input
+            className="hm-chat-search-input"
+            type="search"
+            value={chatSearchQuery}
+            onChange={(e) => setChatSearchQuery(e.target.value)}
+            placeholder={t("search_chats_ph", lang)}
+            autoFocus
+          />
+          {chatSearchHits.length === 0 ? (
+            <div className="hm-empty-state">{t("no_search_hits", lang)}</div>
+          ) : (
+            <div className="hm-chat-search-list">
+            {chatSearchHits.map((hit) => (
+              <button
+                key={hit.id}
+                type="button"
+                className="hm-chat-search-hit"
+                onClick={() => {
+                  if (hit.thread) setMessages(hit.thread.messages);
+                  setShowChatSearch(false);
+                }}
+              >
+                <div className="hm-chat-search-hit__title">{hit.title}</div>
+                {hit.snippet ? <div className="hm-chat-search-hit__snippet">{hit.snippet}</div> : null}
+              </button>
+            ))}
+            </div>
+          )}
+        </DialogPanel>
+      </AppDialog>
+
+      <AppDialog
+        open={showChatLibrary}
+        onClose={() => { setShowChatLibrary(false); setLibraryPreview(null); }}
+        size="md"
+        ariaLabel={t("chat_library", lang)}
+      >
+        <DialogPanel variant="white" padding="md">
+          <SheetHeader
+            title={t("chat_library", lang)}
+            onBack={() => { setShowChatLibrary(false); setLibraryPreview(null); }}
+            backLabel={lang === "el" ? "Πίσω" : "Back"}
+            compact
+          />
+          {libraryPreview ? (
+            <button type="button" className="hm-chat-library-cell" style={{ aspectRatio: "auto", width: "100%" }} onClick={() => setLibraryPreview(null)}>
+              <img className="hm-chat-library-preview" src={libraryPreview.src} alt={libraryPreview.name} />
+            </button>
+          ) : chatLibraryImages.length === 0 ? (
+            <div className="hm-empty-state">{t("library_empty", lang)}</div>
+          ) : (
+            <div className="hm-chat-library-grid">
+              {chatLibraryImages.map((img) => (
+                <button
+                  key={img.key}
+                  type="button"
+                  className="hm-chat-library-cell"
+                  onClick={() => setLibraryPreview({ src: img.src, name: img.name })}
+                >
+                  <img src={img.src} alt={img.name} />
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogPanel>
       </AppDialog>
       {showLang && (
         <LanguageFlagOverlay
@@ -4639,6 +4683,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
 
       {/* BODY */}
+      <div className={`hm-chat-workspace${tab === "chat" ? " hm-chat-workspace--rail" : ""}`}>
+      {tab === "chat" && (
+        <ChatIconRail
+          railAriaLabel={lang === "el" ? "Εργαλεία συνομιλίας" : "Chat tools"}
+          newChatLabel={t("newthread", lang)}
+          searchLabel={t("search_chats", lang)}
+          libraryLabel={t("chat_library", lang)}
+          onNewChat={requestNewThread}
+          onSearch={() => {
+            setChatSearchQuery("");
+            setShowChatSearch(true);
+          }}
+          onLibrary={() => {
+            setLibraryPreview(null);
+            setShowChatLibrary(true);
+          }}
+          newChatDisabled={!messages.length && !input.trim() && !chatPendingAttachments.length}
+        />
+      )}
+      <div className="hm-chat-workspace__main">
       <div className="hm-app-body" ref={appBodyRef}>
       <div className="hm-app-body-inner">
 
@@ -4887,37 +4951,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               )}
             </div>
 
-            {/* Chat toolbar */}
-            <div className="hm-chat-toolbar">
-              <button
-                type="button"
-                className="hm-chat-toolbar__btn"
-                onClick={requestNewThread}
-                disabled={!messages.length}
-                title={t("newthread", lang)}
-              >
-                ＋ {t("newthread", lang)}
-              </button>
-              {messages.length > 0 && (
-                <button
-                  type="button"
-                  className="hm-chat-toolbar__btn"
-                  onClick={() => setShowArchiveModal(true)}
-                  title={t("archivethread", lang)}
-                >
-                  📁 {t("archivethread", lang)}
-                </button>
-              )}
-              <button
-                type="button"
-                className="hm-chat-toolbar__btn hm-chat-toolbar__btn--secondary"
-                onClick={() => setShowThreads(true)}
-                title={t("pastthreads", lang)}
-              >
-                🗂️ {t("pastthreads", lang)}
-                {threads.length > 0 && <span className="hm-chat-toolbar__count">{threads.length}</span>}
-              </button>
-            </div>
             <p className="hm-chat-context-hint">
               {lang === "el"
                 ? `Η HeyMaa θυμάται τα τελευταία ${chatContextLimit} μηνύματα και ${memoryContextLimit} αποθηκευμένες αναμνήσεις (ανά πακέτο).`
@@ -5588,6 +5621,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         <button type="button" className="hm-composer-action hm-composer-send" onClick={()=>void sendMessage(input, chatPendingAttachments)} disabled={loading||(!input.trim()&&!chatPendingAttachments.length)||recording}>➤</button>
         </div>
       </div>}
+      </div>{/* end chat workspace main */}
+      </div>{/* end chat workspace */}
 
       {tab === "chat" && (
         <AppDialog
