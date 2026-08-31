@@ -8,6 +8,7 @@ import { MemoryCard } from './MemoryCard'
 import { AddMemoryModal, type MemoryFormValues } from './AddMemoryModal'
 import { MemoriesAlbumModal } from './MemoriesAlbumModal'
 import { MemoriesAlbumSection } from './MemoriesAlbumSection'
+import { MemoryEmojiIcon } from './MemoryEmojiIcon'
 
 export type MemoriesTabProps = {
   lang: string
@@ -194,9 +195,10 @@ export function MemoriesTab({
           </button>
           <button
             type="button"
-            className={`hm-memories-filter${feedFilter === 'milestones' ? ' hm-memories-filter--active' : ''}`}
+            className={`hm-memories-filter hm-memories-filter--icon${feedFilter === 'milestones' ? ' hm-memories-filter--active' : ''}`}
             onClick={() => setFeedFilter('milestones')}
           >
+            <MemoryEmojiIcon emoji="🚩" size={14} />
             {el ? 'Ορόσημα' : 'Milestones'}
           </button>
         </div>
@@ -209,7 +211,8 @@ export function MemoriesTab({
             aria-expanded={albumInlineOpen}
           >
             <span className="hm-memories-album-inline__toggle-label">
-              ✦ {el ? 'Άλμπουμ αναμνήσεων' : 'Memories album'}
+              <MemoryEmojiIcon emoji="✨" size={14} />
+              {el ? 'Άλμπουμ αναμνήσεων' : 'Memories album'}
               <span className="hm-memories-album-inline__count">
                 {journalMemories.length} {el ? 'αναμνήσεις' : 'memories'}
               </span>
@@ -257,12 +260,12 @@ export function MemoriesTab({
         {filteredMemories.length === 0 ? (
           <div className="hm-memories-empty">
             <div className="hm-memories-empty__icon" aria-hidden="true">
-              <span>🧸</span>
+              <MemoryEmojiIcon emoji={feedFilter === 'milestones' ? '🚩' : '🧸'} size={52} />
             </div>
             <h3 className="hm-memories-empty__title">
               {feedFilter === 'milestones'
                 ? (el ? 'Δεν υπάρχουν ορόσημα ακόμα' : 'No milestones yet')
-                : (el ? 'Η πρώτη σου ανάμνηση ξεκινάει εδώ 💛' : 'Your first memory starts here 💛')}
+                : (el ? 'Η πρώτη σου ανάμνηση ξεκινάει εδώ' : 'Your first memory starts here')}
             </h3>
             <p className="hm-memories-empty__sub">
               {feedFilter === 'milestones'
@@ -284,7 +287,7 @@ export function MemoriesTab({
                   key={m.createdAt || `${m.text}-${globalIndex}`}
                   memory={m}
                   lang={lang}
-                  onEdit={() => openEdit(globalIndex)}
+                  onEdit={isMemoryMilestone(m) ? undefined : () => openEdit(globalIndex)}
                   onDelete={() => onDeleteMemory(globalIndex)}
                 />
               )

@@ -79,9 +79,9 @@ export function AppTourGuide({
     const onResize = () => remeasure()
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onResize, true)
-    const t = window.setTimeout(remeasure, 320)
+    const timers = [80, 160, 280, 420, 640].map((ms) => window.setTimeout(remeasure, ms))
     return () => {
-      window.clearTimeout(t)
+      timers.forEach((t) => window.clearTimeout(t))
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
     }

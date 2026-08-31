@@ -26,12 +26,20 @@ const MOMENT =
 const EMOTIONAL = /(🎉|💛|❤️|τόσο\s+όμορφ|so\s+(cute|proud|happy)|μπράβο|proud)/i;
 
 const EMOJI_MAP: [RegExp, string][] = [
+  [/(θάλασσ|θαλασσ|sea|beach)/i, '🌊'],
+  [/(στερε|solid food|wean)/i, '🥣'],
+  [/(μπιμπ|bottle)/i, '🍼'],
+  [/(κουδουν|rattle|παιχνίδ)/i, '🔔'],
+  [/(μπουσουλ|crawl)/i, '🚼'],
+  [/(σκάλ|stair)/i, '🪜'],
+  [/(πύργ|tower|τουβλ)/i, '🧱'],
+  [/(πάρτ|party|γενέθλ|birthday)/i, '🎉'],
   [/(δοντ|tooth|teeth)/i, '🦷'],
   [/(χαμογ|smil)/i, '😊'],
   [/(βήμα|walk|step|περπα)/i, '🚶'],
   [/(μπάνι|bath)/i, '🛁'],
   [/(κοιμ|sleep)/i, '😴'],
-  [/(μίλ|word|speak|said|είπε|babbl)/i, '👶'],
+  [/(λέξ|μίλ|word|speak|said|είπε|babbl)/i, '💬'],
 ];
 
 function normalize(s: string): string {

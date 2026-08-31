@@ -1,4 +1,38 @@
 import { GAMIFICATION_LEVELS } from "./gamificationCard";
+import { storageScope } from "./memoriesSync";
+import { stableSk } from "./userDataRecovery";
+
+const HEADER_POINTS_CHIP_KEY = "header_points_chip";
+
+/** Stable HEYMAA-XXXXXX from the user id — used until the API returns the real unique code. */
+export function personalReferralCode(token: string): string {
+  const scope = storageScope(token) || "user";
+  let hash = 2166136261;
+  for (let i = 0; i < scope.length; i++) {
+    hash ^= scope.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const suffix = (hash >>> 0).toString(16).toUpperCase().padStart(6, "0").slice(-6);
+  return `HEYMAA-${suffix}`;
+}
+
+export function readHeaderPointsChipVisible(token: string): boolean {
+  try {
+    const raw = localStorage.getItem(stableSk(token, HEADER_POINTS_CHIP_KEY));
+    if (raw === "0" || raw === "false") return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+export function writeHeaderPointsChipVisible(token: string, visible: boolean): void {
+  try {
+    localStorage.setItem(stableSk(token, HEADER_POINTS_CHIP_KEY), visible ? "1" : "0");
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 export type GamificationLevel = {
   number: number;

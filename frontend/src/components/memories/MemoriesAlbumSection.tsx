@@ -12,6 +12,7 @@ import {
 import { formatMemoryDisplayDate } from '../../lib/memoryTypes'
 import { displayUppercase } from '../../lib/greekText'
 import { BookletFlipbookModal } from '../MemoriesBookletPanel'
+import { MemoryEmojiIcon, memoryEmojiTone } from './MemoryEmojiIcon'
 
 type Layout = 'inline' | 'modal'
 
@@ -230,7 +231,9 @@ export function MemoriesAlbumSection({
                 {m.img ? (
                   <img src={m.img} alt="" className="hm-memory-album-preview__img" />
                 ) : (
-                  <div className="hm-memory-album-preview__emoji">{m.emoji || '😊'}</div>
+                  <div className="hm-memory-album-preview__emoji" style={{ background: memoryEmojiTone(m.emoji).bg }}>
+                    <MemoryEmojiIcon emoji={m.emoji === '🏆' ? '🚩' : m.emoji || '⭐'} size={34} />
+                  </div>
                 )}
                 <div className="hm-memory-album-preview__caption">
                   <div>{m.text !== '📷' ? m.text : m.emoji}</div>
@@ -274,7 +277,7 @@ export function MemoriesAlbumSection({
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {el ? 'Μοίρασε' : 'Share'}
+          {el ? 'Μοιράσου' : 'Share'}
         </button>
         <button
           type="button"

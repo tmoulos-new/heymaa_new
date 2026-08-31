@@ -828,48 +828,89 @@ def _award_points(user_id: str, amount: int, reason: str, action: str = "", path
     except Exception:
         return _get_user_points(user_id)
 
-def _referrer_id_for_invite_code(code: str) -> Optional[str]:
+def _normalize_invite_code(code: Optional[str]) -> str:
+    return (code or "").strip()
+
+
+def _lookup_invite_row(code: str) -> Optional[dict]:
+    """Find an invite/referral row, trying original / upper / lower (no ILIKE — `_` is a wildcard)."""
     if not sb or not code:
         return None
-    code_key = code.strip()
-    if not code_key:
-        return None
-    try:
-        res = (
-            sb.table("invite_codes")
-            .select("user_id")
-            .eq("code", code_key)
-            .eq("is_deleted", False)
-            .limit(1)
-            .execute()
-        )
-        if res.data:
-            referrer = str(res.data[0].get("user_id") or "")
-            return referrer or None
-    except Exception:
-        pass
+    seen = set()
+    for candidate in (code, code.upper(), code.lower()):
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            res = (
+                sb.table("invite_codes")
+                .select("code,user_id,label,status,is_deleted")
+                .eq("code", candidate)
+                .eq("is_deleted", False)
+                .limit(1)
+                .execute()
+            )
+            if res.data:
+                return res.data[0]
+        except Exception:
+            continue
     return None
+
+
+def _is_personal_referral_row(row: Optional[dict]) -> bool:
+    if not row:
+        return False
+    stored = str(row.get("code") or "").strip().upper()
+    label = str(row.get("label") or "").strip()
+    if label == "Referral":
+        return True
+    return stored.startswith("HEYMAA-") and len(stored) >= 10
+
+
+def _referral_owner_id(code: str) -> Optional[str]:
+    """User who owns a personal HEYMAA- referral code. Ignores admin tester codes."""
+    row = _lookup_invite_row(_normalize_invite_code(code))
+    if not row or not _is_personal_referral_row(row):
+        return None
+    if str(row.get("status") or "active") != "active":
+        return None
+    owner = str(row.get("user_id") or "").strip()
+    return owner or None
+
+
+def _referrer_id_for_invite_code(code: str) -> Optional[str]:
+    return _referral_owner_id(code)
 
 def _user_referral_code(user_id: str) -> Optional[str]:
     if not sb or not user_id:
         return None
-    try:
-        res = (
-            sb.table("invite_codes")
-            .select("code")
-            .eq("user_id", user_id)
-            .eq("is_deleted", False)
-            .eq("status", "active")
-            .order("created_at")
-            .limit(1)
-            .execute()
-        )
-        if res.data:
-            code = str(res.data[0].get("code") or "").strip()
-            if code:
-                return code
-    except Exception:
-        pass
+
+    def _first_code(**filters) -> Optional[str]:
+        try:
+            query = (
+                sb.table("invite_codes")
+                .select("code")
+                .eq("user_id", user_id)
+                .eq("is_deleted", False)
+                .eq("status", "active")
+            )
+            for key, value in filters.items():
+                query = query.eq(key, value)
+            res = query.order("created_at").limit(1).execute()
+            if res.data:
+                code = str(res.data[0].get("code") or "").strip()
+                if code:
+                    return code
+        except Exception:
+            pass
+        return None
+
+    labeled = _first_code(label="Referral")
+    if labeled:
+        return labeled
+    fallback = _first_code()
+    if fallback and fallback.upper().startswith("HEYMAA-"):
+        return fallback
     return None
 
 def _ensure_user_referral_code(user_id: str) -> Optional[str]:
@@ -905,13 +946,14 @@ def _ensure_user_referral_code(user_id: str) -> Optional[str]:
     return None
 
 def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
-    referrer_id = _referrer_id_for_invite_code(invite_code)
+    referrer_id = _referral_owner_id(invite_code)
     if not referrer_id or referrer_id == new_user_id:
         return
+    canonical = _normalize_invite_code(invite_code).upper()
     _award_points(
         referrer_id,
         INVITE_REFERRAL_POINTS,
-        f"referral:{invite_code.strip()}",
+        f"referral:{canonical}:{new_user_id}",
         action="referral",
         path="/auth/register",
     )
@@ -1898,9 +1940,23 @@ def get_active_invite_codes() -> set:
     return _invite_codes_cache
 
 def is_valid_invite_code(code: Optional[str]) -> bool:
-    if not code:
+    raw = _normalize_invite_code(code)
+    if not raw:
         return False
-    return code in get_active_invite_codes() or code in VALID_CODES
+    if raw in VALID_CODES or raw.upper() in {c.upper() for c in VALID_CODES}:
+        return True
+    active = get_active_invite_codes()
+    if raw in active:
+        return True
+    upper = raw.upper()
+    if any(str(c).upper() == upper for c in active):
+        return True
+    row = _lookup_invite_row(raw)
+    if not row:
+        return False
+    if row.get("is_deleted"):
+        return False
+    return str(row.get("status") or "active") == "active"
 
 _CHAT_MAX_TOKENS = 512
 
@@ -2546,8 +2602,11 @@ def register_user(req: RegisterRequest):
         raise HTTPException(status_code=400, detail='Name is required.')
     user_id = None
     try:
-        invite_code = (req.invite_code or '').strip() or None
+        invite_code = _normalize_invite_code(req.invite_code) or None
         if invite_code:
+            row = _lookup_invite_row(invite_code)
+            if row and row.get("code"):
+                invite_code = str(row.get("code")).strip()
             if not is_valid_invite_code(invite_code):
                 raise HTTPException(status_code=401, detail='Invalid invite code.')
         email = req.email.lower().strip()
@@ -2590,6 +2649,7 @@ def register_user(req: RegisterRequest):
             'consent_terms_at': now,
         }
         profile_upsert(auth, profile_fields)
+        _ensure_user_referral_code(user_id)
         if invite_code:
             _award_invite_referral(invite_code, user_id)
         session = _sign_in_with_password_as_user(email, req.password)
@@ -5136,6 +5196,7 @@ async def invite_tester(req: TesterInviteRequest, x_token: Optional[str] = Heade
                 except Exception:
                     pass
                 raise HTTPException(status_code=500, detail=_user_insert_error_detail(e))
+            _ensure_user_referral_code(user_id)
             email_error = _send_tester_invite_email(
                 req.first_name,
                 email,

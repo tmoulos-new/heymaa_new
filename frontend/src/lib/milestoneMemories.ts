@@ -30,13 +30,31 @@ export function parseMilestoneMemoryKey(key: string): {
 
 export function emojiForMilestoneLabel(label: string): string {
   const l = label.toLowerCase()
+  if (/θάλασσ|θαλασσ|sea|beach|ocean/.test(l)) return '🌊'
+  if (/στερε|solid food|wean|κουτάλ/.test(l)) return '🥣'
+  if (/μπιμπ|bottle|formula/.test(l)) return '🍼'
+  if (/κουδουν|rattle|παιχνίδ/.test(l)) return '🔔'
+  if (/μπουσουλ|crawl/.test(l)) return '🚼'
+  if (/σκάλ|stair|climb/.test(l)) return '🪜'
+  if (/πύργ|tower|τουβλ|block/.test(l)) return '🧱'
+  if (/πάρτ|party|γενέθλ|birthday/.test(l)) return '🎉'
   if (/δοντ|tooth|teeth|δοντάκ/.test(l)) return '🦷'
   if (/χαμογ|smil|γελ/.test(l)) return '😊'
-  if (/βήμα|walk|step|περπ|crawl|κρύβ/.test(l)) return '🚶'
+  if (/βήμα|walk|step|περπ/.test(l)) return '🚶'
+  if (/λέξ|word|speak|talk|babbl|μίλ|γου|mama|papa/.test(l)) return '💬'
   if (/μπάνι|bath/.test(l)) return '🛁'
-  if (/μίλ|speak|word|λέξ|talk|babbl|γου|mama|papa/.test(l)) return '👶'
   if (/κοιμ|sleep/.test(l)) return '😴'
-  return '🏆'
+  return '🚩'
+}
+
+export function milestoneDisplayEmoji(memory: {
+  emoji?: string
+  source?: string
+  isMilestone?: boolean
+}): string | undefined {
+  const emoji = memory.emoji
+  if (emoji === '🏆' && (memory.source === 'milestone' || memory.isMilestone)) return '🚩'
+  return emoji
 }
 
 /** Rewrite legacy `ref:idx` keys to `ref:stageId:idx`; drop duplicates. */

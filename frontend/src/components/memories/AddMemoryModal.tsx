@@ -5,6 +5,8 @@ import { FeatureUpgradeGate } from '../FeatureUpgradeGate'
 import type { AppMemory } from '../../lib/memoryTypes'
 import { MEMORY_EMOJI_OPTIONS } from '../../lib/memoryTypes'
 import { displayUppercase } from '../../lib/greekText'
+import { MemoryEmojiIcon, memoryEmojiTone } from './MemoryEmojiIcon'
+import { HmDateField } from '../HmDateField'
 
 export type MemoryFormValues = {
   emoji: string
@@ -62,7 +64,7 @@ export function AddMemoryModal({
   onClearPhoto,
 }: Props) {
   const el = lang === 'el'
-  const [emoji, setEmoji] = useState('⭐')
+  const [emoji, setEmoji] = useState('😊')
   const [text, setText] = useState('')
   const [description, setDescription] = useState('')
   const [dateIso, setDateIso] = useState(todayIso())
@@ -70,7 +72,7 @@ export function AddMemoryModal({
 
   useEffect(() => {
     if (!open) return
-    setEmoji(initial?.emoji || '⭐')
+    setEmoji(initial?.emoji || '😊')
     setText(initial?.text && initial.text !== '📷' && initial.text !== '🎬' ? initial.text : '')
     setDescription(initial?.description || '')
     setDateIso(isoFromMemory(initial))
@@ -117,7 +119,8 @@ export function AddMemoryModal({
       <DialogPanel variant="white" padding="lg" className="hm-memory-modal__panel">
         <div className="hm-memory-modal__head">
           <h2 className="hm-memory-modal__title">
-            {initial ? (el ? '✏️ Επεξεργασία' : '✏️ Edit memory') : (el ? '✨ Νέα ανάμνηση' : '✨ New memory')}
+            <MemoryEmojiIcon emoji={initial ? '📝' : '✨'} size={18} />
+            {initial ? (el ? 'Επεξεργασία' : 'Edit memory') : (el ? 'Νέα ανάμνηση' : 'New memory')}
           </h2>
           <button type="button" className="hm-memory-modal__close" onClick={onClose} aria-label={el ? 'Κλείσιμο' : 'Close'}>
             ×
@@ -162,17 +165,24 @@ export function AddMemoryModal({
         <div className="hm-memory-modal__section">
           <span className="hm-memory-modal__label">{displayUppercase(el ? 'Εικονίδιο' : 'Icon', lang)}</span>
           <div className="hm-memory-modal__emoji-grid">
-            {MEMORY_EMOJI_OPTIONS.map((e) => (
+            {MEMORY_EMOJI_OPTIONS.map((opt) => {
+              const tone = memoryEmojiTone(opt.emoji)
+              const label = el ? opt.el : opt.en
+              return (
               <button
-                key={e}
+                key={opt.emoji}
                 type="button"
-                className={`hm-memory-modal__emoji${emoji === e ? ' hm-memory-modal__emoji--active' : ''}`}
-                onClick={() => setEmoji(e)}
-                aria-pressed={emoji === e}
+                className={`hm-memory-modal__emoji${emoji === opt.emoji ? ' hm-memory-modal__emoji--active' : ''}`}
+                onClick={() => setEmoji(opt.emoji)}
+                aria-pressed={emoji === opt.emoji}
+                aria-label={label}
+                title={label}
+                style={{ background: tone.bg }}
               >
-                {e}
+                <MemoryEmojiIcon emoji={opt.emoji} size={22} />
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -188,27 +198,27 @@ export function AddMemoryModal({
           />
         </label>
 
-        <label className="hm-memory-modal__field">
+        <div className="hm-memory-modal__field">
           <span className="hm-memory-modal__label">{displayUppercase(el ? 'Ημερομηνία' : 'Date', lang)}</span>
-          <div className="hm-memory-modal__date-wrap">
-            <input
-              type="date"
-              className="hm-memory-modal__input hm-memory-modal__input--date"
-              value={dateIso}
-              onChange={(e) => setDateIso(e.target.value)}
-            />
-          </div>
-        </label>
+          <HmDateField
+            lang={lang}
+            value={dateIso}
+            onChange={setDateIso}
+            variant="cream"
+            size="sm"
+            ariaLabel={el ? 'Ημερομηνία' : 'Date'}
+          />
+        </div>
 
         <label className="hm-memory-modal__field">
           <span className="hm-memory-modal__label">
-            {displayUppercase(el ? 'Περιγραφή — προαιρετικό' : 'Description — optional', lang)}
+            {displayUppercase(el ? 'Περιγραφή' : 'Description', lang)}
           </span>
           <textarea
             className="hm-memory-modal__textarea"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={el ? 'Κάποιες λέξεις για τη στιγμή…' : 'A few words about the moment…'}
+            placeholder={el ? 'Λίγες σκέψεις/λέξεις για τη στιγμή...' : 'A few words about the moment…'}
             rows={3}
           />
         </label>

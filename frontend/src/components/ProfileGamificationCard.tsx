@@ -17,6 +17,8 @@ type Props = {
   activeGrantPlan?: string | null
   pendingRewards?: PendingLevelReward[]
   onClaimPending?: () => void
+  showHeaderChip?: boolean
+  onToggleHeaderChip?: () => void
 }
 
 export function ProfileGamificationCard({
@@ -27,6 +29,8 @@ export function ProfileGamificationCard({
   activeGrantPlan,
   pendingRewards,
   onClaimPending,
+  showHeaderChip,
+  onToggleHeaderChip,
 }: Props) {
   const isEl = lang === 'el'
   const { level, points, progress_percent, points_to_next, level: currentLevel } = gamification
@@ -34,7 +38,7 @@ export function ProfileGamificationCard({
   const pending = pendingRewards?.[0]
 
   return (
-    <div className="hm-profile-gamification-card">
+    <div className="hm-profile-gamification-card" id="hm-profile-gamification">
       <div className="hm-profile-gamification-card__head">
         <div className="hm-profile-gamification-card__level-badge" aria-hidden="true">
           {emoji}
@@ -103,6 +107,25 @@ export function ProfileGamificationCard({
             ? 'Η πρόοδός σου αντανακλά τη δραστηριότητά σου στην εφαρμογή — chat, αναμνήσεις και ορόσημα.'
             : 'Your progress reflects your activity in the app — chat, memories, and milestones.'}
       </p>
+
+      {onToggleHeaderChip ? (
+        <>
+          <div className="hm-profile-gamification-card__divider" />
+          <button
+            type="button"
+            className="hm-profile-gamification-card__header-toggle"
+            aria-pressed={!!showHeaderChip}
+            onClick={onToggleHeaderChip}
+          >
+            <span className="hm-profile-gamification-card__header-toggle-copy">
+              {isEl ? 'Εμφάνιση πόντων στο header' : 'Show points in header'}
+            </span>
+            <span className={`hm-settings-switch${showHeaderChip ? ' is-on' : ''}`} aria-hidden="true">
+              <span className="hm-settings-switch__knob" />
+            </span>
+          </button>
+        </>
+      ) : null}
 
       <div className="hm-profile-gamification-card__divider" />
 

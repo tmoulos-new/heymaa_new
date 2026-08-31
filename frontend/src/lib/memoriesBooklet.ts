@@ -731,7 +731,7 @@ export function buildBookletHtml(opts: {
     }
     return `<article class="memory">
     <div class="memory-row">
-      <div class="memory-emoji">${m.emoji || '✦'}</div>
+      <div class="memory-emoji">${m.emoji === '🏆' ? '🚩' : m.emoji || '✦'}</div>
       <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${date}</div></div>
     </div>
   </article>`

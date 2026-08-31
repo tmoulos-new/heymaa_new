@@ -115,7 +115,8 @@ function stageLabelFromMeta(stage: MilestoneStage, lang: string): string {
     return el ? `${min}–${max} μην.` : `${min}–${max} mo`
   }
   if (stage.kind === 'child_year' && stage.year) {
-    return el ? `${stage.year} ετών` : `Age ${stage.year}`
+    if (el) return stage.year === 1 ? '1 έτους' : `${stage.year} ετών`
+    return stage.year === 1 ? 'Age 1' : `Age ${stage.year}`
   }
   return stage.id
 }

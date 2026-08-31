@@ -20,7 +20,7 @@ import {
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
 import { GAMIFICATION_CHAT_VIDEO_PATH, gamificationPointsForPath, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
-import { applyPointsDelta, levelName, defaultGamificationStatus, type GamificationStatus } from "./lib/userGamification";
+import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
 import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import {
@@ -111,13 +111,17 @@ import { ToastStack, type ToastKind, type ToastItem } from "./components/ToastSt
 import { AppTourGuide } from "./components/AppTourGuide";
 import {
   APP_TOUR_STEPS,
+  clearJustOnboarded,
   hasCompletedAppTour,
+  isJustOnboarded,
   markAppTourCompleted,
+  markJustOnboarded,
 } from "./lib/appTour";
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
 import { AccessExpiryModal } from "./components/AccessExpiryModal";
 import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
+import { HmDateField } from "./components/HmDateField";
 import {
   dismissExpiryPopup,
   getAccessExpiryInfo,
@@ -130,12 +134,95 @@ import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
+import { IconPencil, IconTrash } from "./components/ui/LineIcons";
 import { ChatIconRail } from "./components/ChatIconRail";
 import { ChatLibraryPanel, collectChatLibraryItems, removeMessageAttachment, type ChatLibraryItem } from "./components/ChatLibraryPanel";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
 import { AUTH_LOGO_SRC } from "./auth/authLogo";
 
 export { HM_TOKEN_KEY } from "./lib/authStorage";
+
+function IconMemoriesStar({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3.4l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.02 7.06 18.61l.94-5.5-4-3.9 5.53-.8L12 3.4Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconMilestoneFlag({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 20.5V5.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 5.5h8.2l-1.6 3.1 1.6 3.1H7" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FamilyShortcutBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="hm-btn-ghost hm-btn-ghost--sm"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 32 }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FamilyProfileRowActions({
+  lang,
+  onEdit,
+  onDelete,
+}: {
+  lang: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const editLabel = lang === "el" ? "Επεξεργασία προφίλ" : "Edit profile";
+  const deleteLabel = lang === "el" ? "Διαγραφή" : "Delete";
+  return (
+    <>
+      <button
+        type="button"
+        className="hm-btn-ghost hm-btn-ghost--sm"
+        onClick={onEdit}
+        title={editLabel}
+        aria-label={editLabel}
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 32 }}
+      >
+        <IconPencil />
+      </button>
+      <button
+        type="button"
+        className="hm-btn hm-btn--danger-soft hm-btn--sm"
+        onClick={onDelete}
+        title={deleteLabel}
+        aria-label={deleteLabel}
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 32 }}
+      >
+        <IconTrash />
+      </button>
+    </>
+  );
+}
 
 function HeyMaaAvatar({ size }: { size: number }) {
   return (
@@ -324,32 +411,37 @@ function ageMonthsFromBirthDate(birthDateStr?: string): number | null {
   return Math.max(0, months);
 }
 
-function openNativeDatePicker(input: HTMLInputElement | null) {
-  if (!input) return;
-  try {
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-      return;
-    }
-  } catch {
-    /* Some browsers block showPicker outside a direct gesture */
-  }
-  input.focus({ preventScroll: true });
-  input.click();
-}
-
 function formatChildAge(birthDateStr: string | undefined, lang: string): string {
   const months = ageMonthsFromBirthDate(birthDateStr);
   if (months === null) return "";
+  const el = lang === "el";
+  const en = lang === "en";
+  const unit = (n: number, kind: "day" | "month" | "year") => {
+    if (el) {
+      if (kind === "day") return n === 1 ? "ημέρα" : "ημερών";
+      if (kind === "month") return n === 1 ? "μήνα" : "μηνών";
+      return n === 1 ? "έτους" : "ετών";
+    }
+    if (en) {
+      if (kind === "day") return n === 1 ? "day" : "days";
+      if (kind === "month") return n === 1 ? "month" : "months";
+      return n === 1 ? "year" : "years";
+    }
+    if (kind === "day") return t("unit_days", lang);
+    if (kind === "month") return t("unit_months", lang);
+    return t("unit_years", lang);
+  };
   if (months < 1) {
     const birth = new Date(birthDateStr!);
     const days = Math.max(0, Math.floor((Date.now() - birth.getTime()) / 86400000));
-    return `${days} ${t("unit_days", lang)}`;
+    return `${days} ${unit(days, "day")}`;
   }
-  if (months < 24) return `${months} ${t("unit_months", lang)}`;
+  if (months < 24) return `${months} ${unit(months, "month")}`;
   const years = Math.floor(months / 12);
   const rem = months % 12;
-  return rem > 0 ? `${years} ${t("unit_years", lang)} ${rem} ${t("unit_months", lang)}` : `${years} ${t("unit_years", lang)}`;
+  const yPart = `${years} ${unit(years, "year")}`;
+  if (rem <= 0) return yPart;
+  return `${yPart} ${rem} ${unit(rem, "month")}`;
 }
 
 function pregnancyWeekFromDueDate(dueDateStr?: string): number | null {
@@ -1707,6 +1799,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     const displayName = name.trim() || (() => { try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; } })();
     const p: Profile = {name:displayName||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined};
     try { sessionStorage.removeItem("hm_signup_name"); } catch { /* ignore */ }
+    markJustOnboarded();
     localStorage.setItem(sk(token,"profile"),JSON.stringify(p));
     void syncProfileToSupabase(token,p);
     onDone(p);
@@ -1746,7 +1839,15 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===false&&<>
             <input style={inp} placeholder={t("childname",lang)} value={childName} onChange={e=>setChildName(e.target.value)}/>
-            <input style={inp} type="date" placeholder={t("childbirthdate",lang)} value={childBirthDate} onChange={e=>setChildBirthDate(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(2)}/>
+            <div style={{marginBottom:10}}>
+              <HmDateField
+                lang={lang}
+                value={childBirthDate}
+                onChange={setChildBirthDate}
+                ariaLabel={t("childbirthdate",lang)}
+                variant="input"
+              />
+            </div>
             <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
             <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setIsPregnant(null)}>{t("back",lang)}</button>
           </>}
@@ -1820,8 +1921,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   useEffect(() => {
     document.body.classList.add("hm-app-active");
-    return () => document.body.classList.remove("hm-app-active");
-  }, []);
+    const prevLang = document.documentElement.lang;
+    document.documentElement.lang = lang === "el" ? "el" : lang || "en";
+    return () => {
+      document.body.classList.remove("hm-app-active");
+      document.documentElement.lang = prevLang;
+    };
+  }, [lang]);
 
   useEffect(() => {
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
@@ -2005,10 +2111,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [micLevels, setMicLevels] = useState<number[]>(() => Array.from({ length: 32 }, () => 0.12));
   const [showLang, setShowLang] = useState(false); const [shopTab, setShopTab] = useState<"p"|"s"|"o">("p"); const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [headerPointsVisible, setHeaderPointsVisible] = useState(() => readHeaderPointsChipVisible(token));
+
+  useEffect(() => {
+    setHeaderPointsVisible(readHeaderPointsChipVisible(token));
+  }, [token]);
+
+  const toggleHeaderPointsChip = () => {
+    setHeaderPointsVisible((v) => {
+      const next = !v;
+      writeHeaderPointsChipVisible(token, next);
+      return next;
+    });
+  };
+
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  const [showAddFirstChildPrompt, setShowAddFirstChildPrompt] = useState(false);
+  const tourWasFirstRunRef = useRef(false);
+  const tourAutoStartedForTokenRef = useRef<string | null>(null);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
@@ -2130,7 +2253,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
   const [showAddPet, setShowAddPet] = useState(false); const [newPetName, setNewPetName] = useState(""); const [newPetNote, setNewPetNote] = useState("");
   const [showMyFamily, setShowMyFamily] = useState(true);
-  const [childDeleteConfirm, setChildDeleteConfirm] = useState<number | null>(null);
+  const [familyDeleteConfirm, setFamilyDeleteConfirm] = useState<{ kind: "child" | "member"; index: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [treeEdit, setTreeEdit] = useState<LaidOutNode | null>(null);
   const [treeEditName, setTreeEditName] = useState("");
@@ -2140,7 +2263,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [treeEditNote, setTreeEditNote] = useState("");
   const [familySaving, setFamilySaving] = useState(false);
   const treePhotoRef = useRef<HTMLInputElement>(null);
-  const childBirthDateRef = useRef<HTMLInputElement>(null);
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
@@ -3293,11 +3415,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
   };
 
-  const openChildEdit = (childIndex: number) => {
-    const child = familyChildren[childIndex];
+  const openChildProfileEdit = (i: number) => {
+    const child = familyChildren[i];
     if (!child) return;
     openTreeEdit({
-      id: `child-${childIndex}-${child.name}`,
+      id: `child-${i}-${child.name}`,
       name: child.name,
       role: t("role_child", lang),
       kind: "child",
@@ -3305,9 +3427,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       generation: 1,
       memoryCount: 0,
       color: logoPurple,
-      childIndex,
+      childIndex: i,
       ref: child.name,
       photo: child.photo,
+      x: 0,
+      y: 0,
+    });
+  };
+
+  const openMemberProfileEdit = (m: FamilyMemberRecord, i: number) => {
+    const isPet = classifyKinship(m.relationship) === "pet";
+    openTreeEdit({
+      id: `member-${m.id}`,
+      name: m.name,
+      role: m.relationship,
+      kind: isPet ? "pet" : "other",
+      side: "self",
+      generation: isPet ? 1 : 0,
+      memoryCount: 0,
+      color: logoPurple,
+      memberIndex: i,
+      relatedTo: m.relatedTo,
+      ref: memberMemoryRef(m.id),
+      photo: m.photo,
       x: 0,
       y: 0,
     });
@@ -3446,17 +3588,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     );
   };
 
-  const requestDeleteChild = (index: number) => {
-    if (!familyChildren[index]) return;
-    setChildDeleteConfirm(index);
+  const requestDeleteFamilyItem = (kind: "child" | "member", index: number) => {
+    if (kind === "child" && !familyChildren[index]) return;
+    if (kind === "member" && !familyData.members[index]) return;
+    setFamilyDeleteConfirm({ kind, index });
   };
 
-  const confirmDeleteChild = () => {
-    if (childDeleteConfirm == null) return;
-    const index = childDeleteConfirm;
-    setChildDeleteConfirm(null);
+  const confirmDeleteFamilyItem = () => {
+    if (!familyDeleteConfirm) return;
+    const { kind, index } = familyDeleteConfirm;
+    setFamilyDeleteConfirm(null);
     setTreeEdit(null);
-    deleteChild(index);
+    if (kind === "child") deleteChild(index);
+    else deleteFamilyMember(index);
   };
 
   const requestLogout = () => {
@@ -3552,10 +3696,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [goToTourStep]);
 
   useEffect(() => {
-    if (hasCompletedAppTour(token)) return;
-    const t = window.setTimeout(() => startAppTour(0), 700);
+    const firstVisit = isJustOnboarded() || !hasCompletedAppTour(token);
+    if (!firstVisit) return;
+    if (tourAutoStartedForTokenRef.current === token) return;
+    tourWasFirstRunRef.current = true;
+    const t = window.setTimeout(() => {
+      tourAutoStartedForTokenRef.current = token;
+      showTabBar();
+      setTab("chat");
+      startAppTour(0);
+    }, 900);
     return () => window.clearTimeout(t);
-  }, [token, startAppTour]);
+  }, [token, startAppTour, showTabBar]);
 
   useEffect(() => {
     if (!tourOpen) return;
@@ -3563,14 +3715,24 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowNotifications(false);
   }, [tourOpen]);
 
+  const finishAppTour = useCallback(() => {
+    const wasFirst = tourWasFirstRunRef.current;
+    tourWasFirstRunRef.current = false;
+    markAppTourCompleted(token);
+    clearJustOnboarded();
+    setTourOpen(false);
+    if (!wasFirst) return;
+    if (familyChildren.length > 0) return;
+    window.setTimeout(() => setShowAddFirstChildPrompt(true), 280);
+  }, [token, familyChildren.length]);
+
   const handleTourNext = useCallback(() => {
     if (tourStep >= APP_TOUR_STEPS.length - 1) {
-      markAppTourCompleted(token);
-      setTourOpen(false);
+      finishAppTour();
       return;
     }
     goToTourStep(tourStep + 1);
-  }, [goToTourStep, token, tourStep]);
+  }, [finishAppTour, goToTourStep, tourStep]);
 
   const handleTourBack = useCallback(() => {
     if (tourStep <= 0) return;
@@ -3578,9 +3740,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [goToTourStep, tourStep]);
 
   const handleTourSkip = useCallback(() => {
-    markAppTourCompleted(token);
-    setTourOpen(false);
-  }, [token]);
+    finishAppTour();
+  }, [finishAppTour]);
+
+  const openFirstChildFromPrompt = useCallback(() => {
+    setShowAddFirstChildPrompt(false);
+    setTab("family");
+    openAddChildForm();
+  }, []);
 
   useEffect(() => {
     showTabBar();
@@ -3679,7 +3846,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 onClick: () => startAppTour(0),
               },
             ].map(item => (
-              <button key={item.key} type="button" className="hm-settings-tile" onClick={item.onClick}>
+              <button
+                key={item.key}
+                type="button"
+                className="hm-settings-tile"
+                onClick={item.onClick}
+              >
                 <span className="hm-settings-tile__icon" aria-hidden="true">{item.icon}</span>
                 <span className="hm-settings-tile__body">
                   <span className="hm-settings-tile__title">{item.title}</span>
@@ -4046,58 +4218,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     </button>
                   ))}
                 </div>
-                <label
-                  htmlFor="hm-add-child-birth-date"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    openNativeDatePicker(childBirthDateRef.current);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openNativeDatePicker(childBirthDateRef.current);
-                    }
-                  }}
-                  style={{
-                    position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,
-                    width:"100%",padding:"14px 16px",borderRadius:14,background:"#F2E6DC",
-                    boxSizing:"border-box" as any,cursor:"pointer",overflow:"hidden",
-                  }}
-                >
-                  <span style={{
-                    fontSize:15,color: newChildBirthDate ? navy : "rgba(43,58,103,.4)",
-                    fontFamily:"'DM Sans',sans-serif",letterSpacing:0.5,pointerEvents:"none",
-                  }}>
-                    {newChildBirthDate
-                      ? (() => {
-                          const [y, m, d] = newChildBirthDate.split("-");
-                          return y && m && d ? `${d} / ${m} / ${y}` : newChildBirthDate;
-                        })()
-                      : "dd / mm / yyyy"}
-                  </span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{flexShrink:0,opacity:0.55,pointerEvents:"none"}}>
-                    <rect x="3" y="5" width="18" height="16" rx="2" stroke={navy} strokeWidth="1.6"/>
-                    <path d="M3 9h18M8 3v4M16 3v4" stroke={navy} strokeWidth="1.6" strokeLinecap="round"/>
-                  </svg>
-                  <input
-                    id="hm-add-child-birth-date"
-                    ref={childBirthDateRef}
-                    type="date"
-                    value={newChildBirthDate}
-                    onChange={e=>setNewChildBirthDate(e.target.value)}
-                    aria-label={
-                      newChildDateMode === "due"
-                        ? (lang === "el" ? "Ημερομηνία τοκετού" : "Due date")
-                        : (lang === "el" ? "Ημερομηνία γέννησης" : "Date of birth")
-                    }
-                    style={{
-                      position:"absolute",inset:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",
-                      fontSize:16,zIndex:2,margin:0,padding:0,border:"none",background:"transparent",
-                      pointerEvents:"none",
-                    }}
-                    tabIndex={-1}
-                  />
-                </label>
+                <HmDateField
+                  id="hm-add-child-birth-date"
+                  lang={lang}
+                  value={newChildBirthDate}
+                  onChange={setNewChildBirthDate}
+                  variant="cream"
+                  ariaLabel={
+                    newChildDateMode === "due"
+                      ? (lang === "el" ? "Ημερομηνία τοκετού" : "Due date")
+                      : (lang === "el" ? "Ημερομηνία γέννησης" : "Date of birth")
+                  }
+                />
               </div>
 
               {/* 3. Gender */}
@@ -4262,8 +4394,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </button>
               <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
                 {lang==="el"
-                  ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία στο δέντρο."
-                  : "Tap the circle to add or change their photo on the tree."}
+                  ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία."
+                  : "Tap the circle to add or change their photo."}
               </div>
             </div>
             <input
@@ -4322,12 +4454,29 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
                   ))}
                 </select>
-                <input className="hm-input hm-input--compact" value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{ marginBottom: 8 }} />
+                <div style={{ marginBottom: 8 }}>
+                  <HmDateField
+                    lang={lang}
+                    value={treeEditBirthDate}
+                    onChange={setTreeEditBirthDate}
+                    variant="input"
+                    ariaLabel={lang === "el" ? "Ημερομηνία γέννησης" : "Date of birth"}
+                  />
+                </div>
                 <input className="hm-input hm-input--compact" value={treeEditNote} onChange={(e)=>setTreeEditNote(e.target.value)} placeholder={lang==="el"?"Σημείωση":"Note"} style={{ marginBottom: 8 }} />
               </>
             )}
             {treeEdit && treeEdit.childIndex != null && (
-              <input className="hm-input hm-input--compact" value={treeEditBirthDate} onChange={(e)=>setTreeEditBirthDate(e.target.value)} type="date" style={{ marginBottom: 8 }} />
+              <div style={{ marginBottom: 8 }}>
+                <HmDateField
+                  lang={lang}
+                  value={treeEditBirthDate}
+                  onChange={setTreeEditBirthDate}
+                  variant="input"
+                  size="sm"
+                  ariaLabel={lang === "el" ? "Ημερομηνία γέννησης" : "Date of birth"}
+                />
+              </div>
             )}
             <div className="hm-btn-row" style={{ marginTop: 4, flexWrap: "wrap" }}>
               <button type="button" className="hm-btn hm-btn--primary" onClick={saveTreeEdit} style={{ minWidth: 90 }}>{t("save",lang)}</button>
@@ -4342,7 +4491,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     setTab("memories");
                   }}
                 >
-                  📝 {t("recentmem",lang)}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <IconMemoriesStar size={14} /> {t("recentmem",lang)}
+                  </span>
                 </button>
               )}
               {(treeEdit?.memberIndex != null || treeEdit?.childIndex != null) && (
@@ -4352,10 +4503,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   style={{ minWidth: 90 }}
                   onClick={()=>{
                     if (treeEdit!.memberIndex != null) {
-                      deleteFamilyMember(treeEdit!.memberIndex);
-                      setTreeEdit(null);
+                      requestDeleteFamilyItem("member", treeEdit!.memberIndex);
                     } else if (treeEdit!.childIndex != null) {
-                      requestDeleteChild(treeEdit!.childIndex);
+                      requestDeleteFamilyItem("child", treeEdit!.childIndex);
                     }
                   }}
                 >
@@ -4367,20 +4517,40 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
       </AppDialog>
 
-      {childDeleteConfirm != null && familyChildren[childDeleteConfirm] && (
+      {familyDeleteConfirm && (
         <ConfirmDialog
           open
-          title={lang === "el" ? "Διαγραφή παιδιού" : "Delete child"}
-          message={
-            lang === "el"
-              ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις τον/την ${familyChildren[childDeleteConfirm].name};`
-              : `Are you sure you want to delete ${familyChildren[childDeleteConfirm].name}?`
+          title={
+            familyDeleteConfirm.kind === "child"
+              ? (lang === "el" ? "Διαγραφή παιδιού" : "Delete child")
+              : classifyKinship(familyData.members[familyDeleteConfirm.index]?.relationship || "") === "pet"
+                ? (lang === "el" ? "Διαγραφή κατοικιδίου" : "Delete pet")
+                : (lang === "el" ? "Διαγραφή μέλους" : "Delete member")
           }
+          message={(() => {
+            if (familyDeleteConfirm.kind === "child") {
+              const name = familyChildren[familyDeleteConfirm.index]?.name || "";
+              return lang === "el"
+                ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις τον/την ${name};`
+                : `Are you sure you want to delete ${name}?`;
+            }
+            const member = familyData.members[familyDeleteConfirm.index];
+            const name = member?.name || "";
+            const isPet = classifyKinship(member?.relationship || "") === "pet";
+            if (lang === "el") {
+              return isPet
+                ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις το κατοικίδιο «${name}»;`
+                : `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις το μέλος «${name}»;`;
+            }
+            return isPet
+              ? `Are you sure you want to delete the pet ${name}?`
+              : `Are you sure you want to delete the member ${name}?`;
+          })()}
           confirmLabel={t("delete_memory", lang)}
           cancelLabel={t("cancel", lang)}
           variant="danger"
-          onConfirm={confirmDeleteChild}
-          onCancel={() => setChildDeleteConfirm(null)}
+          onConfirm={confirmDeleteFamilyItem}
+          onCancel={() => setFamilyDeleteConfirm(null)}
         />
       )}
 
@@ -4687,6 +4857,39 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
         </div>
         <div className="hm-header-actions">
+          {headerPointsVisible ? (
+            <button
+              type="button"
+              className="hm-header-points-chip"
+              aria-label={
+                lang === "el"
+                  ? `${gamification?.points ?? 0} πόντοι, ${levelName((gamification ?? defaultGamificationStatus()).level, lang)}. Άνοιγμα προφίλ`
+                  : `${gamification?.points ?? 0} points, ${levelName((gamification ?? defaultGamificationStatus()).level, lang)}. Open profile`
+              }
+              onClick={() => {
+                setShowAccountMenu(false);
+                setShowNotifications(false);
+                setShowLang(false);
+                setShowProfileSettings(false);
+                setTab("profile");
+                window.setTimeout(() => {
+                  document.getElementById("hm-profile-gamification")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }, 80);
+              }}
+            >
+              <span className="hm-header-points-chip__icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 3.4l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.02 7.06 18.61l.94-5.5-4-3.9 5.53-.8L12 3.4Z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <span className="hm-header-points-chip__value">{gamification?.points ?? 0}</span>
+            </button>
+          ) : null}
           <div data-tour="header-notifications">
           <AppNotificationsBell
             lang={lang}
@@ -4738,29 +4941,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         onOpenSubscriptionSheet={openSubscriptionUpgrade}
       />
 
-      {gamification && (
-        <div className="hm-gamification-bar" style={{background:"#243156",padding:"8px 18px 10px",flexShrink:0,borderBottom:`1px solid rgba(255,255,255,.08)`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",color:"rgba(255,255,255,.9)",marginBottom:5}}>
-            <span>🏆 {levelName(gamification.level, lang)} · Lv.{gamification.level.number}</span>
-            <span>{gamification.points} {lang==="el"?"πόντοι":"pts"}</span>
-          </div>
-          <div style={{height:6,borderRadius:99,background:"rgba(255,255,255,.12)",overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${gamification.progress_percent}%`,background:gamification.level.is_max?coral:teal,borderRadius:99,transition:"width .3s"}}/>
-          </div>
-          <div className="hm-gamification-sub" style={{color:"rgba(255,255,255,.55)",marginTop:4}}>
-            {gamification.level.is_max
-              ? (lang==="el"?"Μέγιστο επίπεδο · 0 ακόμα":"Max level · 0 to go")
-              : gamification.next_level
-                ? (lang==="el"
-                  ? `${gamification.points_to_next} ακόμα για ${levelName(gamification.next_level, lang)}`
-                  : `${gamification.points_to_next} more to ${levelName(gamification.next_level, lang)}`)
-                : ""}
-          </div>
-        </div>
-      )}
-
       {/* BODY */}
       <div className={`hm-chat-workspace${tab === "chat" ? " hm-chat-workspace--rail" : ""}`}>
+      <div className="hm-chat-workspace__stage">
       {tab === "chat" && (
         <ChatIconRail
           railAriaLabel={lang === "el" ? "Εργαλεία συνομιλίας" : "Chat tools"}
@@ -4839,30 +5022,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <ProfileGamificationCard
               lang={lang}
               gamification={gamification ?? defaultGamificationStatus()}
-              referralCode={referralCode}
+              referralCode={referralCode || personalReferralCode(token)}
               activeGrantEndsAt={activeRewardGrant?.ends_at}
               activeGrantPlan={activeRewardGrant?.plan_slot}
               pendingRewards={rewardsSnapshot?.pending}
               onClaimPending={() => openPendingReward(rewardsSnapshot, true)}
+              showHeaderChip={headerPointsVisible}
+              onToggleHeaderChip={toggleHeaderPointsChip}
             />
 
             <AppTabSection
               lang={lang}
               label={lang==="el"?"Τα παιδιά μου":"My children"}
-              action={(
-                <button
-                  type="button"
-                  onClick={openAddChildForm}
-                  style={{background:"none",border:"none",color:navy,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",padding:0}}
-                >
-                  + {lang==="el"?"Προσθήκη":"Add"}
-                </button>
-              )}
             >
               {familyChildren.length===0 ? (
                 <button
                   type="button"
-                  onClick={openAddChildForm}
+                  onClick={() => setTab("family")}
                   style={{
                     width:"100%",boxSizing:"border-box",border:"1.5px dashed rgba(43,58,103,.22)",
                     borderRadius:14,padding:"28px 16px",background:"transparent",cursor:"pointer",
@@ -4870,8 +5046,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     color:"rgba(43,58,103,.45)",fontFamily:"'DM Sans',sans-serif",
                   }}
                 >
-                  <span style={{fontSize:22,lineHeight:1,color:"rgba(43,58,103,.35)"}}>+</span>
-                  <span style={{fontSize:13,fontWeight:500}}>{lang==="el"?"Πρόσθεσε το πρώτο παιδί":"Add your first child"}</span>
+                  <span style={{fontSize:13,fontWeight:500}}>
+                    {lang==="el"?"Πρόσθεσε παιδιά στην καρτέλα Οικογένεια":"Add children in the Family tab"}
+                  </span>
                 </button>
               ) : (
                 <div className="hm-tab-card hm-tab-card--flush">
@@ -4898,17 +5075,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                           {formatChildAge(child.birthDate, lang) || child.birthDate || "—"}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="hm-row-action-btn"
-                        aria-label={lang==="el"?"Επεξεργασία παιδιού":"Edit child"}
-                        onClick={() => openChildEdit(i)}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -5206,32 +5372,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               const age = formatChildAge(child.birthDate, lang);
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div
-                  onClick={() => {
-                    const nodeLike = {
-                      id: `child-${i}-${child.name}`,
-                      name: child.name,
-                      role: t("role_child", lang),
-                      kind: "child" as const,
-                      side: "self" as const,
-                      generation: 1 as const,
-                      memoryCount: 0,
-                      color: logoPurple,
-                      childIndex: i,
-                      ref: child.name,
-                      photo: child.photo,
-                      x: 0,
-                      y: 0,
-                    };
-                    openTreeEdit(nodeLike);
-                  }}
+                  onClick={() => openChildProfileEdit(i)}
                   style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                 >
                   {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
                 </div>
-                <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
-                <button type="button" className="hm-btn-ghost hm-btn-ghost--sm" onClick={()=>{setActiveMemRef(child.name);setTab("memories");}}>📝</button>
-                <button type="button" className="hm-btn-ghost hm-btn-ghost--sm" onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}}>🏆</button>
-                <button type="button" className="hm-btn hm-btn--danger-soft hm-btn--sm" onClick={()=>requestDeleteChild(i)} title={lang==="el"?"Διαγραφή":"Delete"} aria-label={lang==="el"?"Διαγραφή":"Delete"}>×</button>
+                <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
+                <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                  <FamilyShortcutBtn label={t("recentmem", lang)} onClick={()=>{setActiveMemRef(child.name);setTab("memories");}}>
+                    <IconMemoriesStar />
+                  </FamilyShortcutBtn>
+                  <FamilyShortcutBtn label={t("milestones", lang)} onClick={()=>{setActiveMilestoneRef(child.name);setTab("milestones");}}>
+                    <IconMilestoneFlag />
+                  </FamilyShortcutBtn>
+                  <FamilyProfileRowActions
+                    lang={lang}
+                    onEdit={() => openChildProfileEdit(i)}
+                    onDelete={() => requestDeleteFamilyItem("child", i)}
+                  />
+                </div>
               </div>);
             })}
             <div onClick={openAddChildForm} style={{border:"2px dashed #C8BFB8",borderRadius:9,padding:14,textAlign:"center",cursor:"pointer",color:"rgba(43,58,103,.55)",fontSize:13,marginBottom:8}}>{t("addchild",lang)}</div>
@@ -5241,24 +5400,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div key={`pet-${m.id}`} style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
-                    onClick={() => {
-                      openTreeEdit({
-                        id: `member-${m.id}`,
-                        name: m.name,
-                        role: m.relationship,
-                        kind: "pet",
-                        side: "self",
-                        generation: 1,
-                        memoryCount: 0,
-                        color: logoPurple,
-                        memberIndex: i,
-                        relatedTo: m.relatedTo,
-                        ref: memberMemoryRef(m.id),
-                        photo: m.photo,
-                        x: 0,
-                        y: 0,
-                      });
-                    }}
+                    onClick={() => openMemberProfileEdit(m, i)}
                     style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "🐾"}
@@ -5268,8 +5410,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     <div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{lang==="el"?"Κατοικίδιο":"Family Pet"}</div>
                     {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
                   </div>
-                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
-                  <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
+                  <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                    <FamilyShortcutBtn label={t("recentmem", lang)} onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}}>
+                      <IconMemoriesStar />
+                    </FamilyShortcutBtn>
+                    <FamilyProfileRowActions
+                      lang={lang}
+                      onEdit={() => openMemberProfileEdit(m, i)}
+                      onDelete={() => requestDeleteFamilyItem("member", i)}
+                    />
+                  </div>
                 </div>
               </div>
             );})}
@@ -5288,24 +5438,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div key={m.id||i} style={{display:"flex",flexDirection:"column",gap:6,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
-                    onClick={() => {
-                      openTreeEdit({
-                        id: `member-${m.id}`,
-                        name: m.name,
-                        role: m.relationship,
-                        kind: "other",
-                        side: "self",
-                        generation: 0,
-                        memoryCount: 0,
-                        color: logoPurple,
-                        memberIndex: i,
-                        relatedTo: m.relatedTo,
-                        ref: memberMemoryRef(m.id),
-                        photo: m.photo,
-                        x: 0,
-                        y: 0,
-                      });
-                    }}
+                    onClick={() => openMemberProfileEdit(m, i)}
                     style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : m.name[0]?.toUpperCase()}
@@ -5319,8 +5452,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       </div>
                     )}
                   </div>
-                  <button onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}} style={{background:"none",border:`1px solid ${navy}`,borderRadius:7,color:navy,fontSize:11,cursor:"pointer",padding:"4px 8px",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>📝</button>
-                  <button onClick={()=>deleteFamilyMember(i)} title={lang==="el"?"Διαγραφή":"Delete"} style={{background:"rgba(224,123,84,0.10)",border:"none",borderRadius:7,color:coral,cursor:"pointer",fontSize:13,padding:"4px 6px",lineHeight:1,fontWeight:600,flexShrink:0}}>×</button>
+                  <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                    <FamilyShortcutBtn label={t("recentmem", lang)} onClick={()=>{setActiveMemRef(memberMemoryRef(m.id));setTab("memories");}}>
+                      <IconMemoriesStar />
+                    </FamilyShortcutBtn>
+                    <FamilyProfileRowActions
+                      lang={lang}
+                      onEdit={() => openMemberProfileEdit(m, i)}
+                      onDelete={() => requestDeleteFamilyItem("member", i)}
+                    />
+                  </div>
                 </div>
                 <select
                   value={RELATIONSHIP_PRESETS.some(p=>p.value===m.relationship)?m.relationship:"Family"}
@@ -5568,13 +5709,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>}
       </div>{/* end body inner */}
       </div>{/* end body */}
+      </div>{/* end chat workspace main */}
+      </div>{/* end chat workspace stage */}
 
       {/* LANG MISMATCH HINT */}
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
-      {tab==="chat"&&<div className="hm-app-composer" data-tour="chat-composer" style={{background:"#fff",borderTop:".5px solid rgba(43,58,103,.08)"}}>
+      {tab==="chat"&&<div className="hm-app-composer" data-tour="chat-composer">
         {chatPendingAttachments.length > 0 && (
-          <div className="hm-chat-attach-preview">
+          <div className="hm-chat-attach-preview hm-app-bar-inner">
             {chatPendingAttachments.map((att, i) => (
               <div key={`${att.name}-${i}`} className="hm-chat-attach-preview__item">
                 {att.kind === "image" && att.data ? (
@@ -5597,7 +5740,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ))}
           </div>
         )}
-        <div className="hm-app-composer-inner">
+        <div className="hm-app-composer-inner hm-app-bar-inner">
+        <div className="hm-chat-composer-frame">
         <div className="hm-composer-plus-wrap">
           <button
             type="button"
@@ -5634,21 +5778,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
         {recording ? (
           <div
+            className="hm-chat-composer-meter"
             aria-hidden="true"
-            style={{
-              flex: 1,
-              height: 38,
-              borderRadius: 999,
-              border: "1.5px solid rgba(43,58,103,.12)",
-              background: "#F7F3EF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2.5,
-              padding: "0 14px",
-              minWidth: 0,
-              overflow: "hidden",
-            }}
           >
             {micLevels.map((level, i) => (
               <span
@@ -5698,8 +5829,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </button>
         <button type="button" className="hm-composer-action hm-composer-send" onClick={()=>void sendMessage(input, chatPendingAttachments)} disabled={loading||(!input.trim()&&!chatPendingAttachments.length)||recording}>➤</button>
         </div>
+        </div>
       </div>}
-      </div>{/* end chat workspace main */}
       </div>{/* end chat workspace */}
 
       {tab === "chat" && (
@@ -5778,6 +5909,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       onBack={handleTourBack}
       onSkip={handleTourSkip}
     />
+    <AppDialog
+      open={showAddFirstChildPrompt}
+      onClose={() => setShowAddFirstChildPrompt(false)}
+      size="sm"
+      ariaLabel={lang === "el" ? "Καταχώρισε το 1ο σου παιδί" : "Add your first child"}
+    >
+      <div className="hm-confirm-dialog hm-first-child-prompt">
+        <div className="hm-first-child-prompt__icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.7"/>
+            <path d="M6.2 19.2c.6-3.2 3-5.1 5.8-5.1s5.2 1.9 5.8 5.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div className="hm-confirm-dialog__title">
+          {lang === "el" ? "Καταχώρισε το 1ο σου παιδί" : "Add your first child"}
+        </div>
+        <p className="hm-confirm-dialog__message">
+          {lang === "el"
+            ? "Για να σου μιλά η HeyMaa προσωπικά — με ορόσημα, αναμνήσεις και συμβουλές για το μωρό σου — πρόσθεσε το πρώτο σου παιδί."
+            : "So HeyMaa can speak personally — with milestones, memories, and advice for your baby — add your first child."}
+        </p>
+        <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
+          <button
+            type="button"
+            className="hm-btn hm-btn--primary hm-btn--block"
+            onClick={openFirstChildFromPrompt}
+          >
+            {lang === "el" ? "Πρόσθεσε παιδί" : "Add child"}
+          </button>
+          <button
+            type="button"
+            className="hm-btn hm-btn--ghost hm-btn--block"
+            onClick={() => setShowAddFirstChildPrompt(false)}
+          >
+            {lang === "el" ? "Αργότερα" : "Later"}
+          </button>
+        </div>
+      </div>
+    </AppDialog>
     {toasts.length > 0 && (
       <ToastStack
         toasts={toasts}

@@ -194,7 +194,7 @@ body.hm-app-active #root {
 
 .hm-app-composer {
   flex-shrink: 0;
-  padding: var(--hm-composer-pad);
+  padding: 8px 18px max(10px, env(safe-area-inset-bottom, 0px));
   background: var(--hm-cream);
   box-sizing: border-box;
   width: 100%;
@@ -215,12 +215,22 @@ body.hm-app-active #root {
     padding-left: 40px !important;
     padding-right: 40px !important;
   }
+
+  .hm-app-composer {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
 }
 
 @media (min-width: 1400px) {
   .hm-app-header {
     padding-left: 56px !important;
     padding-right: 56px !important;
+  }
+
+  .hm-app-composer {
+    padding-left: 56px;
+    padding-right: 56px;
   }
 }
 
@@ -816,6 +826,38 @@ body.hm-app-active #root {
   flex-shrink: 0;
 }
 
+.hm-settings-switch {
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(43, 58, 103, 0.18);
+  flex-shrink: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+  transition: background 0.15s ease;
+}
+
+.hm-settings-switch.is-on {
+  background: #4abeaa;
+}
+
+.hm-settings-switch__knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(43, 58, 103, 0.25);
+  transform: translateX(0);
+  transition: transform 0.15s ease;
+}
+
+.hm-settings-switch.is-on .hm-settings-switch__knob {
+  transform: translateX(16px);
+}
+
 .hm-dialog-footer-links {
   display: flex;
   flex-direction: column;
@@ -1273,7 +1315,11 @@ body.hm-app-active #root {
   flex-direction: column;
 }
 
-.hm-chat-workspace--rail {
+.hm-chat-workspace__stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
   flex-direction: row;
   align-items: stretch;
 }
@@ -1294,15 +1340,15 @@ body.hm-app-active #root {
 
 .hm-chat-rail {
   flex-shrink: 0;
-  width: 52px;
+  width: 48px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 6px 12px;
+  gap: 4px;
+  padding: 8px 4px 10px;
   box-sizing: border-box;
-  background: var(--hm-cream);
-  border-right: 1px solid rgba(43, 58, 103, 0.1);
+  background: transparent;
+  border-right: none;
   z-index: 2;
   overflow: visible;
 }
@@ -1372,19 +1418,38 @@ body.hm-app-active #root {
 
 .hm-app-composer-inner {
   width: 100%;
-  max-width: none;
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-@media (min-width: 1024px) {
-  .hm-app-composer .hm-app-composer-inner,
-  .hm-app-composer .hm-chat-attach-preview {
-    max-width: var(--hm-desktop-content-max);
-    margin-left: auto;
-    margin-right: auto;
-  }
+.hm-chat-composer-frame {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(43, 58, 103, 0.14);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.hm-chat-composer-frame:focus-within {
+  border-color: rgba(43, 58, 103, 0.28);
+}
+
+.hm-chat-composer-meter {
+  flex: 1;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5px;
+  padding: 0 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hm-chat-message-row {
@@ -1923,14 +1988,14 @@ body.hm-app-active #root {
 
 .hm-chat-composer-input {
   flex: 1;
-  padding: 9px 13px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(43, 58, 103, 0.15);
-  background: #fff;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
   font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   outline: none;
   min-width: 0;
+  color: var(--hm-navy);
 }
 
 @media (min-width: 700px) {
@@ -1976,7 +2041,7 @@ body.hm-app-active #root {
 
   .hm-app-composer input.hm-chat-composer-input {
     font-size: 17px;
-    padding: 11px 16px;
+    padding: 11px 10px;
   }
 }
 
@@ -3051,7 +3116,7 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-ms-track__fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #beb4cd 0%, #2b3a67 100%);
+  background: linear-gradient(90deg, #f0b4d4 0%, #de5a9e 100%);
   transition: width 0.35s ease;
 }
 
@@ -3099,8 +3164,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-track__node--past .hm-ms-track__dot {
-  background: #beb4cd;
-  border-color: #beb4cd;
+  background: #e88bb8;
+  border-color: #e88bb8;
 }
 
 .hm-ms-track__node--past .hm-ms-track__node-label {
@@ -3110,13 +3175,13 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-ms-track__node--current .hm-ms-track__dot {
   width: 16px;
   height: 16px;
-  background: #2b3a67;
-  border-color: #2b3a67;
-  box-shadow: 0 0 0 3px rgba(190, 180, 205, 0.45);
+  background: #de5a9e;
+  border-color: #de5a9e;
+  box-shadow: 0 0 0 3px rgba(222, 90, 158, 0.28);
 }
 
 .hm-ms-track__node--current .hm-ms-track__node-label {
-  color: #2b3a67;
+  color: #de5a9e;
 }
 
 .hm-ms-track__node--future .hm-ms-track__dot {
@@ -3147,7 +3212,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-track__current-arrow {
-  color: #beb4cd;
+  color: #de5a9e;
 }
 
 .hm-ms-next-preview {
@@ -3510,12 +3575,49 @@ body.hm-app-active .hm-sheet-overlay {
   flex-shrink: 0;
 }
 
-.hm-gamification-bar {
-  font-size: clamp(11px, 1.6vw, 12px);
+.hm-header-points-chip {
+  position: relative;
+  width: var(--hm-touch-min);
+  height: var(--hm-touch-min);
+  min-width: var(--hm-touch-min);
+  min-height: var(--hm-touch-min);
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
+  flex-shrink: 0;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1;
 }
 
-.hm-gamification-sub {
-  font-size: clamp(10px, 1.4vw, 11px);
+.hm-header-points-chip:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.hm-header-points-chip__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: #fff;
+}
+
+.hm-header-points-chip__icon svg {
+  display: block;
+}
+
+.hm-header-points-chip__value {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 /* ── Profile gamification card ── */
@@ -3611,6 +3713,27 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.62);
   line-height: 1.45;
   text-align: center;
+}
+
+.hm-profile-gamification-card__header-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.hm-profile-gamification-card__header-toggle-copy {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hm-navy);
+  line-height: 1.35;
 }
 
 .hm-profile-gamification-card__divider {
@@ -3837,8 +3960,8 @@ body.hm-app-active .hm-sheet-overlay {
   min-width: 36px;
   min-height: 36px;
   border-radius: 50%;
-  background: #fff;
-  border: 1.5px solid rgba(43, 58, 103, 0.18);
+  background: transparent;
+  border: none;
   color: var(--hm-navy);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -3878,8 +4001,8 @@ body.hm-app-active .hm-sheet-overlay {
   min-width: 36px;
   min-height: 36px;
   border-radius: 50%;
-  border: 1.5px solid rgba(43, 58, 103, 0.18);
-  background: #fff;
+  border: none;
+  background: transparent;
   color: var(--hm-navy);
   cursor: pointer;
   transition: transform 0.2s ease, background 0.15s ease;
@@ -4255,6 +4378,43 @@ body.hm-app-active .hm-sheet-overlay {
   color: var(--hm-navy);
 }
 
+/* First-child prompt after the tour */
+.hm-first-child-prompt {
+  text-align: center;
+  padding: 28px 22px 20px;
+}
+
+.hm-first-child-prompt__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #f8e5d6;
+  color: var(--hm-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-first-child-prompt .hm-confirm-dialog__title {
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: -0.2px;
+}
+
+.hm-first-child-prompt .hm-confirm-dialog__message {
+  text-align: center;
+}
+
+.hm-first-child-prompt__actions {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hm-first-child-prompt__actions .hm-btn {
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hm-tour-spotlight,
   .hm-tour-card {
@@ -4480,6 +4640,9 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .hm-memories-filter--active {
@@ -4506,7 +4669,7 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memory-card__media {
   position: relative;
   aspect-ratio: 16 / 10;
-  background: linear-gradient(145deg, #f8e5d6 0%, #ebe4dc 100%);
+  background: #f3efe9;
   overflow: hidden;
 }
 
@@ -4523,12 +4686,15 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, #f8e5d6 0%, #ffd4b8 100%);
+  background: #f3efe9;
 }
 
 .hm-memory-card__emoji {
   font-size: 64px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hm-memory-card__badge {
@@ -4537,11 +4703,25 @@ body.hm-app-active .hm-sheet-overlay {
   left: 12px;
   padding: 5px 10px;
   border-radius: 999px;
-  background: var(--hm-navy);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--hm-navy);
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(43, 58, 103, 0.08);
+}
+
+.hm-memory-card--milestone {
+  box-shadow: 0 2px 12px rgba(222, 90, 158, 0.12);
+}
+
+.hm-memory-card__badge--milestone {
+  background: rgba(222, 90, 158, 0.12);
+  border-color: rgba(222, 90, 158, 0.22);
+  color: #c44d8c;
 }
 
 .hm-memory-card__date {
@@ -4590,6 +4770,15 @@ body.hm-app-active .hm-sheet-overlay {
   font-weight: 700;
   color: var(--hm-navy);
   line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.hm-memory-card__title-icon {
+  display: inline-flex;
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .hm-memory-card__desc {
@@ -4621,8 +4810,7 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memory-card__action--delete {
   color: #e07b54;
-  font-size: 18px;
-  font-weight: 600;
+  background: rgba(224, 123, 84, 0.1);
 }
 
 .hm-memories-empty {
@@ -4636,11 +4824,10 @@ body.hm-app-active .hm-sheet-overlay {
   height: 120px;
   margin: 0 auto 20px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #ebe4f5 0%, #d4c8e8 100%);
+  background: #f3efe9;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 56px;
 }
 
 .hm-memories-empty__title {
@@ -4674,13 +4861,20 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 /* Memory modal */
-.hm-memory-modal .hm-dialog {
+.hm-memory-modal.hm-dialog {
   max-width: 480px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .hm-memory-modal__panel {
   max-height: min(92vh, 92dvh);
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 28px;
 }
 
 .hm-memory-modal__head {
@@ -4696,6 +4890,9 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 18px;
   font-weight: 700;
   color: var(--hm-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .hm-memory-modal__close {
@@ -4786,15 +4983,18 @@ body.hm-app-active .hm-sheet-overlay {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  border: 1.5px solid rgba(43, 58, 103, 0.1);
+  border: 1.5px solid rgba(43, 58, 103, 0.08);
   background: #faf8f5;
-  font-size: 22px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .hm-memory-modal__emoji--active {
-  background: var(--hm-navy);
   border-color: var(--hm-navy);
+  box-shadow: 0 0 0 1.5px var(--hm-navy);
 }
 
 .hm-memory-modal__field {
@@ -4802,9 +5002,22 @@ body.hm-app-active .hm-sheet-overlay {
   margin-bottom: 14px;
 }
 
+.hm-memory-modal .hm-date-field--cream .hm-date-field__trigger {
+  background: #f0ebe6;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.hm-memory-modal .hm-date-field--cream .hm-date-field__value {
+  font-size: 15px;
+}
+
 .hm-memory-modal__input,
 .hm-memory-modal__textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   padding: 12px 14px;
   border: none;
@@ -4817,8 +5030,15 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-modal__textarea {
+  display: block;
   resize: vertical;
   min-height: 80px;
+  max-height: 140px;
+  max-width: 100%;
+}
+
+.hm-memory-modal__field:last-of-type {
+  margin-bottom: 16px;
 }
 
 .hm-memory-modal__save {
@@ -5121,8 +5341,7 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
-  background: linear-gradient(145deg, #f8e5d6, #ffd4b8);
+  background: #f3efe9;
 }
 
 .hm-memory-album-preview__caption {
@@ -5247,4 +5466,179 @@ body.hm-app-active .hm-sheet-overlay {
   .hm-memory-album-preview__grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
+}
+
+/* ── Localized date field (Greek calendar) ── */
+.hm-date-field {
+  position: relative;
+  width: 100%;
+}
+
+.hm-date-field__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.hm-date-field--cream .hm-date-field__trigger {
+  padding: 14px 16px;
+  border: none;
+  border-radius: 14px;
+  background: #f2e6dc;
+  color: var(--hm-navy);
+}
+
+.hm-date-field--input .hm-date-field__trigger {
+  padding: 9px 11px;
+  border: 1.5px solid #ddd7d0;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--hm-navy);
+  font-size: 13px;
+}
+
+.hm-date-field__value {
+  letter-spacing: 0.5px;
+  font-size: 15px;
+}
+
+.hm-date-field--input .hm-date-field__value {
+  font-size: 13px;
+}
+
+.hm-date-field__value.is-placeholder {
+  color: rgba(43, 58, 103, 0.4);
+}
+
+.hm-date-field__trigger svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+  color: var(--hm-navy);
+}
+
+.hm-date-cal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 8;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(43, 58, 103, 0.18);
+  padding: 12px 12px 14px;
+  box-sizing: border-box;
+}
+
+.hm-date-cal__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hm-date-cal__month {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  text-transform: capitalize;
+}
+
+.hm-date-cal__nav-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(43, 58, 103, 0.08);
+  color: var(--hm-navy);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hm-date-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.hm-date-cal__dow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.45);
+  padding: 4px 0 6px;
+  text-transform: capitalize;
+}
+
+.hm-date-cal__day {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--hm-navy);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hm-date-cal__day.is-muted {
+  color: rgba(43, 58, 103, 0.28);
+  font-weight: 500;
+}
+
+.hm-date-cal__day.is-today:not(.is-selected) {
+  box-shadow: inset 0 0 0 1.5px rgba(43, 58, 103, 0.25);
+}
+
+.hm-date-cal__day.is-selected {
+  background: var(--hm-navy);
+  color: #fff;
+}
+
+.hm-date-cal__day:hover:not(.is-selected) {
+  background: rgba(43, 58, 103, 0.08);
+}
+
+.hm-date-field--sm .hm-date-cal {
+  left: 0;
+  right: auto;
+  width: 228px;
+  max-width: 100%;
+  padding: 8px 8px 10px;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(43, 58, 103, 0.16);
+}
+
+.hm-date-field--sm .hm-date-cal__nav {
+  margin-bottom: 6px;
+  gap: 4px;
+}
+
+.hm-date-field--sm .hm-date-cal__month {
+  font-size: 12px;
+}
+
+.hm-date-field--sm .hm-date-cal__nav-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+}
+
+.hm-date-field--sm .hm-date-cal__dow {
+  font-size: 9px;
+  padding: 2px 0 4px;
+}
+
+.hm-date-field--sm .hm-date-cal__day {
+  font-size: 11px;
+  max-height: 28px;
 }

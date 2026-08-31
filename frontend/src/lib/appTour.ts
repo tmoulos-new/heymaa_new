@@ -79,8 +79,8 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
       en: 'Your profile',
     },
     body: {
-      el: 'Όνομα, πλάνο, πόντοι και ρυθμίσεις λογαριασμού — πάτα το avatar πάνω δεξιά για γρήγορη πρόσβαση.',
-      en: 'Name, plan, points, and account settings — tap your avatar top-right for quick access.',
+      el: 'Όνομα, πλάνο, πόντοι και ρυθμίσεις λογαριασμού. Οι πόντοι εμφανίζονται πάνω δεξιά — πάτα τους για το προφίλ, ή το avatar για ρυθμίσεις.',
+      en: 'Name, plan, points, and account settings. Points sit top-right — tap them for your profile, or the avatar for settings.',
     },
   },
   {
@@ -162,6 +162,33 @@ export function markAppTourCompleted(token: string): void {
 export function resetAppTour(token: string): void {
   try {
     localStorage.removeItem(tourStorageKey(token))
+  } catch {
+    /* ignore */
+  }
+}
+
+const JUST_ONBOARDED_KEY = 'hm_just_onboarded'
+
+/** Set when onboarding finishes so the first in-app visit always runs the full tour. */
+export function markJustOnboarded(): void {
+  try {
+    sessionStorage.setItem(JUST_ONBOARDED_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isJustOnboarded(): boolean {
+  try {
+    return sessionStorage.getItem(JUST_ONBOARDED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function clearJustOnboarded(): void {
+  try {
+    sessionStorage.removeItem(JUST_ONBOARDED_KEY)
   } catch {
     /* ignore */
   }
