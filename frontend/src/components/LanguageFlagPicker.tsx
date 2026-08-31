@@ -4,6 +4,7 @@ import {
   getLanguagePickerItem,
   type LanguagePickerItem,
 } from "../lib/languagePicker";
+import { SheetHeader } from "./ui/SheetHeader";
 import "../home/home.css";
 
 function pickerCopy(lang: string) {
@@ -12,7 +13,7 @@ function pickerCopy(lang: string) {
     searchPlaceholder: el ? "Αναζήτηση γλώσσας..." : "Search language...",
     selectLabel: el ? "Επιλογή" : "Select",
     emptyLabel: el ? "Δεν βρέθηκε γλώσσα" : "No language found",
-    closeLabel: el ? "Κλείσιμο" : "Close",
+    closeLabel: el ? "Πίσω" : "Back",
   };
 }
 
@@ -125,21 +126,18 @@ export function LanguageFlagOverlay({
       }}
       role="presentation"
     >
-      <div className="lang-box lang-box--list" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="lang-box-hdr">
-          <div className="lang-box-title">
-            <span className="lang-box-title__icon" aria-hidden="true">🌐</span>
-            <span>{title.replace(/^🌐\s*/, "")}</span>
-          </div>
-          <button
-            type="button"
-            className="lang-close"
-            onClick={onClose}
-            aria-label={closeLabel || copy.closeLabel}
-          >
-            ✕
-          </button>
-        </div>
+        <div className="lang-box lang-box--list" role="dialog" aria-modal="true" aria-label={title}>
+          <SheetHeader
+            title={
+              <>
+                <span className="lang-box-title__icon" aria-hidden="true">🌐</span>
+                {title.replace(/^🌐\s*/, "")}
+              </>
+            }
+            onBack={onClose}
+            backLabel={closeLabel || copy.closeLabel}
+            compact
+          />
         <label className="lang-search">
           <span className="lang-search__icon" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

@@ -220,7 +220,6 @@ export default function Home() {
           searchPlaceholder={t("langPicker.search")}
           selectLabel={t("langPicker.select")}
           emptyLabel={t("langPicker.empty")}
-          closeLabel={t("nav.close")}
         />
 
         <nav className="navbar" ref={navbarRef}>
