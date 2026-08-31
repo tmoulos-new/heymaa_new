@@ -4784,32 +4784,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                           {formatChildAge(child.birthDate, lang) || child.birthDate || "—"}
                         </div>
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                        <button
-                          type="button"
-                          className="hm-row-action-btn"
-                          aria-label={lang==="el"?"Επεξεργασία παιδιού":"Edit child"}
-                          onClick={() => openChildEdit(i)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          className="hm-row-action-btn hm-row-action-btn--danger"
-                          aria-label={lang==="el"?"Διαγραφή παιδιού":"Delete child"}
-                          onClick={() => requestDeleteChild(i)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M3 6h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                            <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                            <path d="M19 6l-.8 14.2A1.8 1.8 0 0 1 16.4 22H7.6a1.8 1.8 0 0 1-1.8-1.8L5 6" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-                            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className="hm-row-action-btn"
+                        aria-label={lang==="el"?"Επεξεργασία παιδιού":"Edit child"}
+                        onClick={() => openChildEdit(i)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>
