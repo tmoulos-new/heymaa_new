@@ -1157,6 +1157,22 @@ body.hm-app-active #root {
   flex-shrink: 0;
 }
 
+.hm-subscription-plan-active .plan-stack {
+  border: 2px solid var(--hm-navy);
+  background: #fff6ee;
+  box-shadow: 0 8px 22px rgba(43, 58, 103, 0.12);
+}
+
+.hm-subscription-plan-active .plan-radio.filled {
+  border-color: var(--hm-navy);
+  background: #f8e5d6;
+}
+
+.hm-subscription-plan-active .plan-radio.filled .plan-radio-dot {
+  display: block;
+  background: var(--hm-navy);
+}
+
 .hm-subscription-cancel-card {
   margin-top: 20px;
   padding: 14px;

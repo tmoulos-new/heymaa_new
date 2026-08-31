@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { PlanCard } from './PlanCard'
@@ -128,6 +128,16 @@ export function InAppSubscriptionSheet({
   }, [snapshot])
 
   const activeSlot = useMemo(() => resolveCurrentPlanSlot(snapshot), [snapshot])
+  const activePlanRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!activeSlot || loading) return
+    const timer = window.setTimeout(() => {
+      activePlanRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 80)
+    return () => window.clearTimeout(timer)
+  }, [activeSlot, loading])
+
   const activePlanName = useMemo(
     () => (activeSlot ? activePlanNameForSlot(activeSlot, basePlans, lang) : null),
     [activeSlot, basePlans, lang],
@@ -164,7 +174,7 @@ export function InAppSubscriptionSheet({
       onClose={onClose}
       ariaLabel={lang === 'el' ? 'Συνδρομή' : 'Subscription'}
     >
-      <div className="hm-subscription-sheet-inner">
+      <div className="hm-subscription-sheet-inner in-app-subscription-sheet">
         <SheetHeader
           title={lang === 'el' ? 'Συνδρομή' : 'Subscription'}
           subtitle={
@@ -200,23 +210,32 @@ export function InAppSubscriptionSheet({
           <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>
             {plans.map((plan, index) => {
               const slot = slotForPlanIndex(index)
-              const isCurrent = plan.variant === 'current'
+              const isActive = activeSlot === slot
               const trialExpired =
                 slot === 'trial' &&
                 !!snapshot &&
                 !snapshot.subscription_active &&
                 snapshot.subscription_status === 'trial'
               return (
-                <PlanCard
+                <div
                   key={`${plan.name}-${index}`}
-                  plan={plan}
-                  disabled={trialExpired || isCurrent}
-                  buttonState={isCurrent ? 'current' : 'idle'}
-                  radioSelected={isCurrent}
-                  onButtonClick={() =>
-                    continueWithPlan(plan.variant || 'trial', navigate)
-                  }
-                />
+                  ref={isActive ? activePlanRef : undefined}
+                  data-plan-slot={slot}
+                  className={isActive ? 'hm-subscription-plan-active' : undefined}
+                >
+                  <PlanCard
+                    plan={plan}
+                    disabled={trialExpired || isActive}
+                    buttonState={isActive ? 'current' : 'idle'}
+                    radioSelected={isActive}
+                    onButtonClick={() =>
+                      continueWithPlan(
+                        isActive ? slot : plan.variant || slot || 'trial',
+                        navigate,
+                      )
+                    }
+                  />
+                </div>
               )
             })}
           </div>

@@ -98,10 +98,9 @@ export function PlanCard({
   const planClassName = [
     'plan',
     'plan-stack',
-    plan.variant,
+    isCurrent ? 'current' : plan.variant,
     isRadioFilled ? 'selected' : '',
-    isCurrent ? 'current' : '',
-    plan.featured || plan.badge ? 'highlighted' : '',
+    !isCurrent && (plan.featured || plan.badge) ? 'highlighted' : '',
     plan.badge ? 'has-badge' : '',
     selectMode ? 'selectable' : '',
   ]

@@ -17,21 +17,35 @@ export function slotForPaidPlan(plan?: string | null): PlanSlot | null {
   return null
 }
 
+function slotFromEntitlements(snapshot: SubscriptionSnapshot): PlanSlot | null {
+  const slot = (snapshot.entitlements?.plan_slot || '').toLowerCase()
+  if (slot === 'trial' || slot === 'starter' || slot === 'premium' || slot === 'annual') {
+    return slot
+  }
+  return slotForPaidPlan(slot)
+}
+
 export function resolveCurrentPlanSlot(
   snapshot: SubscriptionSnapshot | null,
 ): PlanSlot | null {
   if (!snapshot?.subscription_active) return null
 
   const status = (snapshot.subscription_status || '').toLowerCase()
-  const paidSlot = slotForPaidPlan(snapshot.plan)
   const planRaw = (snapshot.plan || '').toLowerCase()
 
   if (snapshot.is_trial || status === 'trial' || planRaw === 'trial') {
     return 'trial'
   }
+
+  const paidSlot = slotForPaidPlan(snapshot.plan)
   if (paidSlot) return paidSlot
-  if (!snapshot.plan) return 'trial'
-  return null
+
+  const entSlot = slotFromEntitlements(snapshot)
+  if (entSlot && entSlot !== 'trial') return entSlot
+
+  if (status === 'active') return 'starter'
+
+  return 'trial'
 }
 
 export function activePlanNameForSlot(

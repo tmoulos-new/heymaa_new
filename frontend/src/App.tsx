@@ -44,6 +44,7 @@ import {
   type MilestoneChecksMap,
 } from "./lib/milestoneTimeline";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import "./appResponsive.css";
 import { useTranslation } from "react-i18next";
 import type { HomeFaqItem } from "./i18n/homeTypes";
@@ -2669,7 +2670,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const ttsQuotaTotal = voiceQuota?.limit ?? voiceListenQuotaForSnapshot(subSnapshot);
   const ttsUsedSafe = voiceQuota?.used ?? 0;
   const ttsRemaining = voiceQuota?.remaining ?? Math.max(0, ttsQuotaTotal - ttsUsedSafe);
-  const openSubscriptionUpgrade = () => setShowSubscriptionSheet(true);
+  const openSubscriptionUpgrade = useCallback(() => {
+    void fetchSubscriptionStatus(token)
+      .then(applySubscriptionSnapshot)
+      .catch(() => {});
+    setShowSubscriptionSheet(true);
+  }, [token, applySubscriptionSnapshot]);
   const archiveBlocked = !canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
@@ -3578,7 +3584,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 subtitle: lang==="el"?"Πλάνα, πληρωμές, ανανέωση":"Plans, billing, renew",
                 onClick: () => {
                   setShowProfileSettings(false);
-                  setShowSubscriptionSheet(true);
+                  openSubscriptionUpgrade();
                 },
               },
               {
@@ -4183,7 +4189,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           if (accessExpiryInfo) dismissExpiryPopup(accessExpiryInfo.accessEndsAt);
           setShowAccessExpiryModal(false);
         }}
-        onRenew={() => setShowSubscriptionSheet(true)}
+        onRenew={openSubscriptionUpgrade}
       />
 
       <AppDialog
@@ -4602,7 +4608,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               setShowNotifications(next);
               if (next) setShowAccountMenu(false);
             }}
-            onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
+            onOpenSubscriptionSheet={openSubscriptionUpgrade}
             onReadChange={refreshNotifRead}
           />
           </div>
@@ -4639,7 +4645,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         lang={lang}
         trialEndsAt={trialEndsAt}
         subSnapshot={subSnapshot}
-        onOpenSubscriptionSheet={() => setShowSubscriptionSheet(true)}
+        onOpenSubscriptionSheet={openSubscriptionUpgrade}
       />
 
       {gamification && (
@@ -4851,7 +4857,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     iconBg: "rgba(43,58,103,.1)",
                     label: lang==="el"?"Συνδρομή":"Subscription",
                     value: profilePlanLabel,
-                    onClick: () => setShowSubscriptionSheet(true),
+                    onClick: openSubscriptionUpgrade,
                   },
                 ].map((row, i, rows) => (
                   <button
@@ -5722,6 +5728,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 }
 
 // ── Root ──────────────────────────────────────────────────────
+function AppLoadingShell({ lang }: { lang?: string }) {
+  const isEl = normalizeAppLang(lang || localStorage.getItem("hm_pre_lang") || "el", "el") === "el";
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#F5F0EB",
+        fontFamily: "'DM Sans', sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <img
+          src="/logo192.png"
+          alt=""
+          width={52}
+          height={52}
+          style={{ borderRadius: "50%", marginBottom: 14, display: "block", marginLeft: "auto", marginRight: "auto" }}
+        />
+        <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>
+          {isEl ? "Φόρτωση…" : "Loading…"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ensureLocalDemoToken(): string | null {
   if (!isBrowserLocalHost()) return null
   const existing = getAuthToken()
@@ -5749,6 +5785,8 @@ export default function App() {
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
+  const handleLogoutRef = useRef(handleLogout);
+  handleLogoutRef.current = handleLogout;
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
@@ -5846,7 +5884,7 @@ export default function App() {
       })
       .catch(err => {
         if (cancelled) return;
-        if (err.response?.status === 401) { handleLogout(); }
+        if (err.response?.status === 401) { handleLogoutRef.current(); }
         else setSubActive(true); // fail open on network/server errors
       });
     return () => { cancelled = true; };
@@ -5857,5 +5895,10 @@ export default function App() {
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{setAuthToken(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <Navigate to="/subscription" replace />;
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  return <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>;
+  if(subActive===null && !isLocalDemoToken(token))return <AppLoadingShell lang={profile.lang}/>;
+  return (
+    <AppErrorBoundary lang={profile.lang}>
+      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
+    </AppErrorBoundary>
+  );
 }

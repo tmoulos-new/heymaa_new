@@ -42,7 +42,22 @@ export function AppAuthPage() {
   }
 
   if (existing && !wantsAuthForm) {
-    return null
+    return (
+      <div
+        style={{
+          minHeight: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#F5F0EB',
+          fontFamily: "'DM Sans', sans-serif",
+          color: '#2B3A67',
+          fontSize: 15,
+        }}
+      >
+        …
+      </div>
+    )
   }
 
   // Opening login/signup while a demo session exists: clear demo so the form can run.
