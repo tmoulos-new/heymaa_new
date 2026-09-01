@@ -2214,8 +2214,9 @@ class ChatRequest(BaseModel):
     attachments: Optional[list[ChatAttachmentIn]] = None
 
 class TTSRequest(BaseModel):
-    text: str
+    text: str = ""
     lang: str = "el"
+    resume: Optional[str] = None
 
 class UserActivityRequest(BaseModel):
     action: str
@@ -3119,40 +3120,73 @@ async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
     if not sb:
         raise HTTPException(status_code=503, detail=_db_unavailable_detail())
     auth = resolve_auth(x_token)
-    user_row = None
-    if auth.get("kind") == "user" and auth.get("user_id"):
-        try:
-            res = (
-                sb.table("users")
-                .select("plan,subscription_status,role")
-                .eq("id", auth["user_id"])
-                .limit(1)
-                .execute()
-            )
-            user_row = res.data[0] if res.data else None
-        except Exception:
-            user_row = None
-    import datetime as _dt
-    updated_at = _dt.datetime.utcnow().isoformat()
     try:
-        voice_quota = consume_voice_listen(sb, auth, user_row, updated_at)
-    except VoiceQuotaExceeded as exc:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Voice quota exceeded ({exc.used}/{exc.limit})",
-        ) from exc
-    import edge_tts
-    try:
-        from .tts_voice import prepare_tts_text, tts_prosody, tts_voice
+        from .tts_voice import (
+            decode_tts_resume,
+            encode_tts_resume,
+            prepare_tts_text,
+            split_tts_utterances,
+            tts_prosody,
+            tts_voice,
+        )
     except ImportError:
-        from tts_voice import prepare_tts_text, tts_prosody, tts_voice
-    voice = tts_voice(req.lang)
-    prosody = tts_prosody(req.lang)
-    spoken = prepare_tts_text(req.text, req.lang)
+        from tts_voice import (
+            decode_tts_resume,
+            encode_tts_resume,
+            prepare_tts_text,
+            split_tts_utterances,
+            tts_prosody,
+            tts_voice,
+        )
+    user_key = auth.get("user_id") or f"invite:{(auth.get('token') or '')[:32]}"
+    secret = (
+        os.getenv("SUPABASE_JWT_SECRET")
+        or os.getenv("TTS_RESUME_SECRET")
+        or "heymaa-tts-resume"
+    ).encode("utf-8")
+    voice_quota = None
+    tts_lang = req.lang
+    if req.resume:
+        try:
+            tts_lang, spoken = decode_tts_resume(secret, req.resume, user_key)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Listen session expired") from None
+    else:
+        user_row = None
+        if auth.get("kind") == "user" and auth.get("user_id"):
+            try:
+                res = (
+                    sb.table("users")
+                    .select("plan,subscription_status,role")
+                    .eq("id", auth["user_id"])
+                    .limit(1)
+                    .execute()
+                )
+                user_row = res.data[0] if res.data else None
+            except Exception:
+                user_row = None
+        import datetime as _dt
+        updated_at = _dt.datetime.utcnow().isoformat()
+        try:
+            voice_quota = consume_voice_listen(sb, auth, user_row, updated_at)
+        except VoiceQuotaExceeded as exc:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Voice quota exceeded ({exc.used}/{exc.limit})",
+            ) from exc
+        spoken = prepare_tts_text(req.text, req.lang)
     if not spoken:
         raise HTTPException(status_code=400, detail="Nothing to read")
+    utterances = split_tts_utterances(spoken)
+    if not utterances:
+        raise HTTPException(status_code=400, detail="Nothing to read")
+    first = utterances[0]
+    rest = utterances[1] if len(utterances) > 1 else ""
+    import edge_tts
+    voice = tts_voice(tts_lang)
+    prosody = tts_prosody(tts_lang)
     communicate = edge_tts.Communicate(
-        spoken,
+        first,
         voice,
         rate=prosody["rate"],
         pitch=prosody["pitch"],
@@ -3163,9 +3197,12 @@ async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
         if chunk["type"] == "audio":
             buf.write(chunk["data"])
     buf.seek(0)
-    audio_bytes = buf.read()
-    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-    return {"audio": audio_b64, "voice_quota": voice_quota}
+    audio_b64 = base64.b64encode(buf.read()).decode("utf-8")
+    resume = encode_tts_resume(secret, user_key, tts_lang, rest) if rest else None
+    payload = {"audio": audio_b64, "resume": resume}
+    if voice_quota is not None:
+        payload["voice_quota"] = voice_quota
+    return payload
 
 @app.get("/public/offers")
 async def public_offers(lang: str = "el"):

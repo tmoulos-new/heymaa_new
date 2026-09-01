@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import re
+import time
 
 VOICE_MAP = {
     "el": "el-GR-AthinaNeural",
@@ -74,3 +79,54 @@ def prepare_tts_text(text: str, lang: str = "el") -> str:
     t = re.sub(r"!{2,}", ".", t)
     t = re.sub(r"\s+", " ", t).strip()
     return t
+
+
+def split_tts_utterances(text: str, first_chars: int = 180) -> list[str]:
+    """First clip is short enough to start Listen quickly; the rest follows in a second clip."""
+    t = (text or "").strip()
+    if not t:
+        return []
+    if len(t) <= first_chars:
+        return [t]
+    cut = None
+    for match in re.finditer(r"[\.!?…;:](?:\s+|$)", t):
+        cut = match.end()
+        if match.end() >= first_chars:
+            break
+    if cut is None or cut < 40:
+        sp = t.rfind(" ", 0, min(len(t), first_chars + 40))
+        cut = sp if sp >= 40 else first_chars
+    first, rest = t[:cut].strip(), t[cut:].strip()
+    if not rest:
+        return [first]
+    return [first, rest]
+
+
+def encode_tts_resume(secret: bytes, user_key: str, lang: str, text: str, ttl_s: int = 180) -> str:
+    payload = {"u": user_key, "l": lang, "e": int(time.time()) + ttl_s, "t": text}
+    raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    sig = hmac.new(secret, raw, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(sig + raw).decode("ascii")
+
+
+def decode_tts_resume(secret: bytes, token: str, user_key: str) -> tuple[str, str]:
+    try:
+        blob = base64.urlsafe_b64decode((token or "").encode("ascii"))
+    except Exception as exc:
+        raise ValueError("invalid resume") from exc
+    if len(blob) < 33:
+        raise ValueError("invalid resume")
+    sig, raw = blob[:32], blob[32:]
+    expected = hmac.new(secret, raw, hashlib.sha256).digest()
+    if not hmac.compare_digest(sig, expected):
+        raise ValueError("invalid resume")
+    data = json.loads(raw.decode("utf-8"))
+    if data.get("u") != user_key:
+        raise ValueError("invalid resume")
+    if int(data.get("e") or 0) < time.time():
+        raise ValueError("expired resume")
+    text = (data.get("t") or "").strip()
+    lang = str(data.get("l") or "el")
+    if not text:
+        raise ValueError("empty resume")
+    return lang, text

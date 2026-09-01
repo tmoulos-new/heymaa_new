@@ -3,7 +3,14 @@ from __future__ import annotations
 
 import unittest
 
-from tts_voice import prepare_tts_text, tts_prosody, tts_voice
+from tts_voice import (
+    decode_tts_resume,
+    encode_tts_resume,
+    prepare_tts_text,
+    split_tts_utterances,
+    tts_prosody,
+    tts_voice,
+)
 
 
 class TtsVoiceTests(unittest.TestCase):
@@ -26,3 +33,26 @@ class TtsVoiceTests(unittest.TestCase):
     def test_heymaa_spoken_as_cheima(self):
         self.assertEqual(prepare_tts_text("Καλώς ήρθες στη HeyMaa!", "el"), "Καλώς ήρθες στη χέιμα!")
         self.assertIn("HeyMaa", prepare_tts_text("Welcome to HeyMaa!", "en"))
+
+    def test_split_keeps_short_text_whole(self):
+        self.assertEqual(split_tts_utterances("Γεια σου μαμά."), ["Γεια σου μαμά."])
+
+    def test_split_starts_with_first_sentences(self):
+        text = (
+            "Πρώτη φράση αρκετά μεγάλη για να πιάσει το όριο. "
+            "Δεύτερη φράση που μένει για μετά. "
+            "Και μια τρίτη για το υπόλοιπο κείμενο."
+        )
+        parts = split_tts_utterances(text, first_chars=40)
+        self.assertEqual(len(parts), 2)
+        self.assertTrue(parts[0].startswith("Πρώτη"))
+        self.assertIn("Δεύτερη", parts[1])
+
+    def test_resume_roundtrip(self):
+        secret = b"test-secret"
+        token = encode_tts_resume(secret, "user-1", "el", "υπόλοιπο κείμενο")
+        lang, text = decode_tts_resume(secret, token, "user-1")
+        self.assertEqual(lang, "el")
+        self.assertEqual(text, "υπόλοιπο κείμενο")
+        with self.assertRaises(ValueError):
+            decode_tts_resume(secret, token, "other-user")

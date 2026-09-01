@@ -2274,7 +2274,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const recordingIntentRef = useRef(false); const recTranscriptRef = useRef(""); const recSendTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null); const micMeterRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null); const fileRef = useRef<HTMLInputElement>(null); const chatFileRef = useRef<HTMLInputElement>(null); const chatCameraRef = useRef<HTMLInputElement>(null); const chatGalleryRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null); const recRef = useRef<any>(null); const recordingIntentRef = useRef(false); const recTranscriptRef = useRef(""); const recSendTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null); const micMeterRef = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number } | null>(null); const fileRef = useRef<HTMLInputElement>(null); const chatFileRef = useRef<HTMLInputElement>(null); const chatCameraRef = useRef<HTMLInputElement>(null); const chatGalleryRef = useRef<HTMLInputElement>(null); const inputRef = useRef<HTMLInputElement>(null); const audioRef = useRef<HTMLAudioElement|null>(null); const ttsSessionRef = useRef(0); const ttsAbortRef = useRef<AbortController | null>(null);
   const profileChildren = useMemo(() => getAllChildren(profile), [profile]);
   const familyChildren = useMemo(
     () => getFamilyChildren(familyData, profileChildren),
@@ -2789,7 +2789,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const requestNewThread = () => {
     if (!messages.length && !input.trim() && !chatPendingAttachments.length) return;
+    ttsSessionRef.current += 1;
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     if (audioRef.current) {
+      audioRef.current.onended = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
@@ -2884,25 +2888,66 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [token, applySubscriptionSnapshot]);
 
   const stripMd = (s: string) => s.replace(/\*\*(.+?)\*\*/g,"$1").replace(/\*(.+?)\*/g,"$1").replace(/#{1,6} /g,"").replace(/`(.+?)`/g,"$1").replace(/\[(.+?)\]\(.+?\)/g,"$1").trim();
-  const stopAudio = () => { if(audioRef.current){audioRef.current.pause();audioRef.current=null;} setPlayingIndex(null); };
+  const stopAudio = () => {
+    ttsSessionRef.current += 1;
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
+    if (audioRef.current) {
+      audioRef.current.onended = null;
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingIndex(null);
+  };
   const speak = async (text: string, idx: number) => {
-    if(playingIndex===idx){stopAudio();return;}
-    if(audioRef.current){audioRef.current.pause();audioRef.current=null;}
-    if(ttsRemaining<=0){
+    if (playingIndex === idx) { stopAudio(); return; }
+    if (ttsRemaining <= 0) {
       openSubscriptionUpgrade();
       return;
     }
+    stopAudio();
+    const session = ttsSessionRef.current;
+    const ac = new AbortController();
+    ttsAbortRef.current = ac;
     setPlayingIndex(idx);
+    const clips: string[] = [];
+    let fetching = true;
+    const playNext = () => {
+      if (ttsSessionRef.current !== session) return;
+      if (audioRef.current) return;
+      const next = clips.shift();
+      if (!next) {
+        if (!fetching) setPlayingIndex(null);
+        return;
+      }
+      const audio = new Audio(`data:audio/mp3;base64,${next}`);
+      audioRef.current = audio;
+      audio.onended = () => {
+        audioRef.current = null;
+        playNext();
+      };
+      void audio.play();
+    };
     try {
-      const ttsLang=lang;
-      const clean=stripMd(text);
-      const res=await axios.post(`${API}/tts`,{text:clean,lang:ttsLang},{headers:{"x-token":token}});
-      if (res.data?.voice_quota) setVoiceQuota(res.data.voice_quota);
-      const audio=new Audio(`data:audio/mp3;base64,${res.data.audio}`);
-      audioRef.current=audio;
-      audio.onended=()=>{setPlayingIndex(null);audioRef.current=null;};
-      audio.play();
+      let body: { text?: string; lang: string; resume?: string } = { text: stripMd(text), lang };
+      while (true) {
+        if (ttsSessionRef.current !== session) return;
+        const res = await axios.post(`${API}/tts`, body, { headers: { "x-token": token }, signal: ac.signal });
+        if (ttsSessionRef.current !== session) return;
+        if (res.data?.voice_quota) setVoiceQuota(res.data.voice_quota);
+        if (res.data?.audio) {
+          clips.push(res.data.audio);
+          playNext();
+        }
+        if (!res.data?.resume) break;
+        body = { resume: res.data.resume, lang };
+      }
+      fetching = false;
+      playNext();
     } catch (err: unknown) {
+      if (ttsSessionRef.current !== session) return;
+      const canceled = axios.isAxiosError(err) && (err.code === "ERR_CANCELED" || err.name === "CanceledError");
+      if (canceled) return;
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       if (status === 429) {
         openSubscriptionUpgrade();
@@ -2910,7 +2955,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           if (data.voice_quota) setVoiceQuota(data.voice_quota);
         }).catch(() => {});
       }
-      setPlayingIndex(null);
+      fetching = false;
+      if (!audioRef.current) setPlayingIndex(null);
     }
   };
 
