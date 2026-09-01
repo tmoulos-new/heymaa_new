@@ -65,7 +65,7 @@ export function FamilyDocumentsPanel({
   const copy = useMemo(
     () => ({
       title: el ? 'Αρχείο Εγγράφων' : 'Document Archive',
-      subtitle: el ? 'Εξετάσεις · Εμβόλια · Συνταγές' : 'Tests · Vaccines · Prescriptions',
+      subtitle: el ? 'Εξετάσεις · Εμβόλια · Αγωγές & Φάρμακα' : 'Tests · Vaccines · Treatments & Medicines',
       empty: el ? 'Κανένα έγγραφο ακόμη' : 'No documents yet',
       emptyCta: el ? 'Καταχώρησε το πρώτο' : 'Add your first one',
       emptyFiltered: el ? 'Δεν υπάρχουν έγγραφα για αυτό το μέλος.' : 'No documents for this member.',
@@ -84,7 +84,7 @@ export function FamilyDocumentsPanel({
       notePh: el ? 'Αποτελέσματα, οδηγίες, επόμενο ραντεβού…' : 'Results, instructions, next appointment…',
       fileLabel: el ? 'Εύρεση εγγράφου (φωτογραφία / αρχείο)' : 'Attach document (photo / file)',
       fileBtn: el ? 'Πρόσθεσε φωτογραφία ή αρχείο' : 'Add photo or file',
-      fileHint: el ? 'Έγγραφο, εξέταση, συνταγή…' : 'Document, test, prescription…',
+      fileHint: el ? 'Έγγραφο, εξέταση, αγωγή…' : 'Document, test, treatment…',
       save: el ? 'Αποθήκευση' : 'Save',
       cancel: el ? 'Ακύρωση' : 'Cancel',
       download: el ? 'Λήψη' : 'Download',

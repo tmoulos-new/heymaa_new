@@ -224,7 +224,7 @@
       },
       {
         "question": "How do I cancel my subscription?",
-        "answer": "Cancellation is not yet available directly in the app. Email info@heymaa.ai, call the Support line 210 928 7420 (Monday–Friday 09:00–17:00), or use Help & support in Settings. For monthly plans, auto-renewal stops and you keep access until the period ends. On the annual plan, the discounted price (-57%) applies until expiry."
+        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "Is my data safe?",
@@ -238,7 +238,7 @@
       },
       {
         "question": "What can I do in the app?",
-        "answer": "Chat with HeyMaa (text or voice), build your family tree, save memories, track development milestones on a period-based progress timeline, store medical documents (tests, vaccines, prescriptions), and archive conversations — depending on your plan."
+        "answer": "Chat with HeyMaa (text or voice), build your family tree, save memories, track development milestones on a period-based progress timeline, store medical documents (tests, vaccines, treatments and medicines), and archive conversations — depending on your plan."
       },
       {
         "question": "What does the free trial include?",
@@ -266,7 +266,7 @@
       },
       {
         "question": "What is the Document Archive?",
-        "answer": "On the Family tab you can store tests, vaccines, and prescriptions — with category, date, family member, and file attachment. Document Archive is available from Starter; on trial you'll see an upgrade prompt."
+        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Document Archive is available from Starter; on trial you'll see an upgrade prompt."
       },
       {
         "question": "What is the family tree?",
@@ -286,7 +286,7 @@
       },
       {
         "question": "How do I cancel my subscription?",
-        "answer": "Cancellation is not yet available directly in the app. Email info@heymaa.ai, call the Support line 210 928 7420 (Monday–Friday 09:00–17:00), or use Help & support in Settings. For monthly plans, auto-renewal stops and you keep access until the period ends. On the annual plan, the discounted price (-57%) applies until expiry."
+        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "I forgot my password",

@@ -167,7 +167,7 @@ export function MemoriesTab({
     <>
       <AppTabPageShell
         title={title}
-        subtitle={`Baby Journal · ${journalName}`}
+        subtitle={`${el ? 'Ημερολόγιο Αναμνήσεων' : 'Memory Journal'} · ${journalName}`}
         action={headerActions}
       >
         {journalOptions.length > 1 && (
