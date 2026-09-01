@@ -384,7 +384,7 @@ button.plan-radio:focus-visible{outline:2px solid rgba(42,42,90,0.45);outline-of
 .footer-phone{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
 .footer-phone a{align-items:flex-start;}
 .footer-phone a span:last-child{display:flex;flex-direction:column;gap:1px;min-width:0;}
-.footer-phone__label{font-size:10px;font-weight:700;letter-spacing:.04em;color:rgba(43,58,103,0.48);text-transform:uppercase;}
+.footer-phone__label{font-size:11px;font-weight:600;letter-spacing:0;color:rgba(43,58,103,0.48);text-transform:none;}
 .footer-phone__num{font-weight:600;color:rgba(43,58,103,0.82);letter-spacing:.02em;}
 .footer-phone__hours{margin:0 0 0 22px;font-size:11px;line-height:1.35;color:rgba(43,58,103,0.5);font-weight:500;}
 .footer-bottom{text-align:center;font-size:11px;color:rgba(43,58,103,0.45);line-height:1.5;padding-top:20px;border-top:1px solid rgba(43,58,103,0.08);}
