@@ -35,9 +35,16 @@ export function SiteFooter({ contentLang }: { contentLang: string }) {
                 </a>
               </li>
               <li>
-                <a href={`tel:${t('footer.phoneTel')}`}>
-                  <span aria-hidden="true">📞</span> {t('footer.phone')}
-                </a>
+                <div className="footer-phone">
+                  <a href={`tel:${t('footer.phoneTel')}`}>
+                    <span aria-hidden="true">📞</span>
+                    <span>
+                      <span className="footer-phone__label">{t('footer.phoneLabel')}</span>
+                      <span className="footer-phone__num">{t('footer.phone')}</span>
+                    </span>
+                  </a>
+                  <p className="footer-phone__hours">{t('footer.phoneHours')}</p>
+                </div>
               </li>
               <li>
                 <span className="footer-list-static">

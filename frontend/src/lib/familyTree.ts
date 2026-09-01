@@ -308,7 +308,6 @@ const ROW_GAP = 52
 const PAD_X = 28
 const PAD_Y = 36
 
-const PALETTE = ['#2B3A67', '#BEB4CD', '#8B9BC4', '#5A6B8F', '#D4C8E8', '#6B7FA8', '#A89FBC']
 
 function distribute(count: number, center: number, slot: number): number[] {
   if (count <= 0) return []
@@ -336,6 +335,79 @@ export function isFocusKind(kind: KinKind): boolean {
   return kind === 'self' || kind === 'partner' || kind === 'child' || kind === 'pregnancy'
 }
 
+/** Shared avatar fills: one color per family role. */
+export const AVATAR_COLOR = {
+  self: '#de5a9e',
+  child: '#A45D7C',
+  childGirl: '#8A3D82',
+  childSurprise: '#5548A8',
+  pregnancy: '#9B6BC4',
+  pet: '#E07B54',
+  partner: '#2B6B8A',
+  parent: '#3D5A8C',
+  parent_in_law: '#B87A42',
+  grandparent: '#7B5EA7',
+  sibling: '#2F9E8A',
+  sibling_in_law: '#C46B4A',
+  aunt_uncle: '#4F6FA8',
+  cousin: '#6B9B45',
+  niece_nephew: '#3A96B0',
+  grandchild: '#C9953A',
+  other: '#6B7C8A',
+} as const
+
+const RELATIONSHIP_AVATAR_COLOR: Record<string, string> = {
+  Partner: AVATAR_COLOR.partner,
+  Mother: '#C45C78',
+  Father: AVATAR_COLOR.parent,
+  'Mother-in-law': AVATAR_COLOR.parent_in_law,
+  'Father-in-law': '#6A7A38',
+  Grandmother: AVATAR_COLOR.grandparent,
+  Grandfather: '#5A6B78',
+  Sister: AVATAR_COLOR.sibling,
+  Brother: '#3A7D5C',
+  'Sister-in-law': '#D4896A',
+  'Brother-in-law': AVATAR_COLOR.sibling_in_law,
+  Aunt: '#C46B94',
+  Uncle: AVATAR_COLOR.aunt_uncle,
+  Cousin: AVATAR_COLOR.cousin,
+  Niece: '#E08AA8',
+  Nephew: AVATAR_COLOR.niece_nephew,
+  Grandchild: AVATAR_COLOR.grandchild,
+  Family: AVATAR_COLOR.other,
+  Pet: AVATAR_COLOR.pet,
+}
+
+export function avatarColorForKind(kind: KinKind): string {
+  if (kind === 'self') return AVATAR_COLOR.self
+  if (kind === 'child') return AVATAR_COLOR.child
+  if (kind === 'pregnancy') return AVATAR_COLOR.pregnancy
+  if (kind === 'pet') return AVATAR_COLOR.pet
+  if (kind === 'partner') return AVATAR_COLOR.partner
+  if (kind === 'parent') return AVATAR_COLOR.parent
+  if (kind === 'parent_in_law') return AVATAR_COLOR.parent_in_law
+  if (kind === 'grandparent') return AVATAR_COLOR.grandparent
+  if (kind === 'sibling') return AVATAR_COLOR.sibling
+  if (kind === 'sibling_in_law') return AVATAR_COLOR.sibling_in_law
+  if (kind === 'aunt_uncle') return AVATAR_COLOR.aunt_uncle
+  if (kind === 'cousin') return AVATAR_COLOR.cousin
+  if (kind === 'niece_nephew') return AVATAR_COLOR.niece_nephew
+  if (kind === 'grandchild') return AVATAR_COLOR.grandchild
+  return AVATAR_COLOR.other
+}
+
+export function avatarColorForRelationship(relationship: string): string {
+  const exact = RELATIONSHIP_AVATAR_COLOR[relationship]
+  if (exact) return exact
+  return avatarColorForKind(classifyKinship(relationship))
+}
+
+export function avatarColorForChild(gender?: FamilyChild['gender']): string {
+  if (gender === 'girl') return AVATAR_COLOR.childGirl
+  if (gender === 'surprise') return AVATAR_COLOR.childSurprise
+  return AVATAR_COLOR.child
+}
+
 export function buildTreePeople(opts: {
   userName: string
   youLabel: string
@@ -348,8 +420,6 @@ export function buildTreePeople(opts: {
   selfPhoto?: string
 }): TreePerson[] {
   const people: TreePerson[] = []
-  let colorIdx = 0
-  const nextColor = () => PALETTE[colorIdx++ % PALETTE.length]
 
   people.push({
     id: 'self',
@@ -359,7 +429,7 @@ export function buildTreePeople(opts: {
     side: 'self',
     generation: 0,
     memoryCount: opts.memoryCounts?.['__general__'] ?? 0,
-    color: '#2B3A67',
+    color: AVATAR_COLOR.self,
     ...(opts.selfPhoto ? { photo: opts.selfPhoto } : {}),
   })
 
@@ -373,7 +443,7 @@ export function buildTreePeople(opts: {
       generation: 1,
       ref: 'pregnancy',
       memoryCount: opts.memoryCounts?.pregnancy ?? 0,
-      color: '#BEB4CD',
+      color: AVATAR_COLOR.pregnancy,
     })
   }
 
@@ -388,7 +458,7 @@ export function buildTreePeople(opts: {
       birthDate: c.birthDate,
       ref: c.name,
       memoryCount: opts.memoryCounts?.[c.name] ?? 0,
-      color: '#BEB4CD',
+      color: avatarColorForChild(c.gender),
       childIndex: i,
       ...(c.photo ? { photo: c.photo } : {}),
     })
@@ -432,7 +502,7 @@ export function buildTreePeople(opts: {
       relatedTo: m.relatedTo,
       ref: memRef,
       memoryCount: opts.memoryCounts?.[memRef] ?? opts.memoryCounts?.[m.name] ?? 0,
-      color: nextColor(),
+      color: avatarColorForRelationship(m.relationship),
       memberIndex: i,
       ...(m.photo ? { photo: m.photo } : {}),
     })

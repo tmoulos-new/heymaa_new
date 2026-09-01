@@ -16,6 +16,7 @@ import {
 } from '../lib/familyDocuments'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import { memberDisplayLabel, memberMemoryRef } from '../lib/familyData'
+import { HmDateField } from './HmDateField'
 
 type MemberRef = { label: string; value: string }
 
@@ -436,11 +437,12 @@ export function FamilyDocumentsPanel({
             <div className="hm-family-docs__row">
               <div className="hm-family-docs__col">
                 <label className="hm-family-docs__field-label">{copy.date}</label>
-                <input
-                  className="hm-family-docs__input"
-                  type="date"
+                <HmDateField
+                  lang={lang}
                   value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
+                  onChange={setFormDate}
+                  variant="cream"
+                  ariaLabel={copy.date}
                 />
               </div>
               <div className="hm-family-docs__col">

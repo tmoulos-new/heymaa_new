@@ -17,7 +17,7 @@ import {
   type FamilyData,
   type FamilyMemberRecord,
 } from "./lib/familyData";
-import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, type LaidOutNode } from "./lib/familyTree";
+import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, AVATAR_COLOR, type LaidOutNode } from "./lib/familyTree";
 import { GAMIFICATION_CHAT_VIDEO_PATH, gamificationPointsForPath, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
@@ -286,8 +286,8 @@ function UserChatAvatar({
         width: size,
         height: size,
         borderRadius: "50%",
-        background: "#BEB4CD",
-        color: "#2B3A67",
+        background: AVATAR_COLOR.self,
+        color: "#fff",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1825,7 +1825,15 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
             <button type="button" className="hm-btn hm-btn--bordered hm-btn--block" style={{marginTop:0,flex:1}} onClick={()=>setIsPregnant(false)}>👶 {t("have_baby",lang)}</button>
           </div>}
           {isPregnant===true&&<>
-            <input style={inp} type="date" placeholder={t("duedatelabel",lang)} value={dueDate} onChange={e=>setDueDate(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setStep(2)}/>
+            <div style={{marginBottom:10}}>
+              <HmDateField
+                lang={lang}
+                value={dueDate}
+                onChange={setDueDate}
+                ariaLabel={t("duedatelabel",lang)}
+                variant="input"
+              />
+            </div>
             <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(2)}>{t("continue",lang)}</button>
             <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setIsPregnant(null)}>{t("back",lang)}</button>
           </>}
@@ -1912,8 +1920,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
   }, [tHome, homeLng]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
-  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "+30 210 928 7700");
-  const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287700");
+  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "210 928 7420");
+  const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287420");
+  const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή" : "Helpline"));
+  const helpPhoneHours = String(tHome("footer.phoneHours", { lng: homeLng }) || (lang === "el" ? "Δευτέρα–Παρασκευή 09:00–17:00" : "Monday–Friday 09:00–17:00"));
   const helpAddress = String(tHome("footer.address", { lng: homeLng }) || "");
 
   useEffect(() => {
@@ -3425,7 +3435,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       side: "self",
       generation: 1,
       memoryCount: 0,
-      color: logoPurple,
+      color: avatarColorForChild(child.gender),
       childIndex: i,
       ref: child.name,
       photo: child.photo,
@@ -3444,7 +3454,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       side: "self",
       generation: isPet ? 1 : 0,
       memoryCount: 0,
-      color: logoPurple,
+      color: avatarColorForRelationship(m.relationship),
       memberIndex: i,
       relatedTo: m.relatedTo,
       ref: memberMemoryRef(m.id),
@@ -3945,8 +3955,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               >
                 <span className="hm-contact-icon hm-contact-icon--teal" aria-hidden="true">📞</span>
                 <span>
-                  <span style={{display:"block",fontSize:13,fontWeight:700}}>{lang==="el"?"Τηλέφωνο":"Phone"}</span>
-                  <span style={{display:"block",fontSize:12,color:"var(--hm-muted)",marginTop:2}}>{helpPhone}</span>
+                  <span style={{display:"block",fontSize:13,fontWeight:700}}>{helpPhoneLabel}</span>
+                  <span style={{display:"block",fontSize:15,fontWeight:600,letterSpacing:"0.02em",marginTop:2}}>{helpPhone}</span>
+                  <span className="hm-contact-hours">{helpPhoneHours}</span>
                 </span>
               </a>
               {helpAddress ? (
@@ -4001,7 +4012,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   ) : (
                     <div style={{
                       width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",
-                      background:"var(--hm-logo-purple)",color:"var(--hm-navy)",fontSize:36,fontWeight:700,
+                      background: AVATAR_COLOR.self, color: "#fff", fontSize:36, fontWeight:700,
                     }}>{displayInitial}</div>
                   )}
                 </div>
@@ -4984,7 +4995,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 />
               ) : (
                 <div style={{
-                  width:64,height:64,borderRadius:"50%",background:"#BEB4CD",color:navy,
+                  width:64,height:64,borderRadius:"50%",background:AVATAR_COLOR.self,color:"#fff",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   fontFamily:"'DM Sans',sans-serif",fontSize:26,fontWeight:700,flexShrink:0,
                 }}>
@@ -5029,56 +5040,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               showHeaderChip={headerPointsVisible}
               onToggleHeaderChip={toggleHeaderPointsChip}
             />
-
-            <AppTabSection
-              lang={lang}
-              label={lang==="el"?"Τα παιδιά μου":"My children"}
-            >
-              {familyChildren.length===0 ? (
-                <button
-                  type="button"
-                  onClick={() => setTab("family")}
-                  style={{
-                    width:"100%",boxSizing:"border-box",border:"1.5px dashed rgba(43,58,103,.22)",
-                    borderRadius:14,padding:"28px 16px",background:"transparent",cursor:"pointer",
-                    display:"flex",flexDirection:"column",alignItems:"center",gap:8,
-                    color:"rgba(43,58,103,.45)",fontFamily:"'DM Sans',sans-serif",
-                  }}
-                >
-                  <span style={{fontSize:13,fontWeight:500}}>
-                    {lang==="el"?"Πρόσθεσε παιδιά στην καρτέλα Οικογένεια":"Add children in the Family tab"}
-                  </span>
-                </button>
-              ) : (
-                <div className="hm-tab-card hm-tab-card--flush">
-                  {familyChildren.map((child, i) => (
-                    <div
-                      key={`${child.name}-${i}`}
-                      style={{
-                        display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
-                        borderBottom: i < familyChildren.length - 1 ? "1px solid "+gl : "none",
-                      }}
-                    >
-                      <div style={{
-                        width:40,height:40,borderRadius:"50%",background:logoPurple,color:navy,
-                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,
-                        overflow:"hidden",
-                      }}>
-                        {child.photo ? (
-                          <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
-                        ) : "👶"}
-                      </div>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{fontWeight:600,fontSize:14,color:navy}}>{child.name}</div>
-                        <div style={{fontSize:12,color:"rgba(43,58,103,.5)",marginTop:2}}>
-                          {formatChildAge(child.birthDate, lang, nowForAge) || child.birthDate || "—"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </AppTabSection>
 
             <AppTabSection lang={lang} label={lang==="el"?"Ρυθμίσεις":"Settings"}>
               <div className="hm-tab-card hm-tab-card--flush">
@@ -5364,7 +5325,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
             {showMyFamily && (<>
             {profile.dueDate&&<div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
-              <div style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,color:navy,flexShrink:0}}>🤰</div>
+              <div style={{width:36,height:36,borderRadius:"50%",background:avatarColorForKind("pregnancy"),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>🤰</div>
               <div style={{minWidth:0,flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
             </div>}
             {familyChildren.map((child,i)=>{
@@ -5372,7 +5333,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div
                   onClick={() => openChildProfileEdit(i)}
-                  style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                  style={{width:36,height:36,borderRadius:"50%",background:avatarColorForChild(child.gender),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                 >
                   {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
                 </div>
@@ -5400,7 +5361,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
                     onClick={() => openMemberProfileEdit(m, i)}
-                    style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{width:36,height:36,borderRadius:"50%",background:avatarColorForKind("pet"),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "🐾"}
                   </div>
@@ -5438,7 +5399,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
                     onClick={() => openMemberProfileEdit(m, i)}
-                    style={{width:36,height:36,borderRadius:"50%",background:logoPurple,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,color:navy,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{width:36,height:36,borderRadius:"50%",background:avatarColorForRelationship(m.relationship),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
                     {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : m.name[0]?.toUpperCase()}
                   </div>
@@ -5508,7 +5469,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <option key={o.value} value={o.value}>{lang==="el"?`Συγγενής του/της: ${o.label}`:`Relative of: ${o.label}`}</option>
                 ))}
               </select>
-              <input value={newMemberBirthDate} onChange={e=>setNewMemberBirthDate(e.target.value)} type="date" placeholder={lang==="el"?"Ημ. γέννησης (προαιρετικό)":"Birth date (optional)"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
+              <HmDateField
+                lang={lang}
+                value={newMemberBirthDate}
+                onChange={setNewMemberBirthDate}
+                variant="input"
+                size="sm"
+                ariaLabel={lang==="el"?"Ημ. γέννησης (προαιρετικό)":"Birth date (optional)"}
+              />
+              <div style={{height:8}} />
               <input value={newMemberNote} onChange={e=>setNewMemberNote(e.target.value)} placeholder={lang==="el"?"Σημείωση / ενδιαφέρον γεγονός":"Note / interesting fact"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <input value={newMemberEmail} onChange={e=>setNewMemberEmail(e.target.value)} type="email" placeholder={t("memberemail",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <input value={newMemberPhone} onChange={e=>setNewMemberPhone(e.target.value)} type="tel" placeholder={t("memberphone",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>

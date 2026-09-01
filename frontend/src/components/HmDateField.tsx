@@ -8,6 +8,8 @@ type Props = {
   ariaLabel?: string
   variant?: 'cream' | 'input'
   size?: 'md' | 'sm'
+  min?: string
+  max?: string
 }
 
 function localeFor(lang: string) {
@@ -40,11 +42,49 @@ function weekdayLabels(locale: string) {
   )
 }
 
-export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'input', size = 'md' }: Props) {
+function monthLabels(locale: string) {
+  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' })
+  return Array.from({ length: 12 }, (_, i) =>
+    fmt.format(new Date(2024, i, 1)).replace('.', ''),
+  )
+}
+
+function yearOptions(extra: number[], bounds?: { min?: string; max?: string }) {
+  const nowY = new Date().getFullYear()
+  const minBound = bounds?.min ? parseIso(bounds.min)?.y : undefined
+  const maxBound = bounds?.max ? parseIso(bounds.max)?.y : undefined
+  const max = Math.max(maxBound ?? nowY + 2, ...extra)
+  const min = Math.min(minBound ?? nowY - 80, ...extra)
+  const years: number[] = []
+  for (let y = max; y >= min; y -= 1) years.push(y)
+  return years
+}
+
+function isOutOfRange(iso: string, min?: string, max?: string) {
+  if (min && iso < min) return true
+  if (max && iso > max) return true
+  return false
+}
+
+function calendarBox(el: HTMLElement, size: 'md' | 'sm') {
+  const r = el.getBoundingClientRect()
+  const calW = size === 'sm' ? 248 : 268
+  const calH = size === 'sm' ? 228 : 252
+  const gap = 6
+  const spaceBelow = window.innerHeight - r.bottom - gap
+  const openUp = spaceBelow < calH && r.top > spaceBelow
+  const top = openUp ? Math.max(8, r.top - calH - gap) : r.bottom + gap
+  let left = r.left
+  if (left + calW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - calW - 8)
+  return { top, left, width: Math.min(calW, r.width) }
+}
+
+export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'input', size = 'md', min, max }: Props) {
   const isEl = lang === 'el'
   const locale = localeFor(lang)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const [calPos, setCalPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const selected = parseIso(value)
   const today = new Date()
   const [view, setView] = useState(() => ({
@@ -62,17 +102,39 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
 
   useEffect(() => {
     if (!open) return
+    const place = () => {
+      const el = wrapRef.current
+      if (!el) return
+      setCalPos(calendarBox(el, size))
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, size, view.y, view.m])
+
+  useEffect(() => {
+    if (!open) return
     const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      if (wrapRef.current?.contains(target)) return
+      // Native <select> menus can render options outside the calendar.
+      if (target.tagName === 'OPTION' || target.tagName === 'SELECT') return
+      setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
   const dows = useMemo(() => weekdayLabels(locale), [locale])
-  const monthTitle = useMemo(
-    () => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(view.y, view.m, 1)),
-    [locale, view.y, view.m],
+  const months = useMemo(() => monthLabels(locale), [locale])
+  const years = useMemo(
+    () => yearOptions([selected?.y ?? today.getFullYear(), view.y], { min, max }),
+    [selected?.y, view.y, min, max],
   )
 
   const cells = useMemo(() => {
@@ -119,7 +181,14 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (open) {
+            setOpen(false)
+            return
+          }
+          if (wrapRef.current) setCalPos(calendarBox(wrapRef.current, size))
+          setOpen(true)
+        }}
       >
         <span className={`hm-date-field__value${value ? '' : ' is-placeholder'}`}>{display}</span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -128,12 +197,38 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
         </svg>
       </button>
       {open ? (
-        <div className="hm-date-cal" role="dialog" aria-label={ariaLabel}>
+        <div
+          className="hm-date-cal"
+          role="dialog"
+          aria-label={ariaLabel}
+          style={calPos ? { top: calPos.top, left: calPos.left, width: calPos.width } : undefined}
+        >
           <div className="hm-date-cal__nav">
             <button type="button" className="hm-date-cal__nav-btn" onClick={() => shiftMonth(-1)} aria-label={isEl ? 'Προηγούμενος μήνας' : 'Previous month'}>
               ‹
             </button>
-            <div className="hm-date-cal__month">{monthTitle}</div>
+            <div className="hm-date-cal__selects">
+              <select
+                className="hm-date-cal__select hm-date-cal__select--month"
+                value={view.m}
+                aria-label={isEl ? 'Μήνας' : 'Month'}
+                onChange={(e) => setView((cur) => ({ ...cur, m: Number(e.target.value) }))}
+              >
+                {months.map((label, i) => (
+                  <option key={label} value={i}>{label}</option>
+                ))}
+              </select>
+              <select
+                className="hm-date-cal__select hm-date-cal__select--year"
+                value={view.y}
+                aria-label={isEl ? 'Έτος' : 'Year'}
+                onChange={(e) => setView((cur) => ({ ...cur, y: Number(e.target.value) }))}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
             <button type="button" className="hm-date-cal__nav-btn" onClick={() => shiftMonth(1)} aria-label={isEl ? 'Επόμενος μήνας' : 'Next month'}>
               ›
             </button>
@@ -142,19 +237,24 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
             {dows.map((d) => (
               <span key={d} className="hm-date-cal__dow">{d}</span>
             ))}
-            {cells.map((cell) => (
+            {cells.map((cell, idx) => {
+              const disabled = isOutOfRange(cell.iso, min, max)
+              return (
               <button
-                key={cell.iso}
+                key={`${cell.iso}-${idx}`}
                 type="button"
-                className={`hm-date-cal__day${cell.muted ? ' is-muted' : ''}${cell.iso === value ? ' is-selected' : ''}${cell.iso === toIso(today.getFullYear(), today.getMonth(), today.getDate()) ? ' is-today' : ''}`}
+                disabled={disabled}
+                className={`hm-date-cal__day${cell.muted ? ' is-muted' : ''}${disabled ? ' is-disabled' : ''}${cell.iso === value ? ' is-selected' : ''}${cell.iso === toIso(today.getFullYear(), today.getMonth(), today.getDate()) ? ' is-today' : ''}`}
                 onClick={() => {
+                  if (disabled) return
                   onChange(cell.iso)
                   setOpen(false)
                 }}
               >
                 {cell.day}
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       ) : null}

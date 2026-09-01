@@ -154,23 +154,6 @@ function TreeCard({
           ⋮⋮
         </text>
       )}
-      {node.memoryCount > 0 && (
-        <>
-          <circle cx={w / 2 - 8} cy={-h / 2 + 10} r={7.5} fill={ACCENT} />
-          <text
-            x={w / 2 - 8}
-            y={-h / 2 + 10}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={8}
-            fill="#fff"
-            fontWeight={700}
-            fontFamily="'DM Sans', sans-serif"
-          >
-            {node.memoryCount > 9 ? '9+' : node.memoryCount}
-          </text>
-        </>
-      )}
       <text
         textAnchor="middle"
         y={focus ? 14 : 12}
@@ -388,26 +371,6 @@ export function FamilyTreePanel({
                 {saving ? copy.saving : copy.save}
               </button>
             )}
-            <div
-              className="hm-family-tree-panel__count"
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: NAVY,
-                background: 'rgba(190,180,205,.35)',
-                borderRadius: 999,
-                padding: '3px 8px',
-              }}
-            >
-              {people.length}{' '}
-              {el
-                ? people.length === 1
-                  ? 'μέλος'
-                  : 'μέλη'
-                : people.length === 1
-                  ? 'person'
-                  : 'people'}
-            </div>
           </div>
         </div>
         <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{copy.subtitle}</div>

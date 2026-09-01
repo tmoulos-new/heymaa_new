@@ -13,6 +13,7 @@ import { formatMemoryDisplayDate } from '../../lib/memoryTypes'
 import { displayUppercase } from '../../lib/greekText'
 import { BookletFlipbookModal } from '../MemoriesBookletPanel'
 import { MemoryEmojiIcon, memoryEmojiTone } from './MemoryEmojiIcon'
+import { HmDateField } from '../HmDateField'
 
 type Layout = 'inline' | 'modal'
 
@@ -180,26 +181,32 @@ export function MemoriesAlbumSection({
       <div className="hm-memories-album-section__dates">
         <label className="hm-memories-album-section__date-field">
           <span>{labels.dateFrom}</span>
-          <input
-            type="date"
+          <HmDateField
+            lang={lang}
             value={fromDate}
             max={toDate || undefined}
-            onChange={(e) => {
+            onChange={(iso) => {
               setRangeTouched(true)
-              setFromDate(e.target.value)
+              setFromDate(iso)
             }}
+            variant="input"
+            size="sm"
+            ariaLabel={labels.dateFrom}
           />
         </label>
         <label className="hm-memories-album-section__date-field">
           <span>{labels.dateTo}</span>
-          <input
-            type="date"
+          <HmDateField
+            lang={lang}
             value={toDate}
             min={fromDate || undefined}
-            onChange={(e) => {
+            onChange={(iso) => {
               setRangeTouched(true)
-              setToDate(e.target.value)
+              setToDate(iso)
             }}
+            variant="input"
+            size="sm"
+            ariaLabel={labels.dateTo}
           />
         </label>
       </div>

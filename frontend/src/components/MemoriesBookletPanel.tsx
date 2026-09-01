@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
   bookletLabelsForLang,
@@ -12,6 +12,7 @@ import {
 } from '../lib/memoriesBooklet'
 import { displayUppercase } from '../lib/greekText'
 import { AppModalPortal } from './AppModalPortal'
+import { HmDateField } from './HmDateField'
 
 const LINEN = '#F0EBE6'
 const LINEN_DEEP = '#E8DFD2'
@@ -816,19 +817,6 @@ export function MemoriesBookletPanel({
     if (ok) onDownload?.()
   }
 
-  const dateInputStyle: CSSProperties = {
-    width: '100%',
-    padding: '9px 11px',
-    border: `1.5px solid ${LINEN_DEEP}`,
-    borderRadius: 9,
-    fontFamily: "'DM Sans',sans-serif",
-    fontSize: 13,
-    color: NAVY,
-    background: PAPER,
-    outline: 'none',
-    boxSizing: 'border-box',
-  }
-
   return (
     <div
       className={variant === 'card' ? 'hm-tab-card' : 'hm-memory-album-sheet'}
@@ -912,28 +900,32 @@ export function MemoriesBookletPanel({
       >
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY }}>{labels.dateFrom}</span>
-          <input
-            type="date"
+          <HmDateField
+            lang={lang}
             value={fromDate}
             max={toDate || undefined}
-            onChange={(e) => {
+            onChange={(iso) => {
               setRangeTouched(true)
-              setFromDate(e.target.value)
+              setFromDate(iso)
             }}
-            style={dateInputStyle}
+            variant="input"
+            size="sm"
+            ariaLabel={labels.dateFrom}
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={{ fontSize: 11.5, fontWeight: 700, color: NAVY }}>{labels.dateTo}</span>
-          <input
-            type="date"
+          <HmDateField
+            lang={lang}
             value={toDate}
             min={fromDate || undefined}
-            onChange={(e) => {
+            onChange={(iso) => {
               setRangeTouched(true)
-              setToDate(e.target.value)
+              setToDate(iso)
             }}
-            style={dateInputStyle}
+            variant="input"
+            size="sm"
+            ariaLabel={labels.dateTo}
           />
         </label>
       </div>
