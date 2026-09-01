@@ -1901,7 +1901,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E6DED6",logoPurple="#BEB4CD";
+  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState("");

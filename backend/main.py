@@ -3142,18 +3142,22 @@ async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
             detail=f"Voice quota exceeded ({exc.used}/{exc.limit})",
         ) from exc
     import edge_tts
-    VOICE_MAP = {
-        "el":"el-GR-AthinaNeural","en":"en-US-JennyNeural","ar":"ar-EG-SalmaNeural",
-        "ur":"ur-PK-UzmaNeural","hi":"hi-IN-SwaraNeural","es":"es-ES-ElviraNeural",
-        "pt":"pt-BR-FranciscaNeural","fr":"fr-FR-DeniseNeural","de":"de-DE-KatjaNeural",
-        "it":"it-IT-ElsaNeural","ru":"ru-RU-SvetlanaNeural","tr":"tr-TR-EmelNeural",
-        "id":"id-ID-GadisNeural","bn":"bn-BD-NabanitaNeural","sw":"sw-KE-ZuriNeural",
-        "zh":"zh-CN-XiaoxiaoNeural","ja":"ja-JP-NanamiNeural","nl":"nl-NL-ColetteNeural",
-        "pl":"pl-PL-ZofiaNeural","ro":"ro-RO-AlinaNeural","bg":"bg-BG-KalinaNeural","sr":"sr-RS-SophieNeural",
-        "mr":"mr-IN-AarohiNeural","te":"te-IN-ShrutiNeural",
-    }
-    voice = VOICE_MAP.get(req.lang, "en-US-JennyNeural")
-    communicate = edge_tts.Communicate(req.text, voice)
+    try:
+        from .tts_voice import prepare_tts_text, tts_prosody, tts_voice
+    except ImportError:
+        from tts_voice import prepare_tts_text, tts_prosody, tts_voice
+    voice = tts_voice(req.lang)
+    prosody = tts_prosody(req.lang)
+    spoken = prepare_tts_text(req.text, req.lang)
+    if not spoken:
+        raise HTTPException(status_code=400, detail="Nothing to read")
+    communicate = edge_tts.Communicate(
+        spoken,
+        voice,
+        rate=prosody["rate"],
+        pitch=prosody["pitch"],
+        volume=prosody["volume"],
+    )
     buf = io.BytesIO()
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
