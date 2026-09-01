@@ -166,6 +166,9 @@ export function InAppSubscriptionSheet({
   }
 
   const supportEmail = 'info@heymaa.ai'
+  const supportPhone = String(tHome('footer.phone') || '210 928 7420')
+  const supportPhoneTel = String(tHome('footer.phoneTel') || '+302109287420')
+  const supportPhoneLabel = String(tHome('footer.phoneLabel') || (lang === 'el' ? 'Γραμμή Εξυπηρέτησης' : 'Support line'))
 
   return (
     <AppSheet
@@ -270,6 +273,12 @@ export function InAppSubscriptionSheet({
                 className="hm-btn hm-btn--ghost hm-btn--block"
               >
                 {tSub('cancel.emailButton')}
+              </a>
+              <a
+                href={`tel:${supportPhoneTel}`}
+                className="hm-btn hm-btn--ghost hm-btn--block"
+              >
+                {supportPhoneLabel} {supportPhone}
               </a>
               {onOpenHelp ? (
                 <button
