@@ -1922,7 +1922,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
   const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "210 928 7420");
   const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287420");
-  const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή" : "Helpline"));
+  const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή Εξυπηρέτησης" : "Support line"));
   const helpPhoneHours = String(tHome("footer.phoneHours", { lng: homeLng }) || (lang === "el" ? "Δευτέρα–Παρασκευή 09:00–17:00" : "Monday–Friday 09:00–17:00"));
   const helpAddress = String(tHome("footer.address", { lng: homeLng }) || "");
 
