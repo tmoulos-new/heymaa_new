@@ -6,12 +6,14 @@ import {
   TREE_FOCUS_NODE_W,
   TREE_NODE_H,
   TREE_NODE_W,
+  avatarInitial,
   buildHistoryEvents,
   buildTreePeople,
   isFocusKind,
   layoutFamilyTree,
   placeMemberInTree,
   relationshipForGenerationDrop,
+  relationshipLabel,
   type LaidOutNode,
   type TreeRowSlot,
 } from '../lib/familyTree'
@@ -42,16 +44,18 @@ function clientToSvg(svg: SVGSVGElement, clientX: number, clientY: number) {
 
 function TreeCard({
   node,
+  lang,
   dragging,
   highlight,
   onPointerDown,
 }: {
   node: LaidOutNode
+  lang: string
   dragging: boolean
   highlight: boolean
   onPointerDown?: (e: ReactPointerEvent, node: LaidOutNode) => void
 }) {
-  const initial = node.name[0]?.toUpperCase() || '?'
+  const initial = avatarInitial(node.name)
   const isYou = node.kind === 'self'
   const focus = isFocusKind(node.kind)
   const w = focus ? TREE_FOCUS_NODE_W : TREE_NODE_W
@@ -61,18 +65,7 @@ function TreeCard({
   const avatarR = focus ? 17 : 14
   const avatarY = focus ? -18 : -16
   const clipId = `hm-avatar-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`
-  const emoji =
-    node.kind === 'pregnancy'
-      ? '🤰'
-      : node.kind === 'pet'
-        ? '🐾'
-        : node.kind === 'grandparent'
-          ? '✦'
-          : !node.photo && node.kind === 'partner'
-            ? '♡'
-            : !node.photo && node.kind === 'parent_in_law'
-              ? '◈'
-              : null
+  const roleLabel = relationshipLabel(node.role, lang, true)
 
   return (
     <g
@@ -96,6 +89,7 @@ function TreeCard({
         height={h}
         rx={focus ? 18 : 14}
         fill="#fff"
+        fillOpacity={1}
         stroke={
           highlight
             ? ACCENT
@@ -126,12 +120,12 @@ function TreeCard({
           textAnchor="middle"
           dominantBaseline="central"
           y={avatarY}
-          fontSize={emoji ? 12 : focus ? 14 : 12}
+          fontSize={focus ? 14 : 12}
           fontWeight={700}
           fill="#fff"
           fontFamily="'DM Sans', sans-serif"
         >
-          {emoji || initial}
+          {initial}
         </text>
       )}
       {editable && (
@@ -165,7 +159,7 @@ function TreeCard({
         {node.name.length > (focus ? 10 : 9) ? `${node.name.slice(0, focus ? 9 : 8)}…` : node.name}
       </text>
       <text textAnchor="middle" y={focus ? 28 : 26} fontSize={8.5} fill={MUTED} fontFamily="'DM Sans', sans-serif">
-        {node.role.length > 12 ? `${node.role.slice(0, 11)}…` : node.role}
+        {roleLabel.length > 12 ? `${roleLabel.slice(0, 11)}…` : roleLabel}
       </text>
     </g>
   )
@@ -215,12 +209,12 @@ export function FamilyTreePanel({
       you: el ? 'Εσύ' : 'You',
       pregnancy: el ? 'Εγκυμοσύνη' : 'Pregnancy',
       child: el ? 'Παιδί' : 'Child',
-      history: el ? 'Ιστορία οικογένειας' : 'Family history',
+      history: el ? 'Χρονολόγιο' : 'Timeline',
       hideHistory: el ? 'Απόκρυψη' : 'Hide',
       showHistory: el ? 'Εμφάνιση' : 'Show',
       tapHint: el
-        ? 'Πάτα για επιλογή & επεξεργασία · σύρε για μετακίνηση · διέγραψε από το φύλλο'
-        : 'Tap to select & edit · drag to move · delete from the edit sheet',
+        ? 'Πάτα για επεξεργασία ή διαγραφή · σύρε για μετακίνηση'
+        : 'Tap to edit or delete · drag to move',
       empty: el
         ? 'Πρόσθεσε σύντροφο, παιδιά ή μέλη για να γεμίσει το δέντρο'
         : 'Add a partner, kids, or members to grow the tree',
@@ -392,35 +386,37 @@ export function FamilyTreePanel({
             </filter>
           </defs>
 
-          {layout.edges.map((e, i) => (
-            <line
-              key={`edge-${i}`}
-              x1={e.x1}
-              y1={e.y1}
-              x2={e.x2}
-              y2={e.y2}
-              stroke={e.kind === 'spouse' ? ACCENT : BLOOD_LINE}
-              strokeWidth={e.kind === 'spouse' ? 2 : 1.5}
-              strokeLinecap={e.kind === 'spouse' ? 'round' : 'butt'}
-              opacity={drag ? 0.35 : 1}
-            />
-          ))}
-
-          {layout.edges
-            .filter((e) => e.kind === 'spouse')
-            .map((e, i) => (
-              <text
-                key={`heart-${i}`}
-                x={(e.x1 + e.x2) / 2}
-                y={(e.y1 + e.y2) / 2 + 3}
-                textAnchor="middle"
-                fontSize={9}
-                fill={ACCENT}
-                opacity={drag ? 0.35 : 0.9}
-              >
-                ♡
-              </text>
+          <g className="hm-family-tree-edges" pointerEvents="none">
+            {layout.edges.map((e, i) => (
+              <line
+                key={`edge-${i}`}
+                x1={e.x1}
+                y1={e.y1}
+                x2={e.x2}
+                y2={e.y2}
+                stroke={e.kind === 'spouse' ? ACCENT : BLOOD_LINE}
+                strokeWidth={e.kind === 'spouse' ? 2 : 1.5}
+                strokeLinecap={e.kind === 'spouse' ? 'round' : 'butt'}
+                opacity={drag ? 0.35 : 1}
+              />
             ))}
+
+            {layout.edges
+              .filter((e) => e.kind === 'spouse')
+              .map((e, i) => (
+                <text
+                  key={`heart-${i}`}
+                  x={(e.x1 + e.x2) / 2}
+                  y={(e.y1 + e.y2) / 2 + 3}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill={ACCENT}
+                  opacity={drag ? 0.35 : 0.9}
+                >
+                  ♡
+                </text>
+              ))}
+          </g>
 
           {drag &&
             hoverSlot &&
@@ -453,15 +449,18 @@ export function FamilyTreePanel({
                 </g>
               ))}
 
-          {layout.nodes.map((n) => (
-            <TreeCard
-              key={n.id}
-              node={n}
-              dragging={drag?.memberIndex === n.memberIndex}
-              highlight={selectedNodeId === n.id}
-              onPointerDown={onPointerDown}
-            />
-          ))}
+          <g className="hm-family-tree-cards">
+            {layout.nodes.map((n) => (
+              <TreeCard
+                key={n.id}
+                node={n}
+                lang={lang}
+                dragging={drag?.memberIndex === n.memberIndex}
+                highlight={selectedNodeId === n.id}
+                onPointerDown={onPointerDown}
+              />
+            ))}
+          </g>
 
           {drag && ghost && (
             <g transform={`translate(${drag.x}, ${drag.y})`} style={{ pointerEvents: 'none' }}>
@@ -472,6 +471,7 @@ export function FamilyTreePanel({
                 height={isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_H : TREE_NODE_H}
                 rx={18}
                 fill="#fff"
+                fillOpacity={1}
                 stroke={ACCENT}
                 strokeWidth={2.5}
                 opacity={0.95}
@@ -479,7 +479,7 @@ export function FamilyTreePanel({
               />
               <circle cx={0} cy={-16} r={15} fill={ghost.color} />
               <text textAnchor="middle" dominantBaseline="central" y={-16} fontSize={13} fontWeight={700} fill="#fff">
-                {ghost.name[0]?.toUpperCase()}
+                {avatarInitial(ghost.name)}
               </text>
               <text textAnchor="middle" y={14} fontSize={11} fontWeight={700} fill={NAVY}>
                 {ghost.name.length > 9 ? `${ghost.name.slice(0, 8)}…` : ghost.name}

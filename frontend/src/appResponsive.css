@@ -2439,6 +2439,10 @@ body.hm-app-active .hm-sheet-overlay {
   touch-action: none;
 }
 
+.hm-family-tree-edges {
+  pointer-events: none;
+}
+
 .hm-family-tree-panel__history {
   padding: 0 14px 12px;
   background: #fff;

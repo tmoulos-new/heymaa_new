@@ -55,6 +55,22 @@ export const RELATIONSHIP_PRESETS: { value: string; kind: KinKind; el: string; e
   { value: 'Family', kind: 'other', el: 'Άλλο μέλος', en: 'Other family' },
 ]
 
+/** Localized label for a stored relationship key (Partner, Pet, …). Unknown values stay as-is. */
+export function relationshipLabel(relationship: string, lang = 'el', compact = false): string {
+  const raw = (relationship || '').trim()
+  if (!raw) return ''
+  const lower = raw.toLowerCase()
+  const p = RELATIONSHIP_PRESETS.find(
+    (x) =>
+      x.value.toLowerCase() === lower ||
+      x.el.toLowerCase() === lower ||
+      x.en.toLowerCase() === lower,
+  )
+  if (!p) return raw
+  const text = lang === 'el' ? p.el : p.en
+  return compact ? text.split(' / ')[0] : text
+}
+
 export function classifyKinship(relationship: string): KinKind {
   const r = (relationship || '').toLowerCase().trim()
   if (!r) return 'other'
@@ -302,11 +318,11 @@ const NODE_W = TREE_NODE_W
 const NODE_H = TREE_NODE_H
 const FOCUS_W = TREE_FOCUS_NODE_W
 const FOCUS_H = TREE_FOCUS_NODE_H
-const H_GAP = 16
-const COUPLE_GAP = 28
-const ROW_GAP = 52
-const PAD_X = 28
-const PAD_Y = 36
+const H_GAP = 28
+const COUPLE_GAP = 36
+const ROW_GAP = 96
+const PAD_X = 32
+const PAD_Y = 44
 
 
 function distribute(count: number, center: number, slot: number): number[] {
@@ -376,6 +392,14 @@ const RELATIONSHIP_AVATAR_COLOR: Record<string, string> = {
   Grandchild: AVATAR_COLOR.grandchild,
   Family: AVATAR_COLOR.other,
   Pet: AVATAR_COLOR.pet,
+}
+
+export function avatarInitial(name?: string | null): string {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return '?'
+  const letter = trimmed.match(/\p{L}/u)
+  if (letter) return letter[0].toLocaleUpperCase()
+  return trimmed[0].toUpperCase()
 }
 
 export function avatarColorForKind(kind: KinKind): string {
@@ -526,7 +550,7 @@ export function buildHistoryEvents(
           id: `birth-${p.id}`,
           year: d.getFullYear(),
           label: el ? 'Γέννηση' : 'Born',
-          detail: `${p.name}${p.role ? ` · ${p.role}` : ''}`,
+          detail: `${p.name}${p.role ? ` · ${relationshipLabel(p.role, lang, true)}` : ''}`,
           kind: p.kind,
         })
       }
@@ -561,14 +585,50 @@ function nodeSize(kind: KinKind) {
   return isFocusKind(kind) ? { w: FOCUS_W, h: FOCUS_H } : { w: NODE_W, h: NODE_H }
 }
 
-const EDGE_CARD_GAP = 1
+const CONNECTOR_CLEARANCE = 20
+const SIDE_RAIL_GAP = 22
 
-function cardBottomY(node: LaidOutNode) {
-  return node.y + nodeSize(node.kind).h / 2 + EDGE_CARD_GAP
+function cardLeft(node: LaidOutNode) {
+  return node.x - nodeSize(node.kind).w / 2
+}
+function cardRight(node: LaidOutNode) {
+  return node.x + nodeSize(node.kind).w / 2
+}
+function cardTop(node: LaidOutNode) {
+  return node.y - nodeSize(node.kind).h / 2
+}
+function cardBottom(node: LaidOutNode) {
+  return node.y + nodeSize(node.kind).h / 2
 }
 
-function cardTopY(node: LaidOutNode) {
-  return node.y - nodeSize(node.kind).h / 2 - EDGE_CARD_GAP
+function segmentHitsCard(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  node: LaidOutNode,
+  pad = 3,
+): boolean {
+  const left = cardLeft(node) - pad
+  const right = cardRight(node) + pad
+  const top = cardTop(node) - pad
+  const bottom = cardBottom(node) + pad
+  return (
+    Math.max(x1, x2) >= left &&
+    Math.min(x1, x2) <= right &&
+    Math.max(y1, y2) >= top &&
+    Math.min(y1, y2) <= bottom
+  )
+}
+
+function verticalHitsAny(
+  x: number,
+  y1: number,
+  y2: number,
+  nodes: LaidOutNode[],
+  ignoreIds: Set<string>,
+): boolean {
+  return nodes.some((n) => !ignoreIds.has(n.id) && segmentHitsCard(x, y1, x, y2, n))
 }
 
 type LayoutRow = {
@@ -688,9 +748,15 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
 
   const nodes: LaidOutNode[] = []
   const edges: LaidOutEdge[] = []
+  const edgeKeys = new Set<string>()
+  const addEdge = (e: LaidOutEdge) => {
+    const key = `${e.kind}:${Math.round(e.x1)},${Math.round(e.y1)}>${Math.round(e.x2)},${Math.round(e.y2)}`
+    if (edgeKeys.has(key)) return
+    edgeKeys.add(key)
+    edges.push(e)
+  }
   const generationLabels: TreeLayout['generationLabels'] = []
   const genBands: TreeLayout['genBands'] = []
-  const rowY = new Map<TreeRowSlot, number>()
 
   const placeSplitSides = (
     leftPeople: TreePerson[],
@@ -719,9 +785,8 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     const maxH = Math.max(...row.people.map((p) => nodeSize(p.kind).h), NODE_H)
     if (idx > 0) y += ROW_GAP
     y += maxH / 2
-    rowY.set(row.slot, y)
 
-    const bandPad = ROW_GAP / 2
+    const bandPad = 8
     genBands.push({
       generation: row.generation,
       yTop: y - maxH / 2 - bandPad,
@@ -823,128 +888,92 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
   const grandchildNs = nodes.filter((n) => n.kind === 'grandchild')
   const petNs = nodes.filter((n) => n.kind === 'pet')
 
-  const coupleY = rowY.get('couple') ?? selfN?.y ?? 0
-
-  /** Horizontal connector Y in the gap between two row bands (avoids crossing generation titles). */
-  const gapMidY = (fromY: number, toY: number) => {
-    const pickBand = (nodeY: number) =>
-      genBands.reduce((best, b) =>
-        Math.abs(b.yCenter - nodeY) < Math.abs(best.yCenter - nodeY) ? b : best,
-      )
-    const fromBand = pickBand(fromY)
-    const toBand = pickBand(toY)
-    return (fromBand.yBottom + toBand.yTop) / 2
-  }
-
-  const gapBetweenSlots = (fromSlot: TreeRowSlot, toSlot: TreeRowSlot) => {
-    const fromBand = genBands.find((b) => b.slot === fromSlot)
-    const toBand = genBands.find((b) => b.slot === toSlot)
-    if (!fromBand || !toBand) return undefined
-    return (fromBand.yBottom + toBand.yTop) / 2
+  const spouseEdge = (a: LaidOutNode, b: LaidOutNode) => {
+    const left = a.x <= b.x ? a : b
+    const right = a.x <= b.x ? b : a
+    addEdge({
+      x1: cardRight(left),
+      y1: left.y,
+      x2: cardLeft(right),
+      y2: right.y,
+      kind: 'spouse',
+    })
   }
 
   partnerNs.forEach((p) => {
-    if (!selfN) return
-    edges.push({
-      x1: Math.min(selfN.x, p.x) + FOCUS_W / 2 - 8,
-      y1: selfN.y,
-      x2: Math.max(selfN.x, p.x) - FOCUS_W / 2 + 8,
-      y2: p.y,
-      kind: 'spouse',
-    })
+    if (selfN) spouseEdge(selfN, p)
   })
 
   const coupleBar = (group: LaidOutNode[]) => {
     if (group.length < 2) return
-    const xs = group.map((g) => g.x)
-    const yy = group[0].y
-    edges.push({
-      x1: Math.min(...xs) + NODE_W / 2 - 6,
-      y1: yy,
-      x2: Math.max(...xs) - NODE_W / 2 + 6,
-      y2: yy,
-      kind: 'spouse',
-    })
+    const sorted = [...group].sort((a, b) => a.x - b.x)
+    for (let i = 0; i < sorted.length - 1; i++) spouseEdge(sorted[i], sorted[i + 1])
   }
   coupleBar(parentNs)
   coupleBar(inLawNs)
   coupleBar(grandparentNs.filter((g) => g.side !== 'partner'))
   coupleBar(grandparentNs.filter((g) => g.side === 'partner'))
 
-  // Sibling ↔ their spouse (brother/sister-in-law)
   siblingInLawNs.forEach((il) => {
     const sib = nodes.find((n) => n.kind === 'sibling' && relatedToMatchesNode(il.relatedTo, n))
-    if (!sib) return
-    edges.push({
-      x1: Math.min(sib.x, il.x) + NODE_W / 2 - 6,
-      y1: sib.y,
-      x2: Math.max(sib.x, il.x) - NODE_W / 2 + 6,
-      y2: il.y,
-      kind: 'spouse',
-    })
+    if (sib) spouseEdge(sib, il)
   })
 
-  const dropTo = (from: LaidOutNode[], toY: number, targets: LaidOutNode[], preferMidX?: number) => {
+  const dropTo = (from: LaidOutNode[], targets: LaidOutNode[], preferMidX?: number) => {
     if (!from.length || !targets.length) return
-    const midY = gapMidY(from[0].y, toY)
-    const fromXs = from.map((f) => f.x)
-    const tgtXs = targets.map((t) => t.x)
-    const hubX = preferMidX ?? fromXs.reduce((a, b) => a + b, 0) / fromXs.length
+    const ignore = new Set([...from, ...targets].map((n) => n.id))
+    const srcBottom = Math.max(...from.map(cardBottom))
+    const tgtTop = Math.min(...targets.map(cardTop))
+    const gap = tgtTop - srcBottom
+    const clearance = Math.min(CONNECTOR_CLEARANCE, Math.max(12, gap / 3))
+    const busY = tgtTop - clearance
+    const joinY = Math.min(srcBottom + clearance, busY)
+
+    const srcHubX = from.reduce((s, n) => s + n.x, 0) / from.length
+    let hubX = preferMidX ?? srcHubX
+    if (verticalHitsAny(hubX, joinY, busY, nodes, ignore)) {
+      hubX = Math.min(...nodes.map(cardLeft)) - SIDE_RAIL_GAP
+    }
 
     from.forEach((f) => {
-      edges.push({ x1: f.x, y1: cardBottomY(f), x2: f.x, y2: midY, kind: 'blood' })
+      addEdge({ x1: f.x, y1: cardBottom(f), x2: f.x, y2: joinY, kind: 'blood' })
     })
     if (from.length > 1) {
-      edges.push({
-        x1: Math.min(...fromXs),
-        y1: midY,
-        x2: Math.max(...fromXs),
-        y2: midY,
+      addEdge({
+        x1: Math.min(...from.map((f) => f.x)),
+        y1: joinY,
+        x2: Math.max(...from.map((f) => f.x)),
+        y2: joinY,
         kind: 'blood',
       })
     }
-    const barL = Math.min(hubX, ...tgtXs)
-    const barR = Math.max(hubX, ...tgtXs)
-    edges.push({ x1: barL, y1: midY, x2: barR, y2: midY, kind: 'blood' })
+    if (Math.abs(srcHubX - hubX) > 1) {
+      addEdge({ x1: srcHubX, y1: joinY, x2: hubX, y2: joinY, kind: 'blood' })
+    }
+    if (Math.abs(joinY - busY) > 1) {
+      addEdge({ x1: hubX, y1: joinY, x2: hubX, y2: busY, kind: 'blood' })
+    }
+
+    const busLeft = Math.min(hubX, ...targets.map((t) => t.x))
+    const busRight = Math.max(hubX, ...targets.map((t) => t.x))
+    addEdge({ x1: busLeft, y1: busY, x2: busRight, y2: busY, kind: 'blood' })
     targets.forEach((t) => {
-      edges.push({ x1: t.x, y1: midY, x2: t.x, y2: cardTopY(t), kind: 'blood' })
+      addEdge({ x1: t.x, y1: busY, x2: t.x, y2: cardTop(t), kind: 'blood' })
     })
   }
 
   const gpSelfN = grandparentNs.filter((g) => g.side !== 'partner')
   const gpPartnerN = grandparentNs.filter((g) => g.side === 'partner')
-  if (gpSelfN.length && parentNs.length) dropTo(gpSelfN, parentNs[0].y, parentNs)
-  if (gpPartnerN.length && inLawNs.length) dropTo(gpPartnerN, inLawNs[0].y, inLawNs)
-  else if (gpPartnerN.length && partnerNs.length) dropTo(gpPartnerN, partnerNs[0].y, partnerNs)
+  if (gpSelfN.length && parentNs.length) dropTo(gpSelfN, parentNs)
+  if (gpPartnerN.length && inLawNs.length) dropTo(gpPartnerN, inLawNs)
+  else if (gpPartnerN.length && partnerNs.length) dropTo(gpPartnerN, partnerNs)
 
-  if (parentNs.length && selfN) dropTo(parentNs, selfN.y, [selfN])
-  if (inLawNs.length && partnerNs.length) dropTo(inLawNs, partnerNs[0].y, partnerNs)
-  else if (inLawNs.length && selfN) dropTo(inLawNs, selfN.y, partnerNs.length ? partnerNs : [selfN])
+  if (parentNs.length && selfN) dropTo(parentNs, [selfN])
+  if (inLawNs.length && partnerNs.length) dropTo(inLawNs, partnerNs)
+  else if (inLawNs.length && selfN) dropTo(inLawNs, partnerNs.length ? partnerNs : [selfN])
 
-  // Siblings: branch beside you (left) or partner (right)
   const linkSiblings = (sibs: LaidOutNode[], anchor: LaidOutNode | undefined) => {
-    if (!sibs.length || !anchor) return
-    const sibY = sibs[0].y
-    const joinY = gapBetweenSlots('couple', 'siblings') ?? gapMidY(anchor.y, sibY)
-    const outward = Math.min(...sibs.map((s) => s.x), anchor.x)
-    const inward = Math.max(...sibs.map((s) => s.x), anchor.x)
-    edges.push({
-      x1: anchor.x,
-      y1: cardBottomY(anchor),
-      x2: anchor.x,
-      y2: joinY,
-      kind: 'blood',
-    })
-    edges.push({
-      x1: outward,
-      y1: joinY,
-      x2: inward,
-      y2: joinY,
-      kind: 'blood',
-    })
-    sibs.forEach((s) => {
-      edges.push({ x1: s.x, y1: joinY, x2: s.x, y2: cardTopY(s), kind: 'blood' })
-    })
+    if (sibs.length && anchor) dropTo([anchor], sibs)
   }
   linkSiblings(
     siblingNs.filter((s) => s.side !== 'partner' && (s.kind === 'sibling' || s.kind === 'cousin' || s.kind === 'other')),
@@ -954,7 +983,6 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
     siblingNs.filter((s) => s.side === 'partner' && s.kind === 'sibling'),
     partnerNs[0],
   )
-  // Partner-side sibling-in-laws without a sibling link still hang near partner
   linkSiblings(
     siblingInLawNs.filter((s) => s.side === 'partner' && !nodes.some((n) => n.kind === 'sibling' && relatedToMatchesNode(s.relatedTo, n))),
     partnerNs[0],
@@ -965,48 +993,9 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
   )
 
   if (childNs.length && (selfN || partnerNs.length)) {
-    const sources = [...(selfN ? [selfN] : []), ...partnerNs]
-    const midY = gapBetweenSlots('couple', 'children') ?? gapMidY(coupleY, childNs[0].y)
-    const coupleMid = sources.reduce((s, n) => s + n.x, 0) / sources.length
-
-    sources.forEach((s) => {
-      edges.push({
-        x1: s.x,
-        y1: cardBottomY(s),
-        x2: s.x,
-        y2: midY,
-        kind: 'blood',
-      })
-    })
-    if (sources.length > 1) {
-      edges.push({
-        x1: Math.min(...sources.map((s) => s.x)),
-        y1: midY,
-        x2: Math.max(...sources.map((s) => s.x)),
-        y2: midY,
-        kind: 'blood',
-      })
-    }
-    const tgtXs = childNs.map((c) => c.x)
-    edges.push({
-      x1: Math.min(coupleMid, ...tgtXs),
-      y1: midY,
-      x2: Math.max(coupleMid, ...tgtXs),
-      y2: midY,
-      kind: 'blood',
-    })
-    childNs.forEach((c) => {
-      edges.push({
-        x1: c.x,
-        y1: midY,
-        x2: c.x,
-        y2: cardTopY(c),
-        kind: 'blood',
-      })
-    })
+    dropTo([...(selfN ? [selfN] : []), ...partnerNs], childNs)
   }
 
-  // Niece/nephew under their appointed sibling
   const nieceByParent = new Map<string, LaidOutNode[]>()
   const freeNieces: LaidOutNode[] = []
   nieceNs.forEach((nn) => {
@@ -1021,23 +1010,22 @@ export function layoutFamilyTree(people: TreePerson[], lang: string, _opts?: { s
   })
   nieceByParent.forEach((kids, parentId) => {
     const parent = byId.get(parentId)
-    if (!parent || !kids.length) return
-    dropTo([parent], kids[0].y, kids)
+    if (parent && kids.length) dropTo([parent], kids)
   })
   if (freeNieces.length) {
     const left = freeNieces.filter((n) => n.side !== 'partner')
     const right = freeNieces.filter((n) => n.side === 'partner')
-    if (left.length && selfN) dropTo([selfN], left[0].y, left)
-    if (right.length && partnerNs[0]) dropTo([partnerNs[0]], right[0].y, right)
+    if (left.length && selfN) dropTo([selfN], left)
+    if (right.length && partnerNs[0]) dropTo([partnerNs[0]], right)
   }
 
   if (grandchildNs.length && childNs.length) {
-    dropTo(childNs, grandchildNs[0].y, grandchildNs, cx)
+    dropTo(childNs, grandchildNs)
   }
 
   if (petNs.length) {
     const sources = [...(selfN ? [selfN] : []), ...partnerNs]
-    if (sources.length) dropTo(sources, petNs[0].y, petNs, cx)
+    if (sources.length) dropTo(sources, petNs)
   }
 
   return {

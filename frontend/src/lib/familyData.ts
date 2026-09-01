@@ -101,9 +101,13 @@ export function isDuplicateMemberName(member: FamilyMemberRecord, members: Famil
 }
 
 /** Show "Name · Relationship" when two people share a name. */
-export function memberDisplayLabel(member: FamilyMemberRecord, members: FamilyMemberRecord[]): string {
+export function memberDisplayLabel(
+  member: FamilyMemberRecord,
+  members: FamilyMemberRecord[],
+  relationshipDisplay?: string,
+): string {
   if (!isDuplicateMemberName(member, members)) return member.name
-  return `${member.name} · ${member.relationship}`
+  return `${member.name} · ${relationshipDisplay || member.relationship}`
 }
 
 export function memoryBelongsToMember(
@@ -380,7 +384,12 @@ export function getFamilyChildren(
 export function relatedToLabel(
   relatedTo: string | undefined,
   lang: string,
-  opts?: { youName?: string; partnerName?: string; members?: FamilyMemberRecord[] },
+  opts?: {
+    youName?: string
+    partnerName?: string
+    members?: FamilyMemberRecord[]
+    relationshipDisplay?: (relationship: string) => string
+  },
 ): string {
   const el = lang === 'el'
   const rt = relatedTo || RELATED_TO_SELF
@@ -388,6 +397,6 @@ export function relatedToLabel(
   if (rt === RELATED_TO_PARTNER) return opts?.partnerName?.trim() || (el ? 'Σύντροφος' : 'Partner')
   const members = opts?.members || []
   const member = findMemberByRelatedTo(rt, members)
-  if (member) return memberDisplayLabel(member, members)
+  if (member) return memberDisplayLabel(member, members, opts?.relationshipDisplay?.(member.relationship))
   return rt
 }

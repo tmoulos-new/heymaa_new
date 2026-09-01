@@ -1,6 +1,7 @@
 /** Memories Booklet — personalized, downloadable HTML/PDF export. */
 
 import type { FamilyChild, FamilyMemberRecord } from './familyData'
+import { relationshipLabel } from './familyTree'
 import { displayUppercase } from './greekText'
 
 export const MIN_MEMORIES_FOR_BOOKLET = 0
@@ -322,7 +323,7 @@ export function groupMemoriesForBooklet(
   children.forEach((c) => addGroup(`child:${c.name}`, c.name, '👶', (ref) => ref === c.name))
   members.forEach((m) => {
     const label = members.filter((x) => x.name.toLowerCase() === m.name.toLowerCase()).length > 1
-      ? `${m.name} · ${m.relationship}`
+      ? `${m.name} · ${relationshipLabel(m.relationship, lang)}`
       : m.name
     const memRef = `m:${m.id}`
     addGroup(

@@ -17,7 +17,7 @@ import {
   type FamilyData,
   type FamilyMemberRecord,
 } from "./lib/familyData";
-import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, AVATAR_COLOR, type LaidOutNode } from "./lib/familyTree";
+import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, avatarInitial, AVATAR_COLOR, relationshipLabel, type LaidOutNode } from "./lib/familyTree";
 import { GAMIFICATION_CHAT_VIDEO_PATH, gamificationPointsForPath, mergeGamificationFaqItems } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
@@ -1539,7 +1539,7 @@ const TR: Record<string,Record<string,string>> = {
   addmemory:{el:"Γράψε μια ανάμνηση...",en:"Write a memory...",ar:"أضيفي ذكرى...",es:"Escribe un recuerdo...",fr:"Ajouter un souvenir...",de:"Erinnerung hinzufügen...",pt:"Adicionar memória...",it:"Aggiungi ricordo...",ru:"Добавить воспоминание...",tr:"Anı ekle...",hi:"याद लिखें...",ur:"یاد لکھیں...",zh:"写下回忆...",ja:"思い出を書く...",nl:"Herinnering schrijven...",pl:"Napisz wspomnienie...",ro:"Scrie amintire...",bn:"স্মৃতি লিখুন...",id:"Tulis kenangan...",sw:"Andika kumbukumbu...",fil:"Write a memory...",mr:"आठवण लिहा...",te:"జ్ఞాపకం రాయండి..."},
   nomemories:{el:"Δεν υπάρχουν αναμνήσεις ακόμα.",en:"No memories yet. Add your first!",ar:"لا توجد ذكريات بعد.",es:"Aún no hay recuerdos.",fr:"Pas encore de souvenirs.",de:"Noch keine Erinnerungen.",pt:"Ainda sem memórias.",it:"Ancora nessun ricordo.",ru:"Пока нет воспоминаний.",tr:"Henüz anı yok.",hi:"अभी यादें नहीं।",ur:"ابھی یادیں نہیں۔",zh:"还没有回忆。",ja:"まだ思い出がありません。",nl:"Nog geen herinneringen.",pl:"Brak wspomnień.",ro:"Nu există amintiri.",bn:"এখনও স্মৃতি নেই।",id:"Belum ada kenangan.",sw:"Bado hakuna kumbukumbu.",fil:"No memories yet. Add your first!",mr:"अजून आठवणी नाहीत.",te:"ఇంకా జ్ఞాపకాలు లేవు."},
   selectmem:{el:"Διάλεξε μέλος για να δεις τις αναμνήσεις του.",en:"Select a member to see their memories.",ar:"اختر فرداً لعرض ذكرياته.",es:"Elige un miembro para ver sus recuerdos.",fr:"Choisis un membre pour voir ses souvenirs.",de:"Wähle ein Mitglied, um Erinnerungen zu sehen.",pt:"Escolhe um membro para ver as memórias.",it:"Scegli un membro per vedere i ricordi.",ru:"Выберите члена семьи, чтобы увидеть воспоминания.",tr:"Anılarını görmek için bir üye seç.",hi:"यादें देखने के लिए सदस्य चुनें।",ur:"یادیں دیکھنے کے لیے رکن منتخب کریں۔",zh:"选择成员查看回忆。",ja:"思い出を見るメンバーを選んでください。",nl:"Kies een lid om herinneringen te zien.",pl:"Wybierz członka, aby zobaczyć wspomnienia.",ro:"Alege un membru pentru a vedea amintirile.",bn:"স্মৃতি দেখতে সদস্য বেছে নিন।",id:"Pilih anggota untuk melihat kenangan.",sw:"Chagua mwanachama kuona kumbukumbu.",fil:"Select a member to see their memories.",mr:"आठवणी पाहण्यासाठी सदस्य निवडा.",te:"జ్ఞాపకాలు చూడటానికి సభ్యుని ఎంచుకోండి."},
-  myfamily:{el:"Η Οικογένειά μου",en:"My Family",ar:"عائلتي",es:"Mi Familia",fr:"Ma Famille",de:"Meine Familie",pt:"Minha Família",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",hi:"मेरा परिवार",ur:"میرا خاندان",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",bn:"আমার পরিবার",id:"Keluargaku",sw:"Familia Yangu",fil:"My Family",mr:"माझे कुटुंब",te:"నా కుటుంబం"},
+  myfamily:{el:"Η οικογένειά μου",en:"My Family",ar:"عائلتي",es:"Mi Familia",fr:"Ma Famille",de:"Meine Familie",pt:"Minha Família",it:"La Mia Famiglia",ru:"Моя Семья",tr:"Ailem",hi:"मेरा परिवार",ur:"میرا خاندان",zh:"我的家庭",ja:"私の家族",nl:"Mijn Familie",pl:"Moja Rodzina",ro:"Familia Mea",bn:"আমার পরিবার",id:"Keluargaku",sw:"Familia Yangu",fil:"My Family",mr:"माझे कुटुंब",te:"నా కుటుంబం"},
   addmember:{el:"＋ Πρόσθεσε μέλος",en:"＋ Add family member",ar:"＋ إضافة فرد",es:"＋ Agregar miembro",fr:"＋ Ajouter un membre",de:"＋ Mitglied hinzufügen",pt:"＋ Adicionar membro",it:"＋ Aggiungi membro",ru:"＋ Добавить члена",tr:"＋ Üye ekle",hi:"＋ सदस्य जोड़ें",ur:"＋ رکن شامل کریں",zh:"＋ 添加成员",ja:"＋ 家族を追加",nl:"＋ Lid toevoegen",pl:"＋ Dodaj członka",ro:"＋ Adaugă un membru",bn:"＋ সদস্য যোগ করুন",id:"＋ Tambah anggota",sw:"＋ Ongeza mwanafamilia",fil:"＋ Add family member",mr:"＋ सदस्य जोडा",te:"＋ సభ్యుని జోడించు"},
   show:{el:"Εμφάνιση",en:"Show",ar:"إظهار",es:"Mostrar",fr:"Afficher",de:"Anzeigen",pt:"Mostrar",it:"Mostra",ru:"Показать",tr:"Göster",hi:"दिखाएं",ur:"دکھائیں",zh:"显示",ja:"表示",nl:"Tonen",pl:"Pokaż",ro:"Arată",bn:"দেখান",id:"Tampilkan",sw:"Onyesha",fil:"Show",mr:"दाखवा",te:"చూపించు"},
   hide:{el:"Απόκρυψη",en:"Hide",ar:"إخفاء",es:"Ocultar",fr:"Masquer",de:"Ausblenden",pt:"Ocultar",it:"Nascondi",ru:"Скрыть",tr:"Gizle",hi:"छिपाएं",ur:"چھپائیں",zh:"隐藏",ja:"非表示",nl:"Verbergen",pl:"Ukryj",ro:"Ascunde",bn:"লুকান",id:"Sembunyikan",sw:"Ficha",fil:"Hide",mr:"लपवा",te:"దాచు"},
@@ -2305,7 +2305,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       if (/partner|spouse|husband|wife/i.test(m.relationship)) return;
       opts.push({
         value: memberMemoryRef(m.id),
-        label: memberDisplayLabel(m, familyData.members),
+        label: memberDisplayLabel(m, familyData.members, relationshipLabel(m.relationship, lang)),
       });
     });
     return opts;
@@ -3380,8 +3380,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const partnerName = familyData.members.find((m) => m.relationship === "Partner" || /partner|spouse|husband|wife/i.test(m.relationship))?.name;
     showUndoToast(
       lang === "el"
-        ? `Συγγενής του/της: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members })}`
-        : `Relative of: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members })}`,
+        ? `Συγγενής του/της: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members, relationshipDisplay: (r) => relationshipLabel(r, lang) })}`
+        : `Relative of: ${relatedToLabel(relatedTo, lang, { youName: profile.name, partnerName, members: familyData.members, relationshipDisplay: (r) => relationshipLabel(r, lang) })}`,
       () => setFamilyData((cur) => ({
         ...cur,
         members: cur.members.map((m, j) => (j === index ? { ...m, relatedTo: prev } : m)),
@@ -4393,13 +4393,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button
                 type="button"
                 onClick={()=>treePhotoRef.current?.click()}
-                style={{width:72,height:72,borderRadius:"50%",border:`2px dashed ${logoPurple}`,background:gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
+                style={{width:72,height:72,borderRadius:"50%",border:`2px solid ${logoPurple}`,background:treeEdit?.color || gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
                 title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
               >
                 {currentTreeEditPhoto() ? (
                   <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
                 ) : (
-                  <span style={{fontSize:11,color:navy,fontWeight:700}}>{lang==="el"?"Φωτο":"Photo"}</span>
+                  <span style={{fontSize:24,color:"#fff",fontWeight:700,background:treeEdit?.color || navy,width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {avatarInitial(treeEditName || treeEdit?.name)}
+                  </span>
                 )}
               </button>
               <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
@@ -5284,7 +5286,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
         {/* ── FAMILY ── */}
         {tab==="family"&&(
-          <AppTabPageShell title={t("family", lang)}>
+          <AppTabPageShell title={t("myfamily", lang)}>
           <FamilyTreePanel
             userName={displayName || profile.name}
             lang={lang}
@@ -5335,7 +5337,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   onClick={() => openChildProfileEdit(i)}
                   style={{width:36,height:36,borderRadius:"50%",background:avatarColorForChild(child.gender),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                 >
-                  {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : child.name[0]?.toUpperCase()}
+                  {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(child.name)}
                 </div>
                 <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
                 <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
@@ -5363,11 +5365,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     onClick={() => openMemberProfileEdit(m, i)}
                     style={{width:36,height:36,borderRadius:"50%",background:avatarColorForKind("pet"),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
-                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : "🐾"}
+                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(m.name)}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
-                    <div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{lang==="el"?"Κατοικίδιο":"Family Pet"}</div>
+                    <div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{relationshipLabel(m.relationship, lang)}</div>
                     {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
@@ -5401,10 +5403,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     onClick={() => openMemberProfileEdit(m, i)}
                     style={{width:36,height:36,borderRadius:"50%",background:avatarColorForRelationship(m.relationship),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
                   >
-                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : m.name[0]?.toUpperCase()}
+                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(m.name)}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:13,color:navy}}>{memberDisplayLabel(m, familyData.members)}</div>
+                    <div style={{fontWeight:600,fontSize:13,color:navy}}>{memberDisplayLabel(m, familyData.members, relationshipLabel(m.relationship, lang))}</div>
                     {m.note && <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4,fontStyle:"italic"}}>{m.note}</div>}
                     {(m.email || m.phone) && (
                       <div style={{fontSize:10,color:"#A89F98",marginTop:2,lineHeight:1.4}}>
@@ -5429,7 +5431,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   style={{width:"100%",padding:"7px 10px",border:`1.5px solid #DDD7D0`,borderRadius:8,fontFamily:"'DM Sans',sans-serif",fontSize:12,outline:"none",background:"#fff",color:navy,boxSizing:"border-box" as any}}
                 >
                   {!RELATIONSHIP_PRESETS.some(p=>p.value===m.relationship) && (
-                    <option value={m.relationship}>{m.relationship}</option>
+                    <option value={m.relationship}>{relationshipLabel(m.relationship, lang)}</option>
                   )}
                   {RELATIONSHIP_PRESETS.map(p=>(
                     <option key={p.value} value={p.value}>{lang==="el"?p.el:p.en}</option>
@@ -5442,7 +5444,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 >
                   {!relatedToOptions.some(o=>o.value===(m.relatedTo||RELATED_TO_SELF)) && (
                     <option value={m.relatedTo || RELATED_TO_SELF}>
-                      {relatedToLabel(m.relatedTo, lang, { youName: profile.name, partnerName: partnerMember?.name, members: familyData.members })}
+                      {relatedToLabel(m.relatedTo, lang, { youName: profile.name, partnerName: partnerMember?.name, members: familyData.members, relationshipDisplay: (r) => relationshipLabel(r, lang) })}
                     </option>
                   )}
                   {relatedToOptions.filter(o=>o.value!==memberMemoryRef(m.id)).map(o=>(

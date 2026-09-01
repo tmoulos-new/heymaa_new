@@ -16,6 +16,7 @@ import {
 } from '../lib/familyDocuments'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import { memberDisplayLabel, memberMemoryRef } from '../lib/familyData'
+import { relationshipLabel } from '../lib/familyTree'
 import { HmDateField } from './HmDateField'
 
 type MemberRef = { label: string; value: string }
@@ -105,10 +106,10 @@ export function FamilyDocumentsPanel({
     refs.push({ label: copy.you, value: '__self__' })
     familyChildren.forEach((ch) => refs.push({ label: ch.name, value: ch.name }))
     members.forEach((m) =>
-      refs.push({ label: memberDisplayLabel(m, members), value: memberMemoryRef(m.id) }),
+      refs.push({ label: memberDisplayLabel(m, members, relationshipLabel(m.relationship, lang)), value: memberMemoryRef(m.id) }),
     )
     return refs
-  }, [copy, pregnancyActive, familyChildren, members])
+  }, [copy, pregnancyActive, familyChildren, members, lang])
 
   const refLabel = (ref: string) => {
     if (!ref) return copy.general
@@ -117,7 +118,7 @@ export function FamilyDocumentsPanel({
     const child = familyChildren.find((c) => c.name === ref)
     if (child) return child.name
     const member = members.find((m) => memberMemoryRef(m.id) === ref)
-    if (member) return memberDisplayLabel(member, members)
+    if (member) return memberDisplayLabel(member, members, relationshipLabel(member.relationship, lang))
     return ref
   }
 
