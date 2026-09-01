@@ -2383,7 +2383,13 @@ body.hm-app-active .hm-sheet-overlay {
   font-weight: 600;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.hm-ms-progress-strip {
+  margin-top: 2px;
+  margin-bottom: 12px;
 }
 
 .hm-add-dashed {
@@ -3096,17 +3102,22 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-track {
+  --ms-dot: 12px;
+  --ms-dot-current: 16px;
+  --ms-slot: 22px;
+  --ms-rail-h: 4px;
+  --ms-track-pad-y: 6px;
   position: relative;
   min-width: min(100%, 540px);
-  padding: 4px 6px 0;
+  padding: var(--ms-track-pad-y) 6px 0;
 }
 
 .hm-ms-track__rail {
   position: absolute;
   left: 28px;
   right: 28px;
-  top: 15px;
-  height: 4px;
+  top: calc(var(--ms-track-pad-y) + (var(--ms-slot) / 2) - (var(--ms-rail-h) / 2));
+  height: var(--ms-rail-h);
   background: rgba(43, 58, 103, 0.1);
   border-radius: 999px;
   overflow: hidden;
@@ -3144,13 +3155,15 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-track__dot {
-  width: 12px;
-  height: 12px;
+  width: var(--ms-dot);
+  height: var(--ms-dot);
+  margin-block: calc((var(--ms-slot) - var(--ms-dot)) / 2);
+  flex-shrink: 0;
   border-radius: 50%;
   background: #fbf9f7;
   border: 2px solid rgba(43, 58, 103, 0.22);
   box-sizing: border-box;
-  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s, width 0.15s, height 0.15s, margin 0.15s;
 }
 
 .hm-ms-track__node-label {
@@ -3173,8 +3186,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-track__node--current .hm-ms-track__dot {
-  width: 16px;
-  height: 16px;
+  width: var(--ms-dot-current);
+  height: var(--ms-dot-current);
+  margin-block: calc((var(--ms-slot) - var(--ms-dot-current)) / 2);
   background: #de5a9e;
   border-color: #de5a9e;
   box-shadow: 0 0 0 3px rgba(222, 90, 158, 0.28);
@@ -3238,6 +3252,9 @@ body.hm-app-active .hm-sheet-overlay {
 
 @media (max-width: 480px) {
   .hm-ms-track {
+    --ms-dot: 10px;
+    --ms-dot-current: 14px;
+    --ms-slot: 20px;
     min-width: min(100%, 480px);
   }
 
@@ -3248,16 +3265,6 @@ body.hm-app-active .hm-sheet-overlay {
 
   .hm-ms-track__node-label {
     font-size: 7px;
-  }
-
-  .hm-ms-track__dot {
-    width: 10px;
-    height: 10px;
-  }
-
-  .hm-ms-track__node--current .hm-ms-track__dot {
-    width: 14px;
-    height: 14px;
   }
 
   .hm-ms-track__current {
@@ -3565,8 +3572,8 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--hm-logo-purple);
-  color: var(--hm-navy);
+  background: #de5a9e;
+  color: #fff;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;

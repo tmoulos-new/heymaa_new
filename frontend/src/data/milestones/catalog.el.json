@@ -1107,6 +1107,8 @@
     {
       "id": "toddler_15_18",
       "kind": "toddler_range",
+      "age_months_min": 15,
+      "age_months_max": 18,
       "label_el": "15–18 μηνών",
       "source_url": "https://www.babyspace.gr/el/η-αναπτυξη-απο-15-18-μηνων",
       "source_title": "15–18 μηνών",
@@ -1130,6 +1132,8 @@
     {
       "id": "toddler_18_24",
       "kind": "toddler_range",
+      "age_months_min": 18,
+      "age_months_max": 24,
       "label_el": "18–24 μηνών",
       "source_url": "https://www.babyspace.gr/el/anaptixi-minon",
       "source_title": "18–24 μηνών",
@@ -1287,6 +1291,9 @@
     {
       "id": "child_y8",
       "kind": "child_year",
+      "year": 8,
+      "age_months_min": 96,
+      "age_months_max": 108,
       "label_el": "8ο έτος",
       "source_url": "https://www.babyspace.gr/el/anaptixi-pediou",
       "source_title": "8ο έτος",

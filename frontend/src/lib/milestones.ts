@@ -51,21 +51,30 @@ export function getStageById(id: string): MilestoneStage | undefined {
   return stagesById.get(id);
 }
 
-/** Map child age in months → babyspace stage id (skips year 3 → year 4). */
+/** Map child age in months → babyspace stage id from catalog ranges (birth date drives this). */
 export function stageIdForAgeMonths(ageMonths: number): string {
-  const m = Number.isFinite(ageMonths) ? ageMonths : 0;
-  if (m < 0) return "baby_m1";
+  const m = Number.isFinite(ageMonths) ? Math.max(0, ageMonths) : 0;
   if (m < 12) {
     const month = Math.max(1, Math.min(12, Math.floor(m) + 1));
     return `baby_m${month}`;
   }
-  if (m < 15) return "toddler_12_15";
-  if (m < 18) return "toddler_15_18";
-  if (m < 24) return "toddler_18_24";
-  if (m < 36) return "toddler_24_36";
-  // ≥36 months → year 4+ (no separate year-3 band)
+
+  const ranged = listMilestoneStages().filter(
+    (s) =>
+      s.kind !== "pregnancy_week" &&
+      typeof s.age_months_min === "number" &&
+      typeof s.age_months_max === "number",
+  );
+  const hit = ranged.find(
+    (s) => m >= (s.age_months_min as number) && m < (s.age_months_max as number),
+  );
+  if (hit) return hit.id;
+
+  // No separate year-3 band in the catalog (36–48 months) → start of 4–6.
+  if (m >= 36 && m < 48) return "child_y4";
+
   const years = Math.floor(m / 12);
-  const year = Math.max(4, Math.min(12, years === 3 ? 4 : years));
+  const year = Math.max(4, Math.min(12, years <= 3 ? 4 : years));
   return `child_y${year}`;
 }
 

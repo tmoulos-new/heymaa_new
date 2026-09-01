@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getMilestoneBullets } from '../lib/milestones'
 import {
   canTickStage,
-  countCheckedInGroup,
+  countCheckedInStages,
   currentStageIdForChild,
   currentStageIdForPregnancy,
   focusStageInGroup,
@@ -65,6 +65,7 @@ export function MilestonesPanel({
     weekLabel: string
     lockedHint: string
     progress: string
+    progressSteps: string
     currentPeriod: string
     nextPreview: string
     pastPeriod: string
@@ -99,9 +100,7 @@ export function MilestonesPanel({
     return selectedGroup.stageIds
   }, [selectedGroup, selectedStatus, activeStageId])
 
-  const groupProgress = selectedGroup
-    ? countCheckedInGroup(checksMap, activeRef, selectedGroup, lang)
-    : { checked: 0, total: 0 }
+  const groupProgress = countCheckedInStages(checksMap, activeRef, stagesToRender, lang)
 
   const nextGroupPreview = useMemo(() => {
     if (!selectedGroup || selectedStatus !== 'current') return null
@@ -217,8 +216,8 @@ export function MilestonesPanel({
               : copy.tickall}
         </div>
         {groupProgress.total > 0 && (
-          <div className="hm-ms-group-progress">
-            {copy.progress}: {groupProgress.checked}/{groupProgress.total}
+          <div className="hm-success-strip hm-ms-progress-strip">
+            🎉 {groupProgress.checked}/{groupProgress.total} {copy.progressSteps}
           </div>
         )}
         {stagesToRender.map((stageId) => renderStage(stageId))}
@@ -231,13 +230,6 @@ export function MilestonesPanel({
           </div>
           <div className="hm-ms-next-preview__sub">{copy.lockedHint}</div>
           {renderStage(nextGroupPreview.stageId, true)}
-        </div>
-      )}
-
-      {groupProgress.checked > 0 && selectedStatus !== 'future' && (
-        <div className="hm-success-strip">
-          🎉 {groupProgress.checked}/{groupProgress.total}{' '}
-          {isPregnancy ? copy.pregTitle : copy.milestones}
         </div>
       )}
     </>

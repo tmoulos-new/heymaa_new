@@ -23,6 +23,7 @@ import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
 import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
+import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
   getMilestonesForAgeMonths,
   getPregnancyMilestonesForWeek,
@@ -401,18 +402,8 @@ const COUNTRIES = [
   {code:"OTHER",name:"Other"},
 ];
 
-function ageMonthsFromBirthDate(birthDateStr?: string): number | null {
-  if (!birthDateStr) return null;
-  const birth = new Date(birthDateStr);
-  if (isNaN(birth.getTime())) return null;
-  const now = new Date();
-  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
-  if (now.getDate() < birth.getDate()) months -= 1;
-  return Math.max(0, months);
-}
-
-function formatChildAge(birthDateStr: string | undefined, lang: string): string {
-  const months = ageMonthsFromBirthDate(birthDateStr);
+function formatChildAge(birthDateStr: string | undefined, lang: string, now: Date = new Date()): string {
+  const months = ageMonthsFromBirthDate(birthDateStr, now);
   if (months === null) return "";
   const el = lang === "el";
   const en = lang === "en";
@@ -432,9 +423,9 @@ function formatChildAge(birthDateStr: string | undefined, lang: string): string 
     return t("unit_years", lang);
   };
   if (months < 1) {
-    const birth = new Date(birthDateStr!);
-    const days = Math.max(0, Math.floor((Date.now() - birth.getTime()) / 86400000));
-    return `${days} ${unit(days, "day")}`;
+    const birth = parseLocalIsoDate(birthDateStr);
+    const days = birth ? Math.max(0, Math.round((now.getTime() - birth.getTime()) / 86400000)) : 0;
+    return `${days} ${unit(days || 1, "day")}`;
   }
   if (months < 24) return `${months} ${unit(months, "month")}`;
   const years = Math.floor(months / 12);
@@ -444,11 +435,10 @@ function formatChildAge(birthDateStr: string | undefined, lang: string): string 
   return `${yPart} ${rem} ${unit(rem, "month")}`;
 }
 
-function pregnancyWeekFromDueDate(dueDateStr?: string): number | null {
-  if (!dueDateStr) return null;
-  const due = new Date(dueDateStr);
-  if (isNaN(due.getTime())) return null;
-  const daysLeft = Math.round((due.getTime() - Date.now()) / 86400000);
+function pregnancyWeekFromDueDate(dueDateStr?: string, now: Date = new Date()): number | null {
+  const due = parseLocalIsoDate(dueDateStr);
+  if (!due) return null;
+  const daysLeft = Math.round((due.getTime() - now.getTime()) / 86400000);
   const gestDays = 280 - daysLeft;
   return Math.max(1, Math.min(42, Math.floor(gestDays / 7)));
 }
@@ -459,22 +449,22 @@ function getAllChildren(profile: Profile): ChildEntity[] {
   return [];
 }
 
-function isDueDatePassed(dueDateStr?: string): boolean {
-  if (!dueDateStr) return false;
-  const due = new Date(dueDateStr);
-  if (isNaN(due.getTime())) return false;
-  return due.getTime() < Date.now();
+function isDueDatePassed(dueDateStr?: string, now: Date = new Date()): boolean {
+  const due = parseLocalIsoDate(dueDateStr);
+  if (!due) return false;
+  return due.getTime() < now.getTime();
 }
 
 function parseAgeMonths(ageStr: string): number {
   const s = ageStr.toLowerCase();
-  const m = s.match(/(\d+)\s*(μήν|month|mese|mois|monat|mes|mies|maand|miesi|lun|ay|bulan|mwez|buwan|महीन|ماه|月|ヶ月|мес|місяц|tháng)/);
-  if (m) return parseInt(m[1]);
-  const w = s.match(/(\d+)\s*(εβδ|week|settim|semain|woch|semana|tygod|hafta|minggu|wiki|linggo|सप्त|هفت|周|週|нед|тижн|tuần)/);
-  if (w) return Math.floor(parseInt(w[1]) / 4.3);
   const y = s.match(/(\d+)\s*(έτ|χρον|year|anno|an\b|jahr|año|rok|jaar|yıl|tahun|mwak|taon|साल|سال|岁|歳|год|рік|năm)/);
-  if (y) return parseInt(y[1]) * 12;
-  const n = parseInt(s); if (!isNaN(n)) return n;
+  const mo = s.match(/(\d+)\s*(μήν|month|mese|mois|monat|mes|mies|maand|miesi|lun|ay|bulan|mwez|buwan|महीन|ماه|月|ヶ月|мес|місяц|tháng)/);
+  if (y && mo) return parseInt(y[1], 10) * 12 + parseInt(mo[1], 10);
+  if (y) return parseInt(y[1], 10) * 12;
+  if (mo) return parseInt(mo[1], 10);
+  const w = s.match(/(\d+)\s*(εβδ|week|settim|semain|woch|semana|tygod|hafta|minggu|wiki|linggo|सप्त|هفت|周|週|нед|тижн|tuần)/);
+  if (w) return Math.floor(parseInt(w[1], 10) / 4.3);
+  const n = parseInt(s, 10); if (!isNaN(n)) return n;
   return 0;
 }
 
@@ -1534,6 +1524,7 @@ const TR: Record<string,Record<string,string>> = {
   family:{el:"Οικογένεια",en:"Family",ar:"العائلة",es:"Familia",fr:"Famille",de:"Familie",pt:"Família",it:"Famiglia",ru:"Семья",tr:"Aile",hi:"परिवार",ur:"خاندان",zh:"家庭",ja:"家族",nl:"Familie",pl:"Rodzina",ro:"Familie",bn:"পরিবার",id:"Keluarga",sw:"Familia",fil:"Family",mr:"कुटुंब",te:"కుటుంబం"},
   memories:{el:"Αναμνήσεις",en:"Memories",ar:"الذكريات",es:"Recuerdos",fr:"Souvenirs",de:"Erinnerungen",pt:"Memórias",it:"Ricordi",ru:"Воспоминания",tr:"Anılar",hi:"यादें",ur:"یادیں",zh:"回忆",ja:"思い出",nl:"Herinneringen",pl:"Wspomnienia",ro:"Amintiri",bn:"স্মৃতি",id:"Kenangan",sw:"Kumbukumbu",fil:"Memories",mr:"आठवणी",te:"జ్ఞాపకాలు"},
   milestones:{el:"Ορόσημα Ανάπτυξης",en:"Development Milestones",ar:"الإنجازات",es:"Hitos",fr:"Étapes",de:"Meilensteine",pt:"Marcos",it:"Tappe",ru:"Вехи",tr:"Aşamalar",hi:"माइलस्टोन",ur:"سنگ میل",zh:"里程碑",ja:"マイルストーン",nl:"Mijlpalen",pl:"Etapy",ro:"Etape",bn:"মাইলফলক",id:"Tonggak",sw:"Hatua",fil:"Development Milestones",mr:"टप्पे",te:"మైలురాళ్ళు"},
+  milestones_tab:{el:"Ορόσημα",en:"Milestones"},
   profile_tab:{el:"Προφίλ",en:"Profile",ar:"الملف",es:"Perfil",fr:"Profil",de:"Profil",pt:"Perfil",it:"Profilo",ru:"Профиль",tr:"Profil",hi:"प्रोफ़ाइल",ur:"پروفائل",zh:"资料",ja:"プロフィール",nl:"Profiel",pl:"Profil",ro:"Profil",bn:"প্রোফাইল",id:"Profil",sw:"Wasifu",fil:"Profile",mr:"प्रोफाइल",te:"ప్రొఫైల్"},
   heymaa_tab:{el:"HeyMaa",en:"HeyMaa",ar:"HeyMaa",es:"HeyMaa",fr:"HeyMaa",de:"HeyMaa",pt:"HeyMaa",it:"HeyMaa",ru:"HeyMaa",tr:"HeyMaa",hi:"HeyMaa",ur:"HeyMaa",zh:"HeyMaa",ja:"HeyMaa",nl:"HeyMaa",pl:"HeyMaa",ro:"HeyMaa",bn:"HeyMaa",id:"HeyMaa",sw:"HeyMaa",fil:"HeyMaa",mr:"HeyMaa",te:"HeyMaa"},
   shopping:{el:"Shopping",en:"Shopping",ar:"التسوق",es:"Compras",fr:"Achats",de:"Einkaufen",pt:"Compras",it:"Shopping",ru:"Покупки",tr:"Alışveriş",hi:"शॉपिंग",ur:"شاپنگ",zh:"购物",ja:"ショッピング",nl:"Winkelen",pl:"Zakupy",ro:"Cumpărături",bn:"কেনাকাটা",id:"Belanja",sw:"Ununuzi",fil:"Shopping",mr:"खरेदी",te:"షాపింగ్"},
@@ -1569,7 +1560,8 @@ const TR: Record<string,Record<string,string>> = {
   askmaa:{el:"Ρώτα τη Maa →",en:"Ask Maa →",ar:"اسأل Maa →",es:"Preguntar a Maa →",fr:"Demander à Maa →",de:"Maa fragen →",pt:"Perguntar à Maa →",it:"Chiedi a Maa →",ru:"Спросить Maa →",tr:"Maa'ya sor →",hi:"Maa से पूछें →",ur:"Maa سے پوچھیں →",zh:"问Maa →",ja:"Maaに聞く →",nl:"Vraag Maa →",pl:"Zapytaj Maa →",ro:"Întreabă Maa →",bn:"Maa-কে জিজ্ঞেস করুন →",id:"Tanya Maa →",sw:"Uliza Maa →",fil:"Ask Maa →",mr:"Maa ला विचारा →",te:"Maa ని అడగండి →"},
   tickall:{el:"Τίκαρε τα milestones που έχει πετύχει!",en:"Tick the milestones your baby has reached!",ar:"ضعي علامة على الإنجازات!",es:"¡Marca los hitos logrados!",fr:"Cochez les étapes atteintes!",de:"Meilensteine abhaken!",pt:"Assinala os marcos alcançados!",it:"Spunta i traguardi raggiunti!",ru:"Отметьте достигнутые вехи!",tr:"Ulaşılan aşamaları işaretle!",hi:"पूरे माइलस्टोन चुनें!",ur:"سنگ میل نشان لگائیں!",zh:"勾选宝宝达到的里程碑！",ja:"達成したマイルストーンをチェック！",nl:"Vink de behaalde mijlpalen aan!",pl:"Zaznacz osiągnięte etapy!",ro:"Bifează etapele atinse!",bn:"মাইলফলক টিক করুন!",id:"Centang tonggak yang dicapai!",sw:"Weka alama kwa hatua!",fil:"Tick the milestones your baby has reached!",mr:"पूर्ण झालेले टप्पे निवडा!",te:"మైలురాళ్ళను టిక్ చేయండి!"},
   ms_locked_hint:{el:"Προεπισκόπηση — τα μελλοντικά ορόσημα δεν μπορούν ακόμα να τικαριστούν.",en:"Preview — future milestones can't be ticked yet."},
-  ms_period_progress:{el:"Πρόοδος περιόδου",en:"Period progress"},
+  ms_period_progress:{el:"Πρόοδος",en:"Progress"},
+  ms_progress_steps:{el:"Βήματα προόδου",en:"Progress steps"},
   ms_current_period:{el:"Τρέχων",en:"Current"},
   ms_next_preview:{el:"Επόμενο",en:"Next"},
   ms_past_period:{el:"Ολοκληρωμένη περίοδος — μπορείς να τικάρεις ό,τι έχει γίνει.",en:"Past period — tick anything that happened."},
@@ -1872,6 +1864,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
   };
   const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
+  const calendarDay = useCalendarDay();
+  const nowForAge = useMemo(() => {
+    const [y, mo, d] = calendarDay.split("-").map(Number);
+    return new Date(y, (mo || 1) - 1, d || 1, 12, 0, 0);
+  }, [calendarDay]);
   const sessionExpiredMsg = lang === "el"
     ? "Η σύνδεσή σου έληξε ή δεν είναι έγκυρη. Συνδέσου ξανά."
     : "Your session has expired or is not valid. Please sign in again.";
@@ -2305,9 +2302,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [lang, profile.name, partnerMember, familyChildren, familyData.members]);
   const allChildren = familyChildren;
   const primaryChild = allChildren[0];
-  const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang) : profile.childAge;
+  const displayAge = primaryChild ? formatChildAge(primaryChild.birthDate, lang, nowForAge) : profile.childAge;
   const primaryChildName = primaryChild?.name || "Baby";
-  const pregnancyActive = !!profile.dueDate && !isDueDatePassed(profile.dueDate) && profile.pregnancyStatus !== "completed";
+  const pregnancyActive = !!profile.dueDate && !isDueDatePassed(profile.dueDate, nowForAge) && profile.pregnancyStatus !== "completed";
   const memoryCountsByRef = useMemo(() => {
     const counts: Record<string, number> = {};
     memories.forEach((m) => {
@@ -2316,18 +2313,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     });
     return counts;
   }, [memories]);
-  const pregWeek = pregnancyWeekFromDueDate(profile.dueDate) ?? 1;
+  const pregWeek = pregnancyWeekFromDueDate(profile.dueDate, nowForAge) ?? 1;
 
   const resolveStageIdForRef = useCallback(
     (ref: string): string => {
       if (ref === "pregnancy") return currentStageIdForPregnancy(pregWeek);
       const child = familyChildren.find((c) => c.name === ref);
       const months =
-        (child ? ageMonthsFromBirthDate(child.birthDate) : null) ??
+        (child ? ageMonthsFromBirthDate(child.birthDate, nowForAge) : null) ??
         parseAgeMonths(profile.childAge);
       return currentStageIdForChild(months ?? 0);
     },
-    [pregWeek, familyChildren, profile.childAge],
+    [pregWeek, familyChildren, profile.childAge, nowForAge],
   );
 
   const resolveMilestoneLabel = useCallback(
@@ -2717,14 +2714,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           profile: {
             name: displayName || profile.name || null,
             childName: profile.childName,
-            childAge: profile.childAge,
+            childAge: primaryChild
+              ? formatChildAge(primaryChild.birthDate, lang, nowForAge) || profile.childAge
+              : profile.childAge,
             childBirthDate: profile.childBirthDate || null,
             dueDate: profile.dueDate || null,
             lang: lang,
             children: familyChildren.map((c) => ({ name: c.name, birthDate: c.birthDate || null })),
             pregnancyStatus:
               profile.pregnancyStatus ||
-              (profile.dueDate ? (isDueDatePassed(profile.dueDate) ? "awaiting_update" : "active") : undefined),
+              (profile.dueDate ? (isDueDatePassed(profile.dueDate, nowForAge) ? "awaiting_update" : "active") : undefined),
           },
           recentMemories,
           recentDocs: recentDocs.slice(0, 10),
@@ -3311,7 +3310,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       children: updatedChildren.map(({name, birthDate}) => ({name, birthDate})),
       childName: updatedChildren[0]?.name || profile.childName,
       childBirthDate: updatedChildren[0]?.birthDate || profile.childBirthDate,
-      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : profile.childAge,
+      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang, nowForAge) : profile.childAge,
       pregnancyStatus: newChildDateMode === "birth" && profile.dueDate ? "completed" : profile.pregnancyStatus,
       ...(newChildDateMode === "due" ? { dueDate: newChildBirthDate, pregnancyStatus: "active" as const } : {}),
     };
@@ -3565,7 +3564,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       children: updatedChildren,
       childName: updatedChildren[0]?.name || "",
       childBirthDate: updatedChildren[0]?.birthDate || "",
-      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang) : "",
+      childAge: updatedChildren[0] ? formatChildAge(updatedChildren[0].birthDate, lang, nowForAge) : "",
     };
     onProfileUpdate(updatedProfile);
     void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
@@ -3580,7 +3579,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           children: restored,
           childName: restored[0]?.name || profile.childName,
           childBirthDate: restored[0]?.birthDate || profile.childBirthDate,
-          childAge: restored[0] ? formatChildAge(restored[0].birthDate, lang) : profile.childAge,
+          childAge: restored[0] ? formatChildAge(restored[0].birthDate, lang, nowForAge) : profile.childAge,
         };
         onProfileUpdate(restoredProfile);
         syncProfileInBackground({ ...restoredProfile, consentMarketing: profile.consentMarketing });
@@ -3649,7 +3648,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     { id: "family", label: t("family", lang) },
     { id: "chat", label: t("heymaa_tab", lang) },
     { id: "memories", label: t("memories", lang) },
-    { id: "milestones", label: t("milestones", lang) },
+    { id: "milestones", label: t("milestones_tab", lang) },
   ];
 
   const profilePlanLabel = useMemo(() => {
@@ -5072,7 +5071,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       <div style={{minWidth:0,flex:1}}>
                         <div style={{fontWeight:600,fontSize:14,color:navy}}>{child.name}</div>
                         <div style={{fontSize:12,color:"rgba(43,58,103,.5)",marginTop:2}}>
-                          {formatChildAge(child.birthDate, lang) || child.birthDate || "—"}
+                          {formatChildAge(child.birthDate, lang, nowForAge) || child.birthDate || "—"}
                         </div>
                       </div>
                     </div>
@@ -5369,7 +5368,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div style={{minWidth:0,flex:1}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{t("pregnancy_short",lang)}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{t("duelabel",lang)}{profile.dueDate}</div></div>
             </div>}
             {familyChildren.map((child,i)=>{
-              const age = formatChildAge(child.birthDate, lang);
+              const age = formatChildAge(child.birthDate, lang, nowForAge);
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div
                   onClick={() => openChildProfileEdit(i)}
@@ -5583,9 +5582,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           const isPreg = effectiveRef==="pregnancy";
           const currentChild = isPreg?null:familyChildren.find(ch=>ch.name===effectiveRef);
           const childAgeMonths = currentChild
-            ? (ageMonthsFromBirthDate(currentChild.birthDate) ?? parseAgeMonths(profile.childAge))
+            ? (ageMonthsFromBirthDate(currentChild.birthDate, nowForAge) ?? parseAgeMonths(profile.childAge))
             : parseAgeMonths(profile.childAge);
-          const currentDisplayAge = currentChild?formatChildAge(currentChild.birthDate,lang):displayAge;
+          const currentDisplayAge = currentChild?formatChildAge(currentChild.birthDate,lang,nowForAge):displayAge;
           const currentChildName = currentChild?.name||primaryChildName;
           const msCopy = {
             milestones: t("milestones", lang),
@@ -5597,6 +5596,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             weekLabel: t("week_label", lang),
             lockedHint: t("ms_locked_hint", lang),
             progress: t("ms_period_progress", lang),
+            progressSteps: t("ms_progress_steps", lang),
             currentPeriod: t("ms_current_period", lang),
             nextPreview: t("ms_next_preview", lang),
             pastPeriod: t("ms_past_period", lang),

@@ -367,8 +367,14 @@ export function getFamilyChildren(
   family: FamilyData,
   profileChildren: FamilyChild[],
 ): FamilyChild[] {
-  if (family.children.length > 0) return family.children
-  return profileChildren
+  if (family.children.length === 0) return profileChildren
+  return family.children.map((child, i) => {
+    if (child.birthDate?.trim()) return child
+    const fromProfile =
+      profileChildren.find((p) => p.name === child.name) || profileChildren[i]
+    const birthDate = fromProfile?.birthDate?.trim()
+    return birthDate ? { ...child, birthDate } : child
+  })
 }
 
 export function relatedToLabel(

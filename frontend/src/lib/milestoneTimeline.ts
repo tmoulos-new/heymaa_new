@@ -152,21 +152,30 @@ export function setCheckForStage(
   }
 }
 
-export function countCheckedInGroup(
+export function countCheckedInStages(
   map: import('./milestoneTimelineTypes').MilestoneChecksMap,
   ref: string,
-  group: import('./milestoneTimelineTypes').MilestoneTimelineGroup,
+  stageIds: string[],
   lang: string,
 ): { checked: number; total: number } {
   let checked = 0
   let total = 0
-  group.stageIds.forEach((stageId) => {
+  stageIds.forEach((stageId) => {
     const bullets = getMilestoneBullets(stageId, lang)
     total += bullets.length
     const checks = map[ref]?.[stageId] || []
     checked += checks.filter(Boolean).length
   })
   return { checked, total }
+}
+
+export function countCheckedInGroup(
+  map: import('./milestoneTimelineTypes').MilestoneChecksMap,
+  ref: string,
+  group: import('./milestoneTimelineTypes').MilestoneTimelineGroup,
+  lang: string,
+): { checked: number; total: number } {
+  return countCheckedInStages(map, ref, group.stageIds, lang)
 }
 
 function isLegacyChecksEntry(val: unknown): val is boolean[] {
