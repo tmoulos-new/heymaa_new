@@ -22,3 +22,7 @@ class TtsVoiceTests(unittest.TestCase):
 
     def test_ampersand_spoken_in_greek(self):
         self.assertIn("και", prepare_tts_text("Αγωγές & Φάρμακα", "el"))
+
+    def test_heymaa_spoken_as_cheima(self):
+        self.assertEqual(prepare_tts_text("Καλώς ήρθες στη HeyMaa!", "el"), "Καλώς ήρθες στη χέιμα!")
+        self.assertIn("HeyMaa", prepare_tts_text("Welcome to HeyMaa!", "en"))

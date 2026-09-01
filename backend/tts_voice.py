@@ -69,6 +69,8 @@ def prepare_tts_text(text: str, lang: str = "el") -> str:
     t = _EMOJI_RE.sub(" ", t)
     if (lang or "").startswith("el"):
         t = t.replace("&", " και ")
+        # Brand is spelled HeyMaa; Athina should say χέιμα (Hey-ma).
+        t = re.sub(r"(?i)\bheymaa\b", "χέιμα", t)
     t = re.sub(r"!{2,}", ".", t)
     t = re.sub(r"\s+", " ", t).strip()
     return t
