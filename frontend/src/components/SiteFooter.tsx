@@ -3,9 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { PRIVACY_URL, TERMS_URL } from '../auth/authStrings'
 import { displayUppercase } from '../lib/greekText'
+import { homeDisplayLocale } from '../i18n'
 
-export function SiteFooter({ contentLang }: { contentLang: string }) {
-  const { t } = useTranslation()
+export function SiteFooter({
+  contentLang,
+  landingLng,
+}: {
+  contentLang: string;
+  landingLng?: string;
+}) {
+  const lng = landingLng ?? homeDisplayLocale(contentLang)
+  const { t: tBase } = useTranslation()
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    tBase(key, { ns: 'home', lng, ...opts })
   const email = t('footer.email')
 
   const infoLinks = [

@@ -29,10 +29,13 @@ export interface SafetyItem {
 
 export interface TranslationBundle {
   lp: string;
+  nb_cta?: string;
   hb: string;
   h1: string;
   hsub: string;
+  cta1?: string;
   cta2: string;
+  cta_main?: string;
   hp: string[];
   how_lbl: string;
   how_ttl: string;

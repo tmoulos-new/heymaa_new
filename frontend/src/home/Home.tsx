@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
 import {
@@ -10,7 +9,6 @@ import {
 } from "../lib/authApi";
 import {
   HOME_I18N_STORAGE_KEY,
-  homeDisplayLocale,
 } from "../i18n";
 import { normalizeAppLang, writeStoredAppLang } from "../lib/appLang";
 import type {
@@ -38,6 +36,7 @@ import {
 } from "../lib/subscriptionPlans";
 import { LANGS } from "./homeContent";
 import { LanguageFlagOverlay, LanguageTriggerCode } from "../components/LanguageFlagPicker";
+import { useLandingI18n } from "../lib/useLandingI18n";
 import "../auth/appAuth.css";
 import "./home.css";
 
@@ -53,10 +52,10 @@ function asObjectArray<T>(value: unknown): T[] {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation();
   const [contentLang, setContentLang] = useState(
     () => normalizeAppLang(localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el", "el")
   );
+  const { t, tSub, landingLng } = useLandingI18n(contentLang);
   const [langOpen, setLangOpen] = useState(false);
   const { openIndex: openFaqIndex, setOpenIndex: setOpenFaqIndex } = useFaqAccordion(null);
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
@@ -89,15 +88,15 @@ export default function Home() {
         basePlans,
         snapshot,
         {
-          currentBadge: t("plan.currentBadge", { ns: "subscription" }),
-          currentButton: t("plan.currentButton", { ns: "subscription" }),
-          expiredBadge: t("trial.expiredBadge", { ns: "subscription" }),
-          expiredButton: t("trial.expiredButton", { ns: "subscription" }),
-          signupButton: t("trial.signupButton", { ns: "subscription" }),
+          currentBadge: tSub("plan.currentBadge"),
+          currentButton: tSub("plan.currentButton"),
+          expiredBadge: tSub("trial.expiredBadge"),
+          expiredButton: tSub("trial.expiredButton"),
+          signupButton: tSub("trial.signupButton"),
         },
         !!token,
       ),
-    [basePlans, snapshot, t, token],
+    [basePlans, snapshot, tSub, token],
   );
   const currentPlanIndex = indexForPlanSlot(displaySelectedPlanSlot(snapshot));
   const faqItems = useMemo(
@@ -200,8 +199,6 @@ export default function Home() {
   const selectLang = (code: string) => {
     const normalized = writeStoredAppLang(code);
     setContentLang(normalized);
-    // Landing JSON exists for el/en only; other langs keep preference for the app and show EN copy here.
-    void i18n.changeLanguage(homeDisplayLocale(normalized));
     setLangOpen(false);
     setOpenFaqIndex(null);
   };
@@ -436,7 +433,7 @@ export default function Home() {
           </div>
         </div>
 
-        <SiteFooter contentLang={contentLang} />
+        <SiteFooter contentLang={contentLang} landingLng={landingLng} />
       </div>
     </div>
   );
