@@ -149,24 +149,29 @@ USER_ACTIVITY_ACTIONS = frozenset({
 
 DEFAULT_LEVELS = [
     {"id": 1, "sort_order": 1, "min_points": 0, "name_el": "Νέα Μαμά", "name_en": "New Mom"},
-    {"id": 2, "sort_order": 2, "min_points": 250, "name_el": "Ενεργή Μαμά", "name_en": "Active Mom"},
-    {"id": 3, "sort_order": 3, "min_points": 750, "name_el": "Αφοσιωμένη Μαμά", "name_en": "Dedicated Mom"},
-    {"id": 4, "sort_order": 4, "min_points": 1500, "name_el": "Super Μαμά", "name_en": "Super Mom"},
-    {"id": 5, "sort_order": 5, "min_points": 2500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
+    {"id": 2, "sort_order": 2, "min_points": 400, "name_el": "Ενεργή Μαμά", "name_en": "Active Mom"},
+    {"id": 3, "sort_order": 3, "min_points": 1000, "name_el": "Αφοσιωμένη Μαμά", "name_en": "Dedicated Mom"},
+    {"id": 4, "sort_order": 4, "min_points": 2000, "name_el": "Super Μαμά", "name_en": "Super Mom"},
+    {"id": 5, "sort_order": 5, "min_points": 3500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
 ]
 
 # Keep in sync with frontend/src/lib/gamificationCard.ts (GAMIFICATION_POINT_RULES)
 POINT_RULES = {
-    ("submit", "/app/memories/add-note"): 5,
-    ("submit", "/app/memories/add-photo"): 10,
-    ("submit", "/app/memories/add-video"): 20,
-    ("submit", "/app/chat/send"): 15,
-    ("submit", "/app/chat/send-video"): 20,
-    ("submit", "/app/milestones/check"): 50,
-    ("submit", "/app/milestones/uncheck"): -50,
+    ("submit", "/app/memories/add-note"): 2,
+    ("submit", "/app/memories/add-photo"): 5,
+    ("submit", "/app/memories/add-video"): 8,
+    ("submit", "/app/chat/send"): 3,
+    ("submit", "/app/chat/send-video"): 8,
+    ("submit", "/app/milestones/check"): 15,
+    ("submit", "/app/milestones/uncheck"): -15,
 }
 
-INVITE_REFERRAL_POINTS = 50
+CHAT_POINT_PATHS = frozenset({"/app/chat/send", "/app/chat/send-video"})
+CHAT_DAILY_POINTS_CAP = 30
+MILESTONE_CHECK_PATH = "/app/milestones/check"
+MILESTONE_UNCHECK_PATH = "/app/milestones/uncheck"
+
+INVITE_REFERRAL_POINTS = 40
 TRIAL_DAYS = max(1, int(os.getenv("TRIAL_DAYS", "14")))
 
 def _parse_utc_dt(value) -> Optional["datetime"]:
@@ -427,7 +432,119 @@ def _log_user_activity(
         sb.table(USER_ACTIVITY_LOG_TABLE).insert(payload).execute()
     except Exception:
         pass
-    return _maybe_award_points(auth, action, path)
+    return _maybe_award_points(auth, action, path, details=details)
+
+def _milestone_point_key(details: Optional[dict]) -> Optional[str]:
+    if not details or not isinstance(details, dict):
+        return None
+    ref = details.get("ref")
+    stage_id = details.get("stageId")
+    idx = details.get("idx")
+    if ref is None or stage_id is None or idx is None:
+        return None
+    return f"{ref}|{stage_id}|{idx}"
+
+def _milestone_credit_reason(mkey: str) -> str:
+    return f"milestone:check:{mkey}"
+
+def _milestone_already_credited(user_id: str, mkey: str) -> bool:
+    if not sb or not user_id or not mkey:
+        return False
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("reason", _milestone_credit_reason(mkey))
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception:
+        return False
+
+def _chat_points_earned_today_utc(user_id: str) -> int:
+    if not sb or not user_id:
+        return 0
+    from datetime import datetime, timezone
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("amount,path")
+            .eq("user_id", user_id)
+            .gte("created_at", start.isoformat())
+            .execute()
+        )
+        total = 0
+        for row in res.data or []:
+            path = (row.get("path") or "").strip()
+            amount = int(row.get("amount") or 0)
+            if path in CHAT_POINT_PATHS and amount > 0:
+                total += amount
+        return total
+    except Exception:
+        return 0
+
+def _revoke_milestone_credit(user_id: str, mkey: str) -> int:
+    """Remove the one-time milestone credit; returns negative amount applied (0 if none)."""
+    if not sb or not user_id or not mkey:
+        return 0
+    reason = _milestone_credit_reason(mkey)
+    try:
+        res = (
+            sb.table(POINT_TRANSACTIONS_TABLE)
+            .select("id,amount")
+            .eq("user_id", user_id)
+            .eq("reason", reason)
+            .limit(1)
+            .execute()
+        )
+        if not res.data:
+            return 0
+        row = res.data[0]
+        amt = int(row.get("amount") or 0)
+        tx_id = row.get("id")
+        if amt <= 0 or not tx_id:
+            return 0
+        sb.table(POINT_TRANSACTIONS_TABLE).delete().eq("id", tx_id).eq("user_id", user_id).execute()
+        _sync_user_level_id(user_id, _get_user_points(user_id))
+        return -amt
+    except Exception:
+        return 0
+
+def _resolve_points_award(
+    user_id: str,
+    action: str,
+    path: str,
+    details: Optional[dict] = None,
+) -> tuple[int, str, Optional[str]]:
+    """Return (amount, reason, cap_key) — amount 0 means skip; cap_key when blocked by limit."""
+    amount = _points_for_activity(action, path)
+    if amount == 0:
+        return 0, "", None
+
+    if path == MILESTONE_CHECK_PATH:
+        mkey = _milestone_point_key(details)
+        if not mkey or _milestone_already_credited(user_id, mkey):
+            return 0, "", None
+        return amount, _milestone_credit_reason(mkey), None
+
+    if path == MILESTONE_UNCHECK_PATH:
+        mkey = _milestone_point_key(details)
+        if not mkey:
+            return 0, "", None
+        revoked = _revoke_milestone_credit(user_id, mkey)
+        return revoked, f"milestone:uncheck:{mkey}" if revoked else "", None
+
+    if path in CHAT_POINT_PATHS and amount > 0:
+        earned_today = _chat_points_earned_today_utc(user_id)
+        remaining = max(0, CHAT_DAILY_POINTS_CAP - earned_today)
+        if remaining <= 0:
+            return 0, "", "chat_daily_cap"
+        amount = min(amount, remaining)
+
+    return amount, f"{action}:{path}", None
 
 def _get_levels() -> list:
     global _levels_cache
@@ -958,17 +1075,31 @@ def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
         path="/auth/register",
     )
 
-def _maybe_award_points(auth: dict, action: str, path: str) -> Optional[dict]:
+def _maybe_award_points(
+    auth: dict,
+    action: str,
+    path: str,
+    details: Optional[dict] = None,
+) -> Optional[dict]:
     user_id = auth.get("user_id")
     if not user_id:
         return None
     previous_level = _get_user_level_id(user_id)
-    amount = _points_for_activity(action, path)
+    amount, reason, cap_key = _resolve_points_award(user_id, action, path, details=details)
+    points_awarded = 0
     if amount != 0:
-        _award_points(user_id, amount, f"{action}:{path}", action=action, path=path)
+        if path == MILESTONE_UNCHECK_PATH and amount < 0:
+            points_awarded = amount
+        else:
+            _award_points(user_id, amount, reason or f"{action}:{path}", action=action, path=path)
+            points_awarded = amount
     gamification = _user_gamification(user_id)
     new_level = int(gamification.get("level", {}).get("number") or previous_level)
     result = {"gamification": gamification}
+    if points_awarded != 0:
+        result["points_awarded"] = points_awarded
+    if cap_key:
+        result["points_cap"] = cap_key
     if new_level > previous_level:
         result["level_up"] = {"from": previous_level, "to": new_level}
     if sb:
@@ -5844,9 +5975,10 @@ async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None
     award_result = _log_user_activity(auth, action, path, label=req.label, details=req.details)
     response = {"ok": True}
     if award_result:
-        amount = _points_for_activity(action, path)
-        if amount != 0:
-            response["points_awarded"] = amount
+        if award_result.get("points_awarded"):
+            response["points_awarded"] = award_result["points_awarded"]
+        if award_result.get("points_cap"):
+            response["points_cap"] = award_result["points_cap"]
         if isinstance(award_result, dict):
             if award_result.get("gamification"):
                 response["gamification"] = award_result["gamification"]

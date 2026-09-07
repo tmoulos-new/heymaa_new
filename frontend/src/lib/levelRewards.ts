@@ -9,10 +9,10 @@ export type LevelPlanReward = {
 }
 
 export const LEVEL_PLAN_REWARDS: LevelPlanReward[] = [
-  { levelId: 2, planSlot: 'starter', days: 7 },
-  { levelId: 3, planSlot: 'starter', days: 14 },
-  { levelId: 4, planSlot: 'premium', days: 7 },
-  { levelId: 5, planSlot: 'premium', days: 14 },
+  { levelId: 2, planSlot: 'starter', days: 3 },
+  { levelId: 3, planSlot: 'starter', days: 7 },
+  { levelId: 4, planSlot: 'premium', days: 3 },
+  { levelId: 5, planSlot: 'premium', days: 7 },
 ]
 
 export type PendingLevelReward = {

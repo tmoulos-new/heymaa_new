@@ -20,6 +20,7 @@ import type {
   HomeTestimonialItem,
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
+import { FaqAccordionList } from "../components/FaqAccordionList";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
@@ -107,6 +108,10 @@ export default function Home() {
   );
   const activeTestimonial =
     testimonialItems[testimonialIndex] ?? testimonialItems[0];
+
+  const toggleFaq = useCallback((index: number) => {
+    setOpenFaqs((prev) => ({ ...prev, [index]: !prev[index] }));
+  }, []);
 
   const handlePlanRadioSelect = useCallback((index: number) => {
     const slot = slotForPlanIndex(index);
@@ -204,10 +209,6 @@ export default function Home() {
     setOpenFaqs({});
   };
 
-  const toggleFaq = (index: number) => {
-    setOpenFaqs((prev) => ({ ...prev, [index]: !prev[index] }));
-  };
-
   return (
     <div id="landing-page">
       <div id="page" dir={langMeta.rtl ? "rtl" : "ltr"}>
@@ -217,6 +218,7 @@ export default function Home() {
           currentLang={contentLang}
           onClose={() => setLangOpen(false)}
           onSelect={selectLang}
+          raised
           searchPlaceholder={t("langPicker.search")}
           selectLabel={t("langPicker.select")}
           emptyLabel={t("langPicker.empty")}
@@ -405,30 +407,7 @@ export default function Home() {
 
         <div className="section faq-section">
           <div className="sec-title">{t("faq.label")}</div>
-          <div className="faq-list">
-            {faqItems.map((item, i) => {
-              const open = !!openFaqs[i];
-              return (
-                <div className="faq-item" key={item.question}>
-                  <div
-                    className={`faq-q${open ? " open" : ""}`}
-                    onClick={() => toggleFaq(i)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") toggleFaq(i);
-                    }}
-                  >
-                    <span>{item.question}</span>
-                    <i className="ti ti-chevron-down" />
-                  </div>
-                  <div className={`faq-a${open ? " open" : ""}`}>
-                    {item.answer}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <FaqAccordionList items={faqItems} openMap={openFaqs} onToggle={toggleFaq} />
         </div>
 
         <div className="cta-wrap">

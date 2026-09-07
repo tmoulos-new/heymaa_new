@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { AppSheet } from './AppSheet'
 import type { AccessExpiryInfo } from '../lib/accessExpiry'
 import { expiryPopupCopy } from '../lib/accessExpiry'
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function AccessExpiryModal({ open, lang, info, onClose, onRenew }: Props) {
+  const titleId = useId()
   if (!info) return null
   const copy = expiryPopupCopy(info, lang)
 
@@ -19,13 +21,13 @@ export function AccessExpiryModal({ open, lang, info, onClose, onRenew }: Props)
       open={open}
       onClose={onClose}
       dialog
-      ariaLabel={copy.title}
+      titleId={titleId}
     >
       <div className="hm-expiry-modal">
         <div className="hm-expiry-modal__icon" aria-hidden="true">
           ⏳
         </div>
-        <h2 className="hm-expiry-modal__title">{copy.title}</h2>
+        <h2 id={titleId} className="hm-expiry-modal__title">{copy.title}</h2>
         <p className="hm-expiry-modal__body">{copy.body}</p>
         <div className="hm-reward-sheet__actions">
           <button

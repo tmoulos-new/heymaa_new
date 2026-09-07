@@ -18,7 +18,7 @@ import {
   type FamilyMemberRecord,
 } from "./lib/familyData";
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, avatarInitial, AVATAR_COLOR, relationshipLabel, type LaidOutNode } from "./lib/familyTree";
-import { GAMIFICATION_CHAT_VIDEO_PATH, gamificationPointsForPath, mergeGamificationFaqItems } from "./lib/gamificationCard";
+import { GAMIFICATION_CHAT_VIDEO_PATH, CHAT_DAILY_POINTS_CAP, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
 import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
@@ -1670,7 +1670,8 @@ function sk(token: string, suffix: string) {
 }
 // ── Password reset ─────────────────────────────────────────────
 
-function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
+function ResetScreen({ token, lang, onDone }: { token: string; lang: string; onDone: () => void }) {
+  const isEl = lang === "el";
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -1679,15 +1680,15 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
   const handleReset = async () => {
-    if (password.length < 6) { setError("Minimum 6 characters."); return; }
-    if (password !== confirm) { setError("Passwords do not match."); return; }
+    if (password.length < 6) { setError(isEl ? "Τουλάχιστον 6 χαρακτήρες." : "Minimum 6 characters."); return; }
+    if (password !== confirm) { setError(isEl ? "Οι κωδικοί δεν ταιριάζουν." : "Passwords do not match."); return; }
     setLoading(true); setError("");
     try {
       await axios.post(`${API}/auth/reset-password`, { token, password });
       setDone(true);
       setTimeout(onDone, 2500);
     } catch (e: any) {
-      setError(e.response?.data?.detail || "Reset failed. Link may have expired.");
+      setError(e.response?.data?.detail || (isEl ? "Αποτυχία. Ο σύνδεσμος μπορεί να έληξε." : "Reset failed. Link may have expired."));
     } finally { setLoading(false); }
   };
   return (
@@ -1695,14 +1696,14 @@ function ResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
       <div style={cardStyle}>
         <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:20}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
         {done ? (
-          <div><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontSize:16,color:"#2B3A67",fontWeight:600}}>Password updated!</div><div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginTop:6}}>Redirecting to login...</div></div>
+          <div><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontSize:16,color:"#2B3A67",fontWeight:600}}>{isEl ? "Ο κωδικός ενημερώθηκε!" : "Password updated!"}</div><div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginTop:6}}>{isEl ? "Μεταφορά στη σύνδεση..." : "Redirecting to login..."}</div></div>
         ) : (<>
-          <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>Set new password</div>
-          <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>Enter your new password below.</div>
-          <input style={inp} type="password" placeholder="New password (min 6 chars)" value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
-          <input style={inp} type="password" placeholder="Confirm password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleReset()} disabled={loading}/>
+          <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>{isEl ? "Νέος κωδικός" : "Set new password"}</div>
+          <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>{isEl ? "Βάλε τον νέο σου κωδικό παρακάτω." : "Enter your new password below."}</div>
+          <input style={inp} type="password" placeholder={isEl ? "Νέος κωδικός (τουλάχιστον 6)" : "New password (min 6 chars)"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
+          <input style={inp} type="password" placeholder={isEl ? "Επιβεβαίωση κωδικού" : "Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleReset()} disabled={loading}/>
           {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
-          <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading?"Updating...":"Update password →"}</button>
+          <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading ? (isEl ? "Ενημέρωση..." : "Updating...") : (isEl ? "Ενημέρωση κωδικού →" : "Update password →")}</button>
         </>)}
       </div>
     </div>
@@ -2018,7 +2019,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (result?.points_awarded) {
       const ptsLabel = t("points", lang);
       const awarded = result.points_awarded;
-      showToast(`${awarded > 0 ? "+" : ""}${awarded} ${ptsLabel}`, "ok");
+      const suffix = pointsToastSuffix(path, lang);
+      showToast(
+        `${awarded > 0 ? "+" : ""}${awarded} ${ptsLabel}${suffix ? ` · ${suffix}` : ""}`,
+        "ok",
+      );
+    } else if (
+      result?.points_cap === "chat_daily_cap"
+      && (path === appPath("chat", "send") || path === GAMIFICATION_CHAT_VIDEO_PATH)
+    ) {
+      showToast(
+        lang === "el"
+          ? `Έφτασες το ημερήσιο όριο πόντων από chat (${CHAT_DAILY_POINTS_CAP}/ημέρα).`
+          : `Daily chat points cap reached (${CHAT_DAILY_POINTS_CAP}/day).`,
+        "ok",
+      );
     }
   }, [token, lang, openPendingReward]);
 
@@ -6201,7 +6216,10 @@ export default function App() {
     return () => { cancelled = true; };
   }, [token]);
 
-  if(resetToken)return <ResetScreen token={resetToken} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
+  if(resetToken) {
+    const resetLang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || profile?.lang || "el", "el");
+    return <ResetScreen token={resetToken} lang={resetLang} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
+  }
   if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{setAuthToken(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false)return <Navigate to="/subscription" replace />;

@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { AppModalPortal } from './AppModalPortal'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
+import { useModalFocus } from '../lib/useModalFocus'
 
 type Props = {
   open: boolean
@@ -9,7 +10,10 @@ type Props = {
   wide?: boolean
   /** Centered card on all viewports (reward / expiry dialogs). */
   dialog?: boolean
+  /** Fallback label when titleId is not set */
   ariaLabel?: string
+  /** Visible title element id — preferred over ariaLabel */
+  titleId?: string
   closeOnBackdrop?: boolean
 }
 
@@ -20,18 +24,13 @@ export function AppSheet({
   wide = false,
   dialog = false,
   ariaLabel,
+  titleId,
   closeOnBackdrop = true,
 }: Props) {
-  useBodyScrollLock(open)
+  const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  useBodyScrollLock(open)
+  useModalFocus(panelRef, open, onClose)
 
   if (!open) return null
 
@@ -40,13 +39,16 @@ export function AppSheet({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={ariaLabel}
+        aria-label={titleId ? undefined : ariaLabel}
+        aria-labelledby={titleId}
         className={`hm-sheet-overlay${dialog ? ' hm-sheet-overlay--dialog' : ''}`}
         onClick={(e) => {
           if (closeOnBackdrop && e.target === e.currentTarget) onClose()
         }}
       >
         <div
+          ref={panelRef}
+          tabIndex={-1}
           className={`hm-sheet-panel hm-sheet-panel--scroll${wide ? ' hm-sheet-panel--wide' : ''}${dialog ? ' hm-sheet-panel--dialog' : ''}`}
           onClick={(e) => e.stopPropagation()}
         >

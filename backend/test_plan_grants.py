@@ -36,5 +36,7 @@ def test_effective_slot_picks_premium_over_starter():
 
 
 def test_level_reward_config():
-    assert LEVEL_REWARD_GRANTS[2]["days"] == 7
+    assert LEVEL_REWARD_GRANTS[2]["days"] == 3
+    assert LEVEL_REWARD_GRANTS[3]["days"] == 7
     assert LEVEL_REWARD_GRANTS[5]["plan_slot"] == "premium"
+    assert LEVEL_REWARD_GRANTS[5]["days"] == 7

@@ -14,17 +14,21 @@ export function RewardCelebration({ active, onDone }: Props) {
   useEffect(() => {
     if (!active) return
     setShow(true)
-    try {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([40, 30, 60])
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reducedMotion) {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([40, 30, 60])
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
     }
+    const duration = reducedMotion ? 400 : 2200
     const t = window.setTimeout(() => {
       setShow(false)
       onDone?.()
-    }, 2200)
+    }, duration)
     return () => window.clearTimeout(t)
   }, [active, onDone])
 

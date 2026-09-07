@@ -16,10 +16,10 @@ LEVEL_CLAIMS_KEY = "level_rewards_claimed"
 
 # Level id → reward (levels 2–5 only; level 1 has no plan reward)
 LEVEL_REWARD_GRANTS: dict[int, dict[str, Any]] = {
-    2: {"plan_slot": "starter", "days": 7},
-    3: {"plan_slot": "starter", "days": 14},
-    4: {"plan_slot": "premium", "days": 7},
-    5: {"plan_slot": "premium", "days": 14},
+    2: {"plan_slot": "starter", "days": 3},
+    3: {"plan_slot": "starter", "days": 7},
+    4: {"plan_slot": "premium", "days": 3},
+    5: {"plan_slot": "premium", "days": 7},
 }
 
 PLAN_SLOT_RANK: dict[str, int] = {

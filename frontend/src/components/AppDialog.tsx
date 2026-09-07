@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import { AppModalPortal } from './AppModalPortal'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
+import { useModalFocus } from '../lib/useModalFocus'
 
 type Props = {
   open: boolean
@@ -35,21 +36,7 @@ export function AppDialog({
   const panelRef = useRef<HTMLDivElement>(null)
 
   useBodyScrollLock(open)
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
-  useEffect(() => {
-    if (!open) return
-    const t = window.setTimeout(() => panelRef.current?.focus(), 0)
-    return () => window.clearTimeout(t)
-  }, [open])
+  useModalFocus(panelRef, open, onClose)
 
   if (!open) return null
 

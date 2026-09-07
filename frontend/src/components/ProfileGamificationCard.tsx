@@ -1,6 +1,7 @@
 import type { GamificationStatus } from '../lib/userGamification'
 import { levelName } from '../lib/userGamification'
 import {
+  CHAT_DAILY_POINTS_CAP,
   POINT_ACTIONS,
   REFERRAL_BONUS_POINTS,
   levelEmoji,
@@ -61,6 +62,11 @@ export function ProfileGamificationCard({
             aria-valuenow={progress_percent}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-valuetext={
+              level.is_max
+                ? (isEl ? 'Μέγιστο επίπεδο' : 'Max level')
+                : (isEl ? `${progress_percent}% — ${points_to_next} πόντοι ακόμα` : `${progress_percent}% — ${points_to_next} points to go`)
+            }
           >
             <div
               className="hm-profile-gamification-card__progress-fill"
@@ -129,13 +135,18 @@ export function ProfileGamificationCard({
 
       <div className="hm-profile-gamification-card__divider" />
 
-      <p className="hm-profile-gamification-card__actions">
+      <p className="hm-profile-gamification-card__actions" role="list">
         {POINT_ACTIONS.map((action, i) => (
-          <span key={action.en}>
+          <span key={action.en} role="listitem">
             {i > 0 ? ' • ' : null}
             {isEl ? action.el : action.en} +{action.points}
           </span>
         ))}
+      </p>
+      <p className="hm-profile-gamification-card__cap-hint">
+        {isEl
+          ? `Chat: έως ${CHAT_DAILY_POINTS_CAP} πόντοι/ημέρα από μηνύματα.`
+          : `Chat: up to ${CHAT_DAILY_POINTS_CAP} points/day from messages.`}
       </p>
 
       {referralCode ? (

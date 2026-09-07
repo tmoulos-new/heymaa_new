@@ -774,8 +774,8 @@ body.hm-app-active #root {
 }
 
 .hm-icon-btn-back {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--hm-border);
   background: #fff;
@@ -786,8 +786,13 @@ body.hm-app-active #root {
   justify-content: center;
   flex-shrink: 0;
   padding: 0;
-  margin-top: 2px;
+  margin-top: 0;
   transition: background 0.15s ease;
+}
+
+.hm-icon-btn-back:focus-visible {
+  outline: 2px solid var(--hm-navy, #2b3a67);
+  outline-offset: 2px;
 }
 
 .hm-icon-btn-back:hover {
@@ -3824,6 +3829,15 @@ body.hm-app-active .hm-sheet-overlay {
   line-height: 1.5;
 }
 
+.hm-profile-gamification-card__cap-hint {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.52);
+  line-height: 1.45;
+}
+
 .hm-profile-gamification-card__referral {
   text-align: center;
 }
@@ -4567,6 +4581,12 @@ body.hm-app-active .hm-sheet-overlay {
   cursor: wait;
 }
 
+.hm-reward-sheet__claim:focus-visible,
+.hm-expiry-modal__cta:focus-visible {
+  outline: 2px solid var(--hm-navy, #2b3a67);
+  outline-offset: 2px;
+}
+
 .hm-reward-sheet__later,
 .hm-expiry-modal__later {
   display: block;
@@ -4581,6 +4601,13 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.55);
   cursor: pointer;
   box-sizing: border-box;
+}
+
+.hm-reward-sheet__later:focus-visible,
+.hm-expiry-modal__later:focus-visible {
+  outline: 2px solid var(--hm-navy, #2b3a67);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .hm-profile-gamification-card__gift-btn {
@@ -4619,6 +4646,17 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.65);
 }
 
+.hm-profile-gamification-card__gift-btn:focus-visible,
+.hm-profile-gamification-card__header-toggle:focus-visible {
+  outline: 2px solid var(--hm-navy, #2b3a67);
+  outline-offset: 2px;
+}
+
+.hm-faq-trigger:focus-visible {
+  outline: 2px solid var(--hm-navy, #2b3a67);
+  outline-offset: 2px;
+}
+
 .hm-reward-celebration {
   position: fixed;
   inset: 0;
@@ -4642,6 +4680,13 @@ body.hm-app-active .hm-sheet-overlay {
   }
   100% {
     transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-reward-celebration__piece {
+    animation: none;
     opacity: 0;
   }
 }

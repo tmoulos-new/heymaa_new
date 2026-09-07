@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { AppSheet } from './AppSheet'
 import { RewardCelebration } from './RewardCelebration'
 import { levelEmoji, levelRewardsText } from '../lib/gamificationCard'
@@ -29,6 +29,7 @@ export function LevelUpRewardSheet({
   onClaimed,
 }: Props) {
   const isEl = lang === 'el'
+  const titleId = useId()
   const [claiming, setClaiming] = useState(false)
   const [error, setError] = useState('')
   const [celebrate, setCelebrate] = useState(false)
@@ -70,7 +71,7 @@ export function LevelUpRewardSheet({
         onClose={onClose}
         dialog
         closeOnBackdrop={!claiming}
-        ariaLabel={isEl ? 'Ανταμοιβή επιπέδου' : 'Level reward'}
+        titleId={titleId}
       >
         <div className="hm-reward-sheet">
           <div className="hm-reward-sheet__emoji" aria-hidden="true">
@@ -79,7 +80,7 @@ export function LevelUpRewardSheet({
           <p className="hm-reward-sheet__kicker">
             {isEl ? `Επίπεδο ${reward.level_id}` : `Level ${reward.level_id}`}
           </p>
-          <h2 className="hm-reward-sheet__title">{levelName}</h2>
+          <h2 id={titleId} className="hm-reward-sheet__title">{levelName}</h2>
           <p className="hm-reward-sheet__level">{rewardLine}</p>
           <p className="hm-reward-sheet__body">
             {isEl

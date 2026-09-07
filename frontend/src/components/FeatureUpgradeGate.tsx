@@ -28,7 +28,7 @@ export function FeatureUpgradeGate({
           : 'Upgrade your plan to use it.'}
       </p>
       <button type="button" className="hm-feature-gate__btn" onClick={onUpgrade}>
-        {el ? 'UPGRADE' : 'UPGRADE'}
+        {el ? 'Αναβάθμιση' : 'Upgrade'}
       </button>
     </div>
   )

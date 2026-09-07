@@ -22,6 +22,7 @@ export type UserActivityAction =
 export type UserActivityResult = {
   ok: boolean;
   points_awarded?: number;
+  points_cap?: string;
   gamification?: GamificationStatus;
   level_up?: { from: number; to: number };
   rewards?: import('./levelRewards').RewardsSnapshot;

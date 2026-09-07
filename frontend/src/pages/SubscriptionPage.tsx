@@ -173,6 +173,7 @@ export function SubscriptionPage() {
         currentLang={preferredLang}
         onClose={() => setLangOpen(false)}
         onSelect={setLang}
+        raised
         searchPlaceholder={String(tHome('langPicker.search'))}
         selectLabel={String(tHome('langPicker.select'))}
         emptyLabel={String(tHome('langPicker.empty'))}

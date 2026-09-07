@@ -231,11 +231,11 @@
       },
       {
         "question": "What does the free trial include?",
-        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, basic memory (text only, no photos/videos), and up to 3 archived conversations. No credit card required to start."
+        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, Daily memory (20 messages + 10 memories), document & album preview (no download), memory videos from Starter, and up to 3 archived conversations. No credit card required to start."
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice playbacks, memory, and other features differ:\n\n• Trial: 50 voice playbacks, basic memory (text), 3 archived conversations\n• Starter (€19/month): 150 voice playbacks, full memory (photos/videos), document archive, unlimited archived chats\n• Premium (€39/month): 400 voice playbacks, full memory, weekly support\n• Annual Premium (€199/year): 700 voice playbacks, full memory, priority support\n\nWhen a feature requires a higher plan, you'll see a message with an UPGRADE button."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Partial memory (32+24), full docs/album, 45 archived, email\n• Premium (€39/month): 400 voice, Strong memory (64+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Strong memory (64+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
         "question": "What happens when the trial ends?",
@@ -317,7 +317,7 @@
       },
       {
         "question": "Do I need an invite code?",
-        "answer": "Usually not — you can sign up with email and password. If you were given an invite code, enter it at registration. Share your invite code from Profile to earn +50 points when a friend signs up."
+        "answer": "Usually not — you can sign up with email and password. If you were given an invite code, enter it at registration. Share your invite code from Profile to earn +40 points when a friend signs up."
       },
       {
         "question": "Is my data safe?",

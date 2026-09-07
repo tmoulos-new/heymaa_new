@@ -106,12 +106,12 @@ export function defaultGamificationStatus(): GamificationStatus {
       number: 2,
       name_el: "Ενεργή Μαμά",
       name_en: "Active Mom",
-      min_points: 250,
+      min_points: 400,
       is_max: false,
     },
     progress_in_level: 0,
-    progress_needed: 250,
-    points_to_next: 250,
+    progress_needed: 400,
+    points_to_next: 400,
     progress_percent: 0,
   };
 }
