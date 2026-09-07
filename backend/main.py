@@ -2111,8 +2111,13 @@ def _is_usable_reply(text: str) -> bool:
         "knowledge base",
         "(εσύ)",
         "εσύ).",
+        "tone: warm",
+        "* used?",
+        "* tone:",
     )
     if any(m in low for m in leak_markers):
+        return False
+    if _re.search(r"(?m)^\s*\*\s+\w", t):
         return False
     return True
 
@@ -2181,29 +2186,52 @@ def _build_attachment_context(message: str, attachments) -> str:
 
 async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
     from groq import Groq
+    model_candidates = (
+        "llama-3.3-70b-versatile",
+        "llama-3.1-70b-versatile",
+        "llama-3.1-8b-instant",
+        "gemma2-9b-it",
+    )
+
     def _run():
         client = Groq(api_key=api_key)
-        messages = [{"role": "system", "content": system_prompt}]
         limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
+        messages = [{"role": "system", "content": system_prompt}]
         for h in (history or [])[-limit:]:
             messages.append({"role": h["role"], "content": (h.get("content") or "")[:1500]})
         messages.append({"role": "user", "content": (message or "")[:2000]})
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            max_tokens=_CHAT_MAX_TOKENS,
-            temperature=0.6,
-        )
-        return (response.choices[0].message.content or "").strip()
+        last_err = None
+        for model_name in model_candidates:
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    max_tokens=_CHAT_MAX_TOKENS,
+                    temperature=0.6,
+                )
+                text = (response.choices[0].message.content or "").strip()
+                if text:
+                    return text
+                last_err = RuntimeError(f"{model_name}: empty reply")
+            except Exception as e:
+                last_err = e
+                msg = str(e).lower()
+                if any(x in msg for x in ("404", "not found", "decommission", "no longer supported", "model")):
+                    continue
+                if any(x in msg for x in ("429", "quota", "rate limit")):
+                    continue
+                raise
+        raise RuntimeError(f"groq all models failed: {last_err}")
+
     return await asyncio.to_thread(_run)
 
 async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
     # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
     model_candidates = (
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash-lite",
         "gemini-flash-latest",
-        "gemini-1.5-flash",
     )
 
     def _contents():
@@ -2230,17 +2258,29 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
             feedback = payload.get("promptFeedback") or {}
             raise RuntimeError(f"gemini blocked/empty: {feedback or payload}")
         parts = (((cands[0] or {}).get("content") or {}).get("parts")) or []
-        text = "".join((p.get("text") or "") for p in parts if isinstance(p, dict)).strip()
+        text = "".join(
+            (p.get("text") or "")
+            for p in parts
+            if isinstance(p, dict) and not p.get("thought") and (p.get("text") or "")
+        ).strip()
         if not text:
             raise RuntimeError(f"gemini empty text: {cands[0].get('finishReason')}")
         return text
+
+    def _generation_config():
+        # 2.5 Flash uses internal "thinking" tokens; disable for fast chat replies.
+        return {
+            "maxOutputTokens": _CHAT_MAX_TOKENS,
+            "temperature": 0.6,
+            "thinkingConfig": {"thinkingBudget": 0},
+        }
 
     def _run():
         last_err = None
         body = {
             "system_instruction": {"parts": [{"text": system_prompt or ""}]},
             "contents": _contents(),
-            "generationConfig": {"maxOutputTokens": _CHAT_MAX_TOKENS, "temperature": 0.6},
+            "generationConfig": _generation_config(),
         }
         for model_name in model_candidates:
             url = (
@@ -2631,6 +2671,60 @@ def _llm_api_keys():
         for name in env_keys
     }
 
+_llm_probe_cache: Optional[dict] = None
+_llm_probe_cache_at = 0.0
+
+def _probe_llm_providers() -> dict:
+    """Live ping per configured provider (cached ~2 min for health checks)."""
+    global _llm_probe_cache, _llm_probe_cache_at
+    import time as _t
+    now = _t.time()
+    if _llm_probe_cache is not None and (now - _llm_probe_cache_at) < 120:
+        return _llm_probe_cache
+    keys = _llm_api_keys()
+    out: dict = {}
+    for name, key in keys.items():
+        if not key:
+            out[name] = {"ok": False, "msg": "no key"}
+            continue
+        try:
+            if name == "groq":
+                from groq import Groq
+                Groq(api_key=key).chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[{"role": "user", "content": "hi"}],
+                    max_tokens=8,
+                )
+            elif name == "gemini":
+                body = {
+                    "contents": [{"role": "user", "parts": [{"text": "Say hi in one word."}]}],
+                    "generationConfig": {
+                        "maxOutputTokens": 16,
+                        "thinkingConfig": {"thinkingBudget": 0},
+                    },
+                }
+                r = requests.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"gemini-2.5-flash-lite:generateContent?key={key}",
+                    json=body,
+                    timeout=20,
+                )
+                if not r.ok:
+                    raise RuntimeError((r.text or "")[:120])
+            else:
+                import anthropic
+                anthropic.Anthropic(api_key=key).messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=8,
+                    messages=[{"role": "user", "content": "hi"}],
+                )
+            out[name] = {"ok": True, "msg": "online"}
+        except Exception as e:
+            out[name] = {"ok": False, "msg": str(e)[:120]}
+    _llm_probe_cache = out
+    _llm_probe_cache_at = now
+    return out
+
 @app.get("/healthz")
 def root():
     client = ensure_supabase()
@@ -2652,6 +2746,7 @@ def root():
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
         "vercel": bool(os.getenv("VERCEL")),
         "llm": {name: bool(val) for name, val in llm.items()},
+        "llm_probe": _probe_llm_providers(),
         "viva": viva,
     }
 def get_all_promotions_for_user(token: str, lang: Optional[str] = None):
@@ -3432,41 +3527,7 @@ async def admin_health(x_token: Optional[str] = Header(None)):
             "role": admin_info.get("role"),
         }
     }
-    try:
-        if GROQ_API_KEY:
-            from groq import Groq
-            client = Groq(api_key=GROQ_API_KEY)
-            client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role":"user","content":"hi"}], max_tokens=1)
-            status["groq"] = {"ok": True, "msg": "online"}
-        else:
-            status["groq"] = {"ok": False, "msg": "no key"}
-    except Exception as e:
-        status["groq"] = {"ok": False, "msg": str(e)[:120]}
-    try:
-        if GEMINI_API_KEY:
-            import google.generativeai as genai
-            genai.configure(api_key=GEMINI_API_KEY)
-            m = genai.GenerativeModel("gemini-2.0-flash")
-            m.generate_content("hi", generation_config={"max_output_tokens":1})
-            status["gemini"] = {"ok": True, "msg": "online"}
-        else:
-            status["gemini"] = {"ok": False, "msg": "no key"}
-    except Exception as e:
-        status["gemini"] = {"ok": False, "msg": str(e)[:120]}
-    try:
-        if ANTHROPIC_API_KEY:
-            import anthropic
-            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-            client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=1, messages=[{"role":"user","content":"hi"}])
-            status["claude"] = {"ok": True, "msg": "online"}
-        else:
-            status["claude"] = {"ok": False, "msg": "no key"}
-    except Exception as e:
-        msg = str(e)
-        if "credit balance" in msg.lower():
-            status["claude"] = {"ok": False, "msg": "out of credits"}
-        else:
-            status["claude"] = {"ok": False, "msg": msg[:120]}
+    status.update(_probe_llm_providers())
     if RESEND_API_KEY:
         status["resend"] = {"ok": True, "msg": "configured"}
     else:
