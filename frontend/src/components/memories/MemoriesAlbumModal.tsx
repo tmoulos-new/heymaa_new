@@ -15,6 +15,9 @@ type Props = {
   familyChildren: FamilyChild[]
   members: FamilyMemberRecord[]
   onDownload?: () => void
+  exportAllowed?: boolean
+  onUpgradeExport?: () => void
+  exportRequiredPlanLabel?: string
   onSave?: () => void
   saving?: boolean
   onRemovePhoto?: (m: BookletMemory) => void
@@ -31,6 +34,9 @@ export function MemoriesAlbumModal({
   familyChildren,
   members,
   onDownload,
+  exportAllowed = true,
+  onUpgradeExport,
+  exportRequiredPlanLabel,
   onSave,
   saving,
   onRemovePhoto,
@@ -55,6 +61,9 @@ export function MemoriesAlbumModal({
           familyChildren={familyChildren}
           members={members}
           onDownload={onDownload}
+          exportAllowed={exportAllowed}
+          onUpgradeExport={onUpgradeExport}
+          exportRequiredPlanLabel={exportRequiredPlanLabel}
           onSave={onSave}
           saving={saving}
           onRemovePhoto={onRemovePhoto}

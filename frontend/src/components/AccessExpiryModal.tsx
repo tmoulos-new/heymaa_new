@@ -18,6 +18,7 @@ export function AccessExpiryModal({ open, lang, info, onClose, onRenew }: Props)
     <AppSheet
       open={open}
       onClose={onClose}
+      dialog
       ariaLabel={copy.title}
     >
       <div className="hm-expiry-modal">
@@ -26,19 +27,21 @@ export function AccessExpiryModal({ open, lang, info, onClose, onRenew }: Props)
         </div>
         <h2 className="hm-expiry-modal__title">{copy.title}</h2>
         <p className="hm-expiry-modal__body">{copy.body}</p>
-        <button
-          type="button"
-          className="hm-expiry-modal__cta"
-          onClick={() => {
-            onClose()
-            onRenew()
-          }}
-        >
-          {copy.cta}
-        </button>
-        <button type="button" className="hm-expiry-modal__later" onClick={onClose}>
-          {lang === 'el' ? 'Αργότερα' : 'Later'}
-        </button>
+        <div className="hm-reward-sheet__actions">
+          <button
+            type="button"
+            className="hm-expiry-modal__cta"
+            onClick={() => {
+              onClose()
+              onRenew()
+            }}
+          >
+            {copy.cta}
+          </button>
+          <button type="button" className="hm-expiry-modal__later" onClick={onClose}>
+            {lang === 'el' ? 'Αργότερα' : 'Later'}
+          </button>
+        </div>
       </div>
     </AppSheet>
   )

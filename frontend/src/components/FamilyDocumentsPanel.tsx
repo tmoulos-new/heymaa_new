@@ -30,6 +30,7 @@ export function FamilyDocumentsPanel({
   pregnancyActive,
   userName,
   featureAllowed = true,
+  downloadAllowed = true,
   featureLabel,
   requiredPlanLabel,
   onUpgrade,
@@ -42,6 +43,7 @@ export function FamilyDocumentsPanel({
   pregnancyActive: boolean
   userName: string
   featureAllowed?: boolean
+  downloadAllowed?: boolean
   featureLabel?: string
   requiredPlanLabel?: string
   onUpgrade?: () => void
@@ -87,6 +89,8 @@ export function FamilyDocumentsPanel({
       fileHint: el ? 'Έγγραφο, εξέταση, αγωγή…' : 'Document, test, treatment…',
       save: el ? 'Αποθήκευση' : 'Save',
       cancel: el ? 'Ακύρωση' : 'Cancel',
+      downloadLocked: el ? 'Λήψη μόνο Premium+' : 'Download on Premium+',
+      exportUpgrade: el ? 'Λήψη & κοινοποίηση' : 'Download & share',
       download: el ? 'Λήψη' : 'Download',
       delete: el ? 'Διαγραφή' : 'Delete',
       deleteTitle: el ? 'Διαγραφή εγγράφου' : 'Delete document',
@@ -369,8 +373,15 @@ export function FamilyDocumentsPanel({
                     {doc.file && (
                       <button
                         type="button"
-                        className="hm-family-docs__action hm-family-docs__action--download"
-                        onClick={() => downloadDocFile(doc.file!)}
+                        className={`hm-family-docs__action hm-family-docs__action--download${!downloadAllowed ? ' hm-family-docs__action--locked' : ''}`}
+                        onClick={() => {
+                          if (!downloadAllowed) {
+                            onUpgrade?.()
+                            return
+                          }
+                          downloadDocFile(doc.file!)
+                        }}
+                        title={!downloadAllowed ? copy.downloadLocked : undefined}
                       >
                         ↓ {copy.download}
                       </button>

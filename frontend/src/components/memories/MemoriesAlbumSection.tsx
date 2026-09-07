@@ -32,6 +32,9 @@ type Props = {
   onDeleteMemory?: (m: BookletMemory) => void
   onClose?: () => void
   showHeader?: boolean
+  exportAllowed?: boolean
+  onUpgradeExport?: () => void
+  exportRequiredPlanLabel?: string
 }
 
 export function MemoriesAlbumSection({
@@ -49,6 +52,9 @@ export function MemoriesAlbumSection({
   onDeleteMemory,
   onClose,
   showHeader = true,
+  exportAllowed = true,
+  onUpgradeExport,
+  exportRequiredPlanLabel,
 }: Props) {
   const el = lang === 'el'
   const saveLabel = el ? 'Αποθήκευση' : 'Save'
@@ -103,6 +109,10 @@ export function MemoriesAlbumSection({
   ])
 
   const handleDownload = () => {
+    if (!exportAllowed) {
+      onUpgradeExport?.()
+      return
+    }
     if (!rangeOk) return
     const ok = downloadMemoriesBooklet({
       userName,
@@ -118,6 +128,10 @@ export function MemoriesAlbumSection({
   }
 
   const handleShare = async () => {
+    if (!exportAllowed) {
+      onUpgradeExport?.()
+      return
+    }
     const text = el
       ? `Άλμπουμ αναμνήσεων · ${journalName} — ${countInPeriod} στιγμές (${periodText})`
       : `Memories album · ${journalName} — ${countInPeriod} moments (${periodText})`
@@ -277,9 +291,10 @@ export function MemoriesAlbumSection({
       <div className="hm-memory-album-modal__actions">
         <button
           type="button"
-          className="hm-memory-album-modal__btn hm-memory-album-modal__btn--share"
+          className={`hm-memory-album-modal__btn hm-memory-album-modal__btn--share${!exportAllowed ? ' hm-memory-album-modal__btn--locked' : ''}`}
           disabled={!rangeOk || countInPeriod === 0}
           onClick={() => void handleShare()}
+          title={!exportAllowed ? (el ? `Premium+: ${exportRequiredPlanLabel || ''}` : `Premium+: ${exportRequiredPlanLabel || ''}`) : undefined}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -288,9 +303,10 @@ export function MemoriesAlbumSection({
         </button>
         <button
           type="button"
-          className="hm-memory-album-modal__btn hm-memory-album-modal__btn--download"
+          className={`hm-memory-album-modal__btn hm-memory-album-modal__btn--download${!exportAllowed ? ' hm-memory-album-modal__btn--locked' : ''}`}
           disabled={!rangeOk || countInPeriod === 0}
           onClick={handleDownload}
+          title={!exportAllowed ? (el ? `Premium+: ${exportRequiredPlanLabel || ''}` : `Premium+: ${exportRequiredPlanLabel || ''}`) : undefined}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 3v12M7 10l5 5 5-5M4 20h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -299,7 +315,13 @@ export function MemoriesAlbumSection({
         </button>
       </div>
 
-      <p className="hm-memories-album-section__hint">{labels.downloadHint}</p>
+      <p className="hm-memories-album-section__hint">
+        {!exportAllowed
+          ? el
+            ? `Προεπισκόπηση & οργάνωση διαθέσιμες. Λήψη & κοινοποίηση στο ${exportRequiredPlanLabel || 'Premium'}.`
+            : `Preview & organize available. Download & share on ${exportRequiredPlanLabel || 'Premium'}.`
+          : labels.downloadHint}
+      </p>
 
       {previewOpen && previewPages.length > 0 && (
         <BookletFlipbookModal

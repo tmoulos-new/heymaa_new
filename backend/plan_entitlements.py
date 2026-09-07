@@ -51,40 +51,39 @@ def resolve_plan_slot(
 
 
 def plan_entitlements(plan_slot: str) -> dict[str, Any]:
-    full_memory = plan_slot != "trial"
     quota = VOICE_LISTEN_QUOTA_BY_PLAN.get(plan_slot, VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     # Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts
     chat_context_by_plan: dict[str, int] = {
-        "trial": 6,
+        "trial": 12,
+        "starter": 24,
+        "premium": 48,
+        "annual": 48,
+    }
+    memory_context_by_plan: dict[str, int] = {
+        "trial": 5,
         "starter": 12,
         "premium": 24,
         "annual": 24,
     }
-    memory_context_by_plan: dict[str, int] = {
-        "trial": 3,
-        "starter": 5,
-        "premium": 10,
-        "annual": 15,
-    }
-    # 0 = unlimited archived conversation threads
     archived_threads_by_plan: dict[str, int] = {
         "trial": 3,
-        "starter": 0,
-        "premium": 0,
-        "annual": 0,
+        "starter": 45,
+        "premium": 90,
+        "annual": 90,
     }
-    document_archive = plan_slot != "trial"
+    export_enabled = plan_slot in ("premium", "annual")
     return {
         "plan_slot": plan_slot,
         "voice_listen_quota": quota,
-        "full_memory": full_memory,
-        "memory_video": full_memory,
+        "full_memory": True,
+        "memory_video": plan_slot != "trial",
         "memory_photos": True,
         "memory_text": True,
-        "document_archive": document_archive,
-        "document_upload": document_archive,
-        "chat_context_messages": chat_context_by_plan.get(plan_slot, 6),
-        "memory_context_count": memory_context_by_plan.get(plan_slot, 3),
+        "document_archive": True,
+        "document_upload": True,
+        "export_enabled": export_enabled,
+        "chat_context_messages": chat_context_by_plan.get(plan_slot, 12),
+        "memory_context_count": memory_context_by_plan.get(plan_slot, 5),
         "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
     }
 
@@ -305,7 +304,7 @@ def validate_memories_payload(value: Any, entitlements: dict[str, Any]) -> Optio
             return "Video memories require Full Memory (Starter plan or above)."
         img = item.get("img")
         if img and str(img).strip() and not full_memory:
-            return "Photo memories require Full Memory (Starter plan or above)."
+            return "Photo memories require an active HeyMaa plan."
     return None
 
 
@@ -326,7 +325,7 @@ def validate_docs_payload(value: Any, entitlements: dict[str, Any]) -> Optional[
     allow_upload = bool(entitlements.get("document_upload"))
     items = _doc_items(value)
     if items and not allow_archive:
-        return "Document archive requires Starter plan or above."
+        return "Document archive requires an active HeyMaa plan."
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -335,7 +334,7 @@ def validate_docs_payload(value: Any, entitlements: dict[str, Any]) -> Optional[
             continue
         data_url = file_obj.get("dataUrl") or file_obj.get("data_url")
         if data_url and str(data_url).strip() and not allow_upload:
-            return "Document file uploads require Starter plan or above."
+            return "Document file uploads require an active HeyMaa plan."
     return None
 
 

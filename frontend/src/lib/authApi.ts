@@ -147,6 +147,7 @@ export type PlanEntitlements = {
   memory_text: boolean
   document_archive?: boolean
   document_upload?: boolean
+  export_enabled?: boolean
   chat_context_messages?: number
   memory_context_count?: number
   archived_threads_limit?: number

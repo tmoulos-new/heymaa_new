@@ -24,10 +24,12 @@ class PlanEntitlementsTests(unittest.TestCase):
     def test_resolve_plan_slot_annual(self):
         self.assertEqual(resolve_plan_slot("annual premium", "active"), "annual")
 
-    def test_trial_has_no_video_memory(self):
+    def test_trial_has_photos_no_video(self):
         ent = plan_entitlements("trial")
+        self.assertTrue(ent["full_memory"])
         self.assertFalse(ent["memory_video"])
-        self.assertFalse(ent["full_memory"])
+        self.assertTrue(ent["document_archive"])
+        self.assertFalse(ent["export_enabled"])
 
     def test_starter_has_full_memory(self):
         ent = plan_entitlements("starter")
@@ -35,16 +37,30 @@ class PlanEntitlementsTests(unittest.TestCase):
         self.assertTrue(ent["full_memory"])
         self.assertTrue(ent["document_archive"])
         self.assertTrue(ent["document_upload"])
+        self.assertFalse(ent["export_enabled"])
+        self.assertEqual(ent["archived_threads_limit"], 45)
+        self.assertEqual(ent["chat_context_messages"], 24)
+        self.assertEqual(ent["memory_context_count"], 12)
 
-    def test_trial_has_no_document_archive(self):
+    def test_premium_export_and_limits(self):
+        ent = plan_entitlements("premium")
+        self.assertTrue(ent["export_enabled"])
+        self.assertEqual(ent["archived_threads_limit"], 90)
+        self.assertEqual(ent["chat_context_messages"], 48)
+        self.assertEqual(ent["memory_context_count"], 24)
+
+    def test_trial_has_no_video_memory(self):
         ent = plan_entitlements("trial")
-        self.assertFalse(ent["document_archive"])
-        self.assertFalse(ent["document_upload"])
+        self.assertFalse(ent["memory_video"])
 
-    def test_validate_memories_blocks_photo_on_trial(self):
+    def test_starter_has_video_memory(self):
+        ent = plan_entitlements("starter")
+        self.assertTrue(ent["memory_video"])
+
+    def test_validate_memories_allows_photo_on_trial(self):
         payload = [{"text": "hi", "img": "data:image/png;base64,abc"}]
         err = validate_memories_payload(payload, plan_entitlements("trial"))
-        self.assertIsNotNone(err)
+        self.assertIsNone(err)
 
     def test_validate_memories_allows_photo_on_starter(self):
         payload = [{"text": "hi", "img": "data:image/png;base64,abc"}]
@@ -61,17 +77,17 @@ class PlanEntitlementsTests(unittest.TestCase):
         err = validate_memories_payload(payload, plan_entitlements("starter"))
         self.assertIsNone(err)
 
-    def test_validate_docs_blocks_archive_on_trial(self):
+    def test_validate_docs_allows_on_trial(self):
         payload = [{"title": "Blood test", "category": "blood", "ref": "", "addedDate": ""}]
         err = validate_docs_payload(payload, plan_entitlements("trial"))
-        self.assertIsNotNone(err)
+        self.assertIsNone(err)
 
     def test_validate_docs_allows_metadata_on_starter(self):
         payload = [{"title": "Blood test", "category": "blood", "ref": "", "addedDate": ""}]
         err = validate_docs_payload(payload, plan_entitlements("starter"))
         self.assertIsNone(err)
 
-    def test_validate_docs_blocks_file_on_trial(self):
+    def test_validate_docs_allows_file_on_trial(self):
         payload = [{
             "title": "Scan",
             "category": "other",
@@ -80,7 +96,7 @@ class PlanEntitlementsTests(unittest.TestCase):
             "file": {"name": "scan.pdf", "mime": "application/pdf", "dataUrl": "data:application/pdf;base64,abc"},
         }]
         err = validate_docs_payload(payload, plan_entitlements("trial"))
-        self.assertIsNotNone(err)
+        self.assertIsNone(err)
 
     def test_validate_docs_allows_file_on_starter(self):
         payload = [{

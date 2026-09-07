@@ -3,6 +3,7 @@ import {
   archivedThreadsLimit,
   documentArchiveAllowed,
   documentUploadAllowed,
+  exportEnabled,
 } from './planEntitlements'
 import { activePlanNameForSlot, resolveCurrentPlanSlot, type PlanSlot } from './subscriptionPlans'
 
@@ -10,15 +11,19 @@ import { activePlanNameForSlot, resolveCurrentPlanSlot, type PlanSlot } from './
 export type PlanFeatureId =
   | 'document_archive'
   | 'document_upload'
+  | 'document_export'
+  | 'album_export'
   | 'full_memory'
   | 'memory_video'
   | 'archived_threads'
   | 'voice_listen'
 
 const FEATURE_MIN_PLAN: Record<PlanFeatureId, PlanSlot> = {
-  document_archive: 'starter',
-  document_upload: 'starter',
-  full_memory: 'starter',
+  document_archive: 'trial',
+  document_upload: 'trial',
+  document_export: 'premium',
+  album_export: 'premium',
+  full_memory: 'trial',
   memory_video: 'starter',
   archived_threads: 'starter',
   voice_listen: 'starter',
@@ -36,9 +41,11 @@ const PLAN_ORDER: PlanSlot[] = ['trial', 'starter', 'premium', 'annual']
 const FEATURE_LABELS: Record<PlanFeatureId, { el: string; en: string }> = {
   document_archive: { el: 'Αρχείο Εγγράφων', en: 'Document Archive' },
   document_upload: { el: 'Ανέβασμα αρχείου', en: 'File upload' },
-  full_memory: { el: 'Πλήρης Μνήμη', en: 'Full Memory' },
+  document_export: { el: 'Λήψη & κοινοποίηση εγγράφων', en: 'Document download & share' },
+  album_export: { el: 'Λήψη & κοινοποίηση άλμπουμ', en: 'Album download & share' },
+  full_memory: { el: 'Φωτογραφίες αναμνήσεων', en: 'Photo memories' },
   memory_video: { el: 'Βίντεο αναμνήσεων', en: 'Memory videos' },
-  archived_threads: { el: 'Απεριόριστες αρχειοθετημένες συνομιλίες', en: 'Unlimited archived conversations' },
+  archived_threads: { el: 'Αρχειοθετημένες συνομιλίες', en: 'Archived conversations' },
   voice_listen: { el: 'Φωνητικά μηνύματα', en: 'Voice messages' },
 }
 
@@ -80,8 +87,31 @@ export function canArchiveAnotherThread(
   archivedCount: number,
 ): boolean {
   const limit = archivedThreadsLimit(entitlements, snapshot)
-  if (limit === 0) return true
   return archivedCount < limit
+}
+
+/** Which paid plan unlocks more archived threads when at cap. */
+export function archiveLimitUpgradePlan(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+  archivedCount: number,
+): PlanSlot | null {
+  if (canArchiveAnotherThread(entitlements, snapshot, archivedCount)) return null
+  const current = resolveCurrentPlanSlot(snapshot)
+  if (current === 'trial') return 'starter'
+  if (current === 'starter') return 'premium'
+  return null
+}
+
+export function archiveLimitUpgradePlanLabel(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+  archivedCount: number,
+  lang: string,
+): string {
+  const slot = archiveLimitUpgradePlan(entitlements, snapshot, archivedCount)
+  if (!slot) return activePlanNameForSlot('premium', [], lang)
+  return activePlanNameForSlot(slot, [], lang)
 }
 
 export function featureAllowed(
@@ -91,15 +121,20 @@ export function featureAllowed(
 ): boolean {
   if (feature === 'full_memory') {
     if (entitlements?.full_memory != null) return entitlements.full_memory
+    return true
   }
   if (feature === 'memory_video') {
     if (entitlements?.memory_video != null) return entitlements.memory_video
+    return planMeetsMinimum(resolveCurrentPlanSlot(snapshot), 'starter')
   }
   if (feature === 'document_archive') {
     return documentArchiveAllowed(entitlements, snapshot)
   }
   if (feature === 'document_upload') {
     return documentUploadAllowed(entitlements, snapshot)
+  }
+  if (feature === 'document_export' || feature === 'album_export') {
+    return exportEnabled(entitlements, snapshot)
   }
   return planMeetsMinimum(resolveCurrentPlanSlot(snapshot), FEATURE_MIN_PLAN[feature])
 }

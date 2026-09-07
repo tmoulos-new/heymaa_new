@@ -73,10 +73,12 @@ import {
 } from "./lib/memorySuggestions";
 import {
   attachmentPayloadForApi,
+  chatMessagesForStorage,
   fileToChatAttachment,
   MAX_CHAT_FILE_BYTES,
   type ChatAttachment,
 } from "./lib/chatAttachments";
+import { useKeyboardInset } from "./lib/useKeyboardInset";
 import {
   mergeCloudUserData,
   pruneOrphanJwtMemoryKeys,
@@ -108,6 +110,7 @@ import { AppDialog } from "./components/AppDialog";
 import { DialogPanel } from "./components/ui/DialogPanel";
 import { SheetHeader } from "./components/ui/SheetHeader";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { FaqAccordionList } from "./components/FaqAccordionList";
 import { ToastStack, type ToastKind, type ToastItem } from "./components/ToastStack";
 import { AppTourGuide } from "./components/AppTourGuide";
 import {
@@ -129,7 +132,7 @@ import {
   readExpiryPopupDismissed,
 } from "./lib/accessExpiry";
 import type { PendingLevelReward, RewardsSnapshot } from "./lib/levelRewards";
-import { dismissRewardLevel, firstUnseenPendingReward } from "./lib/levelRewards";
+import { dismissRewardLevel, firstUnseenPendingReward, selectPendingReward } from "./lib/levelRewards";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
@@ -1914,6 +1917,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
   const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
+  const [openProfileFaq, setOpenProfileFaq] = useState<Record<number, boolean>>({ 0: true });
   const homeLng = homeDisplayLocale(lang);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
@@ -1981,22 +1985,35 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       });
   }, [token, trialEndsAt, applySubscriptionSnapshot]);
 
-  const openPendingReward = useCallback((rewards: RewardsSnapshot | null | undefined, force = false) => {
-    const first = force
-      ? rewards?.pending?.[0]
-      : firstUnseenPendingReward(token, rewards);
+  const openPendingReward = useCallback((
+    rewards: RewardsSnapshot | null | undefined,
+    options?: { force?: boolean; levelId?: number },
+  ) => {
+    const first = selectPendingReward(rewards, {
+      token,
+      force: options?.force,
+      levelId: options?.levelId,
+    });
     if (first) {
       setPendingLevelReward(first);
       setShowLevelRewardSheet(true);
     }
   }, [token]);
 
+  const profilePendingReward = useMemo(
+    () => firstUnseenPendingReward(token, rewardsSnapshot),
+    [token, rewardsSnapshot],
+  );
+
   const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
     const result = await logUserActivity(token, { action, path, label, details });
     if (result?.gamification) setGamification(result.gamification);
     if (result?.rewards) setRewardsSnapshot(result.rewards);
     if (result?.level_up && result.rewards?.pending?.length) {
-      openPendingReward(result.rewards, true);
+      openPendingReward(result.rewards, {
+        force: true,
+        levelId: result.level_up.to,
+      });
     }
     if (result?.points_awarded) {
       const ptsLabel = t("points", lang);
@@ -2045,14 +2062,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       lang === "el" ? "Το δώρο ενεργοποιήθηκε! 🎁" : "Your gift is active! 🎁",
       "ok",
     );
-    const next = payload.rewards.pending?.[0];
+    const next = firstUnseenPendingReward(token, payload.rewards);
     if (next) {
       setPendingLevelReward(next);
       setShowLevelRewardSheet(true);
     } else {
       setPendingLevelReward(null);
+      setShowLevelRewardSheet(false);
     }
-  }, [applySubscriptionSnapshot, lang]);
+  }, [applySubscriptionSnapshot, lang, token]);
 
   // Threads state — bootstrap from full localStorage scan (all past JWT keys)
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
@@ -2480,9 +2498,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [memories, saveMemoriesLocal, saveMemoriesCloud]);
 
   const sbSave = useCallback(async (key: string, value: any) => {
+    const payload = key === "chat" ? chatMessagesForStorage(value) : value;
     // Memories use IndexedDB — never jam full photo payloads into localStorage
     if (key !== "memories") {
-      const raw = JSON.stringify(value);
+      const raw = JSON.stringify(payload);
       // Never overwrite a non-empty local blob with empty cloud-bound payload
       if (raw === "[]" || raw === "{}") {
         const existing = localStorage.getItem(sk(token, key));
@@ -2498,17 +2517,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (!cloudReady) return;
     // Never push empty arrays/objects to cloud (would wipe recovered data)
     if (value == null) return;
-    if (Array.isArray(value) && value.length === 0) return;
-    if (typeof value === "object" && !Array.isArray(value)) {
-      const keys = Object.keys(value);
+    if (Array.isArray(payload) && payload.length === 0) return;
+    if (typeof payload === "object" && !Array.isArray(payload)) {
+      const keys = Object.keys(payload);
       if (
-        (key === "family" && !(value.children?.length || value.members?.length)) ||
+        (key === "family" && !(payload.children?.length || payload.members?.length)) ||
         (key === "milestones_map" && keys.length === 0)
       ) {
         return;
       }
     }
-    try { await axios.post(`${API}/userdata`, { key, value }, { headers: { "x-token": token } }); } catch {}
+    if (key === "chat") {
+      const raw = JSON.stringify(payload);
+      if (raw.length > 900_000) return;
+    }
+    try { await axios.post(`${API}/userdata`, { key, value: payload }, { headers: { "x-token": token } }); } catch {}
   }, [token, cloudReady]);
 
   // Emergency restore: scan all local JWT keys + IDB, then merge cloud — then allow saves
@@ -2739,8 +2762,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           recentMemories,
           recentDocs: recentDocs.slice(0, 10),
         },
-        { headers: { "x-token": token }, timeout: 60000 },
+        { headers: { "x-token": token }, timeout: 90000 },
       );
+      const reply = typeof res.data?.reply === "string" ? res.data.reply.trim() : "";
+      if (!reply) {
+        throw new Error("empty_reply");
+      }
       setMessages([
         ...next,
         {
@@ -2759,7 +2786,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         showToast(msg, "err");
         window.setTimeout(() => onLogout(), 1200);
       } else if (err.response?.status === 402) onExpired();
-      else {
+      else if (err.response?.status === 413) {
+        const msg = lang === "el"
+          ? "Το αρχείο είναι πολύ μεγάλο για αποστολή. Δοκίμασε μικρότερη φωτογραφία."
+          : "That file is too large to send. Try a smaller photo.";
+        setMessages([...next, { role: "assistant", content: msg }]);
+      } else {
         const detail = apiDetail(err.response?.data, "");
         const network = !err.response && (err.code === "ECONNABORTED" || /timeout/i.test(String(err.message || "")));
         const busy = /busy right now|try again in a minute/i.test(detail);
@@ -3733,6 +3765,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const appBodyRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
   const { tabBarVisible, showTabBar } = useAutoHideTabBar(appBodyRef);
+  useKeyboardInset(tab === "chat");
 
   const goToTourStep = useCallback((idx: number) => {
     const s = APP_TOUR_STEPS[idx];
@@ -3959,26 +3992,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <div className="hm-section-label">
               {displayUppercase(tHome("faq.label", { lng: homeLng }) || (lang==="el"?"Συχνές ερωτήσεις":"FAQ"), lang)}
             </div>
-            <div className="hm-faq-list">
-              {helpFaqItems.map((item, i) => {
-                const open = !!openHelpFaq[i];
-                return (
-                  <div key={item.question} className="hm-faq-item">
-                    <button
-                      type="button"
-                      className="hm-faq-trigger"
-                      onClick={()=>setOpenHelpFaq(prev=>({...prev,[i]:!open}))}
-                    >
-                      <span className="hm-faq-trigger__q">{item.question}</span>
-                      <span className={`hm-faq-trigger__chevron${open ? " hm-faq-trigger__chevron--open" : ""}`} aria-hidden="true">›</span>
-                    </button>
-                    {open ? (
-                      <div className="hm-faq-answer">{item.answer}</div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+            <FaqAccordionList
+              items={helpFaqItems}
+              openMap={openHelpFaq}
+              onToggle={(i) => setOpenHelpFaq((prev) => ({ ...prev, [i]: !prev[i] }))}
+            />
 
             <div className="hm-contact-card">
               <div className="hm-section-label">
@@ -4403,6 +4421,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )}
 
       <LevelUpRewardSheet
+        key={pendingLevelReward?.level_id ?? "none"}
         open={showLevelRewardSheet}
         lang={lang}
         token={token}
@@ -4659,6 +4678,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </button>
         </DialogPanel>
       </AppDialog>
+
 
       {/* PAST THREADS PANEL */}
       <AppDialog
@@ -5084,8 +5104,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               referralCode={referralCode || personalReferralCode(token)}
               activeGrantEndsAt={activeRewardGrant?.ends_at}
               activeGrantPlan={activeRewardGrant?.plan_slot}
-              pendingRewards={rewardsSnapshot?.pending}
-              onClaimPending={() => openPendingReward(rewardsSnapshot, true)}
+              pendingRewards={profilePendingReward ? [profilePendingReward] : rewardsSnapshot?.pending}
+              onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true })}
               showHeaderChip={headerPointsVisible}
               onToggleHeaderChip={toggleHeaderPointsChip}
             />
@@ -5158,6 +5178,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   </button>
                 ))}
               </div>
+            </AppTabSection>
+
+            <AppTabSection lang={lang} label={tHome("faq.label", { lng: homeLng }) || (lang === "el" ? "Συχνές ερωτήσεις" : "FAQ")}>
+              <FaqAccordionList
+                items={helpFaqItems}
+                openMap={openProfileFaq}
+                onToggle={(i) => setOpenProfileFaq((prev) => ({ ...prev, [i]: !prev[i] }))}
+              />
+              <button
+                type="button"
+                onClick={() => setShowHelpSupport(true)}
+                style={{
+                  width: "100%",
+                  marginTop: 10,
+                  padding: "12px 14px",
+                  border: "none",
+                  borderRadius: 12,
+                  background: "rgba(43,58,103,.06)",
+                  color: navy,
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                {lang === "el" ? "Βοήθεια & επικοινωνία →" : "Help & contact →"}
+              </button>
             </AppTabSection>
 
             <button
@@ -5548,6 +5596,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             pregnancyActive={pregnancyActive}
             userName={displayName || profile.name}
             featureAllowed={featureAllowed("document_archive", planEntitlements, subSnapshot)}
+            downloadAllowed={featureAllowed("document_export", planEntitlements, subSnapshot)}
             featureLabel={featureLabel("document_archive", lang)}
             requiredPlanLabel={featureRequiredPlanLabel("document_archive", lang)}
             onUpgrade={openSubscriptionUpgrade}
@@ -5569,8 +5618,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             photoAllowed={featureAllowed("full_memory", planEntitlements, subSnapshot)}
             videoAllowed={featureAllowed("memory_video", planEntitlements, subSnapshot)}
             onUpgrade={openSubscriptionUpgrade}
-            upgradeFeatureLabel={featureLabel("full_memory", lang)}
-            upgradeRequiredPlanLabel={featureRequiredPlanLabel("full_memory", lang)}
+            upgradeFeatureLabel={featureLabel("memory_video", lang)}
+            upgradeRequiredPlanLabel={featureRequiredPlanLabel("memory_video", lang)}
+            exportAllowed={featureAllowed("album_export", planEntitlements, subSnapshot)}
+            onUpgradeExport={openSubscriptionUpgrade}
+            exportRequiredPlanLabel={featureRequiredPlanLabel("album_export", lang)}
             onCreateMemory={createMemoryFromForm}
             onUpdateMemory={updateMemoryFromForm}
             onDeleteMemory={deleteMemory}
@@ -5819,6 +5871,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             ref={inputRef}
             value={input}
             onChange={e=>setInput(e.target.value)}
+            onFocus={() => {
+              showTabBar();
+              window.setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 120);
+            }}
             onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&void sendMessage(input, chatPendingAttachments)}
             placeholder={t("typehere",lang)}
             disabled={loading}

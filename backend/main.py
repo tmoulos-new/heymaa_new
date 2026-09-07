@@ -2068,10 +2068,10 @@ async def call_groq(message, history, system_prompt, api_key: str, history_limit
 async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
     # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
     model_candidates = (
-        "gemini-3.7-flash",
-        "gemini-3.5-flash",
         "gemini-2.5-flash",
+        "gemini-2.0-flash",
         "gemini-flash-latest",
+        "gemini-1.5-flash",
     )
 
     def _contents():
@@ -3002,8 +3002,8 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=402, detail="Subscription expired")
     try:
         entitlements = _entitlements_for_token(x_token)
-        chat_context_limit = int(entitlements.get("chat_context_messages") or 6)
-        memory_context_limit = int(entitlements.get("memory_context_count") or 3)
+        chat_context_limit = int(entitlements.get("chat_context_messages") or 12)
+        memory_context_limit = int(entitlements.get("memory_context_count") or 5)
         complex_query = is_complex(req.message)
         rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
         rag_context = build_rag_context(rag_chunks)
@@ -5977,7 +5977,7 @@ def _register_public_root_files():
 _register_public_root_files()
 
 _API_PATH_PREFIXES = (
-    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "webhooks/", "checkout/",
+    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "gamification/", "webhooks/", "checkout/",
     "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",

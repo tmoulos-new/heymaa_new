@@ -27,7 +27,7 @@ export async function fileToChatAttachment(file: File): Promise<ChatAttachment> 
   const lower = file.name.toLowerCase();
   if (file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp)$/i.test(lower)) {
     const dataUrl = await readAsDataURL(file);
-    const compressed = await compressImageDataUrl(dataUrl, 1280, 0.72);
+    const compressed = await compressImageDataUrl(dataUrl, 1024, 0.68);
     return { kind: "image", name: file.name, mime: "image/jpeg", data: compressed };
   }
   if (file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(lower)) {
@@ -60,6 +60,17 @@ export function attachmentPayloadForApi(att: ChatAttachment) {
     data: att.data,
     text_preview: att.textPreview,
   };
+}
+
+/** Drop binary payloads before localStorage / cloud sync (keeps names for UI chips). */
+export function chatMessagesForStorage<T extends { attachments?: ChatAttachment[] }>(messages: T[]): T[] {
+  return messages.map((msg) => {
+    if (!msg.attachments?.length) return msg
+    return {
+      ...msg,
+      attachments: msg.attachments.map(({ kind, name, mime }) => ({ kind, name, mime })),
+    }
+  })
 }
 
 export function defaultMessageForAttachments(attachments: ChatAttachment[], lang: string): string {

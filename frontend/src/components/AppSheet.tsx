@@ -7,6 +7,8 @@ type Props = {
   onClose: () => void
   children: ReactNode
   wide?: boolean
+  /** Centered card on all viewports (reward / expiry dialogs). */
+  dialog?: boolean
   ariaLabel?: string
   closeOnBackdrop?: boolean
 }
@@ -16,6 +18,7 @@ export function AppSheet({
   onClose,
   children,
   wide = false,
+  dialog = false,
   ariaLabel,
   closeOnBackdrop = true,
 }: Props) {
@@ -38,13 +41,13 @@ export function AppSheet({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
-        className="hm-sheet-overlay"
+        className={`hm-sheet-overlay${dialog ? ' hm-sheet-overlay--dialog' : ''}`}
         onClick={(e) => {
           if (closeOnBackdrop && e.target === e.currentTarget) onClose()
         }}
       >
         <div
-          className={`hm-sheet-panel hm-sheet-panel--scroll${wide ? ' hm-sheet-panel--wide' : ''}`}
+          className={`hm-sheet-panel hm-sheet-panel--scroll${wide ? ' hm-sheet-panel--wide' : ''}${dialog ? ' hm-sheet-panel--dialog' : ''}`}
           onClick={(e) => e.stopPropagation()}
         >
           {children}

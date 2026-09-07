@@ -113,7 +113,8 @@
         "features": [
           "Unlimited Chat",
           "50 Voice/month",
-          "Basic Memory (text)",
+          "12 messages + 5 memories",
+          "Docs & album (view-only)",
           "3 archived conversations"
         ],
         "button": "Select plan",
@@ -132,9 +133,10 @@
         "features": [
           "Unlimited Chat",
           "150 Voice/month",
-          "Full Memory",
-          "Document Archive",
-          "Unlimited archived chats"
+          "24 messages + 12 memories",
+          "Document Archive & Album",
+          "45 archived conversations",
+          "Email support"
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -152,8 +154,10 @@
         "features": [
           "Unlimited Chat",
           "400 Voice/month",
-          "Full Memory",
-          "Weekly Support"
+          "48 messages + 24 memories",
+          "Download & share docs/album",
+          "90 archived conversations",
+          "Phone support"
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -169,10 +173,12 @@
         "featured": false,
         "save": "",
         "features": [
-          "Unlimited Chat",
+          "All Premium features",
           "700 Voice/month",
-          "Full Memory",
-          "Priority Support"
+          "48 messages + 24 memories",
+          "Download & share docs/album",
+          "90 archived conversations",
+          "Priority support"
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -242,7 +248,7 @@
       },
       {
         "question": "What does the free trial include?",
-        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, basic memory (text only, no photos/videos), and up to 3 archived conversations. No credit card required to start."
+        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, 12 chat messages + 5 saved memories in context, document & album preview (no download), memory videos from Starter, and up to 3 archived conversations. No credit card required to start."
       },
       {
         "question": "What happens when the trial ends?",
@@ -254,11 +260,11 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice playbacks, memory, and other features differ:\n\n• Trial: 50 voice playbacks, basic memory (text), 3 archived conversations\n• Starter (€19/month): 150 voice playbacks, full memory (photos/videos), document archive, unlimited archived chats\n• Premium (€39/month): 400 voice playbacks, full memory, weekly support\n• Annual Premium (€199/year): 700 voice playbacks, full memory, priority support\n\nWhen a feature requires a higher plan, you'll see a message with an UPGRADE button."
+        "answer": "All plans include unlimited chat. Voice playbacks, chat memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, 12+5 chat memory, docs/album view-only, 3 archived conversations\n• Starter (€19/month): 150 voice, 24+12 memory, full docs/album (no download), 45 archived, email support\n• Premium (€39/month): 400 voice, 48+24 memory, download & share, 90 archived, phone support\n• Annual Premium (€199/year): all Premium + 700 voice, priority support\n\nWhen a feature requires a higher plan, you'll see a message with an UPGRADE button."
       },
       {
-        "question": "What is Basic vs Full Memory?",
-        "answer": "Basic Memory (free trial) lets you save and organize text memories. Full Memory (Starter and above) unlocks photos, videos, albums, and organization by family member. Chat may suggest memories — you decide whether to save them."
+        "question": "What is chat memory vs Full Memory?",
+        "answer": "Chat memory is how many recent messages and saved memories HeyMaa uses in each reply (e.g. trial: 12+5, Starter: 24+12, Premium: 48+24). Full Memory (Starter+) unlocks memory videos; photos, albums, and documents are available from trial (view-only); download & share is Premium+ only."
       },
       {
         "question": "How do milestones work?",
@@ -266,7 +272,7 @@
       },
       {
         "question": "What is the Document Archive?",
-        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Document Archive is available from Starter; on trial you'll see an upgrade prompt."
+        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Available from trial (view-only); file download from Premium+. On Starter+ you can upload and edit normally."
       },
       {
         "question": "What is the family tree?",

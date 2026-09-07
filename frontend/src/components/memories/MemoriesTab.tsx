@@ -31,6 +31,9 @@ export type MemoriesTabProps = {
   pendingPhoto: string | null
   onClearPendingPhoto: () => void
   onAlbumDownload?: () => void
+  exportAllowed?: boolean
+  onUpgradeExport?: () => void
+  exportRequiredPlanLabel?: string
   onSaveMemories?: () => void
   memoriesSaving?: boolean
   onRemoveAlbumPhoto?: (memory: AppMemory) => void
@@ -72,6 +75,9 @@ export function MemoriesTab({
   pendingPhoto,
   onClearPendingPhoto,
   onAlbumDownload,
+  exportAllowed = true,
+  onUpgradeExport,
+  exportRequiredPlanLabel,
   onSaveMemories,
   memoriesSaving,
   onRemoveAlbumPhoto,
@@ -240,6 +246,9 @@ export function MemoriesTab({
                 familyChildren={familyChildren}
                 members={members}
                 onDownload={onAlbumDownload}
+                exportAllowed={exportAllowed}
+                onUpgradeExport={onUpgradeExport}
+                exportRequiredPlanLabel={exportRequiredPlanLabel}
                 onSave={onSaveMemories}
                 saving={memoriesSaving}
                 onRemovePhoto={onRemoveAlbumPhoto}
@@ -326,6 +335,9 @@ export function MemoriesTab({
         familyChildren={familyChildren}
         members={members}
         onDownload={onAlbumDownload}
+        exportAllowed={exportAllowed}
+        onUpgradeExport={onUpgradeExport}
+        exportRequiredPlanLabel={exportRequiredPlanLabel}
         onSave={onSaveMemories}
         saving={memoriesSaving}
         onRemovePhoto={onRemoveAlbumPhoto}

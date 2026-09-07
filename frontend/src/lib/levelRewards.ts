@@ -1,5 +1,7 @@
 /** Keep in sync with backend/plan_grants.py LEVEL_REWARD_GRANTS */
 
+import { GAMIFICATION_LEVELS } from './gamificationCard'
+
 export type LevelPlanReward = {
   levelId: number
   planSlot: 'starter' | 'premium'
@@ -50,15 +52,9 @@ export function rewardDescription(reward: PendingLevelReward, lang: string): str
 }
 
 export function rewardTitle(levelId: number, lang: string): string {
-  const names: Record<number, { el: string; en: string }> = {
-    2: { el: 'Ενεργή Μαμά', en: 'Active Mom' },
-    3: { el: 'Αφοσιωμένη Μαμά', en: 'Dedicated Mom' },
-    4: { el: 'Super Μαμά', en: 'Super Mom' },
-    5: { el: 'HeyMaa Champion', en: 'HeyMaa Champion' },
-  }
-  const row = names[levelId]
-  if (!row) return lang === 'el' ? 'Νέο επίπεδο!' : 'New level!'
-  return lang === 'el' ? row.el : row.en
+  const level = GAMIFICATION_LEVELS.find((row) => row.number === levelId)
+  if (!level) return lang === 'el' ? 'Νέο επίπεδο!' : 'New level!'
+  return lang === 'el' ? level.name_el : level.name_en
 }
 
 const REWARD_DISMISS_PREFIX = 'hm_reward_dismiss_'
@@ -92,4 +88,23 @@ export function firstUnseenPendingReward(
   if (!rewards?.pending?.length) return null
   const dismissed = readDismissedRewardLevels(token)
   return rewards.pending.find((p) => !dismissed.has(p.level_id)) ?? null
+}
+
+/** Pick which pending reward to show — prefer a specific level (e.g. fresh level-up). */
+export function selectPendingReward(
+  rewards: RewardsSnapshot | null | undefined,
+  options?: { token?: string; levelId?: number; force?: boolean },
+): PendingLevelReward | null {
+  if (!rewards?.pending?.length) return null
+  if (options?.levelId != null) {
+    const match = rewards.pending.find((p) => p.level_id === options.levelId)
+    if (match) return match
+  }
+  if (options?.force) {
+    return rewards.pending[0] ?? null
+  }
+  if (options?.token) {
+    return firstUnseenPendingReward(options.token, rewards)
+  }
+  return rewards.pending[0] ?? null
 }
