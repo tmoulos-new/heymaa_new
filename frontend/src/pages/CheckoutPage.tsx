@@ -7,6 +7,7 @@ import { setPlanIntent } from '../lib/planCheckoutFlow'
 import { useHomeI18nSync } from '../lib/useHomeI18nSync'
 import type { HomePlan } from '../i18n/homeTypes'
 import { APP_ROUTE } from '../publicRoutes'
+import { PlanFeatureList } from '../components/PlanFeatureList'
 import '../auth/appAuth.css'
 import '../home/home.css'
 import './checkout.css'
@@ -143,14 +144,7 @@ export function CheckoutPage() {
               </div>
             </div>
             <p className="checkout-plan-includes">{t('checkout.includes')}</p>
-            <ul className="checkout-plan-feats">
-              {selectedPlan.features.map((feature) => (
-                <li key={feature}>
-                  <i className="ti ti-check" aria-hidden="true" />
-                  {feature}
-                </li>
-              ))}
-            </ul>
+            <PlanFeatureList features={selectedPlan.features} layout="checkout" />
           </div>
         ) : null}
 

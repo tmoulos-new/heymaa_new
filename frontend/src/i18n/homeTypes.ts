@@ -7,6 +7,11 @@ export interface HomeHowItem {
   body: string;
 }
 
+export interface HomePlanFeature {
+  label: string;
+  hint?: string;
+}
+
 export interface HomePlan {
   icon: string;
   name: string;
@@ -17,7 +22,7 @@ export interface HomePlan {
   variant: string;
   featured?: boolean;
   save: string;
-  features: string[];
+  features: (string | HomePlanFeature)[];
   button: string;
   buttonClass: string;
 }

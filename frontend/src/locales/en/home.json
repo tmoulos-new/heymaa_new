@@ -99,6 +99,23 @@
     "title": "HeyMaa Subscription",
     "subtitle": "Choose the plan that fits you",
     "confirm": "Confirm",
+    "infoLabel": "What this means",
+    "featureHints": {
+      "chat_unlimited": "Send as many text messages as you like in chat — no daily cap.",
+      "voice_listen": "Applies to voice playbacks of HeyMaa replies (Listen button). Speaking via the microphone (speech-to-text) does not use this quota.",
+      "memory_daily": "Daily memory: HeyMaa uses your last 20 chat messages and 10 saved memories in each reply — ideal for everyday, shorter conversations without losing the thread.",
+      "memory_partial": "Partial memory: remembers the last 32 messages and 24 saved memories — better continuity when chats span more days or topics.",
+      "memory_strong": "Strong memory: remembers the last 64 messages and 45 saved memories — deeper context for rich chat history and many family memories.",
+      "memory_strong_annual": "Strong memory (annual bonus): 64 chat messages and up to 50 saved memories in each reply — the deepest memory context.",
+      "docs_album_view": "View and organize documents and memory albums in the app; downloading or sharing files is not included.",
+      "docs_album_full": "Full use of Document Archive and Memory Album (add, edit, preview) — without downloading or exporting files.",
+      "docs_album_export": "Download documents and export/share the memory album (e.g. as PDF).",
+      "archived_threads": "How many past conversations you can save and reopen from history.",
+      "email_support": "Technical support by email at info@heymaa.ai.",
+      "phone_support": "Phone support on our support line.",
+      "priority_support": "Priority handling for support requests.",
+      "all_premium": "Everything in the monthly Premium plan, plus annual benefits."
+    },
     "plans": [
       {
         "icon": "✨",
@@ -111,11 +128,11 @@
         "featured": false,
         "save": "",
         "features": [
-          "Unlimited Chat",
-          "50 Voice/month",
-          "12 messages + 5 memories",
-          "Docs & album (view-only)",
-          "3 archived conversations"
+          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "50 Voice/month", "hint": "voice_listen" },
+          { "label": "Daily memory", "hint": "memory_daily" },
+          { "label": "Docs & album (view-only)", "hint": "docs_album_view" },
+          { "label": "3 archived conversations", "hint": "archived_threads" }
         ],
         "button": "Select plan",
         "buttonClass": "btn-plan-idle"
@@ -131,12 +148,12 @@
         "featured": false,
         "save": "",
         "features": [
-          "Unlimited Chat",
-          "150 Voice/month",
-          "24 messages + 12 memories",
-          "Document Archive & Album",
-          "45 archived conversations",
-          "Email support"
+          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "150 Voice/month", "hint": "voice_listen" },
+          { "label": "Partial memory", "hint": "memory_partial" },
+          { "label": "Document Archive & Album", "hint": "docs_album_full" },
+          { "label": "45 archived conversations", "hint": "archived_threads" },
+          { "label": "Email support", "hint": "email_support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -152,12 +169,12 @@
         "featured": true,
         "save": "",
         "features": [
-          "Unlimited Chat",
-          "400 Voice/month",
-          "48 messages + 24 memories",
-          "Download & share docs/album",
-          "90 archived conversations",
-          "Phone support"
+          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "400 Voice/month", "hint": "voice_listen" },
+          { "label": "Strong memory", "hint": "memory_strong" },
+          { "label": "Download & share docs/album", "hint": "docs_album_export" },
+          { "label": "90 archived conversations", "hint": "archived_threads" },
+          { "label": "Phone support", "hint": "phone_support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -173,12 +190,12 @@
         "featured": false,
         "save": "",
         "features": [
-          "All Premium features",
-          "700 Voice/month",
-          "48 messages + 24 memories",
-          "Download & share docs/album",
-          "90 archived conversations",
-          "Priority support"
+          { "label": "All Premium features", "hint": "all_premium" },
+          { "label": "700 Voice/month", "hint": "voice_listen" },
+          { "label": "Strong memory", "hint": "memory_strong_annual" },
+          { "label": "Download & share docs/album", "hint": "docs_album_export" },
+          { "label": "90 archived conversations", "hint": "archived_threads" },
+          { "label": "Priority support", "hint": "priority_support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -248,7 +265,7 @@
       },
       {
         "question": "What does the free trial include?",
-        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, 12 chat messages + 5 saved memories in context, document & album preview (no download), memory videos from Starter, and up to 3 archived conversations. No credit card required to start."
+        "answer": "14 days to try HeyMaa: unlimited chat, up to 50 voice playbacks (Listen) per month, Daily memory (20 messages + 10 memories), document & album preview (no download), memory videos from Starter, and up to 3 archived conversations. No credit card required to start."
       },
       {
         "question": "What happens when the trial ends?",
@@ -260,11 +277,11 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice playbacks, chat memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, 12+5 chat memory, docs/album view-only, 3 archived conversations\n• Starter (€19/month): 150 voice, 24+12 memory, full docs/album (no download), 45 archived, email support\n• Premium (€39/month): 400 voice, 48+24 memory, download & share, 90 archived, phone support\n• Annual Premium (€199/year): all Premium + 700 voice, priority support\n\nWhen a feature requires a higher plan, you'll see a message with an UPGRADE button."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Partial memory (32+24), full docs/album, 45 archived, email\n• Premium (€39/month): 400 voice, Strong memory (64+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Strong memory (64+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
-        "question": "What is chat memory vs Full Memory?",
-        "answer": "Chat memory is how many recent messages and saved memories HeyMaa uses in each reply (e.g. trial: 12+5, Starter: 24+12, Premium: 48+24). Full Memory (Starter+) unlocks memory videos; photos, albums, and documents are available from trial (view-only); download & share is Premium+ only."
+        "question": "What is Daily, Partial, and Strong memory?",
+        "answer": "Three levels of chat memory — how many recent messages and saved memories HeyMaa uses in each reply:\n\n• Daily memory (trial): 20 messages + 10 memories\n• Partial memory (Starter): 32 messages + 24 memories\n• Strong memory (Premium): 64 messages + 45 memories\n• Strong memory (Annual): 64 messages + 50 memories\n\nMemory videos from Starter; photos, albums, and documents from trial (view-only); download & share Premium+ only."
       },
       {
         "question": "How do milestones work?",

@@ -54,16 +54,16 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
     quota = VOICE_LISTEN_QUOTA_BY_PLAN.get(plan_slot, VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     # Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts
     chat_context_by_plan: dict[str, int] = {
-        "trial": 12,
-        "starter": 24,
-        "premium": 48,
-        "annual": 48,
+        "trial": 20,
+        "starter": 32,
+        "premium": 64,
+        "annual": 64,
     }
     memory_context_by_plan: dict[str, int] = {
-        "trial": 5,
-        "starter": 12,
-        "premium": 24,
-        "annual": 24,
+        "trial": 10,
+        "starter": 24,
+        "premium": 45,
+        "annual": 50,
     }
     archived_threads_by_plan: dict[str, int] = {
         "trial": 3,
@@ -82,8 +82,8 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "document_archive": True,
         "document_upload": True,
         "export_enabled": export_enabled,
-        "chat_context_messages": chat_context_by_plan.get(plan_slot, 12),
-        "memory_context_count": memory_context_by_plan.get(plan_slot, 5),
+        "chat_context_messages": chat_context_by_plan.get(plan_slot, 20),
+        "memory_context_count": memory_context_by_plan.get(plan_slot, 10),
         "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
     }
 

@@ -30,6 +30,8 @@ class PlanEntitlementsTests(unittest.TestCase):
         self.assertFalse(ent["memory_video"])
         self.assertTrue(ent["document_archive"])
         self.assertFalse(ent["export_enabled"])
+        self.assertEqual(ent["chat_context_messages"], 20)
+        self.assertEqual(ent["memory_context_count"], 10)
 
     def test_starter_has_full_memory(self):
         ent = plan_entitlements("starter")
@@ -39,15 +41,20 @@ class PlanEntitlementsTests(unittest.TestCase):
         self.assertTrue(ent["document_upload"])
         self.assertFalse(ent["export_enabled"])
         self.assertEqual(ent["archived_threads_limit"], 45)
-        self.assertEqual(ent["chat_context_messages"], 24)
-        self.assertEqual(ent["memory_context_count"], 12)
+        self.assertEqual(ent["chat_context_messages"], 32)
+        self.assertEqual(ent["memory_context_count"], 24)
 
     def test_premium_export_and_limits(self):
         ent = plan_entitlements("premium")
         self.assertTrue(ent["export_enabled"])
         self.assertEqual(ent["archived_threads_limit"], 90)
-        self.assertEqual(ent["chat_context_messages"], 48)
-        self.assertEqual(ent["memory_context_count"], 24)
+        self.assertEqual(ent["chat_context_messages"], 64)
+        self.assertEqual(ent["memory_context_count"], 45)
+
+    def test_annual_memory_bonus(self):
+        ent = plan_entitlements("annual")
+        self.assertEqual(ent["chat_context_messages"], 64)
+        self.assertEqual(ent["memory_context_count"], 50)
 
     def test_trial_has_no_video_memory(self):
         ent = plan_entitlements("trial")

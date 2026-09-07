@@ -1959,6 +1959,7 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
     return str(row.get("status") or "active") == "active"
 
 _CHAT_MAX_TOKENS = 512
+_CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
 
 def _is_usable_reply(text: str) -> bool:
     """Reject empty or instruction-leakage replies. Allow markdown (*bold*)."""
@@ -2052,7 +2053,7 @@ async def call_groq(message, history, system_prompt, api_key: str, history_limit
     def _run():
         client = Groq(api_key=api_key)
         messages = [{"role": "system", "content": system_prompt}]
-        limit = max(2, min(int(history_limit or 6), 32))
+        limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
         for h in (history or [])[-limit:]:
             messages.append({"role": h["role"], "content": (h.get("content") or "")[:1500]})
         messages.append({"role": "user", "content": (message or "")[:2000]})
@@ -2076,7 +2077,7 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
 
     def _contents():
         items = []
-        limit = max(2, min(int(history_limit or 6), 32))
+        limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
         for h in (history or [])[-limit:]:
             role = "user" if h.get("role") == "user" else "model"
             text = (h.get("content") or "")[:1500]
@@ -2142,7 +2143,7 @@ async def call_claude(message, history, system_prompt, api_key: str, image_parts
     import anthropic
     def _run():
         client = anthropic.Anthropic(api_key=api_key)
-        limit = max(2, min(int(history_limit or 6), 32))
+        limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
         messages = [
             {"role": h["role"], "content": (h.get("content") or "")[:1500]}
             for h in (history or [])[-limit:]
@@ -3002,8 +3003,8 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=402, detail="Subscription expired")
     try:
         entitlements = _entitlements_for_token(x_token)
-        chat_context_limit = int(entitlements.get("chat_context_messages") or 12)
-        memory_context_limit = int(entitlements.get("memory_context_count") or 5)
+        chat_context_limit = int(entitlements.get("chat_context_messages") or 20)
+        memory_context_limit = int(entitlements.get("memory_context_count") or 10)
         complex_query = is_complex(req.message)
         rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
         rag_context = build_rag_context(rag_chunks)

@@ -4,19 +4,19 @@ import { voiceListenQuotaForSnapshot } from './voiceQuota'
 
 /** Keep in sync with backend/plan_entitlements.py */
 const CHAT_CONTEXT_BY_PLAN: Record<string, number> = {
-  trial: 12,
-  starter: 24,
-  premium: 48,
-  annual: 48,
-  admin: 48,
+  trial: 20,
+  starter: 32,
+  premium: 64,
+  annual: 64,
+  admin: 64,
 }
 
 const MEMORY_CONTEXT_BY_PLAN: Record<string, number> = {
-  trial: 5,
-  starter: 12,
-  premium: 24,
-  annual: 24,
-  admin: 24,
+  trial: 10,
+  starter: 24,
+  premium: 45,
+  annual: 50,
+  admin: 50,
 }
 
 const ARCHIVED_THREADS_BY_PLAN: Record<string, number> = {
@@ -44,7 +44,7 @@ export function chatContextDepth(
   snapshot: SubscriptionSnapshot | null,
 ): number {
   if (entitlements?.chat_context_messages != null) return entitlements.chat_context_messages
-  return CHAT_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 12
+  return CHAT_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 20
 }
 
 export function memoryContextCount(
@@ -52,7 +52,7 @@ export function memoryContextCount(
   snapshot: SubscriptionSnapshot | null,
 ): number {
   if (entitlements?.memory_context_count != null) return entitlements.memory_context_count
-  return MEMORY_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 5
+  return MEMORY_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 10
 }
 
 export function archivedThreadsLimit(

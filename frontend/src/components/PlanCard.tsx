@@ -2,6 +2,7 @@ import type { HomePlan } from '../i18n/homeTypes'
 import { useNavigate } from 'react-router-dom'
 import { continueWithPlan } from '../lib/planCheckoutFlow'
 import { vivaPlanForVariant, type VivaPlanKey } from '../lib/vivaCheckout'
+import { PlanFeatureList } from './PlanFeatureList'
 
 export type PlanButtonState = 'current' | 'idle' | 'selected'
 
@@ -37,7 +38,6 @@ export function PlanCard({
     (isCurrent ? 'current' : plan.featured ? 'selected' : 'idle')
   const isSelected = resolvedButtonState === 'selected'
   const isRadioFilled = radioSelected ?? (isCurrent || isSelected)
-  const features = Array.isArray(plan.features) ? plan.features : []
 
   const handleClick = () => {
     if (selectMode) {
@@ -76,14 +76,7 @@ export function PlanCard({
         <div className="plan-price">{plan.price}</div>
         <div className="plan-period">{plan.period}</div>
         <div className="plan-save">{plan.save || '\u00a0'}</div>
-        <ul className="plan-feats">
-          {features.map((feature) => (
-            <li key={feature}>
-              <i className="ti ti-check" />
-              {feature}
-            </li>
-          ))}
-        </ul>
+        <PlanFeatureList features={plan.features} layout="grid" />
         <button
           type="button"
           className={`plan-btn ${plan.buttonClass}`}
@@ -161,14 +154,7 @@ export function PlanCard({
           </div>
         )}
       </div>
-      <ul className="plan-feats">
-        {features.map((feature) => (
-          <li key={feature}>
-            <i className="ti ti-check" />
-            {feature}
-          </li>
-        ))}
-      </ul>
+      <PlanFeatureList features={plan.features} layout="stack" />
       <button
         type="button"
         className={`plan-btn btn-plan-${resolvedButtonState}`}
