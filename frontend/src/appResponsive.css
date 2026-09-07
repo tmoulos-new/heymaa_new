@@ -269,6 +269,7 @@ body.hm-app-active #root {
   max-width: 400px;
   max-height: min(92vh, 92dvh);
   overflow-y: auto;
+  overflow-anchor: none;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
@@ -1188,6 +1189,7 @@ body.hm-app-active #root {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
+  overflow-anchor: none;
 }
 
 .hm-faq-trigger {

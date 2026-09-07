@@ -1917,7 +1917,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
-  const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(0);
+  const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(null);
   const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
   const helpFaqItems = useMemo(() => {
@@ -3946,7 +3946,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
                 onClick: () => {
                   setShowProfileSettings(false);
-                  setOpenHelpFaqIndex(0);
+                  setOpenHelpFaqIndex(null);
                   setShowHelpSupport(true);
                 },
               },
@@ -4438,7 +4438,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           onClose={() => setShowSubscriptionSheet(false)}
           onOpenHelp={() => {
             setShowSubscriptionSheet(false);
-            setOpenHelpFaqIndex(0);
+            setOpenHelpFaqIndex(null);
             setShowHelpSupport(true);
           }}
         />
