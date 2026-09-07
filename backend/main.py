@@ -2658,12 +2658,18 @@ def _llm_secrets_from_db() -> dict:
     _llm_secret_cache_at = now
     return out
 
+def _replicate_api_token_from_env() -> str:
+    for name in ("REPLICATE_HEYMAA_API_TOKEN", "REPLICATE_API_TOKEN", "HEYMAA_API_TOKEN"):
+        val = (os.getenv(name) or "").strip()
+        if val:
+            return val
+    return ""
+
+
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
-        "replicate": (
-            (os.getenv("REPLICATE_API_TOKEN") or os.getenv("HEYMAA_API_TOKEN") or "").strip()
-        ),
+        "replicate": _replicate_api_token_from_env(),
         "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
         "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
@@ -3374,7 +3380,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         if not providers:
             raise HTTPException(
                 status_code=503,
-                detail="No LLM providers configured (set REPLICATE_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
+                detail="No LLM providers configured (set REPLICATE_HEYMAA_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
             )
         for provider in providers:
             try:
