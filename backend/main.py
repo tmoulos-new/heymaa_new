@@ -2089,16 +2089,22 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
         return False
     return str(row.get("status") or "active") == "active"
 
-_CHAT_MAX_TOKENS = 512
+_CHAT_MAX_TOKENS = 1024
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
 
 def _is_usable_reply(text: str) -> bool:
-    """Reject empty or instruction-leakage replies. Allow markdown (*bold*)."""
+    """Reject empty, truncated, or instruction-leakage replies. Allow markdown (*bold*)."""
     t = (text or "").strip()
     if len(t) < 8:
         return False
     letters = sum(1 for c in t if c.isalpha())
     if letters < 6:
+        return False
+    try:
+        from .replicate_chat import looks_truncated_reply
+    except ImportError:
+        from replicate_chat import looks_truncated_reply
+    if looks_truncated_reply(t):
         return False
     low = t.lower()
     leak_markers = (

@@ -4,6 +4,7 @@ from replicate_chat import (
     build_history_prompt,
     extract_replicate_output,
     image_parts_to_data_urls,
+    looks_truncated_reply,
 )
 
 
@@ -23,6 +24,13 @@ class ReplicateChatTests(unittest.TestCase):
 
     def test_extract_output_concatenates_array(self):
         self.assertEqual(extract_replicate_output(["Hello", " world"]), "Hello world")
+
+    def test_extract_output_nested_arrays(self):
+        self.assertEqual(extract_replicate_output(["Hello", [" ", "world"]]), "Helloworld")
+
+    def test_truncated_reply_detection(self):
+        self.assertTrue(looks_truncated_reply("βοηθήσω με ό,"))
+        self.assertFalse(looks_truncated_reply("Καλή μέρα! Πώς είσαι;"))
 
     def test_image_parts_to_data_urls(self):
         urls = image_parts_to_data_urls([{"mime_type": "image/png", "data": "abc123"}])
