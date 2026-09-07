@@ -1,4 +1,6 @@
 /** Single source of truth — keep in sync with backend POINT_RULES + DEFAULT_LEVELS in main.py */
+import type { HomeFaqItem } from '../i18n/homeTypes'
+
 export const GAMIFICATION_POINT_RULES = [
   { el: 'Σημείωση', en: 'Note', points: 2, path: '/app/memories/add-note' },
   { el: 'Φωτό', en: 'Photo', points: 5, path: '/app/memories/add-photo' },
@@ -29,7 +31,7 @@ export const GAMIFICATION_LEVELS = [
   { number: 5, min_points: 3500, name_el: 'HeyMaa Champion', name_en: 'HeyMaa Champion' },
 ] as const;
 
-export type GamificationFaqItem = { question: string; answer: string };
+export type GamificationFaqItem = HomeFaqItem
 export const LEVEL_EMOJI: Record<number, string> = {
   1: '🌱',
   2: '🌿',
@@ -80,28 +82,94 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
   const isEl = lang === 'el';
   const milestonePts = GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 15;
   const videoPts = GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8;
-  const pointsLines = POINT_ACTIONS.map((a) =>
-    isEl ? `• ${a.el}: +${a.points} πόντοι` : `• ${a.en}: +${a.points} points`,
-  ).join('\n');
-
   return [
     {
       question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
       answer: isEl
-        ? `Κερδίζεις πόντους αυτόματα όταν:\n${pointsLines}\n\nΑν ξετικάρεις ορόσημο, αφαιρούνται οι ${milestonePts} πόντοι (μία φορά ανά ορόσημο).\nΒίντεο (+${videoPts}): σε Αναμνήσεις ή Chat.\nChat: έως ${CHAT_DAILY_POINTS_CAP} πόντοι/ημέρα από μηνύματα.\nΠρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} πόντοι όταν εγγραφεί με τον κωδικό σου (στο Προφίλ).`
-        : `You earn points automatically when you:\n${pointsLines}\n\nUnticking a milestone removes the ${milestonePts} points (once per milestone).\nVideo (+${videoPts}): in Memories or Chat.\nChat: up to ${CHAT_DAILY_POINTS_CAP} points/day from messages.\nFriend referral: +${REFERRAL_BONUS_POINTS} points when they sign up with your code (in Profile).`,
+        ? 'Κερδίζεις πόντους αυτόματα όταν χρησιμοποιείς την εφαρμογή — χωρίς ξεχωριστή ενέργεια.'
+        : 'You earn points automatically when you use the app — no extra steps needed.',
+      sections: [
+        {
+          title: isEl ? 'Πόντοι ανά ενέργεια' : 'Points per action',
+          bullets: POINT_ACTIONS.map((a) =>
+            isEl ? `${a.el}: +${a.points} πόντοι` : `${a.en}: +${a.points} points`,
+          ),
+        },
+        {
+          title: isEl ? 'Όρια & εξαιρέσεις' : 'Limits & exceptions',
+          bullets: isEl
+            ? [
+                `Ορόσημο: +${milestonePts} μία φορά ανά ορόσημο· αν ξετικάρεις, αφαιρούνται`,
+                `Βίντεο (+${videoPts}): σε Αναμνήσεις ή Chat`,
+                `Chat: έως ${CHAT_DAILY_POINTS_CAP} πόντοι/ημέρα από μηνύματα`,
+                `Πρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} όταν εγγραφεί με τον κωδικό σου (Προφίλ)`,
+              ]
+            : [
+                `Milestone: +${milestonePts} once per milestone; unticking removes points`,
+                `Video (+${videoPts}): in Memories or Chat`,
+                `Chat: up to ${CHAT_DAILY_POINTS_CAP} points/day from messages`,
+                `Friend referral: +${REFERRAL_BONUS_POINTS} when they sign up with your code (Profile)`,
+              ],
+        },
+      ],
     },
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
       answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο (από «Νέα Μαμά» έως «HeyMaa Champion»). Στα επίπεδα 2–5 κερδίζεις δωρεάν Starter/Premium — μπορείς να πατήσεις «Πάρε το δώρο σου!» για άμεση ενεργοποίηση (στοιβάζεται με τυχόν ενεργό πλάνο).'
-        : 'As you collect points, you level up (New Mom to HeyMaa Champion). Levels 2–5 grant free Starter/Premium days — tap «Claim your gift!» to activate instantly (stacks with any active free plan).',
+        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο — από «Νέα Μαμά» έως «HeyMaa Champion».'
+        : 'As you collect points, you level up — from New Mom to HeyMaa Champion.',
+      sections: [
+        {
+          title: isEl ? 'Επίπεδα & πόντοι' : 'Levels & points',
+          bullets: GAMIFICATION_LEVELS.map((lv) =>
+            isEl
+              ? `Επίπεδο ${lv.number} — ${lv.name_el}: από ${lv.min_points} πόντους`
+              : `Level ${lv.number} — ${lv.name_en}: from ${lv.min_points} points`,
+          ),
+        },
+        {
+          title: isEl ? 'Δώρα επιπέδου' : 'Level rewards',
+          bullets: isEl
+            ? [
+                'Επίπεδα 2–5: δωρεάν ημέρες Starter ή Premium',
+                'Αν έχεις ήδη Premium/Ετήσιο, δώρο Starter γίνεται ίσες μέρες στο πλάνο σου — χωρίς υποβάθμιση',
+                'Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασης (συνδρομή ή grant)',
+                'Πάτα «Πάρε το δώρο σου!» για να τις ενεργοποιήσεις',
+              ]
+            : [
+                'Levels 2–5: free Starter or Premium days',
+                'If you already have Premium/Annual, a Starter reward becomes the same days on your current plan — no downgrade',
+                'Days are added after your current access ends (subscription or grant)',
+                'Tap «Claim your gift!» to activate them',
+              ],
+        },
+      ],
     },
     {
       question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
       answer: isEl
-        ? 'Μπορείς να ανοίξεις την καρτέλα «Προφίλ». Κάτω από το όνομά σου θα δεις επίπεδο, πόντους, μπάρα προόδου και κωδικό πρόσκλησης.'
-        : 'Open the Profile tab. Below your name you will see your level, points, progress bar, and invite code.',
+        ? 'Όλα τα στοιχεία gamification βρίσκονται στην καρτέλα Προφίλ.'
+        : 'All gamification info is on the Profile tab.',
+      sections: [
+        {
+          title: isEl ? 'Τι εμφανίζεται' : 'What you see',
+          bullets: isEl
+            ? [
+                'Τρέχον επίπεδο και όνομα (π.χ. «Ενεργή Μαμά»)',
+                'Συνολικοί πόντοι και μπάρα προόδου προς το επόμενο επίπεδο',
+                'Λίστα ενεργειών που δίνουν πόντους',
+                'Κωδικός πρόσκλησης για φίλες',
+                'Εκκρεμές δώρο επιπέδου — αν έχεις ανεβεί επίπεδο',
+              ]
+            : [
+                'Current level and name (e.g. Active Mom)',
+                'Total points and progress bar to next level',
+                'List of actions that earn points',
+                'Invite code for friends',
+                'Pending level reward — if you recently leveled up',
+              ],
+        },
+      ],
     },
   ];
 }

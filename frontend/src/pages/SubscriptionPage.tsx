@@ -17,7 +17,9 @@ import {
   getAuthToken,
   type SubscriptionSnapshot,
 } from '../lib/authApi'
+import { FaqAccordionList } from '../components/FaqAccordionList'
 import { mergeGamificationFaqItems } from '../lib/gamificationCard'
+import { useFaqAccordion } from '../lib/useFaqAccordion'
 import {
   applySubscriptionPlanState,
   displaySelectedPlanSlot,
@@ -74,7 +76,7 @@ export function SubscriptionPage() {
     [t],
   )
   const [langOpen, setLangOpen] = useState(false)
-  const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({})
+  const { openIndex: openFaqIndex, setOpenIndex: setOpenFaqIndex } = useFaqAccordion(null)
   const token = getAuthToken()
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(() =>
     readCachedSnapshot(token),
@@ -156,9 +158,6 @@ export function SubscriptionPage() {
     [i18n],
   )
 
-  const toggleFaq = (i: number) => {
-    setOpenFaqs((prev) => ({ ...prev, [i]: !prev[i] }))
-  }
 
   const selectedSlot = displaySelectedPlanSlot(snapshot)
 
@@ -289,30 +288,12 @@ export function SubscriptionPage() {
 
       <div className="section faq-section">
         <div className="sec-title">{tHome('faq.label')}</div>
-        <div className="faq-list">
-          {faqItems.map((item, i) => {
-            const open = !!openFaqs[i]
-            return (
-              <div className="faq-item" key={item.question}>
-                <div
-                  className={`faq-q${open ? ' open' : ''}`}
-                  onClick={() => toggleFaq(i)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') toggleFaq(i)
-                  }}
-                >
-                  <span>{item.question}</span>
-                  <i className="ti ti-chevron-down" />
-                </div>
-                <div className={`faq-a${open ? ' open' : ''}`}>
-                  {item.answer}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <FaqAccordionList
+          items={faqItems}
+          openIndex={openFaqIndex}
+          onOpenIndexChange={setOpenFaqIndex}
+          idPrefix="subscription-faq"
+        />
       </div>
 
       <SiteFooter contentLang={contentLang} />

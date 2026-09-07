@@ -21,6 +21,7 @@ import type {
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
 import { FaqAccordionList } from "../components/FaqAccordionList";
+import { useFaqAccordion } from "../lib/useFaqAccordion";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
@@ -57,7 +58,7 @@ export default function Home() {
     () => normalizeAppLang(localStorage.getItem(HOME_I18N_STORAGE_KEY) || "el", "el")
   );
   const [langOpen, setLangOpen] = useState(false);
-  const [openFaqs, setOpenFaqs] = useState<Record<number, boolean>>({});
+  const { openIndex: openFaqIndex, setOpenIndex: setOpenFaqIndex } = useFaqAccordion(null);
   const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
   const [userPickedPlan, setUserPickedPlan] = useState(false);
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(null);
@@ -108,10 +109,6 @@ export default function Home() {
   );
   const activeTestimonial =
     testimonialItems[testimonialIndex] ?? testimonialItems[0];
-
-  const toggleFaq = useCallback((index: number) => {
-    setOpenFaqs((prev) => ({ ...prev, [index]: !prev[index] }));
-  }, []);
 
   const handlePlanRadioSelect = useCallback((index: number) => {
     const slot = slotForPlanIndex(index);
@@ -206,7 +203,7 @@ export default function Home() {
     // Landing JSON exists for el/en only; other langs keep preference for the app and show EN copy here.
     void i18n.changeLanguage(homeDisplayLocale(normalized));
     setLangOpen(false);
-    setOpenFaqs({});
+    setOpenFaqIndex(null);
   };
 
   return (
@@ -407,7 +404,12 @@ export default function Home() {
 
         <div className="section faq-section">
           <div className="sec-title">{t("faq.label")}</div>
-          <FaqAccordionList items={faqItems} openMap={openFaqs} onToggle={toggleFaq} />
+          <FaqAccordionList
+            items={faqItems}
+            openIndex={openFaqIndex}
+            onOpenIndexChange={setOpenFaqIndex}
+            idPrefix="landing-faq"
+          />
         </div>
 
         <div className="cta-wrap">

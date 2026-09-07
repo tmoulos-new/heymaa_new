@@ -43,6 +43,77 @@ export function planLabel(slot: string, lang: string): string {
   return slot
 }
 
+/** Keep in sync with backend/plan_grants.py PLAN_SLOT_RANK */
+
+const PLAN_SLOT_RANK: Record<string, number> = {
+  trial: 0,
+  starter: 1,
+  premium: 2,
+  annual: 3,
+  admin: 4,
+}
+
+export function planSlotRank(slot: string | null | undefined): number {
+  return PLAN_SLOT_RANK[(slot || 'trial').toLowerCase()] ?? 0
+}
+
+export function effectiveRewardPlanSlot(
+  reward: PendingLevelReward,
+  currentPlanSlot?: string | null,
+): string {
+  const currentRank = planSlotRank(currentPlanSlot)
+  const rewardRank = planSlotRank(reward.plan_slot)
+  if (currentRank > rewardRank) {
+    return (currentPlanSlot || reward.plan_slot).toLowerCase()
+  }
+  return reward.plan_slot
+}
+
+export function isRewardUpgradedForPlan(
+  reward: PendingLevelReward,
+  currentPlanSlot?: string | null,
+): boolean {
+  return planSlotRank(currentPlanSlot) > planSlotRank(reward.plan_slot)
+}
+
+export function effectiveRewardDescription(
+  reward: PendingLevelReward,
+  lang: string,
+  currentPlanSlot?: string | null,
+): string {
+  const slot = effectiveRewardPlanSlot(reward, currentPlanSlot)
+  const plan = planLabel(slot, lang)
+  if (lang === 'el') {
+    return `${reward.days} μέρες δωρεάν ${plan}`
+  }
+  return `${reward.days} days free ${plan}`
+}
+
+export function rewardClaimBody(
+  reward: PendingLevelReward,
+  lang: string,
+  currentPlanSlot?: string | null,
+): string {
+  const desc = effectiveRewardDescription(reward, lang, currentPlanSlot)
+  const upgraded = isRewardUpgradedForPlan(reward, currentPlanSlot)
+  const stacksLater = planSlotRank(currentPlanSlot) >= planSlotRank(reward.plan_slot)
+    && planSlotRank(currentPlanSlot) > planSlotRank('trial')
+
+  if (upgraded) {
+    return lang === 'el'
+      ? `Κέρδισες ${desc} — ισοδύναμο με το τρέχον πλάνο σου (όχι υποβάθμιση σε Starter). Οι ${reward.days} μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου.`
+      : `You earned ${desc} — matched to your current plan (not downgraded to Starter). The ${reward.days} days are added after your current access ends.`
+  }
+  if (stacksLater) {
+    return lang === 'el'
+      ? `Κέρδισες ${desc}. Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου — δεν χάνεις τίποτα.`
+      : `You earned ${desc}. Days are added after your current access ends — nothing is lost.`
+  }
+  return lang === 'el'
+    ? `Κέρδισες ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως.`
+    : `You earned ${desc}. Claim now — it activates immediately.`
+}
+
 export function rewardDescription(reward: PendingLevelReward, lang: string): string {
   const plan = planLabel(reward.plan_slot, lang)
   if (lang === 'el') {

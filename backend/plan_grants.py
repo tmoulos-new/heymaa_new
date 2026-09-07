@@ -211,6 +211,98 @@ def rewards_payload(sb, user_id: str, level_id: int) -> dict[str, Any]:
     }
 
 
+def _rank_to_slot(rank: int) -> str:
+    for slot, r in PLAN_SLOT_RANK.items():
+        if r == rank:
+            return slot
+    return "trial"
+
+
+def _subscription_access_end(user_row: Optional[dict], *, now: Optional[datetime] = None) -> Optional[datetime]:
+    """When current paid trial/subscription access ends (if still active)."""
+    if not user_row:
+        return None
+    now = now or _utcnow()
+    status = (user_row.get("subscription_status") or "").lower()
+    if status == "active":
+        end = _parse_dt(user_row.get("subscription_ends_at"))
+        if end and end > now:
+            return end
+    if status == "trial":
+        end = _parse_dt(user_row.get("trial_ends_at"))
+        if end and end > now:
+            return end
+    return None
+
+
+def _effective_access_rank(
+    user_row: Optional[dict],
+    grants: list[dict[str, Any]],
+    *,
+    now: Optional[datetime] = None,
+) -> int:
+    base_slot, _ = resolve_plan_slot_from_row(user_row)
+    base_rank = PLAN_SLOT_RANK.get(base_slot, 0)
+    grant_slot = effective_grant_plan_slot(grants, now=now)
+    grant_rank = PLAN_SLOT_RANK.get(grant_slot or "trial", 0)
+    return max(base_rank, grant_rank)
+
+
+def _fetch_user_row(sb, user_id: str) -> Optional[dict]:
+    if not sb or not user_id:
+        return None
+    try:
+        res = (
+            sb.table("users")
+            .select("plan,subscription_status,role,trial_ends_at,subscription_ends_at")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        return res.data[0] if res.data else None
+    except Exception:
+        return None
+
+
+def resolve_grant_terms(
+    user_row: Optional[dict],
+    grants: list[dict[str, Any]],
+    reward_plan_slot: str,
+    days: int,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[str, datetime, datetime, bool, str]:
+    """
+    Decide granted plan slot and window for a level reward.
+
+    - Lower-tier rewards upgrade to the user's current plan (Premium keeps Premium).
+    - When access wouldn't bump immediately, days stack after subscription/grant end.
+    """
+    now = now or _utcnow()
+    original_slot = str(reward_plan_slot).lower()
+    reward_rank = PLAN_SLOT_RANK.get(original_slot, 0)
+    effective_rank = _effective_access_rank(user_row, grants, now=now)
+
+    upgraded = effective_rank > reward_rank
+    if upgraded:
+        granted_slot = _rank_to_slot(effective_rank)
+    else:
+        granted_slot = original_slot
+
+    starts = _stack_starts_at(grants, now=now)
+    immediate_bump = reward_rank > effective_rank
+    if not immediate_bump:
+        anchor = starts
+        sub_end = _subscription_access_end(user_row, now=now)
+        if sub_end:
+            anchor = max(anchor, sub_end)
+        if anchor > starts:
+            starts = anchor
+
+    ends = starts + timedelta(days=days)
+    return granted_slot, starts, ends, upgraded, original_slot
+
+
 def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -> dict[str, Any]:
     level_key = int(level_id)
     if level_key not in LEVEL_REWARD_GRANTS:
@@ -223,19 +315,27 @@ def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -
 
     cfg = LEVEL_REWARD_GRANTS[level_key]
     days = int(cfg["days"])
-    plan_slot = str(cfg["plan_slot"])
+    reward_plan_slot = str(cfg["plan_slot"])
 
     grants = get_user_plan_grants(sb, user_id)
-    starts = _stack_starts_at(grants)
-    ends = starts + timedelta(days=days)
+    user_row = _fetch_user_row(sb, user_id)
+    granted_slot, starts, ends, upgraded, original_slot = resolve_grant_terms(
+        user_row,
+        grants,
+        reward_plan_slot,
+        days,
+    )
     grant = {
         "id": str(uuid.uuid4()),
-        "plan_slot": plan_slot,
+        "plan_slot": granted_slot,
         "starts_at": starts.isoformat(),
         "ends_at": ends.isoformat(),
         "source": f"level_reward:{level_key}",
         "level_id": level_key,
         "claimed_at": _utcnow().isoformat(),
+        "original_plan_slot": original_slot,
+        "upgraded": upgraded,
+        "days": days,
     }
     grants.append(grant)
     claimed.add(level_key)

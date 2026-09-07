@@ -3,7 +3,12 @@ import { AppSheet } from './AppSheet'
 import { RewardCelebration } from './RewardCelebration'
 import { levelEmoji, levelRewardsText } from '../lib/gamificationCard'
 import type { PendingLevelReward } from '../lib/levelRewards'
-import { rewardDescription, rewardTitle } from '../lib/levelRewards'
+import {
+  effectiveRewardDescription,
+  isRewardUpgradedForPlan,
+  rewardClaimBody,
+  rewardTitle,
+} from '../lib/levelRewards'
 import { claimLevelReward } from '../lib/levelRewardsApi'
 import type { SubscriptionSnapshot } from '../lib/authApi'
 import type { RewardsSnapshot } from '../lib/levelRewards'
@@ -13,10 +18,12 @@ type Props = {
   lang: string
   token: string
   reward: PendingLevelReward | null
+  currentPlanSlot?: string | null
   onClose: () => void
   onClaimed: (payload: {
     rewards: RewardsSnapshot
     status?: SubscriptionSnapshot
+    grant?: { upgraded?: boolean; plan_slot?: string; days?: number }
   }) => void
 }
 
@@ -25,6 +32,7 @@ export function LevelUpRewardSheet({
   lang,
   token,
   reward,
+  currentPlanSlot,
   onClose,
   onClaimed,
 }: Props) {
@@ -45,7 +53,7 @@ export function LevelUpRewardSheet({
   const emoji = levelEmoji(reward.level_id)
   const levelName = rewardTitle(reward.level_id, lang)
   const rewardLine = levelRewardsText(reward.level_id, lang)
-  const desc = rewardDescription(reward, lang)
+  const body = rewardClaimBody(reward, lang, currentPlanSlot)
 
   const handleClaim = async () => {
     setClaiming(true)
@@ -54,7 +62,11 @@ export function LevelUpRewardSheet({
       const result = await claimLevelReward(token, reward.level_id)
       if (result.rewards) {
         setCelebrate(true)
-        onClaimed({ rewards: result.rewards, status: result.status })
+        onClaimed({
+          rewards: result.rewards,
+          status: result.status,
+          grant: result.grant,
+        })
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : isEl ? 'Αποτυχία διεκδίκησης' : 'Claim failed')
@@ -81,12 +93,12 @@ export function LevelUpRewardSheet({
             {isEl ? `Επίπεδο ${reward.level_id}` : `Level ${reward.level_id}`}
           </p>
           <h2 id={titleId} className="hm-reward-sheet__title">{levelName}</h2>
-          <p className="hm-reward-sheet__level">{rewardLine}</p>
-          <p className="hm-reward-sheet__body">
-            {isEl
-              ? `Κέρδισες ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως και στοιβάζεται με τυχόν ενεργό δωρεάν πακέτο.`
-              : `You earned ${desc}. Claim now — it activates immediately and stacks with any active free plan.`}
+          <p className="hm-reward-sheet__level">
+            {isRewardUpgradedForPlan(reward, currentPlanSlot)
+              ? effectiveRewardDescription(reward, lang, currentPlanSlot)
+              : rewardLine}
           </p>
+          <p className="hm-reward-sheet__body">{body}</p>
           {error ? <p className="hm-reward-sheet__error">{error}</p> : null}
           <div className="hm-reward-sheet__actions">
             <button

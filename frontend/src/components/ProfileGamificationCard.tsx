@@ -8,7 +8,7 @@ import {
 } from '../lib/gamificationCard'
 
 import type { PendingLevelReward } from '../lib/levelRewards'
-import { rewardDescription, rewardTitle } from '../lib/levelRewards'
+import { effectiveRewardDescription, rewardTitle } from '../lib/levelRewards'
 
 type Props = {
   lang: string
@@ -16,6 +16,7 @@ type Props = {
   referralCode?: string | null
   activeGrantEndsAt?: string | null
   activeGrantPlan?: string | null
+  currentPlanSlot?: string | null
   pendingRewards?: PendingLevelReward[]
   onClaimPending?: () => void
   showHeaderChip?: boolean
@@ -28,6 +29,7 @@ export function ProfileGamificationCard({
   referralCode,
   activeGrantEndsAt,
   activeGrantPlan,
+  currentPlanSlot,
   pendingRewards,
   onClaimPending,
   showHeaderChip,
@@ -95,7 +97,7 @@ export function ProfileGamificationCard({
                 {isEl ? 'Δώρο σε αναμονή' : 'Gift waiting'}
               </span>
               <span className="hm-profile-gamification-card__gift-btn-sub">
-                {rewardTitle(pending.level_id, lang)} · {rewardDescription(pending, lang)}
+                {rewardTitle(pending.level_id, lang)} · {effectiveRewardDescription(pending, lang, currentPlanSlot)}
               </span>
             </span>
           </button>

@@ -1917,8 +1917,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
-  const [openHelpFaq, setOpenHelpFaq] = useState<Record<number, boolean>>({ 0: true });
-  const [openProfileFaq, setOpenProfileFaq] = useState<Record<number, boolean>>({ 0: true });
+  const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(0);
+  const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
@@ -2070,11 +2070,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const handleLevelRewardClaimed = useCallback((payload: {
     rewards: RewardsSnapshot;
     status?: SubscriptionSnapshot;
+    grant?: { upgraded?: boolean; plan_slot?: string; days?: number };
   }) => {
     setRewardsSnapshot(payload.rewards);
     if (payload.status) applySubscriptionSnapshot(payload.status);
+    const upgraded = payload.grant?.upgraded;
+    const days = payload.grant?.days;
+    const plan = payload.grant?.plan_slot;
     showToast(
-      lang === "el" ? "Το δώρο ενεργοποιήθηκε! 🎁" : "Your gift is active! 🎁",
+      upgraded
+        ? (lang === "el"
+          ? `+${days} μέρες ${plan === "premium" ? "Premium" : plan === "annual" ? "Ετήσιο" : plan} μετά τη λήξη της πρόσβασής σου 🎁`
+          : `+${days} ${plan} days added after your current access ends 🎁`)
+        : (lang === "el" ? "Το δώρο ενεργοποιήθηκε! 🎁" : "Your gift is active! 🎁"),
       "ok",
     );
     const next = firstUnseenPendingReward(token, payload.rewards);
@@ -3938,7 +3946,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
                 onClick: () => {
                   setShowProfileSettings(false);
-                  setOpenHelpFaq({ 0: true });
+                  setOpenHelpFaqIndex(0);
                   setShowHelpSupport(true);
                 },
               },
@@ -4009,8 +4017,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </div>
             <FaqAccordionList
               items={helpFaqItems}
-              openMap={openHelpFaq}
-              onToggle={(i) => setOpenHelpFaq((prev) => ({ ...prev, [i]: !prev[i] }))}
+              openIndex={openHelpFaqIndex}
+              onOpenIndexChange={setOpenHelpFaqIndex}
+              idPrefix="help-faq"
             />
 
             <div className="hm-contact-card">
@@ -4429,7 +4438,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           onClose={() => setShowSubscriptionSheet(false)}
           onOpenHelp={() => {
             setShowSubscriptionSheet(false);
-            setOpenHelpFaq({ 0: true });
+            setOpenHelpFaqIndex(0);
             setShowHelpSupport(true);
           }}
         />
@@ -4441,6 +4450,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         lang={lang}
         token={token}
         reward={pendingLevelReward}
+        currentPlanSlot={subSnapshot?.entitlements?.plan_slot || subSnapshot?.plan}
         onClose={() => {
           if (pendingLevelReward) dismissRewardLevel(token, pendingLevelReward.level_id);
           setShowLevelRewardSheet(false);
@@ -5119,6 +5129,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               referralCode={referralCode || personalReferralCode(token)}
               activeGrantEndsAt={activeRewardGrant?.ends_at}
               activeGrantPlan={activeRewardGrant?.plan_slot}
+              currentPlanSlot={subSnapshot?.entitlements?.plan_slot || subSnapshot?.plan}
               pendingRewards={profilePendingReward ? [profilePendingReward] : rewardsSnapshot?.pending}
               onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true })}
               showHeaderChip={headerPointsVisible}
@@ -5198,8 +5209,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <AppTabSection lang={lang} label={tHome("faq.label", { lng: homeLng }) || (lang === "el" ? "Συχνές ερωτήσεις" : "FAQ")}>
               <FaqAccordionList
                 items={helpFaqItems}
-                openMap={openProfileFaq}
-                onToggle={(i) => setOpenProfileFaq((prev) => ({ ...prev, [i]: !prev[i] }))}
+                openIndex={openProfileFaqIndex}
+                onOpenIndexChange={setOpenProfileFaqIndex}
+                idPrefix="profile-faq"
               />
               <button
                 type="button"

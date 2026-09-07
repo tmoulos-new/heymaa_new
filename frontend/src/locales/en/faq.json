@@ -1,0 +1,616 @@
+{
+  "label": "FAQ",
+  "title": "",
+  "landingItems": [
+    {
+      "question": "What is HeyMaa?",
+      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories. It does not replace a doctor or pharmacist.",
+      "sections": [
+        {
+          "title": "What you can do",
+          "bullets": [
+            "Chat with an AI advisor — write, speak, or send a photo",
+            "Memory journal (notes, photos, videos)",
+            "Development milestones by age with a progress timeline",
+            "Family tree (partner, parents, siblings, children)",
+            "Document archive (tests, vaccines, treatments, medicines)",
+            "Archive chat conversations"
+          ]
+        },
+        {
+          "title": "How you talk to HeyMaa",
+          "bullets": [
+            "Write what's on your mind — HeyMaa replies using recent chat and saved memories (depending on your plan)",
+            "Use the microphone — speech-to-text (does not use your Listen quota)",
+            "Tap Listen for a spoken reply — counts toward your monthly voice quota",
+            "Send a photo when you need more context"
+          ]
+        },
+        {
+          "title": "Who it's for",
+          "intro": "From pregnancy and the first year through later childhood. 17 languages supported — the app adapts to the language you choose."
+        }
+      ]
+    },
+    {
+      "question": "What does the free trial include?",
+      "answer": "14 days of full access to try HeyMaa. No credit card required to start.",
+      "sections": [
+        {
+          "title": "Included",
+          "bullets": [
+            "Unlimited chat (text, voice, photos)",
+            "Up to 50 voice playbacks (Listen) per month",
+            "Daily memory: 20 recent messages + 10 saved memories in each reply",
+            "Document & album preview (no file download)",
+            "Up to 3 archived conversations",
+            "Family tree, milestones, memory notes & photos"
+          ]
+        },
+        {
+          "title": "Starts from Starter",
+          "bullets": [
+            "Memory videos",
+            "Full document/album management (upload & edit)",
+            "Partial memory (32+24) and more archived conversations"
+          ]
+        },
+        {
+          "title": "After the trial",
+          "intro": "If you don't upgrade, access stops at the end of 14 days. You'll get a reminder before expiry."
+        }
+      ]
+    },
+    {
+      "question": "What's the difference between plans?",
+      "answer": "All plans include unlimited chat. They differ in voice, chat memory, documents/album, archiving, and support.",
+      "sections": [
+        {
+          "title": "Free trial (14 days)",
+          "bullets": [
+            "50 Listen playbacks / month",
+            "Daily memory (20 messages + 10 memories)",
+            "Documents & albums: view only",
+            "3 archived conversations",
+            "No card required to sign up"
+          ]
+        },
+        {
+          "title": "Starter — €19/month",
+          "bullets": [
+            "150 voice playbacks / month",
+            "Partial memory (32 messages + 24 memories)",
+            "Full documents & albums (upload, edit)",
+            "Memory videos",
+            "45 archived conversations",
+            "Email support"
+          ]
+        },
+        {
+          "title": "Premium — €39/month",
+          "bullets": [
+            "400 voice playbacks / month",
+            "Strong memory (64 messages + 45 memories)",
+            "Download & share documents/albums",
+            "90 archived conversations",
+            "Phone support"
+          ]
+        },
+        {
+          "title": "Annual Premium — €199/year",
+          "bullets": [
+            "Everything in Premium",
+            "700 voice playbacks / month",
+            "Strong memory (64 messages + 50 memories)",
+            "Priority support"
+          ]
+        },
+        {
+          "title": "Reading the plans",
+          "bullets": [
+            "Tap (i) next to any plan line for a short explanation",
+            "When a feature needs a higher plan, you'll see an Upgrade message",
+            "Change plan anytime in Settings → Subscription"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "What happens when the trial ends?",
+      "answer": "If you don't choose a subscription plan, app access stops at the end of 14 days.",
+      "sections": [
+        {
+          "title": "What you'll see",
+          "bullets": [
+            "A reminder before the trial expires",
+            "Plan selection screen (Starter, Premium, Annual)",
+            "Your data stays stored — it is not deleted automatically"
+          ]
+        },
+        {
+          "title": "How to continue",
+          "bullets": [
+            "Settings → Subscription → choose a plan",
+            "Or from the upgrade prompt when opening the app",
+            "Email: info@heymaa.ai",
+            "Support line: 210 928 7420 (Monday–Friday 09:00–17:00)"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "Does HeyMaa give medical advice?",
+      "answer": "No. HeyMaa does not replace a doctor, midwife, pediatrician, or pharmacist.",
+      "sections": [
+        {
+          "title": "What HeyMaa does",
+          "bullets": [
+            "General information about motherhood, development, and daily life",
+            "Reminds you to consult a professional for health matters",
+            "Helps organize documents and milestones — not diagnose"
+          ]
+        },
+        {
+          "title": "When to call a doctor",
+          "intro": "For any symptom, fever, allergic reaction, development concern, or change in your child's behavior — contact a healthcare professional immediately."
+        }
+      ]
+    },
+    {
+      "question": "How do I cancel my subscription?",
+      "answer": "Cancel inside the app — no email or phone request needed.",
+      "sections": [
+        {
+          "title": "Steps",
+          "bullets": [
+            "Open Settings → Subscription",
+            "Tap Cancel subscription",
+            "Confirm — you keep access until the end of the period you already paid for"
+          ]
+        },
+        {
+          "title": "Important",
+          "bullets": [
+            "No automatic charge after cancellation",
+            "You can restore the subscription until the period ends",
+            "Your data is not deleted when you cancel"
+          ]
+        },
+        {
+          "title": "Help",
+          "bullets": [
+            "info@heymaa.ai",
+            "210 928 7420 (Monday–Friday 09:00–17:00)"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "Is my data safe?",
+      "answer": "Yes — your data belongs to you. You control export and deletion from the app.",
+      "sections": [
+        {
+          "title": "What you can do",
+          "bullets": [
+            "Export a copy (JSON) from Settings → Privacy & data",
+            "Delete your account completely — anytime",
+            "Read the Privacy Policy from the footer or Settings"
+          ]
+        },
+        {
+          "title": "What is stored",
+          "intro": "Chat, memories, family tree, milestones, documents, and preferences — linked to your account, not public."
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "question": "What is HeyMaa?",
+      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories.",
+      "sections": [
+        {
+          "title": "Core features",
+          "bullets": [
+            "AI chat advisor (text, voice, photo)",
+            "Memory journal",
+            "Development milestones with progress timeline",
+            "Family tree",
+            "Document archive",
+            "Conversation archiving"
+          ]
+        },
+        {
+          "title": "Important",
+          "intro": "Does not replace a doctor or pharmacist. For health matters, always consult a professional."
+        }
+      ]
+    },
+    {
+      "question": "What can I do in the app?",
+      "answer": "The app is organized in tabs. Depending on your plan, some features may require an upgrade.",
+      "sections": [
+        {
+          "title": "Chat",
+          "bullets": [
+            "Send messages, voice, or photos",
+            "Listen to replies with the Listen button (monthly quota)",
+            "Archive past conversations",
+            "HeyMaa uses recent chat + saved memories (memory level per plan)"
+          ]
+        },
+        {
+          "title": "Memories",
+          "bullets": [
+            "Notes, photos, and videos (videos from Starter+)",
+            "Link memories to family members",
+            "Auto-add from milestones when you tick them"
+          ]
+        },
+        {
+          "title": "Family",
+          "bullets": [
+            "Visual family tree — edit & rearrange by drag",
+            "Document archive: tests, vaccines, treatments, medicines",
+            "Badge with memory count per member"
+          ]
+        },
+        {
+          "title": "Milestones",
+          "bullets": [
+            "Timeline by age period",
+            "Tick only what has already happened",
+            "Progress bar per age group"
+          ]
+        },
+        {
+          "title": "Profile & Settings",
+          "bullets": [
+            "Level, points, invite code",
+            "Subscription, language, privacy & data export"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "What does the free trial include?",
+      "answer": "14 days to try everything. No credit card required.",
+      "sections": [
+        {
+          "title": "Included",
+          "bullets": [
+            "Unlimited chat",
+            "50 Listen playbacks / month",
+            "Daily memory (20+10)",
+            "Document & album preview",
+            "3 archived conversations",
+            "Family tree, milestones, memory notes & photos"
+          ]
+        },
+        {
+          "title": "Not in trial",
+          "bullets": [
+            "Memory videos (from Starter)",
+            "Document file download (from Premium)",
+            "Partial/Strong memory — Daily only on trial"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "What happens when the trial ends?",
+      "answer": "Without an upgrade, access stops at the end of 14 days.",
+      "sections": [
+        {
+          "title": "Before expiry",
+          "bullets": [
+            "In-app reminder",
+            "Plan access from Settings → Subscription"
+          ]
+        },
+        {
+          "title": "After expiry",
+          "bullets": [
+            "Main content won't open without an active plan",
+            "Your data is not deleted automatically"
+          ]
+        },
+        {
+          "title": "Contact",
+          "bullets": [
+            "info@heymaa.ai",
+            "210 928 7420 (Mon–Fri 09:00–17:00)"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "How do voice messages work?",
+      "answer": "The monthly limit applies to voice playbacks of HeyMaa's replies — the Listen button.",
+      "sections": [
+        {
+          "title": "How Listen works",
+          "bullets": [
+            "Tap Listen below a reply",
+            "Your remaining quota appears above the chat",
+            "When used up, you'll see an upgrade prompt"
+          ]
+        },
+        {
+          "title": "Limits per plan",
+          "bullets": [
+            "Trial: 50 / month",
+            "Starter: 150 / month",
+            "Premium: 400 / month",
+            "Annual Premium: 700 / month"
+          ]
+        },
+        {
+          "title": "What doesn't count",
+          "intro": "Speaking in chat (microphone → text) does not use your monthly Listen quota. Only playback of HeyMaa's reply counts."
+        }
+      ]
+    },
+    {
+      "question": "What's the difference between plans?",
+      "answer": "All plans include unlimited chat. Everything else varies by plan.",
+      "sections": [
+        {
+          "title": "Free trial",
+          "bullets": [
+            "50 voice, Daily memory (20+10)",
+            "Docs/album: view only",
+            "3 archived"
+          ]
+        },
+        {
+          "title": "Starter (€19/month)",
+          "bullets": [
+            "150 voice, Partial memory (32+24)",
+            "Full docs/album, memory videos",
+            "45 archived, email support"
+          ]
+        },
+        {
+          "title": "Premium (€39/month)",
+          "bullets": [
+            "400 voice, Strong memory (64+45)",
+            "Download & share",
+            "90 archived, phone support"
+          ]
+        },
+        {
+          "title": "Annual Premium (€199/year)",
+          "bullets": [
+            "700 voice, Strong memory (64+50)",
+            "All Premium + priority support"
+          ]
+        },
+        {
+          "title": "Tip",
+          "intro": "Tap (i) next to any plan line. When a higher plan is needed, you'll see Upgrade."
+        }
+      ]
+    },
+    {
+      "question": "What is Daily, Partial, and Strong memory?",
+      "answer": "Three levels of chat memory — how many recent messages and saved memories HeyMaa uses in each reply.",
+      "sections": [
+        {
+          "title": "What the numbers mean",
+          "bullets": [
+            "First number: recent chat messages in context",
+            "Second number: saved memories it can recall",
+            "Higher plans = richer context for better answers"
+          ]
+        },
+        {
+          "title": "Per plan",
+          "bullets": [
+            "Daily memory (trial): 20 messages + 10 memories",
+            "Partial memory (Starter): 32 + 24",
+            "Strong memory (Premium): 64 + 45",
+            "Strong memory (Annual): 64 + 50"
+          ]
+        },
+        {
+          "title": "Related features",
+          "bullets": [
+            "Memory videos: from Starter",
+            "Photos, albums, documents: from trial (view-only); download Premium+",
+            "Memory is not unlimited history — it's a smart window for better replies"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "How do milestones work?",
+      "answer": "Development milestones are organized in age periods with a visual progress timeline.",
+      "sections": [
+        {
+          "title": "What you can do",
+          "bullets": [
+            "Tick only milestones that have already happened",
+            "Future ones show as preview — can't tick yet",
+            "See progress per age group"
+          ]
+        },
+        {
+          "title": "Memories & points",
+          "bullets": [
+            "Ticking may auto-add to your memory journal",
+            "Earn points once per milestone",
+            "Unticking removes points (once)"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "What is the Document Archive?",
+      "answer": "On the Family tab you keep medical and admin documents organized.",
+      "sections": [
+        {
+          "title": "What you store",
+          "bullets": [
+            "Tests, vaccines, treatments, medicines",
+            "Category, date, family member",
+            "File attachment (PDF, photo, etc.)"
+          ]
+        },
+        {
+          "title": "By plan",
+          "bullets": [
+            "Trial: document & album preview",
+            "Starter+: full upload & edit",
+            "Premium+: download & share files"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "What is the family tree?",
+      "answer": "A visual map of your family on the Family tab.",
+      "sections": [
+        {
+          "title": "Members",
+          "bullets": [
+            "You, partner, parents, siblings, children",
+            "Tap a card to edit",
+            "Drag members to rearrange"
+          ]
+        },
+        {
+          "title": "Linked to memories",
+          "intro": "Each member's memory count appears as a badge on their card."
+        }
+      ]
+    },
+    {
+      "question": "Does HeyMaa give medical advice?",
+      "answer": "No — HeyMaa does not replace a healthcare professional.",
+      "sections": [
+        {
+          "title": "What it offers",
+          "intro": "General information, organization, and emotional support — not diagnosis or treatment."
+        },
+        {
+          "title": "What to do",
+          "intro": "For any health concern — yours or your child's — consult a doctor, pediatrician, or pharmacist."
+        }
+      ]
+    },
+    {
+      "question": "Which languages are supported?",
+      "answer": "17 languages for UI and content.",
+      "sections": [
+        {
+          "title": "Available languages",
+          "bullets": [
+            "Greek, English, Italian, German, French, Spanish",
+            "Romanian, Bulgarian, Polish, Serbian",
+            "Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, Dutch"
+          ]
+        },
+        {
+          "title": "How to change language",
+          "intro": "Settings → Language. Applies to chat, screens, and notifications."
+        }
+      ]
+    },
+    {
+      "question": "How do I upgrade my subscription?",
+      "answer": "When you need a higher-plan feature, the app guides you.",
+      "sections": [
+        {
+          "title": "From an Upgrade prompt",
+          "bullets": [
+            "Appears when you tap a feature your plan doesn't cover",
+            "Opens the plan comparison screen"
+          ]
+        },
+        {
+          "title": "Manually",
+          "bullets": [
+            "Settings → Subscription",
+            "Bell icon (notifications) at the top"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "How do I cancel my subscription?",
+      "answer": "Inside the app — Settings → Subscription → Cancel subscription.",
+      "sections": [
+        {
+          "title": "After cancelling",
+          "bullets": [
+            "Access until the end of the paid period",
+            "No automatic charge",
+            "You can restore until expiry"
+          ]
+        },
+        {
+          "title": "Help",
+          "bullets": [
+            "info@heymaa.ai",
+            "210 928 7420 (Mon–Fri 09:00–17:00)"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "I forgot my password",
+      "answer": "Reset via email — no need to call support.",
+      "sections": [
+        {
+          "title": "Steps",
+          "bullets": [
+            "On the sign-in screen, tap Forgot password?",
+            "Enter your email",
+            "Open the link you receive and set a new password"
+          ]
+        },
+        {
+          "title": "Didn't get the email?",
+          "intro": "Check spam/promotions. If it persists, email info@heymaa.ai."
+        }
+      ]
+    },
+    {
+      "question": "Do I need an invite code?",
+      "answer": "Usually not — sign up with email and password.",
+      "sections": [
+        {
+          "title": "Without a code",
+          "intro": "Create an account normally. You start a 14-day trial."
+        },
+        {
+          "title": "With an invite code",
+          "bullets": [
+            "Enter it at registration if you were given one",
+            "Share yours from Profile",
+            "Earn +40 points when a friend signs up with your code"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "Is my data safe?",
+      "answer": "Your data belongs to you — you control export and deletion.",
+      "sections": [
+        {
+          "title": "Your rights",
+          "bullets": [
+            "Export JSON: Settings → Privacy & data",
+            "Delete account: anytime",
+            "Privacy Policy: footer or Settings"
+          ]
+        },
+        {
+          "title": "What is stored",
+          "intro": "Chat, memories, family, milestones, documents — linked to your account, not public."
+        }
+      ]
+    }
+  ]
+}

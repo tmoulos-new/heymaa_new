@@ -39,7 +39,15 @@ export interface HomeSafetyItem {
   text: string;
 }
 
+export interface FaqAnswerSection {
+  title?: string;
+  intro?: string;
+  bullets?: string[];
+}
+
 export interface HomeFaqItem {
   question: string;
-  answer: string;
+  /** Short intro or legacy plain-text answer when sections are omitted */
+  answer?: string;
+  sections?: FaqAnswerSection[];
 }

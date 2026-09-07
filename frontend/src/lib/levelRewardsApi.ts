@@ -5,6 +5,9 @@ export type ClaimRewardResult = {
   ok: boolean
   grant?: {
     plan_slot: string
+    original_plan_slot?: string
+    upgraded?: boolean
+    starts_at?: string
     ends_at: string
     days?: number
   }

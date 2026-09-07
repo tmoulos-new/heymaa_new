@@ -2,6 +2,8 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import elHome from "../locales/el/home.json";
 import enHome from "../locales/en/home.json";
+import elFaq from "../locales/el/faq.json";
+import enFaq from "../locales/en/faq.json";
 import elSubscription from "../locales/el/subscription.json";
 import enSubscription from "../locales/en/subscription.json";
 import elLegal from "../locales/el/legal.json";
@@ -47,8 +49,8 @@ function legalBundleForUiLang(code: string): typeof enLegal {
 
 function buildI18nResources() {
   const resources: Record<string, Record<string, unknown>> = {
-    el: { home: elHome, subscription: elSubscription, legal: elLegal },
-    en: { home: enHome, subscription: enSubscription, legal: enLegal },
+    el: { home: { ...elHome, faq: elFaq }, subscription: elSubscription, legal: elLegal },
+    en: { home: { ...enHome, faq: enFaq }, subscription: enSubscription, legal: enLegal },
   };
   for (const code of LEGAL_UI_LANGS) {
     if (code === "el" || code === "en") continue;
