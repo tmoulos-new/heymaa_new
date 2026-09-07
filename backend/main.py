@@ -2621,10 +2621,12 @@ def match_promotion(token: str):
     return None
 # Routes
 _LLM_SECRET_KEYS = {
+    "replicate": "llm_replicate",
     "groq": "llm_groq",
     "gemini": "llm_gemini",
     "claude": "llm_claude",
 }
+_LLM_PROVIDER_MODES = frozenset({"legacy", "replicate", "replicate_with_legacy_fallback"})
 _llm_secret_cache: Optional[dict] = None
 _llm_secret_cache_at = 0.0
 
@@ -2635,7 +2637,7 @@ def _llm_secrets_from_db() -> dict:
     now = _t.time()
     if _llm_secret_cache is not None and (now - _llm_secret_cache_at) < 60:
         return _llm_secret_cache
-    out = {"groq": "", "gemini": "", "claude": ""}
+    out = {"replicate": "", "groq": "", "gemini": "", "claude": ""}
     client = ensure_supabase()
     if not client:
         return out
@@ -2659,17 +2661,28 @@ def _llm_secrets_from_db() -> dict:
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
+        "replicate": (
+            (os.getenv("REPLICATE_API_TOKEN") or os.getenv("HEYMAA_API_TOKEN") or "").strip()
+        ),
         "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
         "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
     }
-    if all(env_keys.values()):
-        return env_keys
     db_keys = _llm_secrets_from_db()
     return {
         name: env_keys[name] or db_keys.get(name, "")
         for name in env_keys
     }
+
+
+def _llm_provider_mode(replicate_key: str = "") -> str:
+    """How chat routes LLM calls: replicate-only, legacy direct APIs, or replicate then legacy."""
+    mode = (os.getenv("LLM_PROVIDER_MODE") or "").strip().lower()
+    if mode in _LLM_PROVIDER_MODES:
+        return mode
+    if replicate_key:
+        return "replicate"
+    return "legacy"
 
 _llm_probe_cache: Optional[dict] = None
 _llm_probe_cache_at = 0.0
@@ -2688,7 +2701,13 @@ def _probe_llm_providers() -> dict:
             out[name] = {"ok": False, "msg": "no key"}
             continue
         try:
-            if name == "groq":
+            if name == "replicate":
+                try:
+                    from .replicate_chat import probe_replicate_sync
+                except ImportError:
+                    from replicate_chat import probe_replicate_sync
+                probe_replicate_sync(key)
+            elif name == "groq":
                 from groq import Groq
                 Groq(api_key=key).chat.completions.create(
                     model="llama-3.1-8b-instant",
@@ -2746,6 +2765,7 @@ def root():
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
         "vercel": bool(os.getenv("VERCEL")),
         "llm": {name: bool(val) for name, val in llm.items()},
+        "llm_provider_mode": _llm_provider_mode(llm.get("replicate", "")),
         "llm_probe": _probe_llm_providers(),
         "viva": viva,
     }
@@ -3266,6 +3286,78 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
         image_parts = _attachment_image_parts(req.attachments)
         errors = []
+        _prov_keys = _llm_api_keys()
+        replicate_key = _prov_keys.get("replicate", "")
+        provider_mode = _llm_provider_mode(replicate_key)
+
+        def _chat_success(reply: str, provider: str):
+            promo_data = None
+            if promo:
+                promo_data = {
+                    "title": promo.get("title", ""),
+                    "body": promo.get("body", ""),
+                    "link": promo.get("link"),
+                    "badge": promo.get("badge", "sponsored"),
+                    "cta": promo.get("cta"),
+                }
+            memory_suggestion = None
+            try:
+                from memory_suggestions import detect_memory_suggestion
+                memory_suggestion = detect_memory_suggestion(
+                    req.message,
+                    profile=req.profile,
+                    recent_memories=req.recentMemories,
+                    lang=msg_lang or profile_lang or "el",
+                )
+            except Exception:
+                memory_suggestion = None
+            return {
+                "reply": reply,
+                "provider": provider,
+                "promo": promo_data,
+                "memory_suggestion": memory_suggestion,
+            }
+
+        if provider_mode != "legacy" and replicate_key:
+            try:
+                try:
+                    from .replicate_chat import call_replicate_chat
+                except ImportError:
+                    from replicate_chat import call_replicate_chat
+                reply, model_slug = await call_replicate_chat(
+                    message_for_llm,
+                    req.history,
+                    system_prompt,
+                    replicate_key,
+                    image_parts=image_parts or None,
+                    history_limit=chat_context_limit,
+                    max_tokens=_CHAT_MAX_TOKENS,
+                )
+                if not reply:
+                    raise RuntimeError("replicate returned empty reply")
+                if not _is_usable_reply(reply):
+                    raise RuntimeError(f"replicate returned unusable reply: {reply[:80]!r}")
+                USAGE_LOG["replicate"] += 1
+                return _chat_success(reply, f"replicate:{model_slug}")
+            except Exception as e:
+                errors.append(f"replicate: {e}")
+                if provider_mode == "replicate":
+                    joined = " | ".join(errors)
+                    low = joined.lower()
+                    if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
+                        _api_error(
+                            503,
+                            "llm_busy",
+                            "HeyMaa is busy right now. Please try again in a minute.",
+                            joined,
+                        )
+                    _api_error(
+                        503,
+                        "llm_failed",
+                        "HeyMaa could not answer right now. Please try again in a moment.",
+                        joined,
+                    )
+
         if image_parts:
             providers = ["gemini", "claude", "groq"]
         elif msg_lang in GEMINI_FIRST_LANGS:
@@ -3274,7 +3366,6 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             providers = ["groq", "gemini", "claude"]
         else:
             providers = ["groq", "gemini", "claude"]
-        _prov_keys = _llm_api_keys()
         providers = [p for p in providers if _prov_keys.get(p)]
         if image_parts and not any(p in providers for p in ("gemini", "claude")):
             message_for_llm = (message_for_llm or "").strip()
@@ -3283,7 +3374,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         if not providers:
             raise HTTPException(
                 status_code=503,
-                detail="No LLM providers configured (missing GROQ/GEMINI/ANTHROPIC API keys on the server).",
+                detail="No LLM providers configured (set REPLICATE_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
             )
         for provider in providers:
             try:
@@ -3301,21 +3392,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     raise RuntimeError(f"{provider} returned empty reply")
                 if not _is_usable_reply(reply):
                     raise RuntimeError(f"{provider} returned unusable reply: {reply[:80]!r}")
-                promo_data = None
-                if promo:
-                    promo_data = {"title": promo.get("title",""), "body": promo.get("body",""), "link": promo.get("link"), "badge": promo.get("badge","sponsored"), "cta": promo.get("cta")}
-                memory_suggestion = None
-                try:
-                    from memory_suggestions import detect_memory_suggestion
-                    memory_suggestion = detect_memory_suggestion(
-                        req.message,
-                        profile=req.profile,
-                        recent_memories=req.recentMemories,
-                        lang=msg_lang or profile_lang or "el",
-                    )
-                except Exception:
-                    memory_suggestion = None
-                return {"reply": reply, "provider": provider, "promo": promo_data, "memory_suggestion": memory_suggestion}
+                return _chat_success(reply, provider)
             except Exception as e:
                 errors.append(f"{provider}: {e}")
                 continue
@@ -3500,8 +3577,8 @@ async def admin_panel():
     return FileResponse(_admin_index_path(), media_type="text/html")
 
 import time as _time
-USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
-COST_PER_CALL = {"groq": 0.0, "gemini": 0.0, "claude": 0.0025}
+USAGE_LOG = {"replicate": 0, "groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
+COST_PER_CALL = {"replicate": 0.0, "groq": 0.0, "gemini": 0.0, "claude": 0.0025}
 
 @app.get("/admin/me")
 async def admin_me(x_token: Optional[str] = Header(None)):
@@ -3636,10 +3713,15 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
 @app.get("/admin/usage")
 async def admin_usage(x_token: Optional[str] = Header(None)):
     verify_admin(x_token)
-    est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq","gemini","claude"))
+    est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("replicate", "groq", "gemini", "claude"))
     days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
     return {
-        "calls": {"groq": USAGE_LOG["groq"], "gemini": USAGE_LOG["gemini"], "claude": USAGE_LOG["claude"]},
+        "calls": {
+            "replicate": USAGE_LOG["replicate"],
+            "groq": USAGE_LOG["groq"],
+            "gemini": USAGE_LOG["gemini"],
+            "claude": USAGE_LOG["claude"],
+        },
         "estimated_cost_usd": round(est_cost, 4),
         "since_days": round(days, 1),
     }
