@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTE } from "../publicRoutes";
 import {
@@ -181,14 +188,57 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const video = heroVideoRef.current;
     if (!video) return;
+
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       video.pause();
       return;
     }
-    video.play().catch(() => {});
+
+    const arm = () => {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+    };
+
+    const tryPlay = () => {
+      if (video.paused === false) return;
+      arm();
+      const playAttempt = video.play();
+      if (playAttempt) playAttempt.catch(() => {});
+    };
+
+    arm();
+    tryPlay();
+
+    const mediaEvents = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough"] as const;
+    mediaEvents.forEach((eventName) => video.addEventListener(eventName, tryPlay));
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tryPlay();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", tryPlay);
+
+    const gestureEvents = ["touchstart", "pointerdown", "click"] as const;
+    const onGesture = () => tryPlay();
+    gestureEvents.forEach((eventName) =>
+      window.addEventListener(eventName, onGesture, { capture: true, passive: true }),
+    );
+
+    return () => {
+      mediaEvents.forEach((eventName) => video.removeEventListener(eventName, tryPlay));
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", tryPlay);
+      gestureEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, onGesture, true),
+      );
+    };
   }, []);
 
   const langMeta = useMemo(
@@ -245,15 +295,16 @@ export default function Home() {
           <video
             ref={heroVideoRef}
             className="hero-video"
+            src={HERO_VIDEO_SRC}
             autoPlay
             muted
             loop
             playsInline
             preload="auto"
+            disablePictureInPicture
+            disableRemotePlayback
             aria-hidden="true"
-          >
-            <source src={HERO_VIDEO_SRC} type="video/mp4" />
-          </video>
+          />
           <div className="hero-overlay" aria-hidden="true" />
           <div className="hero">
             <div className="app-auth-logo-wrap hero-logo">
