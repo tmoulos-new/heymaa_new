@@ -2,7 +2,7 @@
   "it": {
     "cookie": {
       "title": "Cookie e privacy",
-      "body": "Usiamo cookie/sessioni essenziali per l'accesso e statistiche anonime opzionali (Web Vitals) per migliorare l'app. Consulta la",
+      "body": "Usiamo cookie/sessioni essenziali per l'accesso e statistiche anonime opzionali (Google Analytics) per migliorare l'app. Consulta la",
       "privacyLink": "Informativa sulla privacy",
       "accept": "Accetta tutti",
       "reject": "Solo essenziali"
@@ -17,7 +17,7 @@
   "de": {
     "cookie": {
       "title": "Cookies & Datenschutz",
-      "body": "Wir verwenden essenzielle Cookies/Sitzungen für die Anmeldung und optionale anonyme Statistiken (Web Vitals). Siehe unsere",
+      "body": "Wir verwenden essenzielle Cookies/Sitzungen für die Anmeldung und optionale anonyme Statistiken (Google Analytics). Siehe unsere",
       "privacyLink": "Datenschutzerklärung",
       "accept": "Alle akzeptieren",
       "reject": "Nur essenzielle"
@@ -32,7 +32,7 @@
   "fr": {
     "cookie": {
       "title": "Cookies & confidentialité",
-      "body": "Nous utilisons des cookies/sessions essentiels pour la connexion et des statistiques anonymes optionnelles (Web Vitals). Voir notre",
+      "body": "Nous utilisons des cookies/sessions essentiels pour la connexion et des statistiques anonymes optionnelles (Google Analytics). Voir notre",
       "privacyLink": "Politique de confidentialité",
       "accept": "Tout accepter",
       "reject": "Essentiels uniquement"
@@ -47,7 +47,7 @@
   "es": {
     "cookie": {
       "title": "Cookies y privacidad",
-      "body": "Usamos cookies/sesiones esenciales para iniciar sesión y estadísticas anónimas opcionales (Web Vitals). Consulta nuestra",
+      "body": "Usamos cookies/sesiones esenciales para iniciar sesión y estadísticas anónimas opcionales (Google Analytics). Consulta nuestra",
       "privacyLink": "Política de privacidad",
       "accept": "Aceptar todo",
       "reject": "Solo esenciales"
@@ -62,7 +62,7 @@
   "ro": {
     "cookie": {
       "title": "Cookie-uri și confidențialitate",
-      "body": "Folosim cookie-uri/sesiuni esențiale pentru autentificare și statistici anonime opționale (Web Vitals). Vezi",
+      "body": "Folosim cookie-uri/sesiuni esențiale pentru autentificare și statistici anonime opționale (Google Analytics). Vezi",
       "privacyLink": "Politica de confidențialitate",
       "accept": "Acceptă tot",
       "reject": "Doar esențiale"
@@ -77,7 +77,7 @@
   "bg": {
     "cookie": {
       "title": "Бисквитки и поверителност",
-      "body": "Използваме необходими бисквитки/сесии за вход и по избор анонимна статистика (Web Vitals). Вижте нашата",
+      "body": "Използваме необходими бисквитки/сесии за вход и по избор анонимна статистика (Google Analytics). Вижте нашата",
       "privacyLink": "Политика за поверителност",
       "accept": "Приемам всички",
       "reject": "Само необходимите"
@@ -92,7 +92,7 @@
   "pl": {
     "cookie": {
       "title": "Pliki cookie i prywatność",
-      "body": "Używamy niezbędnych plików cookie/sesji do logowania oraz opcjonalnych anonimowych statystyk (Web Vitals). Zobacz",
+      "body": "Używamy niezbędnych plików cookie/sesji do logowania oraz opcjonalnych anonimowych statystyk (Google Analytics). Zobacz",
       "privacyLink": "Politykę prywatności",
       "accept": "Akceptuj wszystkie",
       "reject": "Tylko niezbędne"
@@ -107,7 +107,7 @@
   "sr": {
     "cookie": {
       "title": "Колачићи и приватност",
-      "body": "Користимо неопходне колачиће/сесије за пријаву и опционе анонимне статистике (Web Vitals). Погледајте нашу",
+      "body": "Користимо неопходне колачиће/сесије за пријаву и опционе анонимне статистике (Google Analytics). Погледајте нашу",
       "privacyLink": "Политику приватности",
       "accept": "Прихвати све",
       "reject": "Само неопходне"
@@ -122,7 +122,7 @@
   "ar": {
     "cookie": {
       "title": "ملفات تعريف الارتباط والخصوصية",
-      "body": "نستخدم ملفات تعريف ارتباط/جلسات أساسية لتسجيل الدخول وإحصاءات مجهولة اختيارية (Web Vitals). راجع",
+      "body": "نستخدم ملفات تعريف ارتباط/جلسات أساسية لتسجيل الدخول وإحصاءات مجهولة اختيارية (Google Analytics). راجع",
       "privacyLink": "سياسة الخصوصية",
       "accept": "قبول الكل",
       "reject": "الأساسية فقط"
@@ -137,7 +137,7 @@
   "tr": {
     "cookie": {
       "title": "Çerezler ve gizlilik",
-      "body": "Giriş için gerekli çerezler/oturumlar ve isteğe bağlı anonim istatistikler (Web Vitals) kullanıyoruz. Bkz.",
+      "body": "Giriş için gerekli çerezler/oturumlar ve isteğe bağlı anonim istatistikler (Google Analytics) kullanıyoruz. Bkz.",
       "privacyLink": "Gizlilik Politikası",
       "accept": "Tümünü kabul et",
       "reject": "Yalnızca gerekli"
@@ -152,7 +152,7 @@
   "zh": {
     "cookie": {
       "title": "Cookie 与隐私",
-      "body": "我们使用必要的 Cookie/会话用于登录，以及可选的匿名统计（Web Vitals）。请参阅",
+      "body": "我们使用必要的 Cookie/会话用于登录，以及可选的匿名统计（Google Analytics）。请参阅",
       "privacyLink": "隐私政策",
       "accept": "全部接受",
       "reject": "仅必要"
@@ -167,7 +167,7 @@
   "ja": {
     "cookie": {
       "title": "Cookieとプライバシー",
-      "body": "ログインに必要なCookie/セッションと、任意の匿名統計（Web Vitals）を使用します。",
+      "body": "ログインに必要なCookie/セッションと、任意の匿名統計（Google Analytics）を使用します。",
       "privacyLink": "プライバシーポリシー",
       "accept": "すべて同意",
       "reject": "必要なもののみ"
@@ -182,7 +182,7 @@
   "ru": {
     "cookie": {
       "title": "Cookie и конфиденциальность",
-      "body": "Мы используем необходимые cookie/сессии для входа и опциональную анонимную статистику (Web Vitals). См.",
+      "body": "Мы используем необходимые cookie/сессии для входа и опциональную анонимную статистику (Google Analytics). См.",
       "privacyLink": "Политику конфиденциальности",
       "accept": "Принять все",
       "reject": "Только необходимые"
@@ -197,7 +197,7 @@
   "pt": {
     "cookie": {
       "title": "Cookies e privacidade",
-      "body": "Usamos cookies/sessões essenciais para login e estatísticas anónimas opcionais (Web Vitals). Consulte a",
+      "body": "Usamos cookies/sessões essenciais para login e estatísticas anónimas opcionais (Google Analytics). Consulte a",
       "privacyLink": "Política de Privacidade",
       "accept": "Aceitar tudo",
       "reject": "Apenas essenciais"
@@ -212,7 +212,7 @@
   "nl": {
     "cookie": {
       "title": "Cookies & privacy",
-      "body": "We gebruiken essentiële cookies/sessies voor inloggen en optionele anonieme statistieken (Web Vitals). Zie ons",
+      "body": "We gebruiken essentiële cookies/sessies voor inloggen en optionele anonieme statistieken (Google Analytics). Zie ons",
       "privacyLink": "Privacybeleid",
       "accept": "Alles accepteren",
       "reject": "Alleen essentieel"

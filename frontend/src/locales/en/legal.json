@@ -1,7 +1,7 @@
 {
   "cookie": {
     "title": "Cookies & privacy",
-    "body": "We use essential cookies/session storage for sign-in and optional anonymous statistics (Web Vitals) to improve the app. See our",
+    "body": "We use essential cookies/session storage for sign-in and optional anonymous statistics (Google Analytics) to improve the app. See our",
     "privacyLink": "Privacy Policy",
     "accept": "Accept all",
     "reject": "Essential only"
@@ -91,6 +91,7 @@
           "CARE DIRECT S.A. (\"Care Direct\" or the \"Company\") recognizes the importance of safeguarding personal data and is committed to protecting visitors' and users' information in accordance with Greek Law 4624/2019 and the GDPR (Regulation (EU) 2016/679).",
           "Care Direct does not collect personal data unless you provide it voluntarily.",
           "Browsing the website does not require sharing personal data. Technical data transferred automatically to the web server (such as ISP name, referring pages, pages visited, or IP address) is used for statistical purposes only and the user remains anonymous.",
+          "If you accept optional analytics cookies, we load Google Analytics (Google Ireland Limited / Google LLC, measurement ID G-JDCYL7LLHS) to measure site usage. This may transfer technical data to the United States with appropriate safeguards. You can refuse these cookies and still use the site.",
           "You provide personal data only if you wish to register for Care Direct services. In that case, you agree that the information you provide is complete, accurate, and true, and that you will update it when it changes.",
           "Required fields include, indicatively: username, email address, password, member role (e.g. parent, expectant mother), child date(s) of birth, child gender.",
           "Optional fields may include: first name, last name, address, phone, date of birth, marital status, profession, etc.",

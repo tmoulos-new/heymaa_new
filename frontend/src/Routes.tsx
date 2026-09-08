@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -22,6 +22,7 @@ import { APP_ROUTE } from "./publicRoutes";
 import { hasAuthToken } from "./lib/authApi";
 import reportWebVitals from "./reportWebVitals";
 import { analyticsCookiesAllowed } from "./lib/cookieConsent";
+import { initGoogleAnalytics, trackPageView } from "./lib/gtag";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -45,13 +46,38 @@ function PublicHome() {
 }
 
 function AnalyticsConsentGate() {
-  const onConsentChange = useCallback((analytics: boolean) => {
-    if (analytics) reportWebVitals();
+  const location = useLocation();
+  const [analyticsOn, setAnalyticsOn] = useState(() => analyticsCookiesAllowed());
+
+  const enableAnalytics = useCallback(() => {
+    initGoogleAnalytics();
+    setAnalyticsOn(true);
+    reportWebVitals((metric) => {
+      if (typeof window.gtag !== "function") return;
+      window.gtag("event", metric.name, {
+        event_category: "Web Vitals",
+        value: Math.round(metric.name === "CLS" ? metric.delta * 1000 : metric.delta),
+        event_label: metric.id,
+        non_interaction: true,
+      });
+    });
   }, []);
 
   useEffect(() => {
-    if (analyticsCookiesAllowed()) reportWebVitals();
-  }, []);
+    if (analyticsCookiesAllowed()) enableAnalytics();
+  }, [enableAnalytics]);
+
+  useEffect(() => {
+    if (!analyticsOn) return;
+    trackPageView(`${location.pathname}${location.search}`);
+  }, [analyticsOn, location.pathname, location.search]);
+
+  const onConsentChange = useCallback(
+    (analytics: boolean) => {
+      if (analytics) enableAnalytics();
+    },
+    [enableAnalytics],
+  );
 
   return <CookieConsentBanner onConsentChange={onConsentChange} />;
 }
