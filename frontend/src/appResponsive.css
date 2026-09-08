@@ -1426,6 +1426,15 @@ body.hm-app-active #root {
   align-items: flex-start;
   color: inherit;
   padding-top: 1px;
+  width: 16px;
+  height: 16px;
+}
+
+.hm-chat-medical-banner__icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .hm-chat-medical-banner__text {

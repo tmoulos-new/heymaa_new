@@ -86,6 +86,8 @@ class LlmUsageTests(unittest.TestCase):
         self.assertEqual(snap["credit_scope"], "heymaa")
         self.assertIn("HeyMaa-only", snap["note"])
         self.assertFalse(snap["reload_needed"])
+        self.assertNotIn("replicate_key_mask", snap)
+        self.assertNotIn("replicate_key_source", snap)
 
     def test_embed_and_legacy_do_not_spend_heymaa_key_budget(self):
         state = apply_credit_sync(empty_state(), replicate_balance_usd=10.0)

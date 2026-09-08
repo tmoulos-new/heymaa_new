@@ -216,11 +216,23 @@ def run_replicate_prediction(
     return text, prediction_metrics(payload)
 
 
-def _model_specs(image_parts: list[dict] | None) -> list[dict[str, Any]]:
-    if image_parts:
-        vision = [m for m in REPLICATE_CHAT_MODELS if m.get("vision")]
-        return vision or [REPLICATE_CHAT_MODELS[0]]
-    return list(REPLICATE_CHAT_MODELS)
+def model_order(*, vision: bool = False, prefer_quality: bool = False) -> list[dict[str, Any]]:
+    """Pick Replicate chat models by need — same idea as the old Groq/Gemini/Claude cascade.
+
+    Vision and CJK/RTL languages prefer Gemini Flash. Everyday chat prefers Llama 70B
+    (cheaper on Replicate) and falls back to Gemini.
+    """
+    gemini = [m for m in REPLICATE_CHAT_MODELS if m.get("kind") == "gemini"]
+    llama = [m for m in REPLICATE_CHAT_MODELS if m.get("kind") != "gemini"]
+    if vision:
+        return list(gemini or REPLICATE_CHAT_MODELS[:1])
+    if prefer_quality:
+        return gemini + llama
+    return llama + gemini
+
+
+def _model_specs(image_parts: list[dict] | None, prefer_quality: bool = False) -> list[dict[str, Any]]:
+    return model_order(vision=bool(image_parts), prefer_quality=prefer_quality)
 
 
 def call_replicate_chat_sync(
@@ -232,12 +244,13 @@ def call_replicate_chat_sync(
     image_parts: list[dict] | None = None,
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
+    prefer_quality: bool = False,
 ) -> tuple[str, str, dict[str, Any]]:
     """Returns (reply_text, model_slug, metrics)."""
     prompt = build_history_prompt(message, history, history_limit)
     last_err: Optional[Exception] = None
     token_budgets = [max_tokens, min(max_tokens * 2, 2048)]
-    for spec in _model_specs(image_parts):
+    for spec in _model_specs(image_parts, prefer_quality=prefer_quality):
         slug = f"{spec['owner']}/{spec['name']}"
         for budget in token_budgets:
             try:
@@ -270,6 +283,7 @@ async def call_replicate_chat(
     image_parts: list[dict] | None = None,
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
+    prefer_quality: bool = False,
 ) -> tuple[str, str, dict[str, Any]]:
     return await asyncio.to_thread(
         call_replicate_chat_sync,
@@ -280,6 +294,7 @@ async def call_replicate_chat(
         image_parts=image_parts,
         history_limit=history_limit,
         max_tokens=max_tokens,
+        prefer_quality=prefer_quality,
     )
 
 

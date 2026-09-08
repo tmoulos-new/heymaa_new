@@ -39,16 +39,16 @@ type UsageState = {
   credit_scope?: string
   replicate_account?: { username?: string; type?: string }
   note?: string
-  replicate_key_mask?: string
-  replicate_key_source?: string
+  replicate_configured?: boolean
   key_rotated?: boolean
 }
 
-const PROVIDER_ORDER = ['replicate', 'gemini', 'groq', 'claude', 'resend'] as const
+const PROVIDER_ORDER = ['replicate', 'gemini', 'resend', 'groq', 'claude'] as const
+const REPLICATE_MODE_PROVIDERS = ['replicate', 'gemini', 'resend'] as const
 
 const PROVIDER_LABEL: Record<string, string> = {
-  replicate: 'Replicate',
-  gemini: 'Gemini (RAG)',
+  replicate: 'Replicate chat',
+  gemini: 'Gemini embeddings (RAG)',
   groq: 'Groq',
   claude: 'Claude',
   resend: 'Resend',
@@ -144,6 +144,11 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const remaining = usage?.remaining_usd
   const reloadNeeded = Boolean(usage?.reload_needed)
   const remainingClass = reloadNeeded ? 'coral' : 'green'
+  const replicateMode = mode === 'replicate'
+  const providersToShow = replicateMode ? REPLICATE_MODE_PROVIDERS : PROVIDER_ORDER
+  const modelRows = Object.entries(usage?.models || {}).filter(
+    ([, row]) => row && typeof row === 'object' && Number(row.calls || 0) > 0,
+  )
 
   return (
     <>
@@ -186,8 +191,9 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </button>
           </div>
           <p className="card-desc">
-            Chat runs through <strong>Replicate</strong> ({mode}). Gemini is checked only for RAG
-            embeddings. Groq/Claude are not pinged in Replicate-only mode (avoids wasted credits).
+            Chat uses <strong>one Replicate token</strong> and picks the model by need: Llama 70B
+            for everyday chat, Gemini Flash for photos and CJK/RTL languages. Groq/Claude keys are
+            not required. Gemini below is Google embeddings for RAG, not chat.
           </p>
           <div className="prov-grid">
             {healthErr && <div className="msg err">Failed to load</div>}
@@ -197,13 +203,13 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               </div>
             )}
             {health &&
-              PROVIDER_ORDER.map((p) => {
+              providersToShow.map((p) => {
                 const raw = health[p]
                 const s =
                   raw && typeof raw === 'object'
                     ? (raw as ProviderStatus)
                     : { ok: false, msg: '?' }
-                const idle = /idle|not used/i.test(s.msg || '')
+                const idle = /idle|not used|not required/i.test(s.msg || '')
                 return (
                   <div className="prov" key={p}>
                     <span className="nm">
@@ -245,10 +251,19 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               {usage.spent_since_sync_usd != null && (
                 <> · Since last credit sync: {money(usage.spent_since_sync_usd, 3)}</>
               )}
+              {modelRows.length > 0 ? (
+                <>
+                  <br />
+                  Models:{' '}
+                  {modelRows
+                    .map(([slug, row]) => `${slug} ${row.calls || 0}`)
+                    .join(' · ')}
+                </>
+              ) : null}
               {(usage.calls?.groq || usage.calls?.claude) ? (
                 <>
                   <br />
-                  Fallback: Groq {usage.calls.groq || 0} · Claude {usage.calls.claude || 0}
+                  Legacy fallback: Groq {usage.calls.groq || 0} · Claude {usage.calls.claude || 0}
                 </>
               ) : null}
             </p>
@@ -278,15 +293,15 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </strong>
           </p>
         )}
-        {usage?.replicate_key_mask && usage.replicate_key_mask !== 'not set' ? (
-          <p className="meta" style={{ marginTop: -4, marginBottom: 12 }}>
-            Token: <strong>{usage.replicate_key_mask}</strong>
-            {usage.replicate_key_source ? ` · ${usage.replicate_key_source}` : ''}
-            {usage.key_rotated ? ' · token changed, spend counter reset' : ''}
-            {usage.heymaa_spend_usd != null ? ` · spent ${money(usage.heymaa_spend_usd, 3)} since sync` : ''}
-          </p>
-        ) : (
+        {usage && usage.replicate_configured === false ? (
           <p className="msg err">No HeyMaa Replicate token configured.</p>
+        ) : (
+          <p className="meta" style={{ marginTop: -4, marginBottom: 12 }}>
+            {usage?.key_rotated ? 'Token changed, spend counter reset · ' : ''}
+            {usage?.heymaa_spend_usd != null
+              ? `Spent ${money(usage.heymaa_spend_usd, 3)} since sync`
+              : null}
+          </p>
         )}
         <div className="row">
           <div className="field-wrap">

@@ -484,8 +484,10 @@ def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "replicate") -
         "last_error_kind": state.get("last_error_kind"),
         "last_error_at": state.get("last_error_at"),
         "last_error_msg": state.get("last_error_msg"),
-        "replicate_key_mask": state.get("replicate_key_mask") or "",
-        "replicate_key_source": state.get("replicate_key_source") or "",
+        "replicate_configured": bool(
+            (state.get("replicate_key_fp") or "")
+            or ((state.get("replicate_key_mask") or "") not in ("", "not set"))
+        ),
         "key_rotated": bool(state.get("key_rotated")),
         "key_rotated_at": state.get("key_rotated_at"),
         "billing_url": REPLICATE_BILLING_URL,
@@ -665,8 +667,6 @@ def notify_admins_if_needed(
                 last_error=str(state.get("last_error_msg") or ""),
                 billing_url=REPLICATE_BILLING_URL,
                 admin_url=admin_url,
-                key_mask=str(state.get("replicate_key_mask") or ""),
-                key_source=str(state.get("replicate_key_source") or ""),
                 lang="el",
             )
             err = send_email(

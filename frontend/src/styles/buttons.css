@@ -16,9 +16,9 @@
 .hm-btn,
 .pill-btn-navy,
 .app-auth-primary,
-.gate button,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn),
-.modal button:not(.icon-btn):not(.hm-btn) {
+.gate button:not(.plan-feat-info-btn),
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):not(.plan-feat-info-btn),
+.modal button:not(.icon-btn):not(.hm-btn):not(.plan-feat-info-btn) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -49,9 +49,9 @@
 .hm-btn:focus-visible,
 .pill-btn-navy:focus-visible,
 .app-auth-primary:focus-visible,
-.gate button:focus-visible,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):focus-visible,
-.modal button:not(.icon-btn):not(.hm-btn):focus-visible {
+.gate button:not(.plan-feat-info-btn):focus-visible,
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):not(.plan-feat-info-btn):focus-visible,
+.modal button:not(.icon-btn):not(.hm-btn):not(.plan-feat-info-btn):focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(74, 190, 170, 0.35);
 }
@@ -59,9 +59,9 @@
 .hm-btn:disabled,
 .pill-btn-navy:disabled,
 .app-auth-primary:disabled,
-.gate button:disabled,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):disabled,
-.modal button:not(.icon-btn):not(.hm-btn):disabled {
+.gate button:not(.plan-feat-info-btn):disabled,
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):not(.plan-feat-info-btn):disabled,
+.modal button:not(.icon-btn):not(.hm-btn):not(.plan-feat-info-btn):disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
@@ -75,9 +75,9 @@
 .app-auth-primary,
 button.btn-primary,
 button.cta-btn-primary,
-.gate button,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn),
-.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn) {
+.gate button:not(.plan-feat-info-btn),
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn),
+.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn) {
   background: var(--hm-btn-gradient-primary);
   color: #fff;
   border-color: var(--hm-navy, #2b3a67);
@@ -89,9 +89,9 @@ button.cta-btn-primary,
 .app-auth-primary:not(:disabled):hover,
 button.btn-primary:not(:disabled):hover,
 button.cta-btn-primary:not(:disabled):hover,
-.gate button:not(:disabled):hover,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(:disabled):hover,
-.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(:disabled):hover {
+.gate button:not(.plan-feat-info-btn):not(:disabled):hover,
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn):not(:disabled):hover,
+.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn):not(:disabled):hover {
   background: var(--hm-beige, #f8e5d6);
   color: var(--hm-navy, #2b3a67);
   border-color: var(--hm-beige, #f8e5d6);
@@ -104,9 +104,9 @@ button.cta-btn-primary:not(:disabled):hover,
 .app-auth-primary:not(:disabled):active,
 button.btn-primary:not(:disabled):active,
 button.cta-btn-primary:not(:disabled):active,
-.gate button:not(:disabled):active,
-.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(:disabled):active,
-.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(:disabled):active {
+.gate button:not(.plan-feat-info-btn):not(:disabled):active,
+.main button:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn):not(:disabled):active,
+.modal button:not(.icon-btn):not(.sec):not(.ghost):not(.del):not(.teal):not(.hm-btn):not(.plan-feat-info-btn):not(:disabled):active {
   transform: translateY(0);
   box-shadow: 0 1px 6px rgba(43, 58, 103, 0.16);
 }

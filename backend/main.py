@@ -2763,13 +2763,10 @@ def _probe_llm_providers() -> dict:
                 from replicate_chat import probe_replicate_account_sync
             info = probe_replicate_account_sync(replicate_key)
             who = info.get("username") or "ok"
-            ident = _replicate_token_identity()
-            mask = ident.get("mask") or ""
-            src = ident.get("source") or ""
-            extra = f" · HeyMaa key {mask}" if mask and mask != "not set" else ""
-            if src:
-                extra += f" ({src})"
-            out["replicate"] = {"ok": True, "msg": f"online · {who}{extra}"}
+            out["replicate"] = {
+                "ok": True,
+                "msg": f"online · chat (Llama 70B / Gemini Flash) · {who}",
+            }
         except Exception as e:
             out["replicate"] = {"ok": False, "msg": str(e)[:120]}
     else:
@@ -2784,7 +2781,7 @@ def _probe_llm_providers() -> dict:
             )
             if not r.ok:
                 raise RuntimeError((r.text or "")[:120])
-            out["gemini"] = {"ok": True, "msg": "online · RAG embeddings"}
+            out["gemini"] = {"ok": True, "msg": "online · RAG embeddings only (not chat)"}
         except Exception as e:
             out["gemini"] = {"ok": False, "msg": str(e)[:120]}
     else:
@@ -2793,7 +2790,10 @@ def _probe_llm_providers() -> dict:
     for name in ("groq", "claude"):
         key = keys.get(name) or ""
         if not probe_legacy:
-            out[name] = {"ok": True, "msg": "idle — chat uses Replicate" if key else "not used"}
+            out[name] = {
+                "ok": True,
+                "msg": "not required — models run on Replicate",
+            }
             continue
         if not key:
             out[name] = {"ok": False, "msg": "no key"}
@@ -3434,6 +3434,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     image_parts=image_parts or None,
                     history_limit=chat_context_limit,
                     max_tokens=_CHAT_MAX_TOKENS,
+                    prefer_quality=msg_lang in GEMINI_FIRST_LANGS,
                 )
                 if not reply:
                     raise RuntimeError("replicate returned empty reply")
