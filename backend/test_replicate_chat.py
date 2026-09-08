@@ -5,6 +5,7 @@ from replicate_chat import (
     extract_replicate_output,
     image_parts_to_data_urls,
     looks_truncated_reply,
+    prediction_metrics,
 )
 
 
@@ -35,6 +36,11 @@ class ReplicateChatTests(unittest.TestCase):
     def test_image_parts_to_data_urls(self):
         urls = image_parts_to_data_urls([{"mime_type": "image/png", "data": "abc123"}])
         self.assertEqual(urls, ["data:image/png;base64,abc123"])
+
+    def test_prediction_metrics_predict_time(self):
+        meta = prediction_metrics({"id": "abc", "status": "succeeded", "metrics": {"predict_time": 1.5}})
+        self.assertEqual(meta["prediction_id"], "abc")
+        self.assertEqual(meta["predict_time_s"], 1.5)
 
 
 if __name__ == "__main__":

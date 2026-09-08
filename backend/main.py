@@ -1335,6 +1335,14 @@ def get_embedding(text):
         timeout=5,
     )
     r.raise_for_status()
+    try:
+        try:
+            from .llm_usage import bump_embed_calls
+        except ImportError:
+            from llm_usage import bump_embed_calls
+        bump_embed_calls()
+    except Exception:
+        pass
     return r.json()["embedding"]["values"]
 
 def retrieve_context(query, top_k=3, threshold=0.28):
@@ -1575,13 +1583,15 @@ _SHORT_DIALOGUE_RULE = (
     "Never answer with a single word or a cut-off phrase."
 )
 
-def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context=""):
+def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
     if memories_context:
         prompt += f"\n\n--- Recent memories this user has saved (use naturally if relevant, never list them all at once) ---\n{memories_context}"
+    if milestones_context:
+        prompt += f"\n\n--- Development milestones this user has ticked (use naturally if relevant to age or progress, never list them all) ---\n{milestones_context}"
     if docs_context:
         prompt += f"\n\n--- Document archive (act as librarian: you know what documents exist and for whom, but NEVER read or comment on their content. Only mention their existence when naturally relevant) ---\n{docs_context}"
     if promotion_context:
@@ -2360,6 +2370,11 @@ class MemoryContext(BaseModel):
     date: Optional[str] = None
     ref: Optional[str] = None
 
+class MilestoneContext(BaseModel):
+    label: str
+    ref: Optional[str] = None
+    stageId: Optional[str] = None
+
 class DocContext(BaseModel):
     title: str
     category: Optional[str] = None
@@ -2388,6 +2403,7 @@ class ChatRequest(BaseModel):
     history: list = []
     profile: Optional[ProfileContext] = None
     recentMemories: Optional[list[MemoryContext]] = None
+    recentMilestones: Optional[list[MilestoneContext]] = None
     recentDocs: Optional[list[DocContext]] = None
     attachments: Optional[list[ChatAttachmentIn]] = None
 
@@ -2672,6 +2688,33 @@ def _replicate_api_token_from_env() -> str:
     return ""
 
 
+def _replicate_token_identity() -> dict:
+    """Which Replicate secret HeyMaa chat actually uses (prefer dedicated HeyMaa token)."""
+    try:
+        try:
+            from .llm_usage import replicate_token_identity
+        except ImportError:
+            from llm_usage import replicate_token_identity
+    except Exception:
+        replicate_token_identity = None  # type: ignore
+    token = ""
+    source = ""
+    for name in ("REPLICATE_HEYMAA_API_TOKEN", "REPLICATE_API_TOKEN", "HEYMAA_API_TOKEN"):
+        val = (os.getenv(name) or "").strip()
+        if val:
+            token = val
+            source = f"env:{name}"
+            break
+    if not token:
+        db_token = (_llm_secrets_from_db().get("replicate") or "").strip()
+        if db_token:
+            token = db_token
+            source = "db:llm_replicate"
+    if replicate_token_identity:
+        return replicate_token_identity(token, source)
+    return {"fingerprint": "", "mask": "not set", "source": source or "unset"}
+
+
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
@@ -2700,48 +2743,69 @@ _llm_probe_cache: Optional[dict] = None
 _llm_probe_cache_at = 0.0
 
 def _probe_llm_providers() -> dict:
-    """Live ping per configured provider (cached ~2 min for health checks)."""
+    """Health ping. In Replicate mode, skip billed Groq/Claude chat probes."""
     global _llm_probe_cache, _llm_probe_cache_at
     import time as _t
     now = _t.time()
     if _llm_probe_cache is not None and (now - _llm_probe_cache_at) < 120:
         return _llm_probe_cache
     keys = _llm_api_keys()
-    out: dict = {}
-    for name, key in keys.items():
+    mode = _llm_provider_mode(keys.get("replicate", ""))
+    out: dict = {"llm_provider_mode": mode}
+    probe_legacy = mode in ("legacy", "replicate_with_legacy_fallback")
+
+    replicate_key = keys.get("replicate") or ""
+    if replicate_key:
+        try:
+            try:
+                from .replicate_chat import probe_replicate_account_sync
+            except ImportError:
+                from replicate_chat import probe_replicate_account_sync
+            info = probe_replicate_account_sync(replicate_key)
+            who = info.get("username") or "ok"
+            ident = _replicate_token_identity()
+            mask = ident.get("mask") or ""
+            src = ident.get("source") or ""
+            extra = f" · HeyMaa key {mask}" if mask and mask != "not set" else ""
+            if src:
+                extra += f" ({src})"
+            out["replicate"] = {"ok": True, "msg": f"online · {who}{extra}"}
+        except Exception as e:
+            out["replicate"] = {"ok": False, "msg": str(e)[:120]}
+    else:
+        out["replicate"] = {"ok": False, "msg": "no key"}
+
+    gemini_key = keys.get("gemini") or ""
+    if gemini_key:
+        try:
+            r = requests.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}",
+                timeout=12,
+            )
+            if not r.ok:
+                raise RuntimeError((r.text or "")[:120])
+            out["gemini"] = {"ok": True, "msg": "online · RAG embeddings"}
+        except Exception as e:
+            out["gemini"] = {"ok": False, "msg": str(e)[:120]}
+    else:
+        out["gemini"] = {"ok": False, "msg": "no key (RAG)"}
+
+    for name in ("groq", "claude"):
+        key = keys.get(name) or ""
+        if not probe_legacy:
+            out[name] = {"ok": True, "msg": "idle — chat uses Replicate" if key else "not used"}
+            continue
         if not key:
             out[name] = {"ok": False, "msg": "no key"}
             continue
         try:
-            if name == "replicate":
-                try:
-                    from .replicate_chat import probe_replicate_sync
-                except ImportError:
-                    from replicate_chat import probe_replicate_sync
-                probe_replicate_sync(key)
-            elif name == "groq":
+            if name == "groq":
                 from groq import Groq
                 Groq(api_key=key).chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[{"role": "user", "content": "hi"}],
                     max_tokens=8,
                 )
-            elif name == "gemini":
-                body = {
-                    "contents": [{"role": "user", "parts": [{"text": "Say hi in one word."}]}],
-                    "generationConfig": {
-                        "maxOutputTokens": 16,
-                        "thinkingConfig": {"thinkingBudget": 0},
-                    },
-                }
-                r = requests.post(
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"gemini-2.5-flash-lite:generateContent?key={key}",
-                    json=body,
-                    timeout=20,
-                )
-                if not r.ok:
-                    raise RuntimeError((r.text or "")[:120])
             else:
                 import anthropic
                 anthropic.Anthropic(api_key=key).messages.create(
@@ -2752,6 +2816,7 @@ def _probe_llm_providers() -> dict:
             out[name] = {"ok": True, "msg": "online"}
         except Exception as e:
             out[name] = {"ok": False, "msg": str(e)[:120]}
+
     _llm_probe_cache = out
     _llm_probe_cache_at = now
     return out
@@ -3263,6 +3328,15 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         entitlements = _entitlements_for_token(x_token)
         chat_context_limit = int(entitlements.get("chat_context_messages") or 20)
         memory_context_limit = int(entitlements.get("memory_context_count") or 10)
+        milestone_context_limit = int(entitlements.get("milestone_context_count") or 10)
+        try:
+            try:
+                from .llm_usage import reset_embed_calls
+            except ImportError:
+                from llm_usage import reset_embed_calls
+            reset_embed_calls()
+        except Exception:
+            pass
         complex_query = is_complex(req.message)
         rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
         rag_context = build_rag_context(rag_chunks)
@@ -3276,6 +3350,15 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                 if m.ref: line += f" [re: {m.ref}]"
                 mem_lines.append(line)
             memories_context = "\n".join(mem_lines)
+        milestones_context = ""
+        if req.recentMilestones:
+            ms_lines = []
+            for m in req.recentMilestones[:milestone_context_limit]:
+                line = m.label
+                if m.ref: line += f" [re: {m.ref}]"
+                if m.stageId: line += f" ({m.stageId})"
+                ms_lines.append(line)
+            milestones_context = "\n".join(ms_lines)
         docs_context = ""
         if req.recentDocs:
             doc_lines = []
@@ -3292,7 +3375,14 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
             promotion_context = promo.get("body", "")
             if promo.get("link"):
                 promotion_context += f" {promo['link']}"
-        system_prompt = build_system_prompt(rag_context, family_context, memories_context, docs_context, promotion_context)
+        system_prompt = build_system_prompt(
+            rag_context,
+            family_context,
+            memories_context,
+            docs_context,
+            promotion_context,
+            milestones_context,
+        )
         profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
         message_for_llm = _build_attachment_context(req.message, req.attachments)
         msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
@@ -3336,7 +3426,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     from .replicate_chat import call_replicate_chat
                 except ImportError:
                     from replicate_chat import call_replicate_chat
-                reply, model_slug = await call_replicate_chat(
+                reply, model_slug, meta = await call_replicate_chat(
                     message_for_llm,
                     req.history,
                     system_prompt,
@@ -3349,10 +3439,16 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     raise RuntimeError("replicate returned empty reply")
                 if not _is_usable_reply(reply):
                     raise RuntimeError(f"replicate returned unusable reply: {reply[:80]!r}")
-                USAGE_LOG["replicate"] += 1
+                _track_llm_usage(
+                    provider="replicate",
+                    ok=True,
+                    model=model_slug,
+                    predict_time_s=(meta or {}).get("predict_time_s"),
+                )
                 return _chat_success(reply, f"replicate:{model_slug}")
             except Exception as e:
                 errors.append(f"replicate: {e}")
+                _track_llm_usage(provider="replicate", ok=False, error_msg=str(e))
                 if provider_mode == "replicate":
                     joined = " | ".join(errors)
                     low = joined.lower()
@@ -3393,13 +3489,13 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                 key = _prov_keys[provider]
                 if provider == "groq":
                     reply = await call_groq(message_for_llm, req.history, system_prompt, key, history_limit=chat_context_limit)
-                    USAGE_LOG["groq"] += 1
+                    _track_llm_usage(provider="groq", ok=True)
                 elif provider == "gemini":
                     reply = await call_gemini(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
-                    USAGE_LOG["gemini"] += 1
+                    _track_llm_usage(provider="gemini", ok=True)
                 else:
                     reply = await call_claude(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
-                    USAGE_LOG["claude"] += 1
+                    _track_llm_usage(provider="claude", ok=True)
                 if not reply:
                     raise RuntimeError(f"{provider} returned empty reply")
                 if not _is_usable_reply(reply):
@@ -3590,7 +3686,45 @@ async def admin_panel():
 
 import time as _time
 USAGE_LOG = {"replicate": 0, "groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
-COST_PER_CALL = {"replicate": 0.0, "groq": 0.0, "gemini": 0.0, "claude": 0.0025}
+COST_PER_CALL = {"replicate": 0.002, "groq": 0.0002, "gemini": 0.002, "claude": 0.0025}
+
+
+def _track_llm_usage(
+    *,
+    provider: str,
+    ok: bool,
+    model: str = "",
+    predict_time_s: Optional[float] = None,
+    error_msg: str = "",
+) -> None:
+    try:
+        if provider in USAGE_LOG:
+            USAGE_LOG[provider] += 1
+    except Exception:
+        pass
+    try:
+        try:
+            from .llm_usage import notify_admins_if_needed, record_llm_event
+        except ImportError:
+            from llm_usage import notify_admins_if_needed, record_llm_event
+        state = record_llm_event(
+            sb,
+            provider=provider,
+            ok=ok,
+            model=model,
+            predict_time_s=predict_time_s,
+            error_msg=error_msg,
+            key_identity=_replicate_token_identity(),
+        )
+        notify_admins_if_needed(
+            sb,
+            state,
+            resend_api_key=RESEND_API_KEY,
+            resend_from=RESEND_FROM,
+            app_url=APP_URL,
+        )
+    except Exception:
+        pass
 
 @app.get("/admin/me")
 async def admin_me(x_token: Optional[str] = Header(None)):
@@ -3725,18 +3859,97 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
 @app.get("/admin/usage")
 async def admin_usage(x_token: Optional[str] = Header(None)):
     verify_admin(x_token)
-    est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("replicate", "groq", "gemini", "claude"))
-    days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
-    return {
-        "calls": {
+    try:
+        try:
+            from .llm_usage import load_credits_state, usage_snapshot
+        except ImportError:
+            from llm_usage import load_credits_state, usage_snapshot
+        keys = _llm_api_keys()
+        mode = _llm_provider_mode(keys.get("replicate", ""))
+        snap = usage_snapshot(load_credits_state(sb, _replicate_token_identity()), provider_mode=mode)
+        snap["process_calls"] = {
             "replicate": USAGE_LOG["replicate"],
             "groq": USAGE_LOG["groq"],
             "gemini": USAGE_LOG["gemini"],
             "claude": USAGE_LOG["claude"],
-        },
-        "estimated_cost_usd": round(est_cost, 4),
-        "since_days": round(days, 1),
-    }
+        }
+        try:
+            rkey = keys.get("replicate") or ""
+            if rkey:
+                try:
+                    from .replicate_chat import probe_replicate_account_sync
+                except ImportError:
+                    from replicate_chat import probe_replicate_account_sync
+                acc = probe_replicate_account_sync(rkey)
+                snap["replicate_account"] = {
+                    "username": acc.get("username"),
+                    "type": acc.get("type"),
+                }
+        except Exception:
+            pass
+        return snap
+    except Exception:
+        est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("replicate", "groq", "gemini", "claude"))
+        days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
+        return {
+            "calls": {
+                "replicate": USAGE_LOG["replicate"],
+                "groq": USAGE_LOG["groq"],
+                "gemini": USAGE_LOG["gemini"],
+                "claude": USAGE_LOG["claude"],
+            },
+            "estimated_cost_usd": round(est_cost, 4),
+            "since_days": round(days, 1),
+            "provider_mode": _llm_provider_mode(_llm_api_keys().get("replicate", "")),
+        }
+
+
+class LlmCreditsUpdate(BaseModel):
+    replicate_balance_usd: float
+    alert_threshold_usd: Optional[float] = 5.0
+    daily_budget_usd: Optional[float] = None
+    monthly_budget_usd: Optional[float] = None
+
+
+@app.post("/admin/credits")
+async def admin_update_credits(req: LlmCreditsUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if req.replicate_balance_usd < 0:
+        raise HTTPException(status_code=400, detail="replicate_balance_usd must be >= 0")
+    threshold = 5.0 if req.alert_threshold_usd is None else float(req.alert_threshold_usd)
+    if threshold < 0:
+        raise HTTPException(status_code=400, detail="alert_threshold_usd must be >= 0")
+    try:
+        try:
+            from .llm_usage import (
+                apply_credit_sync,
+                load_credits_state,
+                save_credits_state,
+                usage_snapshot,
+            )
+        except ImportError:
+            from llm_usage import (
+                apply_credit_sync,
+                load_credits_state,
+                save_credits_state,
+                usage_snapshot,
+            )
+        ident = _replicate_token_identity()
+        state = apply_credit_sync(
+            load_credits_state(sb, ident),
+            replicate_balance_usd=float(req.replicate_balance_usd),
+            alert_threshold_usd=threshold,
+            daily_budget_usd=req.daily_budget_usd,
+            monthly_budget_usd=req.monthly_budget_usd,
+            key_identity=ident,
+        )
+        save_credits_state(sb, state, updated_by=admin_id)
+        mode = _llm_provider_mode(_llm_api_keys().get("replicate", ""))
+        return {"ok": True, **usage_snapshot(state, provider_mode=mode)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 ACTIVITY_LOG_SORT_COLUMNS = frozenset({"created_at", "user_id", "action", "entity_type"})
 
@@ -6266,7 +6479,7 @@ _register_public_root_files()
 
 _API_PATH_PREFIXES = (
     "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "gamification/", "webhooks/", "checkout/",
-    "admin/health", "admin/usage", "admin/upload", "admin/offers", "admin/promotions",
+    "admin/health", "admin/usage", "admin/credits", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",
     "public/offers", "public/promotions", "healthz",

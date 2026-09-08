@@ -1,32 +1,87 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   CreditCard,
   RefreshCw,
+  Save,
 } from 'lucide-react'
+import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import type { ProviderStatus } from '../lib/types'
 
+type UsageState = {
+  provider_mode?: string
+  calls: Record<string, number>
+  cost_usd?: Record<string, number>
+  models?: Record<string, { calls?: number; cost_usd?: number }>
+  estimated_cost_usd: number
+  total_calls?: number
+  day_cost_usd?: number
+  day_calls?: number
+  month_cost_usd?: number
+  replicate_balance_usd?: number | null
+  spent_since_sync_usd?: number
+  remaining_usd?: number | null
+  alert_threshold_usd?: number | null
+  daily_budget_usd?: number | null
+  monthly_budget_usd?: number | null
+  synced_at?: string | null
+  reload_needed?: boolean
+  last_error_kind?: string | null
+  last_error_msg?: string | null
+  billing_url?: string
+  tokens_url?: string
+  prepaid_docs_url?: string
+  orgs_url?: string
+  heymaa_spend_usd?: number
+  credit_scope?: string
+  replicate_account?: { username?: string; type?: string }
+  note?: string
+  replicate_key_mask?: string
+  replicate_key_source?: string
+  key_rotated?: boolean
+}
+
+const PROVIDER_ORDER = ['replicate', 'gemini', 'groq', 'claude', 'resend'] as const
+
+const PROVIDER_LABEL: Record<string, string> = {
+  replicate: 'Replicate',
+  gemini: 'Gemini (RAG)',
+  groq: 'Groq',
+  claude: 'Claude',
+  resend: 'Resend',
+}
+
+function money(value: number | null | undefined, digits = 2) {
+  if (value == null || Number.isNaN(Number(value))) return '—'
+  return `$${Number(value).toFixed(digits)}`
+}
+
+function providerDot(ok: boolean | undefined, idle: boolean) {
+  if (idle) return 'gray'
+  return ok ? 'green' : 'red'
+}
+
 export function OverviewTab({ userCount }: { userCount: number | null }) {
   const { adminFetch } = useAdmin()
-  const [health, setHealth] = useState<Record<string, ProviderStatus> | null>(null)
+  const { show } = useFlashMessage()
+  const [health, setHealth] = useState<Record<string, ProviderStatus | string> | null>(null)
   const [healthErr, setHealthErr] = useState(false)
-  const [usage, setUsage] = useState<{
-    groq: number
-    gemini: number
-    claude: number
-    cost: number
-    sinceDays: number
-    total: number
-  } | null>(null)
+  const [usage, setUsage] = useState<UsageState | null>(null)
+  const [balanceInput, setBalanceInput] = useState('')
+  const [thresholdInput, setThresholdInput] = useState('5')
+  const [dailyInput, setDailyInput] = useState('')
+  const [monthlyInput, setMonthlyInput] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const loadHealth = useCallback(async () => {
     setHealthErr(false)
     setHealth(null)
     try {
       const d = await adminFetch('/admin/health')
-      setHealth(d as unknown as Record<string, ProviderStatus>)
+      setHealth(d as unknown as Record<string, ProviderStatus | string>)
     } catch {
       setHealthErr(true)
     }
@@ -34,19 +89,12 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
 
   const loadUsage = useCallback(async () => {
     try {
-      const d = await adminFetch('/admin/usage')
-      const c = (d.calls as Record<string, number>) || {}
-      const groq = c.groq || 0
-      const gemini = c.gemini || 0
-      const claude = c.claude || 0
-      setUsage({
-        groq,
-        gemini,
-        claude,
-        total: groq + gemini + claude,
-        cost: Number(d.estimated_cost_usd) || 0,
-        sinceDays: Number(d.since_days) || 0,
-      })
+      const d = (await adminFetch('/admin/usage')) as unknown as UsageState
+      setUsage(d)
+      if (d.replicate_balance_usd != null) setBalanceInput(String(d.replicate_balance_usd))
+      if (d.alert_threshold_usd != null) setThresholdInput(String(d.alert_threshold_usd))
+      if (d.daily_budget_usd != null) setDailyInput(String(d.daily_budget_usd))
+      if (d.monthly_budget_usd != null) setMonthlyInput(String(d.monthly_budget_usd))
     } catch {
       /* ignore */
     }
@@ -57,20 +105,73 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
     void loadUsage()
   }, [loadHealth, loadUsage])
 
+  const saveCredits = async () => {
+    const balance = Number(balanceInput)
+    if (!Number.isFinite(balance) || balance < 0) {
+      show('Enter the current HeyMaa Replicate prepaid remaining ($).', 'err')
+      return
+    }
+    const threshold = Number(thresholdInput || 5)
+    setSaving(true)
+    try {
+      const d = (await adminFetch('/admin/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          replicate_balance_usd: balance,
+          alert_threshold_usd: Number.isFinite(threshold) ? threshold : 5,
+          daily_budget_usd: dailyInput === '' ? null : Number(dailyInput),
+          monthly_budget_usd: monthlyInput === '' ? null : Number(monthlyInput),
+        }),
+      })) as unknown as UsageState & { ok?: boolean; error?: string }
+      if (!d.ok && d.error) {
+        show(String(d.error), 'err')
+        return
+      }
+      setUsage(d)
+      show('HeyMaa credits synced. Remaining = this number minus chat until you paste again.', 'ok')
+    } catch {
+      show('Could not save credits', 'err')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const mode =
+    (typeof health?.llm_provider_mode === 'string' && health.llm_provider_mode) ||
+    usage?.provider_mode ||
+    'replicate'
+  const remaining = usage?.remaining_usd
+  const reloadNeeded = Boolean(usage?.reload_needed)
+  const remainingClass = reloadNeeded ? 'coral' : 'green'
+
   return (
     <>
+      {reloadNeeded && (
+        <div className="msg err" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+          <div>
+            <strong>Reload Replicate credits.</strong>{' '}
+            {usage?.last_error_kind === 'credit_exhausted'
+              ? 'Replicate blocked new work (402) — the HeyMaa prepaid balance is empty. Top up or turn on auto reload in Billing.'
+              : `Estimated remaining is ${money(remaining)} (at or below your alert).`}
+            {' '}Admins are emailed when this happens.
+          </div>
+        </div>
+      )}
+
       <div className="grid-3" style={{ marginBottom: 20 }}>
         <div className="stat teal">
           <div className="n">{userCount ?? '—'}</div>
           <div className="l">Total users</div>
         </div>
-        <div className="stat coral">
-          <div className="n">{usage ? `$${usage.cost.toFixed(2)}` : '—'}</div>
-          <div className="l">Est. API cost</div>
+        <div className={`stat ${remainingClass}`}>
+          <div className="n">{money(remaining)}</div>
+          <div className="l">HeyMaa remaining</div>
         </div>
-        <div className="stat green">
-          <div className="n">{usage?.total ?? '—'}</div>
-          <div className="l">Total API calls</div>
+        <div className="stat coral">
+          <div className="n">{money(usage?.day_cost_usd, 3)}</div>
+          <div className="l">Est. spend today</div>
         </div>
       </div>
 
@@ -78,30 +179,39 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         <div className="card">
           <div className="card-head">
             <h2>
-              <Activity size={16} className="h-icon" /> Provider Status
+              <Activity size={16} className="h-icon" /> Provider status
             </h2>
             <button type="button" className="sec sm" onClick={() => void loadHealth()}>
               <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
           </div>
+          <p className="card-desc">
+            Chat runs through <strong>Replicate</strong> ({mode}). Gemini is checked only for RAG
+            embeddings. Groq/Claude are not pinged in Replicate-only mode (avoids wasted credits).
+          </p>
           <div className="prov-grid">
             {healthErr && <div className="msg err">Failed to load</div>}
             {!healthErr && !health && (
               <div className="prov">
-                <span className="nm">Pinging providers…</span>
+                <span className="nm">Checking providers…</span>
               </div>
             )}
             {health &&
-              (['groq', 'gemini', 'claude', 'resend'] as const).map((p) => {
-                const s = health[p] || { ok: false, msg: '?' }
+              PROVIDER_ORDER.map((p) => {
+                const raw = health[p]
+                const s =
+                  raw && typeof raw === 'object'
+                    ? (raw as ProviderStatus)
+                    : { ok: false, msg: '?' }
+                const idle = /idle|not used/i.test(s.msg || '')
                 return (
                   <div className="prov" key={p}>
                     <span className="nm">
-                      <span className={`dot ${s.ok ? 'green' : 'red'}`} />
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                      <span className={`dot ${providerDot(s.ok, idle)}`} />
+                      {PROVIDER_LABEL[p] || p}
                     </span>
                     <span className="st">
-                      {s.ok ? '✓' : '✗'} {s.msg}
+                      {idle ? '–' : s.ok ? '✓' : '✗'} {s.msg}
                     </span>
                   </div>
                 )
@@ -117,21 +227,30 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </div>
           <div className="grid-3">
             <div className="stat">
-              <div className="n">{usage?.groq ?? '…'}</div>
-              <div className="l">Groq</div>
+              <div className="n">{usage?.calls?.replicate ?? '…'}</div>
+              <div className="l">Replicate chat</div>
             </div>
             <div className="stat">
-              <div className="n">{usage?.gemini ?? '…'}</div>
-              <div className="l">Gemini</div>
+              <div className="n">{usage?.calls?.gemini_embed ?? '…'}</div>
+              <div className="l">Gemini embeddings</div>
             </div>
             <div className="stat">
-              <div className="n">{usage?.claude ?? '…'}</div>
-              <div className="l">Claude</div>
+              <div className="n">{money(usage?.estimated_cost_usd, 3)}</div>
+              <div className="l">Est. total tracked</div>
             </div>
           </div>
           {usage && (
             <p className="meta" style={{ marginTop: 12 }}>
-              Since {usage.sinceDays} days ago · Claude ≈ $0.0025/call · Resets on server restart.
+              Today: {usage.day_calls || 0} calls · {money(usage.day_cost_usd, 3)}
+              {usage.spent_since_sync_usd != null && (
+                <> · Since last credit sync: {money(usage.spent_since_sync_usd, 3)}</>
+              )}
+              {(usage.calls?.groq || usage.calls?.claude) ? (
+                <>
+                  <br />
+                  Fallback: Groq {usage.calls.groq || 0} · Claude {usage.calls.claude || 0}
+                </>
+              ) : null}
             </p>
           )}
         </div>
@@ -139,25 +258,108 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
 
       <div className="card">
         <div className="card-head">
-          <h2>
-            <CreditCard size={16} className="h-icon" /> Top up credits
-          </h2>
-        </div>
+            <h2>
+              <CreditCard size={16} className="h-icon" /> HeyMaa Replicate credits
+            </h2>
+          </div>
         <p className="card-desc">
-          Live balances aren&apos;t exposed via API — use these links to check &amp; top up.
+          This Replicate account is <strong>HeyMaa-only</strong>. Replicate does not expose remaining
+          credit on the API — paste the prepaid number from Billing. Remaining here = that amount
+          minus HeyMaa chat since you pasted it. Gemini RAG embeddings bill Google, not this pot.
+          Enable <strong>auto reload</strong> in Billing (min $5 threshold / $15 reload) so chat
+          does not stop at $0.
         </p>
-        <div className="links">
-          <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer">
-            Anthropic Billing
+        {usage?.replicate_account?.username && (
+          <p className="meta" style={{ marginTop: -8, marginBottom: 8 }}>
+            HeyMaa account:{' '}
+            <strong>
+              {usage.replicate_account.type === 'organization' ? 'org' : 'user'}{' '}
+              {usage.replicate_account.username}
+            </strong>
+          </p>
+        )}
+        {usage?.replicate_key_mask && usage.replicate_key_mask !== 'not set' ? (
+          <p className="meta" style={{ marginTop: -4, marginBottom: 12 }}>
+            Token: <strong>{usage.replicate_key_mask}</strong>
+            {usage.replicate_key_source ? ` · ${usage.replicate_key_source}` : ''}
+            {usage.key_rotated ? ' · token changed, spend counter reset' : ''}
+            {usage.heymaa_spend_usd != null ? ` · spent ${money(usage.heymaa_spend_usd, 3)} since sync` : ''}
+          </p>
+        ) : (
+          <p className="msg err">No HeyMaa Replicate token configured.</p>
+        )}
+        <div className="row">
+          <div className="field-wrap">
+            <FieldLabel required>Prepaid remaining now $ (from Billing)</FieldLabel>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={balanceInput}
+              onChange={(e) => setBalanceInput(e.target.value)}
+              placeholder="e.g. 25.00"
+            />
+          </div>
+          <div className="field-wrap">
+            <FieldLabel>Reload alert below ($)</FieldLabel>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              value={thresholdInput}
+              onChange={(e) => setThresholdInput(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="row">
+          <div className="field-wrap">
+            <FieldLabel>Daily spend cap $ (optional)</FieldLabel>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              value={dailyInput}
+              onChange={(e) => setDailyInput(e.target.value)}
+              placeholder="off"
+            />
+          </div>
+          <div className="field-wrap">
+            <FieldLabel>Monthly spend cap $ (optional)</FieldLabel>
+            <input
+              type="number"
+              min={0}
+              step="1"
+              value={monthlyInput}
+              onChange={(e) => setMonthlyInput(e.target.value)}
+              placeholder="off"
+            />
+          </div>
+        </div>
+        <button type="button" className="teal" disabled={saving} onClick={() => void saveCredits()}>
+          <Save size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+          {saving ? 'Saving…' : 'Sync HeyMaa credits'}
+        </button>
+        {usage?.synced_at && (
+          <p className="meta" style={{ marginTop: 10 }}>
+            Last sync {new Date(usage.synced_at).toLocaleString()}
+            {usage.last_error_msg ? ` · Last error: ${usage.last_error_msg}` : ''}
+          </p>
+        )}
+        <div className="links" style={{ marginTop: 14 }}>
+          <a href={usage?.billing_url || 'https://replicate.com/account/billing'} target="_blank" rel="noopener noreferrer">
+            Billing &amp; auto reload
+          </a>
+          <a href={usage?.prepaid_docs_url || 'https://replicate.com/docs/topics/billing/prepaid-credit'} target="_blank" rel="noopener noreferrer">
+            Prepaid credit docs
+          </a>
+          <a href={usage?.tokens_url || 'https://replicate.com/account/api-tokens'} target="_blank" rel="noopener noreferrer">
+            API tokens
           </a>
           <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
-            Google AI Studio
-          </a>
-          <a href="https://console.groq.com/settings/billing" target="_blank" rel="noopener noreferrer">
-            Groq Billing
+            Google AI Studio (RAG)
           </a>
           <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer">
-            Resend API Keys
+            Resend
           </a>
         </div>
       </div>

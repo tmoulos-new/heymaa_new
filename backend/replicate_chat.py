@@ -117,6 +117,39 @@ def _llama_input(prompt: str, system_prompt: str, max_tokens: int) -> dict[str, 
     }
 
 
+def prediction_metrics(payload: dict[str, Any] | None) -> dict[str, Any]:
+    data = payload or {}
+    metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else {}
+    predict_time = metrics.get("predict_time")
+    try:
+        predict_time_s = float(predict_time) if predict_time is not None else None
+    except (TypeError, ValueError):
+        predict_time_s = None
+    return {
+        "prediction_id": data.get("id"),
+        "predict_time_s": predict_time_s,
+        "status": data.get("status"),
+    }
+
+
+def probe_replicate_account_sync(api_token: str) -> dict[str, Any]:
+    """Cheap health check — GET /v1/account does not run a billed prediction."""
+    r = requests.get(
+        f"{REPLICATE_API}/account",
+        headers={"Authorization": f"Bearer {api_token}"},
+        timeout=15,
+    )
+    if r.status_code == 401:
+        raise RuntimeError("invalid token")
+    if r.status_code == 402:
+        raise RuntimeError("402 insufficient credit")
+    if not r.ok:
+        raise RuntimeError(f"HTTP {r.status_code}: {(r.text or '')[:120]}")
+    data = r.json() if r.content else {}
+    username = data.get("username") or data.get("name") or "ok"
+    return {"ok": True, "username": username, "type": data.get("type")}
+
+
 def _poll_prediction(get_url: str, api_token: str, *, deadline: float) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {api_token}"}
     payload: dict[str, Any] = {}
@@ -125,6 +158,8 @@ def _poll_prediction(get_url: str, api_token: str, *, deadline: float) -> dict[s
         err_txt = (r.text or "")[:400]
         if r.status_code == 429:
             raise RuntimeError(f"429 rate limit: {err_txt}")
+        if r.status_code == 402:
+            raise RuntimeError(f"402 insufficient credit: {err_txt}")
         if not r.ok:
             raise RuntimeError(f"poll HTTP {r.status_code}: {err_txt}")
         payload = r.json()
@@ -143,7 +178,7 @@ def run_replicate_prediction(
     *,
     wait_seconds: int = 60,
     timeout: int = 90,
-) -> str:
+) -> tuple[str, dict[str, Any]]:
     url = f"{REPLICATE_API}/models/{owner}/{name}/predictions"
     wait = min(max(int(wait_seconds), 1), 60)
     headers = {
@@ -156,6 +191,8 @@ def run_replicate_prediction(
     err_txt = (r.text or "")[:400]
     if r.status_code == 429:
         raise RuntimeError(f"429 rate limit: {err_txt}")
+    if r.status_code == 402:
+        raise RuntimeError(f"402 insufficient credit: {err_txt}")
     if not r.ok:
         raise RuntimeError(f"HTTP {r.status_code}: {err_txt}")
     payload = r.json()
@@ -176,7 +213,7 @@ def run_replicate_prediction(
     text = extract_replicate_output(payload.get("output"))
     if not text:
         raise RuntimeError("empty output")
-    return text
+    return text, prediction_metrics(payload)
 
 
 def _model_specs(image_parts: list[dict] | None) -> list[dict[str, Any]]:
@@ -195,8 +232,8 @@ def call_replicate_chat_sync(
     image_parts: list[dict] | None = None,
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
-) -> tuple[str, str]:
-    """Returns (reply_text, model_slug e.g. google/gemini-2.5-flash)."""
+) -> tuple[str, str, dict[str, Any]]:
+    """Returns (reply_text, model_slug, metrics)."""
     prompt = build_history_prompt(message, history, history_limit)
     last_err: Optional[Exception] = None
     token_budgets = [max_tokens, min(max_tokens * 2, 2048)]
@@ -208,12 +245,12 @@ def call_replicate_chat_sync(
                     inp = _gemini_input(prompt, system_prompt, image_parts, budget)
                 else:
                     inp = _llama_input(prompt, system_prompt, budget)
-                text = run_replicate_prediction(spec["owner"], spec["name"], api_token, inp)
+                text, meta = run_replicate_prediction(spec["owner"], spec["name"], api_token, inp)
                 if looks_truncated_reply(text):
                     last_err = RuntimeError(f"{slug}: truncated reply ({text[-24:]!r})")
                     continue
                 if text:
-                    return text, slug
+                    return text, slug, meta
                 last_err = RuntimeError(f"{slug}: empty reply")
             except Exception as e:
                 last_err = e
@@ -233,7 +270,7 @@ async def call_replicate_chat(
     image_parts: list[dict] | None = None,
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict[str, Any]]:
     return await asyncio.to_thread(
         call_replicate_chat_sync,
         message,
@@ -247,17 +284,4 @@ async def call_replicate_chat(
 
 
 def probe_replicate_sync(api_token: str) -> None:
-    run_replicate_prediction(
-        "google",
-        "gemini-2.5-flash",
-        api_token,
-        {
-            "prompt": "Say hi in one word.",
-            "system_instruction": "Reply briefly.",
-            "max_output_tokens": 16,
-            "thinking_budget": 0,
-            "dynamic_thinking": False,
-        },
-        wait_seconds=30,
-        timeout=45,
-    )
+    probe_replicate_account_sync(api_token)

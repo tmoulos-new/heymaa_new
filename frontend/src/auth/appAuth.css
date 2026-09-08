@@ -8,7 +8,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: max(28px, env(safe-area-inset-top, 0px)) 20px max(40px, env(safe-area-inset-bottom, 0px));
+  padding: max(28px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
   font-family: 'DM Sans', sans-serif;
   color: #2b3a67;
   box-sizing: border-box;

@@ -11,9 +11,10 @@
   --hm-content-max: 100%;
   --hm-desktop-content-max: 1000px;
   --hm-dialog-pad: 16px;
+  --hm-body-pad-x: 16px;
   --hm-body-pad: 16px;
   --hm-tab-pad: 4px 0 max(8px, env(safe-area-inset-bottom, 0px));
-  --hm-composer-pad: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
+  --hm-composer-pad: 10px max(16px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   --hm-sheet-max: 100%;
   --hm-sheet-wide-max: 100%;
   --hm-tabbar-inset: 84px;
@@ -65,6 +66,7 @@
 @media (min-width: 700px) {
   :root {
     --hm-dialog-pad: 24px;
+    --hm-body-pad-x: 28px;
     --hm-body-pad: 24px 28px;
     --hm-tab-pad: 6px 0 max(10px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 12px 24px 14px;
@@ -78,6 +80,7 @@
 @media (min-width: 1024px) {
   :root {
     --hm-dialog-pad: 32px;
+    --hm-body-pad-x: 40px;
     --hm-body-pad: 28px 40px;
     --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 40px 16px;
@@ -89,6 +92,7 @@
 
 @media (min-width: 1400px) {
   :root {
+    --hm-body-pad-x: 56px;
     --hm-body-pad: 32px 56px;
     --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 56px 16px;
@@ -109,22 +113,30 @@ body.hm-app-active #root {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   background: var(--hm-cream);
   position: relative;
   box-sizing: border-box;
+  overflow: hidden;
   overflow: clip;
   min-height: 100dvh;
 }
 
 .hm-app-body {
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-x: none;
   padding: var(--hm-body-pad);
+  padding-left: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-right, 0px));
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Readable inner column — body scrolls full width; content caps at 1000px on desktop */
@@ -141,14 +153,19 @@ body.hm-app-active #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hm-app-tabbar {
   flex-shrink: 0;
   padding: var(--hm-tab-pad);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
   background: var(--hm-navy);
   box-sizing: border-box;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   position: fixed;
   left: 0;
   right: 0;
@@ -201,10 +218,12 @@ body.hm-app-active #root {
 
 .hm-app-composer {
   flex-shrink: 0;
-  padding: 8px 18px max(10px, env(safe-area-inset-bottom, 0px));
+  padding: var(--hm-composer-pad);
   background: var(--hm-cream);
   box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 700px) {
@@ -219,25 +238,25 @@ body.hm-app-active #root {
   }
 
   .hm-app-header {
-    padding-left: 40px !important;
-    padding-right: 40px !important;
+    padding-left: max(40px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(40px, env(safe-area-inset-right, 0px)) !important;
   }
 
   .hm-app-composer {
-    padding-left: 40px;
-    padding-right: 40px;
+    padding-left: max(40px, env(safe-area-inset-left, 0px));
+    padding-right: max(40px, env(safe-area-inset-right, 0px));
   }
 }
 
 @media (min-width: 1400px) {
   .hm-app-header {
-    padding-left: 56px !important;
-    padding-right: 56px !important;
+    padding-left: max(56px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(56px, env(safe-area-inset-right, 0px)) !important;
   }
 
   .hm-app-composer {
-    padding-left: 56px;
-    padding-right: 56px;
+    padding-left: max(56px, env(safe-area-inset-left, 0px));
+    padding-right: max(56px, env(safe-area-inset-right, 0px));
   }
 }
 
@@ -1396,6 +1415,9 @@ body.hm-app-active #root {
   background: rgba(224, 123, 84, 0.1);
   border: 1px solid rgba(224, 123, 84, 0.22);
   color: #8f4a32;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .hm-chat-medical-banner__icon {
@@ -1412,6 +1434,9 @@ body.hm-app-active #root {
   line-height: 1.5;
   color: inherit;
   font-weight: 500;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
 }
 
 .hm-dialog-panel--white.hm-dialog-panel--pad-md {
@@ -1450,8 +1475,10 @@ body.hm-app-active #root {
 .hm-chat-workspace {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .hm-chat-workspace__stage {
@@ -1461,6 +1488,7 @@ body.hm-app-active #root {
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .hm-chat-workspace__main {
@@ -1489,7 +1517,7 @@ body.hm-app-active #root {
   background: transparent;
   border-right: none;
   z-index: 2;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .hm-chat-rail__btn {
@@ -1544,6 +1572,12 @@ body.hm-app-active #root {
 .hm-chat-rail__btn:hover:not(:disabled) .hm-chat-rail__tip,
 .hm-chat-rail__btn:focus-visible .hm-chat-rail__tip {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .hm-chat-rail__tip {
+    display: none;
+  }
 }
 
 /* Chat / composer use full content width (shell is already 100%) */
@@ -1667,7 +1701,7 @@ body.hm-app-active #root {
 }
 
 .hm-dialog--chat-search {
-  max-width: min(640px, 96vw);
+  max-width: min(640px, 96svw);
 }
 
 .hm-chat-search {
@@ -1777,12 +1811,12 @@ body.hm-app-active #root {
 
 .hm-chat-library-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
 }
 
 .hm-dialog--library {
-  max-width: min(720px, 96vw);
+  max-width: min(720px, 96svw);
 }
 
 .hm-chat-library {
@@ -2273,9 +2307,12 @@ body.hm-app-active #root {
 .hm-app-header {
   flex-shrink: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   position: relative;
   z-index: var(--hm-z-header);
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
 }
 
 .hm-header-popover-backdrop {
@@ -2341,6 +2378,8 @@ body.hm-app-active .hm-sheet-overlay {
   flex-direction: column;
   gap: 16px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .hm-tab-page-head {
@@ -2554,9 +2593,12 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-family-tree-panel__canvas {
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   background: #fff;
   padding: 10px 8px 14px;
+  max-width: 100%;
 }
 
 .hm-family-tree-panel__svg {
@@ -3235,8 +3277,10 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-ms-progress-wrap {
   margin-bottom: 12px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 4px;
+  max-width: 100%;
 }
 
 /* Continuous development track (phase B) */
@@ -3246,8 +3290,10 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-ms-track-scroll {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 2px;
+  max-width: 100%;
 }
 
 .hm-ms-track {
@@ -3531,7 +3577,8 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   position: relative;
   z-index: calc(var(--hm-z-header) + 1);
 }
@@ -3588,7 +3635,7 @@ body.hm-app-active .hm-sheet-overlay {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: min(320px, calc(100vw - 32px));
+  width: min(320px, calc(100svw - 32px));
   max-height: min(420px, 70dvh);
   overflow: hidden;
   display: flex;
@@ -4446,7 +4493,7 @@ body.hm-app-active .hm-sheet-overlay {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(380px, calc(100vw - 32px));
+  width: min(380px, calc(100svw - 32px));
   max-width: 380px;
   animation-name: hm-tour-in-center;
 }
@@ -4851,6 +4898,9 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-filters {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hm-memories-filter {
@@ -5751,7 +5801,7 @@ body.hm-app-active .hm-sheet-overlay {
   position: fixed;
   z-index: 80;
   width: 268px;
-  max-width: calc(100vw - 16px);
+  max-width: calc(100svw - 16px);
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 10px 28px rgba(43, 58, 103, 0.18);

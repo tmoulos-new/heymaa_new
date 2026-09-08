@@ -615,6 +615,109 @@ def render_access_expiry_reminder_email(
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
+def render_llm_ops_alert_email(
+    *,
+    name: Optional[str],
+    kind: str,
+    remaining_usd: Optional[float],
+    spent_usd: float,
+    threshold_usd: Optional[float],
+    day_cost_usd: float,
+    last_error: str = "",
+    billing_url: str,
+    admin_url: str,
+    key_mask: str = "",
+    key_source: str = "",
+    lang: str = "el",
+) -> EmailMessage:
+    lang = normalize_email_lang(lang)
+    remaining_label = "—" if remaining_usd is None else f"${remaining_usd:.2f}"
+    spent_label = f"${spent_usd:.2f}"
+    day_label = f"${day_cost_usd:.2f}"
+    threshold_label = "—" if threshold_usd is None else f"${threshold_usd:.2f}"
+    key_line = ""
+    if key_mask:
+        src = f" ({escape(key_source)})" if key_source else ""
+        key_line = f"<strong>HeyMaa Replicate key:</strong> {escape(key_mask)}{src}<br>"
+    titles = {
+        "credit_exhausted": (
+            "Replicate: τα credits τελείωσαν",
+            "Replicate credits ran out",
+        ),
+        "low_balance": (
+            "Replicate: χρειάζεται reload credits",
+            "Replicate: reload credits soon",
+        ),
+        "daily_budget": (
+            "HeyMaa: ημερήσιο όριο κόστους LLM",
+            "HeyMaa: daily LLM spend limit reached",
+        ),
+        "monthly_budget": (
+            "HeyMaa: μηνιαίο όριο κόστους LLM",
+            "HeyMaa: monthly LLM spend limit reached",
+        ),
+    }
+    pair = titles.get(kind) or titles["low_balance"]
+    subject = pair[1 if lang == "en" else 0]
+    if lang == "en":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                "HeyMaa chat bills a dedicated Replicate account. When that prepaid "
+                "balance hits zero, Replicate stops new predictions."
+            )
+            + _paragraph(
+                f"{key_line}"
+                f"<strong>Estimated HeyMaa remaining:</strong> {remaining_label}<br>"
+                f"<strong>Spend since last sync:</strong> {spent_label}<br>"
+                f"<strong>Reload alert below:</strong> {threshold_label}<br>"
+                f"<strong>Spend today:</strong> {day_label}"
+            )
+            + (
+                _paragraph(f"Last provider error: {escape(last_error)}")
+                if last_error
+                else ""
+            )
+            + _paragraph(
+                "Top up or enable auto reload in Replicate Billing, then paste the new "
+                "prepaid remaining in Admin → Overview."
+            )
+            + _button(billing_url, "Open Replicate billing")
+            + _button(admin_url, "Open HeyMaa admin")
+            + _help_footer(lang)
+        )
+        preheader = f"LLM credits {remaining_label} remaining"
+    else:
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                "Το chat της HeyMaa χρεώνει έναν dedicated λογαριασμό Replicate. "
+                "Όταν το prepaid υπόλοιπο φτάσει στο μηδέν, το Replicate σταματά νέα predictions."
+            )
+            + _paragraph(
+                f"{key_line}"
+                f"<strong>Εκτιμώμενο υπόλοιπο HeyMaa:</strong> {remaining_label}<br>"
+                f"<strong>Κόστος από το τελευταίο sync:</strong> {spent_label}<br>"
+                f"<strong>Ειδοποίηση reload κάτω από:</strong> {threshold_label}<br>"
+                f"<strong>Κόστος σήμερα:</strong> {day_label}"
+            )
+            + (
+                _paragraph(f"Τελευταίο σφάλμα παρόχου: {escape(last_error)}")
+                if last_error
+                else ""
+            )
+            + _paragraph(
+                "Πρόσθεσε credit ή άνοιξε auto reload στο Replicate Billing, "
+                "και πέρασε το νέο prepaid υπόλοιπο στο Admin → Overview."
+            )
+            + _button(billing_url, "Άνοιξε Replicate Billing")
+            + _button(admin_url, "Άνοιξε το HeyMaa admin")
+            + _help_footer(lang)
+        )
+        preheader = f"Credits LLM {remaining_label}"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
 def send_email(
     *,
     api_key: str,

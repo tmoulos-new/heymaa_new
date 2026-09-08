@@ -20,7 +20,7 @@
         {
           "title": "How you talk to HeyMaa",
           "bullets": [
-            "Write what's on your mind — HeyMaa replies using recent chat and saved memories (depending on your plan)",
+            "Write what's on your mind — HeyMaa replies using recent chat, saved memories, and ticked milestones (depending on your plan)",
             "Use the microphone — speech-to-text (does not use your Listen quota)",
             "Tap Listen for a spoken reply — counts toward your monthly voice quota",
             "Send a photo when you need more context"
@@ -41,7 +41,7 @@
           "bullets": [
             "Unlimited chat (text, voice, photos)",
             "Up to 50 voice playbacks (Listen) per month",
-            "Daily memory: 20 recent messages + 10 saved memories in each reply",
+            "Daily memory: 20 recent messages + 10 saved memories + 10 ticked milestones in each reply",
             "Document & album preview (no file download)",
             "Up to 3 archived conversations",
             "Family tree, milestones, memory notes & photos"
@@ -52,7 +52,7 @@
           "bullets": [
             "Memory videos",
             "Full document/album management (upload & edit)",
-            "Partial memory (32+24) and more archived conversations"
+            "Partial memory (32+24+24) and more archived conversations"
           ]
         },
         {
@@ -69,7 +69,7 @@
           "title": "Free trial (14 days)",
           "bullets": [
             "50 Listen playbacks / month",
-            "Daily memory (20 messages + 10 memories)",
+            "Daily memory (20 messages + 10 memories + 10 milestones)",
             "Documents & albums: view only",
             "3 archived conversations",
             "No card required to sign up"
@@ -79,7 +79,7 @@
           "title": "Starter — €19/month",
           "bullets": [
             "150 voice playbacks / month",
-            "Partial memory (32 messages + 24 memories)",
+            "Partial memory (32 messages + 24 memories + 24 milestones)",
             "Full documents & albums (upload, edit)",
             "Memory videos",
             "45 archived conversations",
@@ -90,7 +90,7 @@
           "title": "Premium — €39/month",
           "bullets": [
             "400 voice playbacks / month",
-            "Strong memory (64 messages + 45 memories)",
+            "Strong memory (64 messages + 45 memories + 45 milestones)",
             "Download & share documents/albums",
             "90 archived conversations",
             "Phone support"
@@ -101,7 +101,7 @@
           "bullets": [
             "Everything in Premium",
             "700 voice playbacks / month",
-            "Strong memory (64 messages + 50 memories)",
+            "Strong memory (64 messages + 50 memories + 50 milestones)",
             "Priority support"
           ]
         },
@@ -236,7 +236,7 @@
             "Send messages, voice, or photos",
             "Listen to replies with the Listen button (monthly quota)",
             "Archive past conversations",
-            "HeyMaa uses recent chat + saved memories (memory level per plan)"
+            "HeyMaa uses recent chat + saved memories + ticked milestones (memory level per plan)"
           ]
         },
         {
@@ -281,7 +281,7 @@
           "bullets": [
             "Unlimited chat",
             "50 Listen playbacks / month",
-            "Daily memory (20+10)",
+            "Daily memory (20+10+10)",
             "Document & album preview",
             "3 archived conversations",
             "Family tree, milestones, memory notes & photos"
@@ -358,7 +358,7 @@
         {
           "title": "Free trial",
           "bullets": [
-            "50 voice, Daily memory (20+10)",
+            "50 voice, Daily memory (20+10+10)",
             "Docs/album: view only",
             "3 archived"
           ]
@@ -366,7 +366,7 @@
         {
           "title": "Starter (€19/month)",
           "bullets": [
-            "150 voice, Partial memory (32+24)",
+            "150 voice, Partial memory (32+24+24)",
             "Full docs/album, memory videos",
             "45 archived, email support"
           ]
@@ -374,7 +374,7 @@
         {
           "title": "Premium (€39/month)",
           "bullets": [
-            "400 voice, Strong memory (64+45)",
+            "400 voice, Strong memory (64+45+45)",
             "Download & share",
             "90 archived, phone support"
           ]
@@ -382,7 +382,7 @@
         {
           "title": "Annual Premium (€199/year)",
           "bullets": [
-            "700 voice, Strong memory (64+50)",
+            "700 voice, Strong memory (64+50+50)",
             "All Premium + priority support"
           ]
         },
@@ -394,23 +394,24 @@
     },
     {
       "question": "What is Daily, Partial, and Strong memory?",
-      "answer": "Three levels of chat memory — how many recent messages and saved memories HeyMaa uses in each reply.",
+      "answer": "Three levels of chat memory — how many recent messages, saved memories, and ticked milestones HeyMaa uses in each reply.",
       "sections": [
         {
           "title": "What the numbers mean",
           "bullets": [
             "First number: recent chat messages in context",
             "Second number: saved memories it can recall",
+            "Third number: ticked development milestones",
             "Higher plans = richer context for better answers"
           ]
         },
         {
           "title": "Per plan",
           "bullets": [
-            "Daily memory (trial): 20 messages + 10 memories",
-            "Partial memory (Starter): 32 + 24",
-            "Strong memory (Premium): 64 + 45",
-            "Strong memory (Annual): 64 + 50"
+            "Daily memory (trial): 20 messages + 10 memories + 10 milestones",
+            "Partial memory (Starter): 32 + 24 + 24",
+            "Strong memory (Premium): 64 + 45 + 45",
+            "Strong memory (Annual): 64 + 50 + 50"
           ]
         },
         {
@@ -425,7 +426,7 @@
     },
     {
       "question": "How do milestones work?",
-      "answer": "Development milestones are organized in age periods with a visual progress timeline.",
+      "answer": "Development milestones are organized in age periods with a visual progress timeline. Ticked milestones also feed chat replies — alongside messages and memories, according to your plan.",
       "sections": [
         {
           "title": "What you can do",
@@ -436,8 +437,9 @@
           ]
         },
         {
-          "title": "Memories & points",
+          "title": "Chat, memories & points",
           "bullets": [
+            "Ticked milestones feed chat replies (the third memory number)",
             "Ticking may auto-add to your memory journal",
             "Earn points once per milestone",
             "Unticking removes points (once)"

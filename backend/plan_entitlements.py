@@ -65,6 +65,13 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "premium": 45,
         "annual": 50,
     }
+    # Ticked development milestones sent to the LLM — same depth as saved memories
+    milestone_context_by_plan: dict[str, int] = {
+        "trial": 10,
+        "starter": 24,
+        "premium": 45,
+        "annual": 50,
+    }
     archived_threads_by_plan: dict[str, int] = {
         "trial": 3,
         "starter": 45,
@@ -84,6 +91,7 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "export_enabled": export_enabled,
         "chat_context_messages": chat_context_by_plan.get(plan_slot, 20),
         "memory_context_count": memory_context_by_plan.get(plan_slot, 10),
+        "milestone_context_count": milestone_context_by_plan.get(plan_slot, 10),
         "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
     }
 

@@ -1,6 +1,7 @@
 import {
   getMilestoneBullets,
   getStageById,
+  listMilestoneStages,
   stageIdForAgeMonths,
   stageIdForPregnancyWeek,
   type MilestoneStage,
@@ -244,4 +245,49 @@ export function mergeMilestoneChecksMaps(
     }
   }
   return out
+}
+
+export type MilestoneChatContext = {
+  label: string
+  ref: string
+  stageId?: string
+}
+
+/** Checked milestones for chat context — newest stages first, last-ticked pinned. */
+export function collectCheckedMilestonesForChat(
+  map: import('./milestoneTimelineTypes').MilestoneChecksMap,
+  lang: string,
+  limit: number,
+  lastChecked?: Record<string, { stageId: string; idx: number } | null>,
+): MilestoneChatContext[] {
+  if (limit <= 0) return []
+  const stageOrder = new Map(listMilestoneStages().map((s, i) => [s.id, i]))
+  const items: (MilestoneChatContext & { order: number; idx: number; pinned: boolean })[] = []
+  for (const [ref, byStage] of Object.entries(map || {})) {
+    if (!byStage || typeof byStage !== 'object') continue
+    const pin = lastChecked?.[ref]
+    for (const [stageId, checks] of Object.entries(byStage)) {
+      if (!Array.isArray(checks)) continue
+      const bullets = getMilestoneBullets(stageId, lang)
+      checks.forEach((checked, idx) => {
+        if (!checked) return
+        const label = (bullets[idx] || '').trim()
+        if (!label) return
+        items.push({
+          label,
+          ref,
+          stageId,
+          idx,
+          order: stageOrder.get(stageId) ?? 0,
+          pinned: !!(pin && pin.stageId === stageId && pin.idx === idx),
+        })
+      })
+    }
+  }
+  items.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+    if (b.order !== a.order) return b.order - a.order
+    return b.idx - a.idx
+  })
+  return items.slice(0, limit).map(({ label, ref, stageId }) => ({ label, ref, stageId }))
 }

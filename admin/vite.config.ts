@@ -42,7 +42,7 @@ export default defineConfig({
         target: API_TARGET,
         changeOrigin: true,
       },
-      '^/admin/(health|me|usage|invite_tester|upload|offers|promotions|regions|levels|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
+      '^/admin/(health|me|usage|credits|invite_tester|upload|offers|promotions|regions|levels|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
         target: API_TARGET,
         changeOrigin: true,
         bypass: adminApiBypass,

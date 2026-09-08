@@ -19,6 +19,14 @@ const MEMORY_CONTEXT_BY_PLAN: Record<string, number> = {
   admin: 50,
 }
 
+const MILESTONE_CONTEXT_BY_PLAN: Record<string, number> = {
+  trial: 10,
+  starter: 24,
+  premium: 45,
+  annual: 50,
+  admin: 50,
+}
+
 const ARCHIVED_THREADS_BY_PLAN: Record<string, number> = {
   trial: 3,
   starter: 45,
@@ -53,6 +61,14 @@ export function memoryContextCount(
 ): number {
   if (entitlements?.memory_context_count != null) return entitlements.memory_context_count
   return MEMORY_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 10
+}
+
+export function milestoneContextCount(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+): number {
+  if (entitlements?.milestone_context_count != null) return entitlements.milestone_context_count
+  return MILESTONE_CONTEXT_BY_PLAN[planSlot(entitlements, snapshot)] ?? 10
 }
 
 export function archivedThreadsLimit(

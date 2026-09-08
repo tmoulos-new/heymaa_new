@@ -42,6 +42,7 @@ import {
   isLegacyMilestoneChecksMap,
   migrateMilestoneChecksMap,
   setCheckForStage,
+  collectCheckedMilestonesForChat,
   type MilestoneChecksMap,
 } from "./lib/milestoneTimeline";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
@@ -65,6 +66,7 @@ import {
   migrateLegacyMilestoneMemories,
   milestoneMemoryKey,
 } from "./lib/milestoneMemories";
+import { isMemoryMilestone } from "./lib/memoryTypes";
 import {
   detectMemorySuggestion,
   findMatchingMilestoneIndex,
@@ -93,7 +95,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
-import { chatContextDepth, memoryContextCount } from "./lib/planEntitlements";
+import { chatContextDepth, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
 import {
   featureAllowed,
   featureLabel,
@@ -2060,6 +2062,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     () => memoryContextCount(planEntitlements, subSnapshot),
     [planEntitlements, subSnapshot],
   );
+  const milestoneContextLimit = useMemo(
+    () => milestoneContextCount(planEntitlements, subSnapshot),
+    [planEntitlements, subSnapshot],
+  );
 
   useEffect(() => {
     if (!accessExpiryInfo?.urgent) return;
@@ -2751,11 +2757,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       setLoading(false);
       return;
     }
-    // Recent memories (text only) for context — limit by plan
+    // Recent memories (text only) and ticked milestones for context — limits by plan
     const recentMemories = memories
+      .filter((m) => m.text && m.text !== "📷" && !isMemoryMilestone(m))
       .slice(0, memoryContextLimit)
-      .filter((m) => m.text && m.text !== "📷")
       .map((m) => ({ text: m.text, date: m.date, ref: m.ref }));
+    const recentMilestones = collectCheckedMilestonesForChat(
+      milestoneChecksMap,
+      lang,
+      milestoneContextLimit,
+      lastCheckedMap,
+    );
     const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
     const historyForApi = messages.slice(-chatContextLimit).map((m) => ({
       role: m.role,
@@ -2783,6 +2795,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               (profile.dueDate ? (isDueDatePassed(profile.dueDate, nowForAge) ? "awaiting_update" : "active") : undefined),
           },
           recentMemories,
+          recentMilestones,
           recentDocs: recentDocs.slice(0, 10),
         },
         { headers: { "x-token": token }, timeout: 90000 },
@@ -4955,7 +4968,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showAccountMenu&&<div className="hm-header-popover-backdrop" onClick={()=>setShowAccountMenu(false)} />}
       {showNotifications&&<div className="hm-header-popover-backdrop" onClick={()=>setShowNotifications(false)} />}
       {/* HEADER */}
-      <div className="hm-app-header" style={{background:navy,padding:"14px 18px 12px",flexShrink:0,width:"100%",boxSizing:"border-box"}}>
+      <div className="hm-app-header" style={{background:navy,flexShrink:0}}>
         <div className="hm-app-bar-inner hm-app-header-inner">
         <div className="hm-header-brand">
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
@@ -5281,8 +5294,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
             <p className="hm-chat-context-hint">
               {lang === "el"
-                ? `Η HeyMaa θυμάται τα τελευταία ${chatContextLimit} μηνύματα και ${memoryContextLimit} αποθηκευμένες αναμνήσεις (ανά πλάνο).`
-                : `HeyMaa remembers your last ${chatContextLimit} messages and ${memoryContextLimit} saved memories (plan-based).`}
+                ? `Η HeyMaa θυμάται τα τελευταία ${chatContextLimit} μηνύματα, ${memoryContextLimit} αποθηκευμένες αναμνήσεις και ${milestoneContextLimit} ορόσημα (ανά πλάνο).`
+                : `HeyMaa remembers your last ${chatContextLimit} messages, ${memoryContextLimit} saved memories, and ${milestoneContextLimit} milestones (plan-based).`}
             </p>
 
             {messages.length===0&&(

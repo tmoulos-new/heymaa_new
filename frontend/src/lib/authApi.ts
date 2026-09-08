@@ -150,6 +150,7 @@ export type PlanEntitlements = {
   export_enabled?: boolean
   chat_context_messages?: number
   memory_context_count?: number
+  milestone_context_count?: number
   archived_threads_limit?: number
 }
 
