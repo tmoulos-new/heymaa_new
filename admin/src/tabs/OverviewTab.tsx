@@ -16,6 +16,7 @@ type UsageState = {
   calls: Record<string, number>
   cost_usd?: Record<string, number>
   models?: Record<string, { calls?: number; cost_usd?: number }>
+  chat_models?: { slug: string; label: string; calls: number; cost_usd: number }[]
   estimated_cost_usd: number
   total_calls?: number
   day_cost_usd?: number
@@ -146,9 +147,13 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const remainingClass = reloadNeeded ? 'coral' : 'green'
   const replicateMode = mode === 'replicate'
   const providersToShow = replicateMode ? REPLICATE_MODE_PROVIDERS : PROVIDER_ORDER
-  const modelRows = Object.entries(usage?.models || {}).filter(
-    ([, row]) => row && typeof row === 'object' && Number(row.calls || 0) > 0,
-  )
+  const chatModels = usage?.chat_models?.length
+    ? usage.chat_models
+    : [
+        { slug: 'meta/meta-llama-3-70b-instruct', label: 'Llama 70B', calls: 0, cost_usd: 0 },
+        { slug: 'google/gemini-2.5-flash', label: 'Gemini Flash', calls: 0, cost_usd: 0 },
+        { slug: 'anthropic/claude-4.5-haiku', label: 'Claude Haiku', calls: 0, cost_usd: 0 },
+      ]
 
   return (
     <>
@@ -191,9 +196,10 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </button>
           </div>
           <p className="card-desc">
-            Chat uses <strong>one Replicate token</strong> and picks the model by need: Llama 70B
-            for everyday chat, Gemini Flash for photos and CJK/RTL languages. Groq/Claude keys are
-            not required. Gemini below is Google embeddings for RAG, not chat.
+            Chat uses <strong>one Replicate token</strong> and the same occasion order as before:
+            Llama 70B (everyday, was Groq), Gemini Flash (photos and CJK/RTL), Claude Haiku
+            (backup / vision fallback). Groq and Anthropic keys are not required. Gemini below is
+            Google embeddings for RAG, not chat.
           </p>
           <div className="prov-grid">
             {healthErr && <div className="msg err">Failed to load</div>}
@@ -232,9 +238,20 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </h2>
           </div>
           <div className="grid-3">
+            {chatModels.map((row) => (
+              <div className="stat" key={row.slug}>
+                <div className="n">{row.calls}</div>
+                <div className="l">{row.label}</div>
+                <div className="meta" style={{ marginTop: 4 }}>
+                  {money(row.cost_usd, 3)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="grid-3" style={{ marginTop: 12 }}>
             <div className="stat">
               <div className="n">{usage?.calls?.replicate ?? '…'}</div>
-              <div className="l">Replicate chat</div>
+              <div className="l">Replicate chat total</div>
             </div>
             <div className="stat">
               <div className="n">{usage?.calls?.gemini_embed ?? '…'}</div>
@@ -251,15 +268,6 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               {usage.spent_since_sync_usd != null && (
                 <> · Since last credit sync: {money(usage.spent_since_sync_usd, 3)}</>
               )}
-              {modelRows.length > 0 ? (
-                <>
-                  <br />
-                  Models:{' '}
-                  {modelRows
-                    .map(([slug, row]) => `${slug} ${row.calls || 0}`)
-                    .join(' · ')}
-                </>
-              ) : null}
               {(usage.calls?.groq || usage.calls?.claude) ? (
                 <>
                   <br />

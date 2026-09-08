@@ -52,7 +52,14 @@ COST_PER_CALL_USD: dict[str, float] = {
 REPLICATE_MODEL_RATES: dict[str, dict[str, float]] = {
     "google/gemini-2.5-flash": {"per_call": 0.002, "per_predict_second": 0.0},
     "meta/meta-llama-3-70b-instruct": {"per_call": 0.0, "per_predict_second": 0.00115},
+    "anthropic/claude-4.5-haiku": {"per_call": 0.0025, "per_predict_second": 0.0},
 }
+
+CHAT_MODEL_LABELS: tuple[tuple[str, str], ...] = (
+    ("meta/meta-llama-3-70b-instruct", "Llama 70B"),
+    ("google/gemini-2.5-flash", "Gemini Flash"),
+    ("anthropic/claude-4.5-haiku", "Claude Haiku"),
+)
 
 CREDIT_ERROR_MARKERS = (
     "402",
@@ -311,6 +318,36 @@ def _rollover_periods(state: dict[str, Any], now: datetime) -> None:
         state["month_cost_usd"] = 0.0
 
 
+def chat_model_stats(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Always return Llama / Gemini / Claude rows so admin can see the split at zero."""
+    models = state.get("models") if isinstance(state.get("models"), dict) else {}
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for slug, label in CHAT_MODEL_LABELS:
+        seen.add(slug)
+        row = models.get(slug) if isinstance(models.get(slug), dict) else {}
+        rows.append(
+            {
+                "slug": slug,
+                "label": label,
+                "calls": int(row.get("calls") or 0),
+                "cost_usd": round(float(row.get("cost_usd") or 0), 4),
+            }
+        )
+    for slug, row in models.items():
+        if slug in seen or not isinstance(row, dict):
+            continue
+        rows.append(
+            {
+                "slug": slug,
+                "label": str(slug).rsplit("/", 1)[-1],
+                "calls": int(row.get("calls") or 0),
+                "cost_usd": round(float(row.get("cost_usd") or 0), 4),
+            }
+        )
+    return rows
+
+
 def remaining_credit_usd(state: dict[str, Any]) -> Optional[float]:
     bal = state.get("replicate_balance_usd")
     if bal is None:
@@ -466,6 +503,7 @@ def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "replicate") -
         "calls": dict(state.get("calls") or {}),
         "cost_usd": {k: round(float(v or 0), 4) for k, v in (state.get("cost_usd") or {}).items()},
         "models": state.get("models") or {},
+        "chat_models": chat_model_stats(state),
         "estimated_cost_usd": total_cost,
         "total_calls": total_calls,
         "day_cost_usd": round(float(state.get("day_cost_usd") or 0), 4),

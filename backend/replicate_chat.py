@@ -9,10 +9,11 @@ import requests
 
 REPLICATE_API = "https://api.replicate.com/v1"
 
-# Official Replicate models for Heymaa chat (vision + multilingual text).
+# Official Replicate models for Heymaa chat (same roles as the old Groq/Gemini/Claude cascade).
 REPLICATE_CHAT_MODELS: tuple[dict[str, Any], ...] = (
-    {"owner": "google", "name": "gemini-2.5-flash", "kind": "gemini", "vision": True},
     {"owner": "meta", "name": "meta-llama-3-70b-instruct", "kind": "llama", "vision": False},
+    {"owner": "google", "name": "gemini-2.5-flash", "kind": "gemini", "vision": True},
+    {"owner": "anthropic", "name": "claude-4.5-haiku", "kind": "claude", "vision": True},
 )
 
 # Gemini on Replicate can stop early; allow room for 2–3 full sentences in Greek.
@@ -117,6 +118,41 @@ def _llama_input(prompt: str, system_prompt: str, max_tokens: int) -> dict[str, 
     }
 
 
+def _claude_input(
+    prompt: str,
+    system_prompt: str,
+    image_parts: list[dict] | None,
+    max_tokens: int,
+) -> dict[str, Any]:
+    inp: dict[str, Any] = {
+        "prompt": prompt,
+        "system_prompt": system_prompt or "",
+        "max_tokens": max_tokens,
+        "temperature": 0.6,
+    }
+    imgs = image_parts_to_data_urls(image_parts)
+    if imgs:
+        inp["image"] = imgs[0]
+        if len(imgs) > 1:
+            inp["images"] = imgs
+    return inp
+
+
+def _input_for_spec(
+    spec: dict[str, Any],
+    prompt: str,
+    system_prompt: str,
+    image_parts: list[dict] | None,
+    max_tokens: int,
+) -> dict[str, Any]:
+    kind = spec.get("kind")
+    if kind == "gemini":
+        return _gemini_input(prompt, system_prompt, image_parts, max_tokens)
+    if kind == "claude":
+        return _claude_input(prompt, system_prompt, image_parts, max_tokens)
+    return _llama_input(prompt, system_prompt, max_tokens)
+
+
 def prediction_metrics(payload: dict[str, Any] | None) -> dict[str, Any]:
     data = payload or {}
     metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else {}
@@ -217,18 +253,22 @@ def run_replicate_prediction(
 
 
 def model_order(*, vision: bool = False, prefer_quality: bool = False) -> list[dict[str, Any]]:
-    """Pick Replicate chat models by need — same idea as the old Groq/Gemini/Claude cascade.
+    """Same occasion order as the old Groq / Gemini / Claude cascade, on Replicate.
 
-    Vision and CJK/RTL languages prefer Gemini Flash. Everyday chat prefers Llama 70B
-    (cheaper on Replicate) and falls back to Gemini.
+    Everyday / complex: Llama (was Groq) → Gemini → Claude.
+    CJK/RTL languages: Gemini → Llama → Claude.
+    Photos: Gemini → Claude → Llama.
     """
-    gemini = [m for m in REPLICATE_CHAT_MODELS if m.get("kind") == "gemini"]
-    llama = [m for m in REPLICATE_CHAT_MODELS if m.get("kind") != "gemini"]
+    by_kind = {m["kind"]: m for m in REPLICATE_CHAT_MODELS}
+
+    def _seq(*kinds: str) -> list[dict[str, Any]]:
+        return [by_kind[k] for k in kinds if k in by_kind]
+
     if vision:
-        return list(gemini or REPLICATE_CHAT_MODELS[:1])
+        return _seq("gemini", "claude", "llama")
     if prefer_quality:
-        return gemini + llama
-    return llama + gemini
+        return _seq("gemini", "llama", "claude")
+    return _seq("llama", "gemini", "claude")
 
 
 def _model_specs(image_parts: list[dict] | None, prefer_quality: bool = False) -> list[dict[str, Any]]:
@@ -254,10 +294,7 @@ def call_replicate_chat_sync(
         slug = f"{spec['owner']}/{spec['name']}"
         for budget in token_budgets:
             try:
-                if spec["kind"] == "gemini":
-                    inp = _gemini_input(prompt, system_prompt, image_parts, budget)
-                else:
-                    inp = _llama_input(prompt, system_prompt, budget)
+                inp = _input_for_spec(spec, prompt, system_prompt, image_parts, budget)
                 text, meta = run_replicate_prediction(spec["owner"], spec["name"], api_token, inp)
                 if looks_truncated_reply(text):
                     last_err = RuntimeError(f"{slug}: truncated reply ({text[-24:]!r})")
@@ -268,7 +305,10 @@ def call_replicate_chat_sync(
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
-                if any(x in msg for x in ("429", "rate limit", "404", "not found", "truncated")):
+                if any(
+                    x in msg
+                    for x in ("429", "rate limit", "404", "not found", "truncated", "422", "invalid")
+                ):
                     continue
                 raise
     raise RuntimeError(f"replicate all models failed: {last_err}")

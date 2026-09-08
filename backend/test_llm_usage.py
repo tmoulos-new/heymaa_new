@@ -88,6 +88,9 @@ class LlmUsageTests(unittest.TestCase):
         self.assertFalse(snap["reload_needed"])
         self.assertNotIn("replicate_key_mask", snap)
         self.assertNotIn("replicate_key_source", snap)
+        labels = [row["label"] for row in snap["chat_models"]]
+        self.assertEqual(labels, ["Llama 70B", "Gemini Flash", "Claude Haiku"])
+        self.assertTrue(all(row["calls"] == 0 for row in snap["chat_models"]))
 
     def test_embed_and_legacy_do_not_spend_heymaa_key_budget(self):
         state = apply_credit_sync(empty_state(), replicate_balance_usd=10.0)
@@ -95,8 +98,13 @@ class LlmUsageTests(unittest.TestCase):
         state = apply_usage_event(state, provider="groq", ok=True, cost_usd=0.4)
         self.assertEqual(state["spent_since_sync_usd"], 0.0)
         self.assertAlmostEqual(remaining_credit_usd(state) or 0, 10.0, places=3)
-        state = apply_usage_event(state, provider="replicate", ok=True, cost_usd=1.0)
-        self.assertAlmostEqual(remaining_credit_usd(state) or 0, 9.0, places=3)
+        state = apply_usage_event(
+            state, provider="replicate", ok=True, cost_usd=0.002, model="google/gemini-2.5-flash"
+        )
+        snap = usage_snapshot(state)
+        gemini = next(row for row in snap["chat_models"] if row["label"] == "Gemini Flash")
+        self.assertEqual(gemini["calls"], 1)
+        self.assertAlmostEqual(gemini["cost_usd"], 0.002, places=3)
 
     def test_token_mask_hides_secret(self):
         token = "r8_abcdefghijklmnopqrstuvwxyz"

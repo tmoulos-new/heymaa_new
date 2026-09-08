@@ -2765,7 +2765,7 @@ def _probe_llm_providers() -> dict:
             who = info.get("username") or "ok"
             out["replicate"] = {
                 "ok": True,
-                "msg": f"online · chat (Llama 70B / Gemini Flash) · {who}",
+                "msg": f"online · chat (Llama / Gemini / Claude) · {who}",
             }
         except Exception as e:
             out["replicate"] = {"ok": False, "msg": str(e)[:120]}

@@ -45,14 +45,34 @@ class ReplicateChatTests(unittest.TestCase):
 
     def test_model_order_default_prefers_llama(self):
         slugs = [f"{m['owner']}/{m['name']}" for m in model_order()]
-        self.assertEqual(slugs[0], "meta/meta-llama-3-70b-instruct")
-        self.assertIn("google/gemini-2.5-flash", slugs)
+        self.assertEqual(
+            slugs,
+            [
+                "meta/meta-llama-3-70b-instruct",
+                "google/gemini-2.5-flash",
+                "anthropic/claude-4.5-haiku",
+            ],
+        )
 
-    def test_model_order_quality_and_vision_prefer_gemini(self):
+    def test_model_order_quality_and_vision_match_legacy_cascade(self):
         quality = [f"{m['owner']}/{m['name']}" for m in model_order(prefer_quality=True)]
         vision = [f"{m['owner']}/{m['name']}" for m in model_order(vision=True)]
-        self.assertEqual(quality[0], "google/gemini-2.5-flash")
-        self.assertEqual(vision, ["google/gemini-2.5-flash"])
+        self.assertEqual(
+            quality,
+            [
+                "google/gemini-2.5-flash",
+                "meta/meta-llama-3-70b-instruct",
+                "anthropic/claude-4.5-haiku",
+            ],
+        )
+        self.assertEqual(
+            vision,
+            [
+                "google/gemini-2.5-flash",
+                "anthropic/claude-4.5-haiku",
+                "meta/meta-llama-3-70b-instruct",
+            ],
+        )
 
 
 if __name__ == "__main__":
