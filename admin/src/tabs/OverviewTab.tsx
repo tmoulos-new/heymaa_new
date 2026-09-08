@@ -170,7 +170,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         </div>
       )}
 
-      <div className="grid-3" style={{ marginBottom: 20 }}>
+      <div className="grid-3">
         <div className="stat teal">
           <div className="n">{userCount ?? '—'}</div>
           <div className="l">Total users</div>
@@ -242,13 +242,13 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               <div className="stat" key={row.slug}>
                 <div className="n">{row.calls}</div>
                 <div className="l">{row.label}</div>
-                <div className="meta" style={{ marginTop: 4 }}>
+                <div className="meta">
                   {money(row.cost_usd, 3)}
                 </div>
               </div>
             ))}
           </div>
-          <div className="grid-3" style={{ marginTop: 12 }}>
+          <div className="grid-3">
             <div className="stat">
               <div className="n">{usage?.calls?.replicate ?? '…'}</div>
               <div className="l">Replicate chat total</div>
@@ -263,7 +263,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </div>
           </div>
           {usage && (
-            <p className="meta" style={{ marginTop: 12 }}>
+            <p className="meta">
               Today: {usage.day_calls || 0} calls · {money(usage.day_cost_usd, 3)}
               {usage.spent_since_sync_usd != null && (
                 <> · Since last credit sync: {money(usage.spent_since_sync_usd, 3)}</>
@@ -293,7 +293,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           does not stop at $0.
         </p>
         {usage?.replicate_account?.username && (
-          <p className="meta" style={{ marginTop: -8, marginBottom: 8 }}>
+          <p className="meta">
             HeyMaa account:{' '}
             <strong>
               {usage.replicate_account.type === 'organization' ? 'org' : 'user'}{' '}
@@ -304,7 +304,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         {usage && usage.replicate_configured === false ? (
           <p className="msg err">No HeyMaa Replicate token configured.</p>
         ) : (
-          <p className="meta" style={{ marginTop: -4, marginBottom: 12 }}>
+          <p className="meta">
             {usage?.key_rotated ? 'Token changed, spend counter reset · ' : ''}
             {usage?.heymaa_spend_usd != null
               ? `Spent ${money(usage.heymaa_spend_usd, 3)} since sync`
@@ -363,12 +363,12 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           {saving ? 'Saving…' : 'Sync HeyMaa credits'}
         </button>
         {usage?.synced_at && (
-          <p className="meta" style={{ marginTop: 10 }}>
+          <p className="meta">
             Last sync {new Date(usage.synced_at).toLocaleString()}
             {usage.last_error_msg ? ` · Last error: ${usage.last_error_msg}` : ''}
           </p>
         )}
-        <div className="links" style={{ marginTop: 14 }}>
+        <div className="links">
           <a href={usage?.billing_url || 'https://replicate.com/account/billing'} target="_blank" rel="noopener noreferrer">
             Billing &amp; auto reload
           </a>

@@ -66,7 +66,7 @@ export function LoginGate({
           {loading ? 'Signing in…' : 'Enter dashboard →'}
         </button>
         {(error || authError) && (
-          <div className="msg err" style={{ marginTop: 14, textAlign: 'left' }}>
+          <div className="msg err" style={{ textAlign: 'left' }}>
             {error || authError}
           </div>
         )}

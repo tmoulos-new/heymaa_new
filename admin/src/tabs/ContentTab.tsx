@@ -624,7 +624,7 @@ export function ContentTab() {
             placeholder="Search regions…"
             emptyLabel="No regions — create some in the Regions tab"
           />
-          <p className="field" style={{ marginTop: -4 }}>
+          <p className="field">
             Blank = visible in all regions
           </p>
           <button
@@ -676,7 +676,7 @@ export function ContentTab() {
             placeholder="Search regions…"
             emptyLabel="No regions — create some in the Regions tab"
           />
-          <p className="field" style={{ marginTop: -4 }}>
+          <p className="field">
             Blank = visible in all regions
           </p>
           <p className="field" style={{ marginTop: 4 }}>
