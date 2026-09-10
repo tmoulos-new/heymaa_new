@@ -101,7 +101,6 @@
     "confirm": "Επιβεβαίωση",
     "infoLabel": "Επεξήγηση",
     "featureHints": {
-      "chat_unlimited": "Στείλε όσα μηνύματα κειμένου θέλεις στο chat — χωρίς ημερήσιο όριο.",
       "voice_listen": "Αφορά τις φωνητικές αναπαραγωγές των απαντήσεων HeyMaa (κουμπί «Άκουσε»). Το μικρόφωνο για ομιλία (μετατροπή σε κείμενο) δεν μετράει στο όριο.",
       "memory_daily": "Ημερήσια μνήμη: σε κάθε απάντηση η HeyMaa χρησιμοποιεί τα τελευταία 20 μηνύματα chat, 10 αποθηκευμένες αναμνήσεις και 10 τικαρισμένα ορόσημα — ιδανικό για καθημερινές, σύντομες συζητήσεις χωρίς να «χάνεται» το νήμα.",
       "memory_partial": "Μερική μνήμη: θυμάται τα τελευταία 32 μηνύματα, 24 αποθηκευμένες αναμνήσεις και 24 ορόσημα — καλύτερη συνέχεια όταν η συζήτηση εκτείνεται σε περισσότερες ημέρες ή θέματα.",
@@ -111,10 +110,7 @@
       "docs_album_full": "Πλήρης χρήση Αρχείου Εγγράφων και Άλμπουμ (προσθήκη, επεξεργασία, προεπισκόπηση) — χωρίς λήψη ή εξαγωγή αρχείων.",
       "docs_album_export": "Λήψη εγγράφων και εξαγωγή/κοινοποίηση του άλμπουμ αναμνήσεων (π.χ. ως PDF).",
       "archived_threads": "Πόσες παλιές συνομιλίες μπορείς να αποθηκεύσεις και να ανοίξεις ξανά από το ιστορικό.",
-      "email_support": "Τεχνική υποστήριξη μέσω email στο info@heymaa.ai.",
-      "phone_support": "Τηλεφωνική υποστήριξη στη Γραμμή Εξυπηρέτησης.",
-      "priority_support": "Προτεραιότητα στην αντιμετώπιση αιτημάτων υποστήριξης.",
-      "all_premium": "Όλα όσα περιλαμβάνει το μηνιαίο πλάνο Premium, συν τα οφέλη του ετήσιου."
+      "priority_support": "Προτεραιότητα στην αντιμετώπιση αιτημάτων υποστήριξης."
     },
     "plans": [
       {
@@ -128,7 +124,7 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Απεριόριστο Chat", "hint": "chat_unlimited" },
+          { "label": "Απεριόριστο Chat" },
           { "label": "50 Φωνητικά/μήνα", "hint": "voice_listen" },
           { "label": "Ημερήσια μνήμη (20+10+10)", "hint": "memory_daily" },
           { "label": "Έγγραφα & άλμπουμ (προβολή)", "hint": "docs_album_view" },
@@ -148,12 +144,12 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Απεριόριστο Chat", "hint": "chat_unlimited" },
+          { "label": "Απεριόριστο Chat" },
           { "label": "150 Φωνητικά/μήνα", "hint": "voice_listen" },
           { "label": "Μερική μνήμη (32+24+24)", "hint": "memory_partial" },
           { "label": "Αρχείο Εγγράφων & Άλμπουμ", "hint": "docs_album_full" },
           { "label": "45 Αρχειοθ. Συνομιλίες", "hint": "archived_threads" },
-          { "label": "Υποστήριξη email", "hint": "email_support" }
+          { "label": "Υποστήριξη email" }
         ],
         "button": "Επιλογή Πλάνου",
         "buttonClass": "btn-plan-idle"
@@ -169,12 +165,12 @@
         "featured": true,
         "save": "",
         "features": [
-          { "label": "Απεριόριστο Chat", "hint": "chat_unlimited" },
+          { "label": "Απεριόριστο Chat" },
           { "label": "400 Φωνητικά/μήνα", "hint": "voice_listen" },
           { "label": "Δυνατή μνήμη (64+45+45)", "hint": "memory_strong" },
           { "label": "Λήψη & κοινοποίηση εγγράφων/άλμπουμ", "hint": "docs_album_export" },
           { "label": "90 Αρχειοθ. Συνομιλίες", "hint": "archived_threads" },
-          { "label": "Τηλεφωνική υποστήριξη", "hint": "phone_support" }
+          { "label": "Τηλεφωνική υποστήριξη" }
         ],
         "button": "Επιλογή Πλάνου",
         "buttonClass": "btn-plan-idle"
@@ -190,7 +186,7 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Όλα τα Premium", "hint": "all_premium" },
+          { "label": "Όλα τα Premium" },
           { "label": "700 Φωνητικά/μήνα", "hint": "voice_listen" },
           { "label": "Δυνατή μνήμη (64+50+50)", "hint": "memory_strong_annual" },
           { "label": "Λήψη & κοινοποίηση εγγράφων/άλμπουμ", "hint": "docs_album_export" },

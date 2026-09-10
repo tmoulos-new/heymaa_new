@@ -4,12 +4,12 @@
   "landingItems": [
     {
       "question": "What is HeyMaa?",
-      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories. It does not replace a doctor or pharmacist.",
+      "answer": "HeyMaa is your helper through motherhood — one app for support, organization, and memories. It does not replace a doctor or pharmacist.",
       "sections": [
         {
           "title": "What you can do",
           "bullets": [
-            "Chat with an AI advisor — write, speak, or send a photo",
+            "Chat with an AI helper — write, speak, or send a photo",
             "Memory journal (notes, photos, videos)",
             "Development milestones by age with a progress timeline",
             "Family tree (partner, parents, siblings, children)",
@@ -108,7 +108,7 @@
         {
           "title": "Reading the plans",
           "bullets": [
-            "Tap (i) next to any plan line for a short explanation",
+            "Tap (i) next to lines that have it, for a short explanation",
             "When a feature needs a higher plan, you'll see an Upgrade message",
             "Change plan anytime in Settings → Subscription"
           ]
@@ -207,12 +207,12 @@
   "items": [
     {
       "question": "What is HeyMaa?",
-      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories.",
+      "answer": "HeyMaa is your helper through motherhood — one app for support, organization, and memories.",
       "sections": [
         {
           "title": "Core features",
           "bullets": [
-            "AI chat advisor (text, voice, photo)",
+            "AI chat helper (text, voice, photo)",
             "Memory journal",
             "Development milestones with progress timeline",
             "Family tree",
@@ -388,7 +388,7 @@
         },
         {
           "title": "Tip",
-          "intro": "Tap (i) next to any plan line. When a higher plan is needed, you'll see Upgrade."
+          "intro": "Tap (i) next to lines that have it. When a higher plan is needed, you'll see Upgrade."
         }
       ]
     },

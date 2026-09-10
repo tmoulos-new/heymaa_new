@@ -101,7 +101,6 @@
     "confirm": "Confirm",
     "infoLabel": "What this means",
     "featureHints": {
-      "chat_unlimited": "Send as many text messages as you like in chat — no daily cap.",
       "voice_listen": "Applies to voice playbacks of HeyMaa replies (Listen button). Speaking via the microphone (speech-to-text) does not use this quota.",
       "memory_daily": "Daily memory: in each reply HeyMaa uses your last 20 chat messages, 10 saved memories, and 10 ticked milestones — ideal for everyday, shorter conversations without losing the thread.",
       "memory_partial": "Partial memory: remembers the last 32 messages, 24 saved memories, and 24 milestones — better continuity when chats span more days or topics.",
@@ -111,10 +110,7 @@
       "docs_album_full": "Full use of Document Archive and Memory Album (add, edit, preview) — without downloading or exporting files.",
       "docs_album_export": "Download documents and export/share the memory album (e.g. as PDF).",
       "archived_threads": "How many past conversations you can save and reopen from history.",
-      "email_support": "Technical support by email at info@heymaa.ai.",
-      "phone_support": "Phone support on our support line.",
-      "priority_support": "Priority handling for support requests.",
-      "all_premium": "Everything in the monthly Premium plan, plus annual benefits."
+      "priority_support": "Priority handling for support requests."
     },
     "plans": [
       {
@@ -128,7 +124,7 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "Unlimited Chat" },
           { "label": "50 Voice/month", "hint": "voice_listen" },
           { "label": "Daily memory (20+10+10)", "hint": "memory_daily" },
           { "label": "Docs & album (view-only)", "hint": "docs_album_view" },
@@ -148,12 +144,12 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "Unlimited Chat" },
           { "label": "150 Voice/month", "hint": "voice_listen" },
           { "label": "Partial memory (32+24+24)", "hint": "memory_partial" },
           { "label": "Document Archive & Album", "hint": "docs_album_full" },
           { "label": "45 archived conversations", "hint": "archived_threads" },
-          { "label": "Email support", "hint": "email_support" }
+          { "label": "Email support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -169,12 +165,12 @@
         "featured": true,
         "save": "",
         "features": [
-          { "label": "Unlimited Chat", "hint": "chat_unlimited" },
+          { "label": "Unlimited Chat" },
           { "label": "400 Voice/month", "hint": "voice_listen" },
           { "label": "Strong memory (64+45+45)", "hint": "memory_strong" },
           { "label": "Download & share docs/album", "hint": "docs_album_export" },
           { "label": "90 archived conversations", "hint": "archived_threads" },
-          { "label": "Phone support", "hint": "phone_support" }
+          { "label": "Phone support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -190,7 +186,7 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "All Premium features", "hint": "all_premium" },
+          { "label": "All Premium features" },
           { "label": "700 Voice/month", "hint": "voice_listen" },
           { "label": "Strong memory (64+50+50)", "hint": "memory_strong_annual" },
           { "label": "Download & share docs/album", "hint": "docs_album_export" },
@@ -227,7 +223,7 @@
     "landingItems": [
       {
         "question": "What is HeyMaa?",
-        "answer": "Your digital companion through motherhood: AI chat, memories, development milestones, a family tree, and a document archive — all in one app. Talk, write, or send a photo whenever it suits you."
+        "answer": "Your helper through motherhood: AI chat, memories, development milestones, a family tree, and a document archive — all in one app. Talk, write, or send a photo whenever it suits you."
       },
       {
         "question": "What does the free trial include?",
@@ -257,7 +253,7 @@
     "items": [
       {
         "question": "What is HeyMaa?",
-        "answer": "HeyMaa is your digital companion through motherhood: AI chat, a family tree, a memory journal, a milestone timeline, and a document archive — all in one app."
+        "answer": "HeyMaa is your helper through motherhood: AI chat, a family tree, a memory journal, a milestone timeline, and a document archive — all in one app."
       },
       {
         "question": "What can I do in the app?",
