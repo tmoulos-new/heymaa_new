@@ -51,7 +51,7 @@
           "title": "Starts from Starter",
           "bullets": [
             "Memory videos",
-            "Full document/album management (upload & edit), without the ability to download or share files",
+            "Full document/album management (upload & edit). Download and share are on Premium",
             "Basic memory and more archived conversations"
           ]
         },
@@ -80,7 +80,7 @@
           "bullets": [
             "150 voice replies / month",
             "Basic memory (32 messages + 24 memories + 24 milestones)",
-            "Document Archive & Album, without the ability to download or share files",
+            "Document Archive & Album",
             "Memory videos",
             "45 archived conversations",
             "Support via email"
@@ -367,7 +367,7 @@
           "title": "Starter (€19/month)",
           "bullets": [
             "150 voice replies, Basic memory",
-            "Document Archive & Album, without the ability to download or share files, memory videos",
+            "Document Archive & Album, memory videos",
             "45 archived, email support"
           ]
         },
@@ -418,7 +418,7 @@
           "title": "Related features",
           "bullets": [
             "Memory videos: from Starter",
-            "Photos, albums, documents: from trial (view-only); Starter without the ability to download or share files; download Premium+",
+            "Photos, albums, documents: from trial (view-only); Starter can edit; download Premium+",
             "Memory is not unlimited history — it's a smart window for better replies"
           ]
         }
@@ -463,7 +463,7 @@
           "title": "By plan",
           "bullets": [
             "Trial: document & album preview",
-            "Starter: full upload & edit, without the ability to download or share files",
+            "Starter: full upload & edit. Download and share are on Premium",
             "Premium+: download & share files"
           ]
         }

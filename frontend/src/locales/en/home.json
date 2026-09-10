@@ -107,7 +107,7 @@
       "memory_strong": "Remembers the last 64 messages, 45 saved memories, and 45 milestones — deeper context for rich chat history, family memories, and development.",
       "memory_strong_annual": "64 chat messages, up to 50 saved memories, and 50 milestones in each reply — the deepest memory context.",
       "docs_album_view": "View and organize documents and memory albums in the app; downloading or sharing files is not included.",
-      "docs_album_full": "Full use of Document Archive and Memory Album (add, edit, preview), without the ability to download or share files.",
+      "docs_album_full": "Add, edit, and preview documents and albums, without the ability to download or share files.",
       "docs_album_export": "Download documents and export/share the memory album (e.g. as PDF).",
       "archived_threads": "How many past conversations you can save and reopen from history."
     },
@@ -146,7 +146,7 @@
           { "label": "Unlimited Chat" },
           { "label": "150 Voice replies/month" },
           { "label": "Basic memory", "hint": "memory_partial" },
-          { "label": "Document Archive & Album, without the ability to download or share files", "hint": "docs_album_full" },
+          { "label": "Document Archive & Album", "hint": "docs_album_full" },
           { "label": "45 Archived conversations" },
           { "label": "Support via email" }
         ],
@@ -284,7 +284,7 @@
       },
       {
         "question": "What is the Document Archive?",
-        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Available from trial (view-only). On Starter you can upload and edit, without the ability to download or share files. File download from Premium+."
+        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Available from trial (view-only). On Starter you can upload and edit. File download from Premium+."
       },
       {
         "question": "What is the family tree?",
