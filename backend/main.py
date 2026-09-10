@@ -6209,6 +6209,55 @@ async def checkout_viva(req: VivaCheckoutRequest, x_token: Optional[str] = Heade
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/functions/getCompletedOrders")
+async def get_completed_orders(
+    request: Request,
+    after: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None),
+    key: Optional[str] = Query(None),
+):
+    """ERP invoice sync: completed Viva subscription payments after `after`."""
+    try:
+        try:
+            from .completed_orders import (
+                erp_key_authorized,
+                get_completed_orders as load_completed_orders,
+                parse_after_param,
+                parse_limit_param,
+                provided_erp_key,
+            )
+        except ImportError:
+            from completed_orders import (
+                erp_key_authorized,
+                get_completed_orders as load_completed_orders,
+                parse_after_param,
+                parse_limit_param,
+                provided_erp_key,
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not erp_key_authorized(provided_erp_key(dict(request.headers), key)):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        after_dt = parse_after_param(after)
+        page_limit = parse_limit_param(limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    client = ensure_supabase()
+    orders = await load_completed_orders(client, after_dt, page_limit)
+    return JSONResponse(
+        content={
+            "orders": orders,
+            "count": len(orders),
+            "after": after_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+            "limit": page_limit,
+        }
+    )
+
+
 # Viva Wallet Webhooks
 @app.get("/webhooks/viva")
 async def viva_webhook_verify():
@@ -6483,7 +6532,7 @@ _API_PATH_PREFIXES = (
     "admin/health", "admin/usage", "admin/credits", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",
-    "public/offers", "public/promotions", "healthz",
+    "public/offers", "public/promotions", "healthz", "functions/",
 )
 
 @app.get("/{spa_path:path}")

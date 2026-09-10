@@ -72,6 +72,14 @@ module.exports = function setupProxy(app) {
   )
 
   app.use(
+    '/functions',
+    createProxyMiddleware({
+      target: API_TARGET,
+      changeOrigin: true,
+    }),
+  )
+
+  app.use(
     createProxyMiddleware((pathname, req) => isAdminApi(pathname, req), {
       target: API_TARGET,
       changeOrigin: true,

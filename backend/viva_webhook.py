@@ -280,6 +280,24 @@ async def handle_viva_payment_created(payload: dict, sb) -> dict:
         user_id=user_id,
         email=str(email).strip().lower() if email else None,
     )
+    try:
+        try:
+            from .completed_orders import persist_completed_order
+        except ImportError:
+            from completed_orders import persist_completed_order
+        persist_completed_order(
+            sb,
+            tx,
+            {
+                "transactionId": str(transaction_id),
+                "plan": plan_db_value(plan_key),
+                "user_id": result.get("user_id") or user_id,
+                "email": result.get("email") or (str(email).strip().lower() if email else None),
+                "orderCode": _payload_value(tx, "orderCode", "OrderCode"),
+            },
+        )
+    except Exception:
+        pass
     if not result.get("ok"):
         return result
 

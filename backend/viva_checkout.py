@@ -51,6 +51,12 @@ def _viva_checkout_base() -> str:
     return "https://www.vivapayments.com/web/checkout"
 
 
+def _viva_www_base() -> str:
+    if _viva_is_demo():
+        return "https://demo.vivapayments.com"
+    return "https://www.vivapayments.com"
+
+
 def _viva_source_code() -> str:
     # Viva creates a built-in "Default" source for every merchant. Custom codes
     # (e.g. 7382) only work after the source is saved and enabled in the dashboard.
