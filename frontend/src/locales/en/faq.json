@@ -48,14 +48,6 @@
           ]
         },
         {
-          "title": "Starts from Starter",
-          "bullets": [
-            "Memory videos",
-            "Full document/album management (upload & edit). Download and share are on Premium",
-            "Basic memory and more archived conversations"
-          ]
-        },
-        {
           "title": "After the trial",
           "intro": "If you don't upgrade, access stops at the end of 14 days. You'll get a reminder before expiry."
         }
@@ -285,14 +277,6 @@
             "Document & album preview",
             "3 archived conversations",
             "Family tree, milestones, memory notes & photos"
-          ]
-        },
-        {
-          "title": "Not in trial",
-          "bullets": [
-            "Memory videos (from Starter)",
-            "Document file download (from Premium)",
-            "Basic/Full memory — Daily only on trial"
           ]
         }
       ]
