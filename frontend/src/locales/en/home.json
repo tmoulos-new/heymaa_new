@@ -102,15 +102,14 @@
     "infoLabel": "What this means",
     "featureHints": {
       "voice_listen": "Applies to voice playbacks of HeyMaa replies (Listen button). Speaking via the microphone (speech-to-text) does not use this quota.",
-      "memory_daily": "Daily memory: in each reply HeyMaa uses your last 20 chat messages, 10 saved memories, and 10 ticked milestones — ideal for everyday, shorter conversations without losing the thread.",
-      "memory_partial": "Partial memory: remembers the last 32 messages, 24 saved memories, and 24 milestones — better continuity when chats span more days or topics.",
-      "memory_strong": "Strong memory: remembers the last 64 messages, 45 saved memories, and 45 milestones — deeper context for rich chat history, family memories, and development.",
-      "memory_strong_annual": "Strong memory (annual bonus): 64 chat messages, up to 50 saved memories, and 50 milestones in each reply — the deepest memory context.",
+      "memory_daily": "In each reply HeyMaa uses your last 20 chat messages, 10 saved memories, and 10 ticked milestones — ideal for everyday, shorter conversations without losing the thread.",
+      "memory_partial": "Remembers the last 32 messages, 24 saved memories, and 24 milestones — better continuity when chats span more days or topics.",
+      "memory_strong": "Remembers the last 64 messages, 45 saved memories, and 45 milestones — deeper context for rich chat history, family memories, and development.",
+      "memory_strong_annual": "64 chat messages, up to 50 saved memories, and 50 milestones in each reply — the deepest memory context.",
       "docs_album_view": "View and organize documents and memory albums in the app; downloading or sharing files is not included.",
-      "docs_album_full": "Full use of Document Archive and Memory Album (add, edit, preview) — without downloading or exporting files.",
+      "docs_album_full": "Full use of Document Archive and Memory Album (add, edit, preview), without the ability to download or share files.",
       "docs_album_export": "Download documents and export/share the memory album (e.g. as PDF).",
-      "archived_threads": "How many past conversations you can save and reopen from history.",
-      "priority_support": "Priority handling for support requests."
+      "archived_threads": "How many past conversations you can save and reopen from history."
     },
     "plans": [
       {
@@ -125,10 +124,10 @@
         "save": "",
         "features": [
           { "label": "Unlimited Chat" },
-          { "label": "50 Voice/month", "hint": "voice_listen" },
-          { "label": "Daily memory (20+10+10)", "hint": "memory_daily" },
-          { "label": "Docs & album (view-only)", "hint": "docs_album_view" },
-          { "label": "3 archived conversations", "hint": "archived_threads" }
+          { "label": "50 Voice replies/month", "hint": "voice_listen" },
+          { "label": "Daily memory", "hint": "memory_daily" },
+          { "label": "Document Archive & Album", "hint": "docs_album_view" },
+          { "label": "3 Archived conversations", "hint": "archived_threads" }
         ],
         "button": "Select plan",
         "buttonClass": "btn-plan-idle"
@@ -145,11 +144,11 @@
         "save": "",
         "features": [
           { "label": "Unlimited Chat" },
-          { "label": "150 Voice/month", "hint": "voice_listen" },
-          { "label": "Partial memory (32+24+24)", "hint": "memory_partial" },
-          { "label": "Document Archive & Album", "hint": "docs_album_full" },
-          { "label": "45 archived conversations", "hint": "archived_threads" },
-          { "label": "Email support" }
+          { "label": "150 Voice replies/month" },
+          { "label": "Basic memory", "hint": "memory_partial" },
+          { "label": "Document Archive & Album, without the ability to download or share files", "hint": "docs_album_full" },
+          { "label": "45 Archived conversations" },
+          { "label": "Support via email" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -166,10 +165,10 @@
         "save": "",
         "features": [
           { "label": "Unlimited Chat" },
-          { "label": "400 Voice/month", "hint": "voice_listen" },
-          { "label": "Strong memory (64+45+45)", "hint": "memory_strong" },
-          { "label": "Download & share docs/album", "hint": "docs_album_export" },
-          { "label": "90 archived conversations", "hint": "archived_threads" },
+          { "label": "400 Voice replies/month" },
+          { "label": "Full memory", "hint": "memory_strong" },
+          { "label": "Download & Share Documents/Album", "hint": "docs_album_export" },
+          { "label": "90 Archived conversations" },
           { "label": "Phone support" }
         ],
         "button": "Choose Plan",
@@ -186,12 +185,12 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "All Premium features" },
-          { "label": "700 Voice/month", "hint": "voice_listen" },
-          { "label": "Strong memory (64+50+50)", "hint": "memory_strong_annual" },
-          { "label": "Download & share docs/album", "hint": "docs_album_export" },
-          { "label": "90 archived conversations", "hint": "archived_threads" },
-          { "label": "Priority support", "hint": "priority_support" }
+          { "label": "All Premium benefits" },
+          { "label": "700 Voice replies/month" },
+          { "label": "Full memory" },
+          { "label": "Download & Share Documents/Album" },
+          { "label": "90 Archived conversations" },
+          { "label": "Priority support" }
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
@@ -231,7 +230,7 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Partial memory (32+24+24), full docs/album, 45 archived, email\n• Premium (€39/month): 400 voice, Strong memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Strong memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€39/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
         "question": "What happens when the trial ends?",
@@ -273,11 +272,11 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Partial memory (32+24+24), full docs/album, 45 archived, email\n• Premium (€39/month): 400 voice, Strong memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Strong memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€39/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
-        "question": "What is Daily, Partial, and Strong memory?",
-        "answer": "Three levels of chat memory — how many recent messages, saved memories, and ticked milestones HeyMaa uses in each reply:\n\n• Daily memory (trial): 20 messages + 10 memories + 10 milestones\n• Partial memory (Starter): 32 messages + 24 memories + 24 milestones\n• Strong memory (Premium): 64 messages + 45 memories + 45 milestones\n• Strong memory (Annual): 64 messages + 50 memories + 50 milestones\n\nMemory videos from Starter; photos, albums, and documents from trial (view-only); download & share Premium+ only."
+        "question": "What is Daily, Basic, and Full memory?",
+        "answer": "Three levels of chat memory — how many recent messages, saved memories, and ticked milestones HeyMaa uses in each reply:\n\n• Daily memory (trial): 20 messages + 10 memories + 10 milestones\n• Basic memory (Starter): 32 messages + 24 memories + 24 milestones\n• Full memory (Premium): 64 messages + 45 memories + 45 milestones\n• Full memory (Annual): 64 messages + 50 memories + 50 milestones\n\nMemory videos from Starter; photos, albums, and documents from trial (view-only); download & share Premium+ only."
       },
       {
         "question": "How do milestones work?",
@@ -285,7 +284,7 @@
       },
       {
         "question": "What is the Document Archive?",
-        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Available from trial (view-only); file download from Premium+. On Starter+ you can upload and edit normally."
+        "answer": "On the Family tab you can store tests, vaccines, treatments and medicines — with category, date, family member, and file attachment. Available from trial (view-only). On Starter you can upload and edit, without the ability to download or share files. File download from Premium+."
       },
       {
         "question": "What is the family tree?",

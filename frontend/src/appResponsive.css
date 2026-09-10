@@ -1299,7 +1299,6 @@ body.hm-app-active #root {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
   color: var(--hm-navy, #2b3a67);
   line-height: 1.35;
 }
