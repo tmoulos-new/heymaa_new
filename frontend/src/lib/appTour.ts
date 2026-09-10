@@ -37,8 +37,8 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
       en: 'Chat with HeyMaa',
     },
     body: {
-      el: 'Εδώ μιλάς με την AI σύμβουλο — ερωτήσεις για εγκυμοσύνη, μωρό, ύπνο, διατροφή.',
-      en: 'Talk to your AI companion here — pregnancy, baby care, sleep, nutrition, and more.',
+      el: 'Εδώ μιλάς με την AI βοηθό — ερωτήσεις για εγκυμοσύνη, μωρό, ύπνο, διατροφή.',
+      en: 'Talk to your AI helper here — pregnancy, baby care, sleep, nutrition, and more.',
     },
   },
   {

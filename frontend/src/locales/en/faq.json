@@ -4,12 +4,12 @@
   "landingItems": [
     {
       "question": "What is HeyMaa?",
-      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories. It does not replace a doctor or pharmacist.",
+      "answer": "HeyMaa is your helper through motherhood — one app for support, organization, and memories. It does not replace a doctor or pharmacist.",
       "sections": [
         {
           "title": "What you can do",
           "bullets": [
-            "Chat with an AI advisor — write, speak, or send a photo",
+            "Chat with an AI helper — write, speak, or send a photo",
             "Memory journal (notes, photos, videos)",
             "Development milestones by age with a progress timeline",
             "Family tree (partner, parents, siblings, children)",
@@ -51,8 +51,8 @@
           "title": "Starts from Starter",
           "bullets": [
             "Memory videos",
-            "Full document/album management (upload & edit)",
-            "Partial memory (32+24+24) and more archived conversations"
+            "Full document/album management (upload & edit). Download and share are on Premium",
+            "Basic memory and more archived conversations"
           ]
         },
         {
@@ -68,9 +68,9 @@
         {
           "title": "Free trial (14 days)",
           "bullets": [
-            "50 Listen playbacks / month",
+            "50 voice replies / month",
             "Daily memory (20 messages + 10 memories + 10 milestones)",
-            "Documents & albums: view only",
+            "Document Archive & Album (view only)",
             "3 archived conversations",
             "No card required to sign up"
           ]
@@ -78,20 +78,20 @@
         {
           "title": "Starter — €19/month",
           "bullets": [
-            "150 voice playbacks / month",
-            "Partial memory (32 messages + 24 memories + 24 milestones)",
-            "Full documents & albums (upload, edit)",
+            "150 voice replies / month",
+            "Basic memory (32 messages + 24 memories + 24 milestones)",
+            "Document Archive & Album",
             "Memory videos",
             "45 archived conversations",
-            "Email support"
+            "Support via email"
           ]
         },
         {
           "title": "Premium — €39/month",
           "bullets": [
-            "400 voice playbacks / month",
-            "Strong memory (64 messages + 45 memories + 45 milestones)",
-            "Download & share documents/albums",
+            "400 voice replies / month",
+            "Full memory (64 messages + 45 memories + 45 milestones)",
+            "Download & Share Documents/Album",
             "90 archived conversations",
             "Phone support"
           ]
@@ -99,16 +99,16 @@
         {
           "title": "Annual Premium — €199/year",
           "bullets": [
-            "Everything in Premium",
-            "700 voice playbacks / month",
-            "Strong memory (64 messages + 50 memories + 50 milestones)",
+            "All Premium benefits",
+            "700 voice replies / month",
+            "Full memory (64 messages + 50 memories + 50 milestones)",
             "Priority support"
           ]
         },
         {
           "title": "Reading the plans",
           "bullets": [
-            "Tap (i) next to any plan line for a short explanation",
+            "Tap (i) next to lines that have it, for a short explanation",
             "When a feature needs a higher plan, you'll see an Upgrade message",
             "Change plan anytime in Settings → Subscription"
           ]
@@ -207,12 +207,12 @@
   "items": [
     {
       "question": "What is HeyMaa?",
-      "answer": "HeyMaa is your digital companion through motherhood — one app for support, organization, and memories.",
+      "answer": "HeyMaa is your helper through motherhood — one app for support, organization, and memories.",
       "sections": [
         {
           "title": "Core features",
           "bullets": [
-            "AI chat advisor (text, voice, photo)",
+            "AI chat helper (text, voice, photo)",
             "Memory journal",
             "Development milestones with progress timeline",
             "Family tree",
@@ -281,7 +281,7 @@
           "bullets": [
             "Unlimited chat",
             "50 Listen playbacks / month",
-            "Daily memory (20+10+10)",
+            "Daily memory",
             "Document & album preview",
             "3 archived conversations",
             "Family tree, milestones, memory notes & photos"
@@ -292,7 +292,7 @@
           "bullets": [
             "Memory videos (from Starter)",
             "Document file download (from Premium)",
-            "Partial/Strong memory — Daily only on trial"
+            "Basic/Full memory — Daily only on trial"
           ]
         }
       ]
@@ -358,7 +358,7 @@
         {
           "title": "Free trial",
           "bullets": [
-            "50 voice, Daily memory (20+10+10)",
+            "50 voice replies, Daily memory",
             "Docs/album: view only",
             "3 archived"
           ]
@@ -366,15 +366,15 @@
         {
           "title": "Starter (€19/month)",
           "bullets": [
-            "150 voice, Partial memory (32+24+24)",
-            "Full docs/album, memory videos",
+            "150 voice replies, Basic memory",
+            "Document Archive & Album, memory videos",
             "45 archived, email support"
           ]
         },
         {
           "title": "Premium (€39/month)",
           "bullets": [
-            "400 voice, Strong memory (64+45+45)",
+            "400 voice replies, Full memory",
             "Download & share",
             "90 archived, phone support"
           ]
@@ -382,18 +382,18 @@
         {
           "title": "Annual Premium (€199/year)",
           "bullets": [
-            "700 voice, Strong memory (64+50+50)",
-            "All Premium + priority support"
+            "700 voice replies, Full memory",
+            "All Premium benefits + priority support"
           ]
         },
         {
           "title": "Tip",
-          "intro": "Tap (i) next to any plan line. When a higher plan is needed, you'll see Upgrade."
+          "intro": "Tap (i) next to lines that have it. When a higher plan is needed, you'll see Upgrade."
         }
       ]
     },
     {
-      "question": "What is Daily, Partial, and Strong memory?",
+      "question": "What is Daily, Basic, and Full memory?",
       "answer": "Three levels of chat memory — how many recent messages, saved memories, and ticked milestones HeyMaa uses in each reply.",
       "sections": [
         {
@@ -409,16 +409,16 @@
           "title": "Per plan",
           "bullets": [
             "Daily memory (trial): 20 messages + 10 memories + 10 milestones",
-            "Partial memory (Starter): 32 + 24 + 24",
-            "Strong memory (Premium): 64 + 45 + 45",
-            "Strong memory (Annual): 64 + 50 + 50"
+            "Basic memory (Starter): 32 + 24 + 24",
+            "Full memory (Premium): 64 + 45 + 45",
+            "Full memory (Annual): 64 + 50 + 50"
           ]
         },
         {
           "title": "Related features",
           "bullets": [
             "Memory videos: from Starter",
-            "Photos, albums, documents: from trial (view-only); download Premium+",
+            "Photos, albums, documents: from trial (view-only); Starter can edit; download Premium+",
             "Memory is not unlimited history — it's a smart window for better replies"
           ]
         }
@@ -463,7 +463,7 @@
           "title": "By plan",
           "bullets": [
             "Trial: document & album preview",
-            "Starter+: full upload & edit",
+            "Starter: full upload & edit. Download and share are on Premium",
             "Premium+: download & share files"
           ]
         }

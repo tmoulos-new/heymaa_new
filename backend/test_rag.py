@@ -59,7 +59,7 @@ def generate_answer(query: str, chunks: list[dict]) -> str:
         for c in chunks
     ])
 
-    system_prompt = """You are HeyMaa, a warm and supportive AI companion for mothers.
+    system_prompt = """You are HeyMaa, a warm and supportive AI helper for mothers.
 You are like a trusted, non-judgmental friend. You NEVER give medical advice - always
 redirect to a doctor or pharmacist for health concerns.
 
