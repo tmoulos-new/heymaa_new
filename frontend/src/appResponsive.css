@@ -4660,7 +4660,6 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--hm-teal, #4abeaa);
 }
 

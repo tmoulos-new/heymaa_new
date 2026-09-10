@@ -128,6 +128,29 @@ export function rewardTitle(levelId: number, lang: string): string {
   return lang === 'el' ? level.name_el : level.name_en
 }
 
+export function levelUpKicker(lang: string): string {
+  return lang === 'el' ? 'Ανέβηκες επίπεδο' : 'You leveled up'
+}
+
+export function claimSuccessMessage(
+  grant: { upgraded?: boolean; plan_slot?: string; days?: number } | undefined,
+  lang: string,
+): string {
+  const days = Number(grant?.days) || 0
+  const plan = planLabel(grant?.plan_slot || 'starter', lang)
+  if (!days) {
+    return lang === 'el' ? 'Το δώρο ενεργοποιήθηκε! 🎁' : 'Your gift is active! 🎁'
+  }
+  if (grant?.upgraded) {
+    return lang === 'el'
+      ? `+${days} μέρες ${plan} μετά τη λήξη της πρόσβασής σου 🎁`
+      : `+${days} ${plan} days added after your current access ends 🎁`
+  }
+  return lang === 'el'
+    ? `Κέρδισες ${days} μέρες δωρεάν ${plan} 🎁`
+    : `You earned ${days} days free ${plan} 🎁`
+}
+
 const REWARD_DISMISS_PREFIX = 'hm_reward_dismiss_'
 
 export function readDismissedRewardLevels(token: string): Set<number> {

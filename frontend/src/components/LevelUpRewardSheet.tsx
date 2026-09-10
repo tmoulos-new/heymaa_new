@@ -1,17 +1,17 @@
 import { useEffect, useId, useState } from 'react'
 import { AppSheet } from './AppSheet'
 import { RewardCelebration } from './RewardCelebration'
-import { levelEmoji, levelRewardsText } from '../lib/gamificationCard'
-import type { PendingLevelReward } from '../lib/levelRewards'
+import { levelEmoji } from '../lib/gamificationCard'
+import { displayUppercase } from '../lib/greekText'
+import type { PendingLevelReward, RewardsSnapshot } from '../lib/levelRewards'
 import {
   effectiveRewardDescription,
-  isRewardUpgradedForPlan,
+  levelUpKicker,
   rewardClaimBody,
   rewardTitle,
 } from '../lib/levelRewards'
 import { claimLevelReward } from '../lib/levelRewardsApi'
 import type { SubscriptionSnapshot } from '../lib/authApi'
-import type { RewardsSnapshot } from '../lib/levelRewards'
 
 type Props = {
   open: boolean
@@ -52,7 +52,7 @@ export function LevelUpRewardSheet({
 
   const emoji = levelEmoji(reward.level_id)
   const levelName = rewardTitle(reward.level_id, lang)
-  const rewardLine = levelRewardsText(reward.level_id, lang)
+  const giftLine = effectiveRewardDescription(reward, lang, currentPlanSlot)
   const body = rewardClaimBody(reward, lang, currentPlanSlot)
 
   const handleClaim = async () => {
@@ -90,14 +90,10 @@ export function LevelUpRewardSheet({
             {emoji}
           </div>
           <p className="hm-reward-sheet__kicker">
-            {isEl ? `Επίπεδο ${reward.level_id}` : `Level ${reward.level_id}`}
+            {displayUppercase(levelUpKicker(lang), lang)}
           </p>
           <h2 id={titleId} className="hm-reward-sheet__title">{levelName}</h2>
-          <p className="hm-reward-sheet__level">
-            {isRewardUpgradedForPlan(reward, currentPlanSlot)
-              ? effectiveRewardDescription(reward, lang, currentPlanSlot)
-              : rewardLine}
-          </p>
+          <p className="hm-reward-sheet__level">{giftLine}</p>
           <p className="hm-reward-sheet__body">{body}</p>
           {error ? <p className="hm-reward-sheet__error">{error}</p> : null}
           <div className="hm-reward-sheet__actions">

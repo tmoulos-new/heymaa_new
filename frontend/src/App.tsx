@@ -134,7 +134,7 @@ import {
   readExpiryPopupDismissed,
 } from "./lib/accessExpiry";
 import type { PendingLevelReward, RewardsSnapshot } from "./lib/levelRewards";
-import { dismissRewardLevel, firstUnseenPendingReward, selectPendingReward } from "./lib/levelRewards";
+import { claimSuccessMessage, dismissRewardLevel, firstUnseenPendingReward, selectPendingReward } from "./lib/levelRewards";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
@@ -2080,17 +2080,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }) => {
     setRewardsSnapshot(payload.rewards);
     if (payload.status) applySubscriptionSnapshot(payload.status);
-    const upgraded = payload.grant?.upgraded;
-    const days = payload.grant?.days;
-    const plan = payload.grant?.plan_slot;
-    showToast(
-      upgraded
-        ? (lang === "el"
-          ? `+${days} μέρες ${plan === "premium" ? "Premium" : plan === "annual" ? "Ετήσιο" : plan} μετά τη λήξη της πρόσβασής σου 🎁`
-          : `+${days} ${plan} days added after your current access ends 🎁`)
-        : (lang === "el" ? "Το δώρο ενεργοποιήθηκε! 🎁" : "Your gift is active! 🎁"),
-      "ok",
-    );
+    showToast(claimSuccessMessage(payload.grant, lang), "ok");
     const next = firstUnseenPendingReward(token, payload.rewards);
     if (next) {
       setPendingLevelReward(next);
