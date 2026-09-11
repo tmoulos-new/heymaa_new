@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, CHAT_DAILY_POINTS_CAP, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -5038,10 +5038,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 >
                   ⚙️ {lang === "el" ? "Ρυθμίσεις" : "Settings"}
                 </button>
-                <div className="hm-header-account-menu__divider" role="separator" />
-                <button type="button" role="menuitem" className="hm-menuitem--danger" onClick={requestLogout}>
-                  🚪 {lang === "el" ? "Αποσύνδεση" : "Log out"}
-                </button>
+                {!isLocalDemoToken(token) ? (
+                  <>
+                    <div className="hm-header-account-menu__divider" role="separator" />
+                    <button type="button" role="menuitem" className="hm-menuitem--danger" onClick={requestLogout}>
+                      🚪 {lang === "el" ? "Αποσύνδεση" : "Log out"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="hm-header-account-menu__divider" role="separator" />
+                    <Link
+                      to={`${APP_ROUTE}/auth?mode=login`}
+                      role="menuitem"
+                      className="hm-header-account-menu__link"
+                      onClick={() => setShowAccountMenu(false)}
+                    >
+                      {lang === "el" ? "Σύνδεση" : "Sign in"}
+                    </Link>
+                    <Link
+                      to={`${APP_ROUTE}/auth?mode=signup`}
+                      role="menuitem"
+                      className="hm-header-account-menu__link"
+                      onClick={() => setShowAccountMenu(false)}
+                    >
+                      {lang === "el" ? "Εγγραφή" : "Sign up"}
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </button>
@@ -5246,6 +5270,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </button>
             </AppTabSection>
 
+            {!isLocalDemoToken(token) ? (
             <button
               type="button"
               onClick={requestLogout}
@@ -5263,6 +5288,24 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </svg>
               {lang==="el"?"Αποσύνδεση":"Log out"}
             </button>
+            ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              <Link
+                to={`${APP_ROUTE}/auth?mode=login`}
+                className="hm-btn hm-btn--primary hm-btn--block"
+                style={{ textAlign: "center", textDecoration: "none" }}
+              >
+                {lang === "el" ? "Σύνδεση" : "Sign in"}
+              </Link>
+              <Link
+                to={`${APP_ROUTE}/auth?mode=signup`}
+                className="hm-btn hm-btn--ghost hm-btn--block"
+                style={{ textAlign: "center", textDecoration: "none" }}
+              >
+                {lang === "el" ? "Εγγραφή" : "Sign up"}
+              </Link>
+            </div>
+            )}
           </AppTabPageShell>
         )}
 
@@ -6105,22 +6148,22 @@ function AppLoadingShell({ lang }: { lang?: string }) {
   );
 }
 
-function ensureLocalDemoToken(): string | null {
-  if (!isBrowserLocalHost()) return null
-  const existing = getAuthToken()
-  if (existing) return existing
-  const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el")
-  const profile: Profile = { name: "Mama", childName: "", childAge: "", lang }
-  setAuthToken(LOCAL_DEMO_TOKEN)
-  localStorage.setItem(sk(LOCAL_DEMO_TOKEN, "profile"), JSON.stringify(profile))
-  return LOCAL_DEMO_TOKEN
+/** Real session only — local demo tokens are cleared so /app shows sign-in/sign-up. */
+function resolveAppAuthToken(): string | null {
+  const existing = getAuthToken();
+  if (!existing) return null;
+  if (isLocalDemoToken(existing)) {
+    clearAuthToken();
+    return null;
+  }
+  return existing;
 }
 
 export default function App() {
-  const [token, setToken] = useState<string|null>(() => getAuthToken() || ensureLocalDemoToken());
+  const [token, setToken] = useState<string|null>(() => resolveAppAuthToken());
   const [resetToken, setResetToken] = useState<string>(() => new URLSearchParams(window.location.search).get("reset") || "");
   const [profile, setProfile] = useState<Profile|null>(()=>{
-    const tk=getAuthToken() || ensureLocalDemoToken(); if(!tk)return null;
+    const tk=resolveAppAuthToken(); if(!tk)return null;
     try{
       const stableRaw = localStorage.getItem(sk(tk,"profile"));
       if (stableRaw) return JSON.parse(stableRaw);
@@ -6128,7 +6171,7 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(() => (isLocalDemoToken(getAuthToken()) ? true : null));
+  const [subActive, setSubActive] = useState<boolean|null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
@@ -6138,22 +6181,10 @@ export default function App() {
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
     if (isLocalDemoToken(token)) {
+      clearAuthToken();
+      setToken(null);
+      setProfile(null);
       setMustChangePassword(false);
-      setSubActive(true);
-      try {
-        const raw = localStorage.getItem(sk(token, "profile"));
-        if (raw) setProfile(JSON.parse(raw) as Profile);
-        else {
-          const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
-          const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
-          localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
-          setProfile(p);
-        }
-      } catch {
-        const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el");
-        const p: Profile = { name: "Mama", childName: "", childAge: "", lang };
-        setProfile(p);
-      }
       return;
     }
     const cached = (() => {
@@ -6221,7 +6252,7 @@ export default function App() {
 
   useEffect(() => {
     if (!token) { setSubActive(null); setTrialEndsAt(null); return; }
-    if (isLocalDemoToken(token)) { setSubActive(true); setTrialEndsAt(null); return; }
+    if (isLocalDemoToken(token)) { setSubActive(null); setTrialEndsAt(null); return; }
     let cancelled = false;
     axios.get(`${API}/auth/status`, { headers: { "x-token": token } })
       .then(res => {
