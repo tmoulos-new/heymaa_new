@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronsLeft,
+  CreditCard,
   Database,
   Globe2,
   LayoutDashboard,
@@ -12,10 +13,12 @@ import {
   MousePointerClick,
   Bot,
   BookOpen,
+  Receipt,
   RefreshCw,
   ScrollText,
   Trophy,
   Users,
+  Wallet,
   Wrench,
 } from 'lucide-react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -28,12 +31,15 @@ import { UsersTab } from '../tabs/UsersTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { LevelsTab } from '../tabs/LevelsTab'
+import { PlansTab } from '../tabs/PlansTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
 import { UserDataTab } from '../tabs/UserDataTab'
 import { UserActivityLogTab } from '../tabs/UserActivityLogTab'
 import { ChatPromptTab } from '../tabs/ChatPromptTab'
 import { RagSourcesTab } from '../tabs/RagSourcesTab'
+import { LlmTransactionsTab } from '../tabs/LlmTransactionsTab'
+import { UserFinancialsTab } from '../tabs/UserFinancialsTab'
 import { SidebarUser } from './SidebarUser'
 
 const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
@@ -42,12 +48,15 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
   { id: 'regions', icon: Globe2, tip: 'Regions' },
   { id: 'levels', icon: Trophy, tip: 'Levels' },
+  { id: 'plans', icon: CreditCard, tip: 'Plans' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
   { id: 'users', icon: Users, tip: 'Users' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
   { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
   { id: 'chatprompt', icon: Bot, tip: 'Chat Prompt' },
+  { id: 'llmtransactions', icon: Receipt, tip: 'LLM Transactions' },
+  { id: 'userfinancials', icon: Wallet, tip: 'User Financials' },
   { id: 'activity', icon: ScrollText, tip: 'Admin Activity' },
   { id: 'tools', icon: Wrench, tip: 'Tools' },
 ]
@@ -161,7 +170,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' ? ' main-wide' : ''}`}>
+        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' || tab === 'llmtransactions' || tab === 'userfinancials' ? ' main-wide' : ''}`}>
           <Routes>
             <Route
               index
@@ -174,6 +183,7 @@ export function AdminShell() {
             <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
             <Route path="levels" element={<LevelsTab key={`lv-${refreshKey}`} />} />
+            <Route path="plans" element={<PlansTab key={`pl-${refreshKey}`} />} />
             <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
             <Route path="sources" element={<RagSourcesTab key={`rs-${refreshKey}`} />} />
             <Route
@@ -183,6 +193,14 @@ export function AdminShell() {
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
             <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />
             <Route path="chat-prompt" element={<ChatPromptTab key={`cp-${refreshKey}`} />} />
+            <Route
+              path="llm-transactions"
+              element={<LlmTransactionsTab key={`lt-${refreshKey}`} />}
+            />
+            <Route
+              path="user-financials"
+              element={<UserFinancialsTab key={`uf-${refreshKey}`} />}
+            />
             <Route path="activity-log" element={<ActivityLogTab key={`al-${refreshKey}`} />} />
             <Route path="tools" element={<ToolsTab key={`to-${refreshKey}`} onSeeded={refreshAll} />} />
             <Route path="*" element={<Navigate to="/" replace />} />

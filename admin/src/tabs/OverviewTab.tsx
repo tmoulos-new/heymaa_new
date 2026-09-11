@@ -7,8 +7,10 @@ import {
   RefreshCw,
   Save,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
+import { pathForTab } from '../lib/constants'
 import type { ProviderStatus } from '../lib/types'
 
 type UsageState = {
@@ -42,6 +44,9 @@ type UsageState = {
   note?: string
   replicate_configured?: boolean
   key_rotated?: boolean
+  tx_total?: number
+  tx_total_cost_usd?: number
+  tx_table_ready?: boolean
 }
 
 const PROVIDER_ORDER = ['replicate', 'gemini', 'resend', 'groq', 'claude'] as const
@@ -67,6 +72,7 @@ function providerDot(ok: boolean | undefined, idle: boolean) {
 
 export function OverviewTab({ userCount }: { userCount: number | null }) {
   const { adminFetch } = useAdmin()
+  const navigate = useNavigate()
   const { show } = useFlashMessage()
   const [health, setHealth] = useState<Record<string, ProviderStatus | string> | null>(null)
   const [healthErr, setHealthErr] = useState(false)
@@ -76,6 +82,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const [dailyInput, setDailyInput] = useState('')
   const [monthlyInput, setMonthlyInput] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const goToTransactions = () => navigate(pathForTab('llmtransactions'))
 
   const loadHealth = useCallback(async () => {
     setHealthErr(false)
@@ -231,11 +239,81 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card card-clickable" onClick={goToTransactions} role="link" tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              goToTransactions()
+            }
+          }}
+        >
           <div className="card-head">
             <h2>
               <BarChart3 size={16} className="h-icon" /> Usage
             </h2>
+            <button
+              type="button"
+              className="sec sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                goToTransactions()
+              }}
+            >
+              View transactions
+            </button>
+          </div>
+          <div className="grid-3">
+            <div
+              className="stat stat-link teal"
+              onClick={(e) => {
+                e.stopPropagation()
+                goToTransactions()
+              }}
+              role="link"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  goToTransactions()
+                }
+              }}
+            >
+              <div className="n">{usage?.tx_total ?? usage?.total_calls ?? '…'}</div>
+              <div className="l">Total transactions</div>
+              <div className="meta">Click to open ledger</div>
+            </div>
+            <div
+              className="stat stat-link coral"
+              onClick={(e) => {
+                e.stopPropagation()
+                goToTransactions()
+              }}
+              role="link"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  goToTransactions()
+                }
+              }}
+            >
+              <div className="n">
+                {money(
+                  usage?.tx_table_ready ? usage?.tx_total_cost_usd : usage?.estimated_cost_usd,
+                  3,
+                )}
+              </div>
+              <div className="l">Total cost</div>
+              <div className="meta">
+                {usage?.tx_table_ready ? 'From llm_transactions' : 'Est. tracked'}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="n">{money(usage?.day_cost_usd, 3)}</div>
+              <div className="l">Spend today</div>
+            </div>
           </div>
           <div className="grid-3">
             {chatModels.map((row) => (
@@ -259,7 +337,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </div>
             <div className="stat">
               <div className="n">{money(usage?.estimated_cost_usd, 3)}</div>
-              <div className="l">Est. total tracked</div>
+              <div className="l">Est. aggregate tracked</div>
             </div>
           </div>
           {usage && (
@@ -272,6 +350,12 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
                 <>
                   <br />
                   Legacy fallback: Groq {usage.calls.groq || 0} · Claude {usage.calls.claude || 0}
+                </>
+              ) : null}
+              {!usage.tx_table_ready ? (
+                <>
+                  <br />
+                  Run <code>llm_transactions.sql</code> to enable the per-call ledger.
                 </>
               ) : null}
             </p>

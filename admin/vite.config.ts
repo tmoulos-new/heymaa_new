@@ -10,6 +10,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/invite-codes',
   '/admin/regions',
   '/admin/levels',
+  '/admin/plans',
   '/admin/content',
   '/admin/sources',
   '/admin/users',
@@ -18,6 +19,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/tools',
   '/admin/activity-log',
   '/admin/chat-prompt',
+  '/admin/llm-transactions',
 ])
 
 function adminApiBypass(req: { method?: string; headers?: { accept?: string }; url?: string }) {
@@ -42,7 +44,7 @@ export default defineConfig({
         target: API_TARGET,
         changeOrigin: true,
       },
-      '^/admin/(health|me|usage|credits|invite_tester|upload|offers|promotions|regions|levels|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
+      '^/admin/(health|me|usage|credits|llm_transactions|invite_tester|upload|offers|promotions|regions|levels|plans|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
         target: API_TARGET,
         changeOrigin: true,
         bypass: adminApiBypass,

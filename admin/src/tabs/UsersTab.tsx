@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react'
-import { ChevronRight, CalendarClock, RefreshCw, Search, Shield, ShieldOff, Star, Users, X } from 'lucide-react'
+import { ChevronRight, CalendarClock, MessageCircle, RefreshCw, Search, Shield, ShieldOff, Star, Users, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel, useFlashMessage } from '../components/ui'
+import { ChatAsUserModal } from '../components/ChatAsUserModal'
 import { PointsProgressChart } from '../components/PointsProgressChart'
 import { apiDetail } from '../lib/api'
 import { pathForTab } from '../lib/constants'
@@ -81,6 +82,7 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
   const [err, setErr] = useState(false)
   const [apiError, setApiError] = useState('')
   const [inviteOnlyCount, setInviteOnlyCount] = useState(0)
+  const [llmTotalCost, setLlmTotalCost] = useState(0)
   const [passwordTarget, setPasswordTarget] = useState<UserRow | null>(null)
   const [tempPassword, setTempPassword] = useState('')
   const [requirePasswordChange, setRequirePasswordChange] = useState(true)
@@ -92,6 +94,7 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
   const [trialTarget, setTrialTarget] = useState<UserRow | null>(null)
   const [trialEndsInput, setTrialEndsInput] = useState('')
   const [savingTrial, setSavingTrial] = useState(false)
+  const [chatAsTarget, setChatAsTarget] = useState<UserRow | null>(null)
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -104,6 +107,8 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
       onCount(list.length)
       if (typeof d.error === 'string' && d.error) setApiError(d.error)
       if (typeof d.invite_only_count === 'number') setInviteOnlyCount(d.invite_only_count)
+      if (typeof d.llm_total_cost_usd === 'number') setLlmTotalCost(d.llm_total_cost_usd)
+      else setLlmTotalCost(0)
     } catch {
       setErr(true)
     } finally {
@@ -314,9 +319,17 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
         <h2>
           <Users size={16} className="h-icon" /> Users
         </h2>
-        <button type="button" className="sec sm" onClick={() => void loadUsers()}>
-          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
-        </button>
+        <div className="card-head-actions">
+          <div className="users-total-cost" title="Total estimated LLM spend across all transactions">
+            <span className="users-total-cost-label">TOTAL COST</span>
+            <span className="users-total-cost-value">
+              ${Number(llmTotalCost || 0).toFixed(4)}
+            </span>
+          </div>
+          <button type="button" className="sec sm" onClick={() => void loadUsers()}>
+            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+          </button>
+        </div>
       </div>
       {Message}
       {apiError && <div className="msg err">{apiError}</div>}
@@ -345,11 +358,12 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
           const last = u.last_login ? new Date(u.last_login).toLocaleDateString() : 'never'
           const trialEnd = u.trial_ends_at ? new Date(u.trial_ends_at).toLocaleDateString() : ''
           const isAuthOnly = u.account_kind === 'auth_only' || u.subscription_status === 'auth_only'
+          const packageName = (u.package || u.plan || 'trial').toString()
           const planBadge = isAuthOnly
             ? '#8A8A8A'
-            : u.plan === 'premium'
+            : packageName === 'premium' || packageName === 'annual'
               ? '#7C5CBF'
-              : u.plan === 'starter'
+              : packageName === 'starter'
                 ? '#2B3A67'
                 : '#2D9E6B'
           const statusInfo = isAuthOnly
@@ -370,6 +384,12 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
           const txCounts = u.transaction_counts || {}
           const totalPoints = typeof u.total_points === 'number' ? u.total_points : null
           const levelLabel = u.level_name_en || u.level_name_el
+          const llmTx = u.llm_tx_count || 0
+          const llmCost = u.llm_cost_usd || 0
+          const llmTxRemaining = u.llm_tx_remaining
+          const llmCostRemaining = u.llm_cost_remaining_usd
+          const llmTxLimit = u.llm_tx_limit
+          const llmCostLimit = u.llm_cost_limit_usd
           return (
             <div
               key={u.id}
@@ -386,7 +406,7 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             >
               <div className="t">
                 <span className="badge" style={{ background: planBadge }}>
-                  {isAuthOnly ? 'auth only' : u.plan || 'trial'}
+                  {isAuthOnly ? 'auth only' : packageName}
                 </span>
                 {isAdmin && (
                   <span className="badge" style={{ background: '#C45B28', marginLeft: 6 }}>
@@ -402,6 +422,8 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
               </div>
               <div className="b">
                 {u.name ? `${u.name} · ` : ''}
+                Package: <strong style={{ textTransform: 'capitalize' }}>{isAuthOnly ? '—' : packageName}</strong>
+                {' · '}
                 {statusInfo} · joined {since} · last login {last}
                 {grantSummary ? ` · grants: ${grantSummary}` : ''}
                 {(u.pending_rewards || 0) > 0 ? ` · ${u.pending_rewards} gift(s) pending` : ''}
@@ -411,6 +433,14 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                   {!isAuthOnly && totalPoints !== null && (
                     <span className="list-item-stat points">
                       {totalPoints} pts{levelLabel ? ` · ${levelLabel}` : ''}
+                    </span>
+                  )}
+                  {!isAuthOnly && (
+                    <span
+                      className="list-item-stat llm-cost"
+                      title="Total LLM cost for this user"
+                    >
+                      {llmTx} txs · ${Number(llmCost).toFixed(4)}
                     </span>
                   )}
                   {summaryItems.map((item) => {
@@ -434,7 +464,34 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                       {totalPoints} pts{levelLabel ? ` · ${levelLabel}` : ''}
                     </span>
                   ) : null}
+                  {!isAuthOnly ? (
+                    <span className="list-item-stat llm-cost" style={{ marginRight: 6 }}>
+                      {llmTx} txs · ${Number(llmCost).toFixed(4)}
+                    </span>
+                  ) : null}
                   No saved app data yet
+                </div>
+              )}
+              {!isAuthOnly && (
+                <div className="user-llm-total-cost">
+                  Used <strong>${Number(llmCost).toFixed(4)}</strong>
+                  <span className="muted"> · {llmTx} LLM transaction{llmTx === 1 ? '' : 's'}</span>
+                  <span className="user-llm-remaining">
+                    {' · '}Remaining txs:{' '}
+                    <strong>
+                      {llmTxRemaining == null
+                        ? '∞'
+                        : `${llmTxRemaining}${llmTxLimit != null ? ` / ${llmTxLimit}` : ''}`}
+                    </strong>
+                    {' · '}Remaining cost:{' '}
+                    <strong>
+                      {llmCostRemaining == null
+                        ? '∞'
+                        : `$${Number(llmCostRemaining).toFixed(4)}${
+                            llmCostLimit != null ? ` / $${Number(llmCostLimit).toFixed(4)}` : ''
+                          }`}
+                    </strong>
+                  </span>
                 </div>
               )}
               <div className="foot">
@@ -450,6 +507,27 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                   <ChevronRight size={14} />
                 </button>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={stopRowClick}>
+                  {!isAuthOnly && (
+                    <button
+                      type="button"
+                      className="sec sm"
+                      onClick={() =>
+                        navigate(`${pathForTab('llmtransactions')}?user_id=${encodeURIComponent(u.id)}`)
+                      }
+                    >
+                      LLM txs ({llmTx})
+                    </button>
+                  )}
+                  {!isAuthOnly && (
+                    <button
+                      type="button"
+                      className="sec sm"
+                      onClick={() => setChatAsTarget(u)}
+                    >
+                      <MessageCircle size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                      Chat like user
+                    </button>
+                  )}
                   {!isAuthOnly && (
                     <button
                       type="button"
@@ -681,6 +759,9 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             </>
           )}
         </Modal>
+      )}
+      {chatAsTarget && (
+        <ChatAsUserModal user={chatAsTarget} onClose={() => setChatAsTarget(null)} />
       )}
     </div>
   )

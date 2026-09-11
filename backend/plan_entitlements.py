@@ -50,6 +50,60 @@ def resolve_plan_slot(
     return "trial"
 
 
+# Canonical plan catalog ids (FK → public.plans.id), matching home pricing variants.
+PLAN_IDS = ("trial", "starter", "premium", "annual")
+
+# Default per-user LLM quotas when plans.tx_limit / tx_cost_limit_usd are unset.
+DEFAULT_PLAN_TX_LIMITS: dict[str, tuple[int, float]] = {
+    "trial": (100, 1.0),
+    "starter": (500, 5.0),
+    "premium": (2000, 20.0),
+    "annual": (5000, 50.0),
+}
+
+
+def plan_id_from_name(
+    plan: Optional[str],
+    subscription_status: Optional[str] = None,
+    *,
+    is_trial: bool = False,
+) -> str:
+    """Map legacy users.plan text / checkout key → plans.id."""
+    slot = resolve_plan_slot(plan, subscription_status, is_trial=is_trial)
+    return slot if slot in PLAN_IDS else "trial"
+
+
+def with_plan_id(fields: dict[str, Any], *, subscription_status: Optional[str] = None) -> dict[str, Any]:
+    """Ensure a users write payload includes plan_id when plan is set."""
+    out = dict(fields)
+    if "plan" in out and "plan_id" not in out:
+        out["plan_id"] = plan_id_from_name(
+            out.get("plan"),
+            subscription_status if subscription_status is not None else out.get("subscription_status"),
+        )
+    return out
+
+
+def resolve_plan_tx_limits(
+    plan_id: Optional[str],
+    *,
+    tx_limit: Any = None,
+    tx_cost_limit_usd: Any = None,
+) -> tuple[Optional[int], Optional[float]]:
+    """Return (tx_limit, cost_limit). Falls back to DEFAULT_PLAN_TX_LIMITS when DB null."""
+    pid = plan_id_from_name(plan_id)
+    defaults = DEFAULT_PLAN_TX_LIMITS.get(pid, DEFAULT_PLAN_TX_LIMITS["trial"])
+    if tx_limit is None:
+        out_tx: Optional[int] = int(defaults[0])
+    else:
+        out_tx = max(0, int(tx_limit))
+    if tx_cost_limit_usd is None:
+        out_cost: Optional[float] = float(defaults[1])
+    else:
+        out_cost = max(0.0, float(tx_cost_limit_usd))
+    return out_tx, round(out_cost, 6)
+
+
 def plan_entitlements(plan_slot: str) -> dict[str, Any]:
     quota = VOICE_LISTEN_QUOTA_BY_PLAN.get(plan_slot, VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     # Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts

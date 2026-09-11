@@ -1329,28 +1329,54 @@ def _fetch_active_promotions_filtered(lang: str) -> list:
     return filtered
 
 def get_embedding(text):
-    r = requests.post(
-        EMBED_URL,
-        json={"model": "models/gemini-embedding-001", "content": {"parts": [{"text": (text or "")[:800]}]}},
-        timeout=5,
-    )
-    r.raise_for_status()
+    import time as _time
+
+    snippet = (text or "")[:800]
+    t0 = _time.perf_counter()
+    err = None
+    values = None
     try:
-        try:
-            from .llm_usage import bump_embed_calls
-        except ImportError:
-            from llm_usage import bump_embed_calls
-        bump_embed_calls()
+        r = requests.post(
+            EMBED_URL,
+            json={"model": "models/gemini-embedding-001", "content": {"parts": [{"text": snippet}]}},
+            timeout=5,
+        )
+        r.raise_for_status()
+        values = r.json()["embedding"]["values"]
+    except Exception as e:
+        err = str(e)
+    latency_ms = round((_time.perf_counter() - t0) * 1000, 1)
+    try:
+        wrapper = _get_llm_wrapper()
+        wrapper.record_embed_sync(
+            ok=values is not None,
+            model="gemini-embedding-001",
+            latency_ms=latency_ms,
+            input_chars=len(snippet),
+            output_dim=len(values) if values is not None else None,
+            error_msg=err,
+        )
     except Exception:
         pass
-    return r.json()["embedding"]["values"]
+    if values is None:
+        raise RuntimeError(err or "embedding failed")
+    return values
 
-def retrieve_context(query, top_k=3, threshold=0.28):
-    """Hybrid-ready vector retrieval over rag_chunks (includes URL sources)."""
+def retrieve_context(query, top_k=3, threshold=0.28, *, with_timing: bool = False):
+    """Hybrid-ready vector retrieval over rag_chunks (includes URL sources).
+
+    When with_timing=True, returns (chunks, timing_dict) instead of chunks only.
+    """
+    import time as _time
+
+    timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": False, "error": None}
     if not sb:
-        return []
+        return ([], timing) if with_timing else []
     try:
+        t0 = _time.perf_counter()
         emb = get_embedding(query)
+        timing["embed_ms"] = round((_time.perf_counter() - t0) * 1000, 1)
+        t1 = _time.perf_counter()
         result = sb.rpc(
             "match_chunks",
             {
@@ -1359,18 +1385,41 @@ def retrieve_context(query, top_k=3, threshold=0.28):
                 "match_threshold": threshold,
             },
         ).execute()
+        timing["match_ms"] = round((_time.perf_counter() - t1) * 1000, 1)
         rows = result.data or []
-        # Prefer chunks from ready/enabled sources when metadata is present
         filtered = []
         for row in rows:
-            meta = row.get("metadata") or {}
-            # Drop empty content
             if not (row.get("content") or "").strip():
                 continue
             filtered.append(row)
-        return filtered
-    except Exception:
-        return []
+        timing["ok"] = True
+        return (filtered, timing) if with_timing else filtered
+    except Exception as e:
+        timing["error"] = str(e)[:200]
+        return ([], timing) if with_timing else []
+
+
+def _serialize_rag_matches(chunks: list) -> list:
+    out = []
+    for c in chunks or []:
+        meta = c.get("metadata") or {}
+        sim = c.get("similarity")
+        try:
+            sim_f = round(float(sim), 4) if sim is not None else None
+        except (TypeError, ValueError):
+            sim_f = None
+        content = (c.get("content") or "").strip()
+        out.append(
+            {
+                "similarity": sim_f,
+                "title": meta.get("title") or meta.get("source_title") or "?",
+                "source_url": meta.get("source_url") or meta.get("url"),
+                "source_id": meta.get("source_id") or c.get("source_id"),
+                "content_preview": content[:280],
+                "content_chars": len(content),
+            }
+        )
+    return out
 
 def build_rag_context(chunks):
     if not chunks:
@@ -2202,11 +2251,13 @@ def _build_attachment_context(message: str, attachments) -> str:
 
 async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
     from groq import Groq
+    # Legacy llama-3.x / gemma2 IDs were decommissioned on Groq (2026).
     model_candidates = (
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.6-27b",
         "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
         "llama-3.1-8b-instant",
-        "gemma2-9b-it",
     )
 
     def _run():
@@ -2242,11 +2293,11 @@ async def call_groq(message, history, system_prompt, api_key: str, history_limit
     return await asyncio.to_thread(_run)
 
 async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
-    # Gemini 2.0 / 1.5 were shut down in 2026; call generateContent over REST.
+    # Gemini 2.x / early 2.5 IDs are unavailable to new keys; prefer 3.x flash family.
     model_candidates = (
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash-lite",
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
         "gemini-flash-latest",
     )
 
@@ -2284,11 +2335,10 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
         return text
 
     def _generation_config():
-        # 2.5 Flash uses internal "thinking" tokens; disable for fast chat replies.
+        # Avoid thinkingConfig — newer Gemini 3.x models reject thinkingBudget:0.
         return {
-            "maxOutputTokens": _CHAT_MAX_TOKENS,
+            "maxOutputTokens": max(int(_CHAT_MAX_TOKENS or 1024), 1024),
             "temperature": 0.6,
-            "thinkingConfig": {"thinkingBudget": 0},
         }
 
     def _run():
@@ -2304,9 +2354,12 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
                 f"{model_name}:generateContent?key={api_key}"
             )
             try:
-                r = requests.post(url, json=body, timeout=45)
+                r = requests.post(url, json=body, timeout=60)
                 err_txt = (r.text or "")[:300]
-                if r.status_code == 404 or (r.status_code == 400 and "not found" in err_txt.lower()):
+                if r.status_code == 404 or (
+                    r.status_code == 400
+                    and any(x in err_txt.lower() for x in ("not found", "no longer available", "invalid argument"))
+                ):
                     last_err = RuntimeError(f"{model_name}: {err_txt}")
                     continue
                 if r.status_code == 429:
@@ -2319,7 +2372,7 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
-                if any(x in msg for x in ("429", "quota", "rate", "not found", "404", "400")):
+                if any(x in msg for x in ("429", "quota", "rate", "not found", "404", "400", "timeout")):
                     continue
                 raise
         raise RuntimeError(f"gemini all models failed: {last_err}")
@@ -2518,6 +2571,22 @@ class LevelUpdate(BaseModel):
     min_points: Optional[int] = None
     name_el: Optional[str] = None
     name_en: Optional[str] = None
+
+
+class PlanUpdate(BaseModel):
+    name: Optional[str] = None
+    price_label: Optional[str] = None
+    period_label: Optional[str] = None
+    badge: Optional[str] = None
+    icon: Optional[str] = None
+    sort_order: Optional[int] = None
+    featured: Optional[bool] = None
+    active: Optional[bool] = None
+    voice_listen_quota: Optional[int] = None
+    tx_count: Optional[int] = None
+    tx_cost_usd: Optional[float] = None
+    tx_limit: Optional[int] = None
+    tx_cost_limit_usd: Optional[float] = None
 
 class RagSourceUpdate(BaseModel):
     title: Optional[str] = None
@@ -2802,7 +2871,7 @@ def _probe_llm_providers() -> dict:
             if name == "groq":
                 from groq import Groq
                 Groq(api_key=key).chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="openai/gpt-oss-20b",
                     messages=[{"role": "user", "content": "hi"}],
                     max_tokens=8,
                 )
@@ -2954,6 +3023,7 @@ def register_user(req: RegisterRequest):
             'email': email,
             'name': req.name,
             'plan': 'trial',
+            'plan_id': 'trial',
             'subscription_status': 'trial',
             'trial_ends_at': trial_ends,
             'invite_code': invite_code,
@@ -3319,113 +3389,203 @@ def _entitlements_for_token(x_token: str) -> dict:
     return ent
 
 
-@app.post("/chat")
-async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
-    verify_token(x_token)
-    if not check_subscription(x_token):
-        raise HTTPException(status_code=402, detail="Subscription expired")
+async def _run_chat_core(
+    req: ChatRequest,
+    *,
+    entitlements: dict,
+    promo: Optional[dict] = None,
+    include_debug: bool = False,
+    user_id: Optional[str] = None,
+) -> dict:
+    """Shared /chat pipeline (RAG + LLM). Caller handles auth / subscription."""
+    import time as _time
+    import uuid as _uuid
+
+    t_total0 = _time.perf_counter()
+    timing: dict = {}
+    request_id = str(_uuid.uuid4())
+    chat_context_limit = int(entitlements.get("chat_context_messages") or 20)
+    memory_context_limit = int(entitlements.get("memory_context_count") or 10)
+    milestone_context_limit = int(entitlements.get("milestone_context_count") or 10)
     try:
-        entitlements = _entitlements_for_token(x_token)
-        chat_context_limit = int(entitlements.get("chat_context_messages") or 20)
-        memory_context_limit = int(entitlements.get("memory_context_count") or 10)
-        milestone_context_limit = int(entitlements.get("milestone_context_count") or 10)
+        try:
+            from .llm_usage import reset_embed_calls
+        except ImportError:
+            from llm_usage import reset_embed_calls
+        reset_embed_calls()
+    except Exception:
+        pass
+    complex_query = is_complex(req.message)
+    try:
+        try:
+            from .evaluator import evaluate_rag_need
+        except ImportError:
+            from evaluator import evaluate_rag_need
+        evaluator = evaluate_rag_need(
+            req.message,
+            has_attachments=bool(req.attachments),
+            profile_lang=(req.profile.lang if req.profile else None),
+        )
+    except Exception as e:
+        evaluator = {
+            "needs_rag": True,
+            "confidence": 0.0,
+            "reason": "evaluator_error",
+            "reason_label": f"Evaluator error — defaulting to RAG ({e})",
+            "signals": [],
+            "elapsed_ms": 0,
+            "tool": "evaluator",
+        }
+    timing["evaluator_ms"] = evaluator.get("elapsed_ms", 0)
+    needs_rag = bool(evaluator.get("needs_rag", True))
+
+    t_rag0 = _time.perf_counter()
+    rag_chunks: list = []
+    rag_timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
+    if needs_rag:
+        if include_debug:
+            rag_chunks, rag_timing = await asyncio.to_thread(
+                retrieve_context, req.message, with_timing=True
+            )
+            timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
+            timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
+            if rag_timing.get("error"):
+                timing["rag_error"] = rag_timing["error"]
+        else:
+            rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
+    else:
+        timing["rag_embed_ms"] = 0
+        timing["rag_match_ms"] = 0
+        timing["rag_skipped"] = True
+        rag_timing["skipped"] = True
+    timing["rag_total_ms"] = round((_time.perf_counter() - t_rag0) * 1000, 1)
+    rag_matches = _serialize_rag_matches(rag_chunks) if include_debug else None
+    rag_context = build_rag_context(rag_chunks)
+    t_ctx0 = _time.perf_counter()
+    family_context = build_profile_context(req.profile)
+    memories_context = ""
+    if req.recentMemories:
+        mem_lines = []
+        for m in req.recentMemories[:memory_context_limit]:
+            line = m.text
+            if m.date:
+                line += f" ({m.date})"
+            if m.ref:
+                line += f" [re: {m.ref}]"
+            mem_lines.append(line)
+        memories_context = "\n".join(mem_lines)
+    milestones_context = ""
+    if req.recentMilestones:
+        ms_lines = []
+        for m in req.recentMilestones[:milestone_context_limit]:
+            line = m.label
+            if m.ref:
+                line += f" [re: {m.ref}]"
+            if m.stageId:
+                line += f" ({m.stageId})"
+            ms_lines.append(line)
+        milestones_context = "\n".join(ms_lines)
+    docs_context = ""
+    if req.recentDocs:
+        doc_lines = []
+        for d in req.recentDocs[:10]:
+            line = d.title
+            if d.category:
+                line += f" [{d.category}]"
+            if d.date:
+                line += f" ({d.date})"
+            if d.ref:
+                line += f" — ref: {d.ref}"
+            doc_lines.append(line)
+        docs_context = "\n".join(doc_lines)
+    promotion_context = ""
+    if promo:
+        promotion_context = promo.get("body", "") or ""
+        if promo.get("link"):
+            promotion_context += f" {promo['link']}"
+    system_prompt = build_system_prompt(
+        rag_context,
+        family_context,
+        memories_context,
+        docs_context,
+        promotion_context,
+        milestones_context,
+    )
+    timing["context_build_ms"] = round((_time.perf_counter() - t_ctx0) * 1000, 1)
+    profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
+    message_for_llm = _build_attachment_context(req.message, req.attachments)
+    msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
+    image_parts = _attachment_image_parts(req.attachments)
+    errors = []
+    _prov_keys = _llm_api_keys()
+    replicate_key = _prov_keys.get("replicate", "")
+    provider_mode = _llm_provider_mode(replicate_key)
+    llm_meta: dict = {}
+    llm_tx_ids: list = []
+    wrapper = _get_llm_wrapper()
+    input_chars = len(message_for_llm or req.message or "")
+
+    def _chat_success(reply: str, provider: str):
+        t_post0 = _time.perf_counter()
+        promo_data = None
+        if promo:
+            promo_data = {
+                "title": promo.get("title", ""),
+                "body": promo.get("body", ""),
+                "link": promo.get("link"),
+                "badge": promo.get("badge", "sponsored"),
+                "cta": promo.get("cta"),
+            }
+        memory_suggestion = None
+        try:
+            from memory_suggestions import detect_memory_suggestion
+            memory_suggestion = detect_memory_suggestion(
+                req.message,
+                profile=req.profile,
+                recent_memories=req.recentMemories,
+                lang=msg_lang or profile_lang or "el",
+            )
+        except Exception:
+            memory_suggestion = None
+        timing["post_ms"] = round((_time.perf_counter() - t_post0) * 1000, 1)
+        timing["total_ms"] = round((_time.perf_counter() - t_total0) * 1000, 1)
+        out = {
+            "reply": reply,
+            "provider": provider,
+            "promo": promo_data,
+            "memory_suggestion": memory_suggestion,
+        }
+        if include_debug:
+            out["timing"] = {
+                **timing,
+                "llm_predict_time_s": llm_meta.get("predict_time_s"),
+                "provider_mode": provider_mode,
+                "failover_errors": list(errors) if errors else [],
+            }
+            out["matches"] = rag_matches or []
+            out["evaluator"] = evaluator
+            out["debug"] = {
+                "complex_query": complex_query,
+                "msg_lang": msg_lang or profile_lang or "",
+                "history_len": len(req.history or []),
+                "memories_used": len(req.recentMemories or []),
+                "docs_used": len(req.recentDocs or []),
+                "system_prompt_chars": len(system_prompt or ""),
+                "rag_context_chars": len(rag_context or ""),
+                "needs_rag": needs_rag,
+                "request_id": request_id,
+                "llm_transaction_ids": list(llm_tx_ids),
+            }
+        return out
+
+    if provider_mode != "legacy" and replicate_key:
         try:
             try:
-                from .llm_usage import reset_embed_calls
+                from .replicate_chat import call_replicate_chat
             except ImportError:
-                from llm_usage import reset_embed_calls
-            reset_embed_calls()
-        except Exception:
-            pass
-        complex_query = is_complex(req.message)
-        rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
-        rag_context = build_rag_context(rag_chunks)
-        family_context = build_profile_context(req.profile)
-        memories_context = ""
-        if req.recentMemories:
-            mem_lines = []
-            for m in req.recentMemories[:memory_context_limit]:
-                line = m.text
-                if m.date: line += f" ({m.date})"
-                if m.ref: line += f" [re: {m.ref}]"
-                mem_lines.append(line)
-            memories_context = "\n".join(mem_lines)
-        milestones_context = ""
-        if req.recentMilestones:
-            ms_lines = []
-            for m in req.recentMilestones[:milestone_context_limit]:
-                line = m.label
-                if m.ref: line += f" [re: {m.ref}]"
-                if m.stageId: line += f" ({m.stageId})"
-                ms_lines.append(line)
-            milestones_context = "\n".join(ms_lines)
-        docs_context = ""
-        if req.recentDocs:
-            doc_lines = []
-            for d in req.recentDocs[:10]:
-                line = d.title
-                if d.category: line += f" [{d.category}]"
-                if d.date: line += f" ({d.date})"
-                if d.ref: line += f" — ref: {d.ref}"
-                doc_lines.append(line)
-            docs_context = "\n".join(doc_lines)
-        promo = match_promotion(x_token)
-        promotion_context = ""
-        if promo:
-            promotion_context = promo.get("body", "")
-            if promo.get("link"):
-                promotion_context += f" {promo['link']}"
-        system_prompt = build_system_prompt(
-            rag_context,
-            family_context,
-            memories_context,
-            docs_context,
-            promotion_context,
-            milestones_context,
-        )
-        profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
-        message_for_llm = _build_attachment_context(req.message, req.attachments)
-        msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
-        image_parts = _attachment_image_parts(req.attachments)
-        errors = []
-        _prov_keys = _llm_api_keys()
-        replicate_key = _prov_keys.get("replicate", "")
-        provider_mode = _llm_provider_mode(replicate_key)
+                from replicate_chat import call_replicate_chat
 
-        def _chat_success(reply: str, provider: str):
-            promo_data = None
-            if promo:
-                promo_data = {
-                    "title": promo.get("title", ""),
-                    "body": promo.get("body", ""),
-                    "link": promo.get("link"),
-                    "badge": promo.get("badge", "sponsored"),
-                    "cta": promo.get("cta"),
-                }
-            memory_suggestion = None
-            try:
-                from memory_suggestions import detect_memory_suggestion
-                memory_suggestion = detect_memory_suggestion(
-                    req.message,
-                    profile=req.profile,
-                    recent_memories=req.recentMemories,
-                    lang=msg_lang or profile_lang or "el",
-                )
-            except Exception:
-                memory_suggestion = None
-            return {
-                "reply": reply,
-                "provider": provider,
-                "promo": promo_data,
-                "memory_suggestion": memory_suggestion,
-            }
-
-        if provider_mode != "legacy" and replicate_key:
-            try:
-                try:
-                    from .replicate_chat import call_replicate_chat
-                except ImportError:
-                    from replicate_chat import call_replicate_chat
+            async def _replicate_call():
                 reply, model_slug, meta = await call_replicate_chat(
                     message_for_llm,
                     req.history,
@@ -3440,85 +3600,143 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
                     raise RuntimeError("replicate returned empty reply")
                 if not _is_usable_reply(reply):
                     raise RuntimeError(f"replicate returned unusable reply: {reply[:80]!r}")
-                _track_llm_usage(
-                    provider="replicate",
-                    ok=True,
-                    model=model_slug,
-                    predict_time_s=(meta or {}).get("predict_time_s"),
-                )
-                return _chat_success(reply, f"replicate:{model_slug}")
-            except Exception as e:
-                errors.append(f"replicate: {e}")
-                _track_llm_usage(provider="replicate", ok=False, error_msg=str(e))
-                if provider_mode == "replicate":
-                    joined = " | ".join(errors)
-                    low = joined.lower()
-                    if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
-                        _api_error(
-                            503,
-                            "llm_busy",
-                            "HeyMaa is busy right now. Please try again in a minute.",
-                            joined,
-                        )
+                return reply, model_slug, meta or {}
+
+            result = await wrapper.chat(
+                "replicate",
+                _replicate_call,
+                user_id=user_id,
+                request_id=request_id,
+                input_chars=input_chars,
+                fold_pending_embeds=False,
+            )
+            timing["llm_ms"] = result.latency_ms
+            timing["llm_cost_usd"] = result.cost_usd
+            timing["llm_transaction_id"] = result.transaction_id
+            llm_meta = dict(result.meta or {})
+            if result.transaction_id:
+                llm_tx_ids.append(result.transaction_id)
+            return _chat_success(result.text, f"replicate:{result.model}")
+        except Exception as e:
+            if "llm_ms" not in timing:
+                timing["llm_ms"] = round((_time.perf_counter() - t_total0) * 1000, 1)
+            errors.append(f"replicate: {e}")
+            if provider_mode == "replicate":
+                joined = " | ".join(errors)
+                low = joined.lower()
+                if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
                     _api_error(
                         503,
-                        "llm_failed",
-                        "HeyMaa could not answer right now. Please try again in a moment.",
+                        "llm_busy",
+                        "HeyMaa is busy right now. Please try again in a minute.",
                         joined,
                     )
+                _api_error(
+                    503,
+                    "llm_failed",
+                    "HeyMaa could not answer right now. Please try again in a moment.",
+                    joined,
+                )
 
-        if image_parts:
-            providers = ["gemini", "claude", "groq"]
-        elif msg_lang in GEMINI_FIRST_LANGS:
-            providers = ["gemini", "groq", "claude"]
-        elif complex_query:
-            providers = ["groq", "gemini", "claude"]
-        else:
-            providers = ["groq", "gemini", "claude"]
-        providers = [p for p in providers if _prov_keys.get(p)]
-        if image_parts and not any(p in providers for p in ("gemini", "claude")):
-            message_for_llm = (message_for_llm or "").strip()
-            if not message_for_llm:
-                message_for_llm = "The user sent an image but vision is unavailable. Ask them to describe it in text."
-        if not providers:
-            raise HTTPException(
-                status_code=503,
-                detail="No LLM providers configured (set REPLICATE_HEYMAA_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
-            )
-        for provider in providers:
-            try:
-                key = _prov_keys[provider]
-                if provider == "groq":
-                    reply = await call_groq(message_for_llm, req.history, system_prompt, key, history_limit=chat_context_limit)
-                    _track_llm_usage(provider="groq", ok=True)
-                elif provider == "gemini":
-                    reply = await call_gemini(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
-                    _track_llm_usage(provider="gemini", ok=True)
+    if image_parts:
+        providers = ["gemini", "claude", "groq"]
+    elif msg_lang in GEMINI_FIRST_LANGS:
+        providers = ["gemini", "groq", "claude"]
+    elif complex_query:
+        providers = ["groq", "gemini", "claude"]
+    else:
+        providers = ["groq", "gemini", "claude"]
+    providers = [p for p in providers if _prov_keys.get(p)]
+    if image_parts and not any(p in providers for p in ("gemini", "claude")):
+        message_for_llm = (message_for_llm or "").strip()
+        if not message_for_llm:
+            message_for_llm = "The user sent an image but vision is unavailable. Ask them to describe it in text."
+    if not providers:
+        raise HTTPException(
+            status_code=503,
+            detail="No LLM providers configured (set REPLICATE_HEYMAA_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
+        )
+    for provider in providers:
+        try:
+            key = _prov_keys[provider]
+
+            async def _legacy_call(p=provider, k=key):
+                if p == "groq":
+                    reply = await call_groq(
+                        message_for_llm, req.history, system_prompt, k, history_limit=chat_context_limit
+                    )
+                    model = "groq"
+                elif p == "gemini":
+                    reply = await call_gemini(
+                        message_for_llm,
+                        req.history,
+                        system_prompt,
+                        k,
+                        image_parts=image_parts or None,
+                        history_limit=chat_context_limit,
+                    )
+                    model = "gemini"
                 else:
-                    reply = await call_claude(message_for_llm, req.history, system_prompt, key, image_parts=image_parts or None, history_limit=chat_context_limit)
-                    _track_llm_usage(provider="claude", ok=True)
+                    reply = await call_claude(
+                        message_for_llm,
+                        req.history,
+                        system_prompt,
+                        k,
+                        image_parts=image_parts or None,
+                        history_limit=chat_context_limit,
+                    )
+                    model = "claude-haiku-4-5-20251001"
                 if not reply:
-                    raise RuntimeError(f"{provider} returned empty reply")
+                    raise RuntimeError(f"{p} returned empty reply")
                 if not _is_usable_reply(reply):
-                    raise RuntimeError(f"{provider} returned unusable reply: {reply[:80]!r}")
-                return _chat_success(reply, provider)
-            except Exception as e:
-                errors.append(f"{provider}: {e}")
-                continue
-        joined = " | ".join(errors)
-        low = joined.lower()
-        if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
-            _api_error(
-                503,
-                "llm_busy",
-                "HeyMaa is busy right now. Please try again in a minute.",
-                joined,
+                    raise RuntimeError(f"{p} returned unusable reply: {reply[:80]!r}")
+                return reply, model, {}
+
+            result = await wrapper.chat(
+                provider,
+                _legacy_call,
+                user_id=user_id,
+                request_id=request_id,
+                input_chars=input_chars,
+                fold_pending_embeds=False,
             )
+            timing["llm_ms"] = result.latency_ms
+            timing["llm_cost_usd"] = result.cost_usd
+            timing["llm_transaction_id"] = result.transaction_id
+            if result.transaction_id:
+                llm_tx_ids.append(result.transaction_id)
+            return _chat_success(result.text, provider)
+        except Exception as e:
+            errors.append(f"{provider}: {e}")
+            continue
+    joined = " | ".join(errors)
+    low = joined.lower()
+    if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
         _api_error(
             503,
-            "llm_failed",
-            "HeyMaa could not answer right now. Please try again in a moment.",
+            "llm_busy",
+            "HeyMaa is busy right now. Please try again in a minute.",
             joined,
+        )
+    _api_error(
+        503,
+        "llm_failed",
+        "HeyMaa could not answer right now. Please try again in a moment.",
+        joined,
+    )
+
+
+@app.post("/chat")
+async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
+    auth = resolve_auth(x_token)
+    if not check_subscription(x_token):
+        raise HTTPException(status_code=402, detail="Subscription expired")
+    try:
+        entitlements = _entitlements_for_token(x_token)
+        promo = match_promotion(x_token)
+        uid = auth.get("user_id") if auth.get("kind") != "invite" else None
+        return await _run_chat_core(
+            req, entitlements=entitlements, promo=promo, user_id=uid
         )
     except HTTPException:
         raise
@@ -3686,8 +3904,42 @@ async def admin_panel():
     return FileResponse(_admin_index_path(), media_type="text/html")
 
 import time as _time
-USAGE_LOG = {"replicate": 0, "groq": 0, "gemini": 0, "claude": 0, "since": _time.time()}
+USAGE_LOG = {"replicate": 0, "groq": 0, "gemini": 0, "claude": 0, "gemini_embed": 0, "since": _time.time()}
 COST_PER_CALL = {"replicate": 0.002, "groq": 0.0002, "gemini": 0.002, "claude": 0.0025}
+
+
+def _get_llm_wrapper():
+    """Shared LLMWrapper — every chat/embed API call records cost in llm_transactions."""
+    try:
+        try:
+            from .llm_wrapper import LLMWrapper, get_wrapper, set_default_wrapper
+        except ImportError:
+            from llm_wrapper import LLMWrapper, get_wrapper, set_default_wrapper
+
+        def _on_call(result):
+            try:
+                if result.provider in USAGE_LOG:
+                    USAGE_LOG[result.provider] += 1
+            except Exception:
+                pass
+
+        wrapper = get_wrapper()
+        # Refresh sb / notify config each time (sb may init after first import).
+        wrapper.sb = sb
+        wrapper.key_identity_fn = _replicate_token_identity
+        wrapper.on_call = _on_call
+        wrapper.notify = True
+        wrapper.resend_api_key = RESEND_API_KEY
+        wrapper.resend_from = RESEND_FROM
+        wrapper.app_url = APP_URL
+        set_default_wrapper(wrapper)
+        return wrapper
+    except Exception:
+        try:
+            from .llm_wrapper import LLMWrapper
+        except ImportError:
+            from llm_wrapper import LLMWrapper
+        return LLMWrapper(sb=sb, notify=False)
 
 
 def _track_llm_usage(
@@ -3697,7 +3949,12 @@ def _track_llm_usage(
     model: str = "",
     predict_time_s: Optional[float] = None,
     error_msg: str = "",
+    purpose: str = "chat",
+    latency_ms: Optional[float] = None,
+    user_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> None:
+    """Legacy hook — prefer LLMWrapper. Still used by non-chat paths if any."""
     try:
         if provider in USAGE_LOG:
             USAGE_LOG[provider] += 1
@@ -3716,6 +3973,10 @@ def _track_llm_usage(
             predict_time_s=predict_time_s,
             error_msg=error_msg,
             key_identity=_replicate_token_identity(),
+            purpose=purpose,
+            latency_ms=latency_ms,
+            user_id=user_id,
+            request_id=request_id,
         )
         notify_admins_if_needed(
             sb,
@@ -3862,9 +4123,9 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
     verify_admin(x_token)
     try:
         try:
-            from .llm_usage import load_credits_state, usage_snapshot
+            from .llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
         except ImportError:
-            from llm_usage import load_credits_state, usage_snapshot
+            from llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
         keys = _llm_api_keys()
         mode = _llm_provider_mode(keys.get("replicate", ""))
         snap = usage_snapshot(load_credits_state(sb, _replicate_token_identity()), provider_mode=mode)
@@ -3874,6 +4135,12 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             "gemini": USAGE_LOG["gemini"],
             "claude": USAGE_LOG["claude"],
         }
+        try:
+            snap.update(llm_transaction_totals(sb))
+        except Exception:
+            snap.setdefault("tx_total", 0)
+            snap.setdefault("tx_total_cost_usd", 0.0)
+            snap.setdefault("tx_table_ready", False)
         try:
             rkey = keys.get("replicate") or ""
             if rkey:
@@ -3902,7 +4169,48 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             "estimated_cost_usd": round(est_cost, 4),
             "since_days": round(days, 1),
             "provider_mode": _llm_provider_mode(_llm_api_keys().get("replicate", "")),
+            "tx_total": 0,
+            "tx_total_cost_usd": 0.0,
+            "tx_table_ready": False,
         }
+
+
+@app.get("/admin/llm_transactions")
+async def admin_llm_transactions(
+    x_token: Optional[str] = Header(None),
+    provider: Optional[str] = None,
+    purpose: Optional[str] = None,
+    ok: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    ok_bool = None
+    if ok is not None and str(ok).strip() != "":
+        ok_bool = str(ok).strip().lower() in ("1", "true", "yes", "ok")
+    try:
+        try:
+            from .llm_usage import list_llm_transactions
+        except ImportError:
+            from llm_usage import list_llm_transactions
+        return list_llm_transactions(
+            sb,
+            provider=(provider or "").strip() or None,
+            purpose=(purpose or "").strip() or None,
+            ok=ok_bool,
+            from_date=(from_date or "").strip() or None,
+            to_date=(to_date or "").strip() or None,
+            user_id=(user_id or "").strip() or None,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list transactions: {e}") from e
 
 
 class LlmCreditsUpdate(BaseModel):
@@ -4584,7 +4892,7 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
     if not sb:
         return {"users": []}
     try:
-        columns = "id,email,name,plan,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role,must_change_password,level_id"
+        columns = "id,email,name,plan,plan_id,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role,must_change_password,level_id"
         app_users = _paginate_table_rows("users", columns)
         for row in app_users:
             row["account_kind"] = "registered"
@@ -4615,18 +4923,80 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
         user_ids = [u.get("id") for u in merged if u.get("id")]
         summaries = _user_data_summaries_for_users(user_ids)
         grants_summaries = _grants_summary_for_users(user_ids)
+        llm_by_user: dict = {}
+        llm_total_cost = 0.0
+        llm_table_ready = False
+        plans_by_id: dict = {}
+        try:
+            try:
+                from .llm_usage import llm_usage_by_users
+            except ImportError:
+                from llm_usage import llm_usage_by_users
+            llm_stats = llm_usage_by_users(sb, user_ids)
+            llm_by_user = llm_stats.get("by_user") or {}
+            llm_total_cost = float(llm_stats.get("total_cost_usd") or 0)
+            llm_table_ready = bool(llm_stats.get("table_ready"))
+        except Exception:
+            pass
+        try:
+            plans_by_id = {}
+            try:
+                pres = (
+                    sb.table("plans")
+                    .select("id,tx_limit,tx_cost_limit_usd,tx_count,tx_cost_usd,name")
+                    .execute()
+                )
+            except Exception:
+                # Columns may be missing until plans_tx_limits.sql is applied
+                pres = sb.table("plans").select("id,name").execute()
+            for p in (pres.data or []):
+                if p.get("id"):
+                    plans_by_id[str(p["id"]).lower()] = p
+        except Exception:
+            plans_by_id = {}
+        try:
+            from .plan_entitlements import plan_id_from_name, resolve_plan_tx_limits
+        except ImportError:
+            from plan_entitlements import plan_id_from_name, resolve_plan_tx_limits
         for u in merged:
             uid = u.get("id")
             u["data_summary"] = summaries.get(uid, dict(EMPTY_USER_DATA_SUMMARY))
             grant_info = grants_summaries.get(uid, {})
             u["active_grants"] = grant_info.get("active_grants") or []
             u["pending_rewards"] = grant_info.get("pending_rewards") or 0
+            # Effective subscription package (grant overrides base plan when present)
+            grants = u["active_grants"] or []
+            if grants and grants[0].get("plan_slot"):
+                raw_package = grants[0]["plan_slot"]
+            else:
+                raw_package = u.get("plan_id") or u.get("plan") or "trial"
+            package = plan_id_from_name(raw_package, u.get("subscription_status"))
+            u["package"] = package
+            llm = llm_by_user.get(str(uid)) if uid else None
+            used_tx = int(llm.get("tx_count") or 0) if llm else 0
+            used_cost = float(llm.get("cost_usd") or 0) if llm else 0.0
+            u["llm_tx_count"] = used_tx
+            u["llm_cost_usd"] = used_cost
+            plan_row = plans_by_id.get(package) or {}
+            tx_limit, cost_limit = resolve_plan_tx_limits(
+                package,
+                tx_limit=plan_row.get("tx_limit"),
+                tx_cost_limit_usd=plan_row.get("tx_cost_limit_usd"),
+            )
+            u["llm_tx_limit"] = tx_limit
+            u["llm_cost_limit_usd"] = cost_limit
+            u["llm_tx_remaining"] = max(0, int(tx_limit) - used_tx) if tx_limit is not None else None
+            u["llm_cost_remaining_usd"] = (
+                round(max(0.0, float(cost_limit) - used_cost), 6) if cost_limit is not None else None
+            )
         _attach_user_points_summary(merged)
         return {
             "users": merged,
             "registered_count": len(app_users),
             "auth_only_count": len(auth_only),
             "invite_only_count": invite_only_count,
+            "llm_total_cost_usd": llm_total_cost,
+            "llm_table_ready": llm_table_ready,
         }
     except Exception as e:
         return {"users": [], "error": str(e)}
@@ -4728,6 +5098,275 @@ async def admin_get_user_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+def _admin_load_user_data_map(user_id: str) -> dict:
+    """Merge user_data rows by user_id and legacy profile token."""
+    if not sb or not user_id:
+        return {}
+    rows: list = []
+    seen_keys: set = set()
+
+    def merge_rows(batch: list) -> None:
+        for row in batch or []:
+            key = row.get("key")
+            if not key or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            rows.append(row)
+
+    res = (
+        sb.table("user_data")
+        .select("key,value")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    merge_rows(res.data)
+    try:
+        prof = (
+            sb.table("profiles")
+            .select("token")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        prof_token = (prof.data or [{}])[0].get("token")
+        if prof_token:
+            res2 = (
+                sb.table("user_data")
+                .select("key,value")
+                .eq("token", prof_token)
+                .execute()
+            )
+            merge_rows(res2.data)
+    except Exception:
+        pass
+    return {r["key"]: _parse_stored_user_data_value(r.get("value")) for r in rows}
+
+
+def _admin_chat_context_from_user_data(
+    user_row: dict,
+    data_map: dict,
+    *,
+    lang: Optional[str] = None,
+    memory_limit: int = 10,
+) -> tuple[ProfileContext, list[MemoryContext], list[DocContext], list[MilestoneContext]]:
+    family = data_map.get("family") if isinstance(data_map.get("family"), dict) else {}
+    children_raw = family.get("children") if isinstance(family, dict) else None
+    if not isinstance(children_raw, list):
+        children_raw = []
+    children: list[ChildContext] = []
+    for c in children_raw:
+        if not isinstance(c, dict):
+            continue
+        children.append(
+            ChildContext(
+                name=(c.get("name") or None),
+                birthDate=(c.get("birthDate") or c.get("birth_date") or None),
+            )
+        )
+    pregnancy = family.get("pregnancy") if isinstance(family.get("pregnancy"), dict) else {}
+    due_date = pregnancy.get("dueDate") or pregnancy.get("due_date") or family.get("dueDate")
+    pregnancy_status = pregnancy.get("status") or family.get("pregnancyStatus")
+    primary = children[0] if children else None
+    profile_lang = (lang or "").strip() or None
+    if not profile_lang:
+        # Prefer last chat language from stored chat messages if present
+        chat_raw = data_map.get("chat")
+        if isinstance(chat_raw, list):
+            for msg in reversed(chat_raw):
+                if isinstance(msg, dict) and msg.get("lang"):
+                    profile_lang = str(msg.get("lang"))
+                    break
+    if not profile_lang:
+        profile_lang = "el"
+
+    profile = ProfileContext(
+        name=user_row.get("name") or None,
+        childName=(primary.name if primary else None),
+        childBirthDate=(primary.birthDate if primary else None),
+        dueDate=due_date,
+        children=children or None,
+        pregnancyStatus=pregnancy_status,
+        lang=profile_lang,
+    )
+
+    memories: list[MemoryContext] = []
+    mem_raw = data_map.get("memories")
+    if isinstance(mem_raw, list):
+        for m in mem_raw:
+            if not isinstance(m, dict):
+                continue
+            text = (m.get("text") or "").strip()
+            if not text or text == "📷":
+                continue
+            # Skip milestone-only cards when flagged
+            if m.get("kind") == "milestone" or m.get("isMilestone"):
+                continue
+            memories.append(
+                MemoryContext(
+                    text=text,
+                    date=m.get("date") or None,
+                    ref=m.get("ref") or None,
+                )
+            )
+            if len(memories) >= memory_limit:
+                break
+
+    docs: list[DocContext] = []
+    docs_raw = data_map.get("docs")
+    if isinstance(docs_raw, list):
+        for d in docs_raw[:10]:
+            if not isinstance(d, dict):
+                continue
+            title = (d.get("title") or "").strip()
+            if not title:
+                continue
+            docs.append(
+                DocContext(
+                    title=title,
+                    category=d.get("category") or None,
+                    date=d.get("date") or None,
+                    ref=d.get("ref") or None,
+                )
+            )
+
+    milestones: list[MilestoneContext] = []
+    return profile, memories, docs, milestones
+
+
+class AdminChatAsUserRequest(BaseModel):
+    message: str
+    history: list = []
+    lang: Optional[str] = None
+
+
+@app.get("/admin/users/{user_id}/chat_as")
+async def admin_chat_as_user_preview(user_id: str, x_token: Optional[str] = Header(None)):
+    """Load context used when chatting like this user (profile/memories/docs/plan)."""
+    verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    res = (
+        sb.table("users")
+        .select("id,email,name,plan,subscription_status,role,trial_ends_at,subscription_ends_at")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_row = res.data[0]
+    plan_slot, entitlements = plan_context_from_user_row(user_row)
+    data_map = _admin_load_user_data_map(user_id)
+    memory_limit = int(entitlements.get("memory_context_count") or 10)
+    profile, memories, docs, milestones = _admin_chat_context_from_user_data(
+        user_row, data_map, memory_limit=memory_limit
+    )
+    return {
+        "user": {
+            "id": user_row.get("id"),
+            "email": user_row.get("email"),
+            "name": user_row.get("name"),
+            "plan": user_row.get("plan"),
+            "subscription_status": user_row.get("subscription_status"),
+            "role": user_row.get("role"),
+        },
+        "plan_slot": plan_slot,
+        "entitlements": {
+            "chat_context_messages": entitlements.get("chat_context_messages"),
+            "memory_context_count": entitlements.get("memory_context_count"),
+            "milestone_context_count": entitlements.get("milestone_context_count"),
+        },
+        "profile": profile.model_dump() if hasattr(profile, "model_dump") else profile.dict(),
+        "context_counts": {
+            "memories": len(memories),
+            "docs": len(docs),
+            "milestones": len(milestones),
+            "children": len(profile.children or []),
+        },
+        "sample_memories": [
+            (m.model_dump() if hasattr(m, "model_dump") else m.dict()) for m in memories[:5]
+        ],
+    }
+
+
+@app.post("/admin/users/{user_id}/chat_as")
+async def admin_chat_as_user(
+    user_id: str,
+    body: AdminChatAsUserRequest,
+    x_token: Optional[str] = Header(None),
+):
+    """Run /chat using this user's stored family/memories/docs context (admin testing)."""
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="message is required")
+    res = (
+        sb.table("users")
+        .select("id,email,name,plan,subscription_status,role")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_row = res.data[0]
+    _, entitlements = plan_context_from_user_row(user_row)
+    data_map = _admin_load_user_data_map(user_id)
+    memory_limit = int(entitlements.get("memory_context_count") or 10)
+    profile, memories, docs, milestones = _admin_chat_context_from_user_data(
+        user_row,
+        data_map,
+        lang=body.lang,
+        memory_limit=memory_limit,
+    )
+    history_limit = int(entitlements.get("chat_context_messages") or 20)
+    history = body.history[-history_limit:] if isinstance(body.history, list) else []
+    req = ChatRequest(
+        message=message,
+        history=history,
+        profile=profile,
+        recentMemories=memories or None,
+        recentMilestones=milestones or None,
+        recentDocs=docs or None,
+    )
+    try:
+        result = await _run_chat_core(
+            req,
+            entitlements=entitlements,
+            promo=None,
+            include_debug=True,
+            user_id=user_id,
+        )
+        try:
+            _log_activity(
+                admin_id,
+                "chat_as",
+                "user",
+                user_id,
+                details={"message_preview": message[:120], "provider": result.get("provider")},
+            )
+        except Exception:
+            pass
+        result["as_user"] = {
+            "id": user_row.get("id"),
+            "email": user_row.get("email"),
+            "name": user_row.get("name"),
+        }
+        result["context_counts"] = {
+            "memories": len(memories),
+            "docs": len(docs),
+            "history": len(history),
+        }
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
+
+
 @app.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: str, x_token: Optional[str] = Header(None)):
     admin_id = verify_admin(x_token)
@@ -4778,6 +5417,132 @@ async def admin_list_levels(x_token: Optional[str] = Header(None)):
         return {"levels": _get_levels()}
     except Exception as e:
         return {"levels": [], "error": str(e)}
+
+
+@app.get("/admin/plans")
+async def admin_list_plans(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not ensure_supabase():
+        return {"plans": [], "table_ready": False, "error": _db_unavailable_detail()}
+    try:
+        res = (
+            sb.table("plans")
+            .select(
+                "id,name,price_label,period_label,badge,sort_order,featured,active,"
+                "voice_listen_quota,icon,tx_count,tx_cost_usd,tx_limit,tx_cost_limit_usd,"
+                "created_at,updated_at"
+            )
+            .order("sort_order")
+            .execute()
+        )
+        plans = list(res.data or [])
+        # Live user counts (not stored on plans)
+        user_count: dict[str, int] = {}
+        try:
+            ures = sb.table("users").select("id,plan_id").execute()
+            for u in ures.data or []:
+                pid = str(u.get("plan_id") or "trial").lower()
+                user_count[pid] = user_count.get(pid, 0) + 1
+        except Exception:
+            pass
+        for p in plans:
+            pid = p.get("id")
+            p["user_count"] = int(user_count.get(pid, 0))
+            p["tx_count"] = int(p.get("tx_count") or 0)
+            p["tx_cost_usd"] = round(float(p.get("tx_cost_usd") or 0), 6)
+        return {"plans": plans, "table_ready": True}
+    except Exception as e:
+        msg = str(e).lower()
+        missing = "plans" in msg and ("does not exist" in msg or "42p01" in msg or "could not find" in msg)
+        return {
+            "plans": [],
+            "table_ready": not missing,
+            "error": (
+                "Run backend/migrations/plans_and_users_plan_id.sql in Supabase"
+                if missing
+                else str(e)[:200]
+            ),
+        }
+
+
+@app.put("/admin/plans/{plan_id}")
+async def admin_update_plan(plan_id: str, req: PlanUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    key = (plan_id or "").strip().lower()
+    if not key:
+        raise HTTPException(status_code=400, detail="plan id required")
+    try:
+        fetch = sb.table("plans").select("*").eq("id", key).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        before = fetch.data[0]
+        data: dict = {}
+        if req.name is not None:
+            name = req.name.strip()
+            if not name:
+                raise HTTPException(status_code=400, detail="name cannot be empty")
+            data["name"] = name
+        if req.price_label is not None:
+            data["price_label"] = (req.price_label or "").strip() or None
+        if req.period_label is not None:
+            data["period_label"] = (req.period_label or "").strip() or None
+        if req.badge is not None:
+            data["badge"] = (req.badge or "").strip() or None
+        if req.icon is not None:
+            data["icon"] = (req.icon or "").strip() or None
+        if req.sort_order is not None:
+            data["sort_order"] = int(req.sort_order)
+        if req.featured is not None:
+            data["featured"] = bool(req.featured)
+        if req.active is not None:
+            data["active"] = bool(req.active)
+        if req.voice_listen_quota is not None:
+            if int(req.voice_listen_quota) < 0:
+                raise HTTPException(status_code=400, detail="voice_listen_quota must be >= 0")
+            data["voice_listen_quota"] = int(req.voice_listen_quota)
+        if req.tx_count is not None:
+            if int(req.tx_count) < 0:
+                raise HTTPException(status_code=400, detail="tx_count must be >= 0")
+            data["tx_count"] = int(req.tx_count)
+        if req.tx_cost_usd is not None:
+            if float(req.tx_cost_usd) < 0:
+                raise HTTPException(status_code=400, detail="tx_cost_usd must be >= 0")
+            data["tx_cost_usd"] = round(float(req.tx_cost_usd), 6)
+        if req.tx_limit is not None:
+            if int(req.tx_limit) < 0:
+                raise HTTPException(status_code=400, detail="tx_limit must be >= 0")
+            data["tx_limit"] = int(req.tx_limit)
+        if req.tx_cost_limit_usd is not None:
+            if float(req.tx_cost_limit_usd) < 0:
+                raise HTTPException(status_code=400, detail="tx_cost_limit_usd must be >= 0")
+            data["tx_cost_limit_usd"] = round(float(req.tx_cost_limit_usd), 6)
+        if not data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        from datetime import datetime, timezone
+        data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        result = sb.table("plans").update(data).eq("id", key).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        row = result.data[0]
+        try:
+            _log_activity(
+                admin_id,
+                "update",
+                "plan",
+                key,
+                value_before=_activity_snapshot(before),
+                value_after=_activity_snapshot(row),
+            )
+        except Exception:
+            pass
+        return {"ok": True, "plan": row}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @app.post("/admin/levels")
 async def admin_create_level(req: LevelCreate, x_token: Optional[str] = Header(None)):
@@ -5565,6 +6330,7 @@ def _tester_plan_fields(plan: str) -> dict:
     plan_key = "premium" if plan == "premium" else "starter"
     return {
         "plan": plan_key,
+        "plan_id": plan_key,
         "subscription_status": "active",
         "subscription_ends_at": subscription_ends_at_iso(plan_key),
     }
@@ -5876,8 +6642,9 @@ async def admin_set_user_trial(user_id: str, body: UserTrialUpdate, x_token: Opt
         status = (row.get("subscription_status") or "").lower()
         if status != "active":
             updates["subscription_status"] = "trial"
-            if (row.get("plan") or "").lower() not in ("starter", "premium"):
+            if (row.get("plan") or "").lower() not in ("starter", "premium", "annual"):
                 updates["plan"] = "trial"
+                updates["plan_id"] = "trial"
         before_snap = _user_log_snapshot(user_id)
         sb.table("users").update(updates).eq("id", user_id).execute()
         after_snap = _user_log_snapshot(user_id)

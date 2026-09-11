@@ -199,8 +199,18 @@ def _subscription_update_fields(plan_key: str) -> dict:
         from subscription_period import subscription_ends_at_iso
     except ImportError:
         from .subscription_period import subscription_ends_at_iso
+    plan = plan_db_value(plan_key)
+    try:
+        try:
+            from .plan_entitlements import plan_id_from_name
+        except ImportError:
+            from plan_entitlements import plan_id_from_name
+        plan_id = plan_id_from_name(plan, "active")
+    except Exception:
+        plan_id = plan if plan in ("trial", "starter", "premium", "annual") else "starter"
     return {
-        "plan": plan_db_value(plan_key),
+        "plan": plan,
+        "plan_id": plan_id,
         "subscription_status": "active",
         "subscription_ends_at": subscription_ends_at_iso(plan_key),
     }

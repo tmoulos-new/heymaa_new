@@ -18,7 +18,7 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat$|tts$|offers$|public/offers|public/promotions|userdata$|user_activity$|gamification(?:/|$)|webhooks(?:/|$)|checkout/viva$|healthz$|functions(?:/|$)|admin/(?:health|me|usage|credits|upload|offers|promotions|regions|levels|rag_sources|invite_codes|profiles|users|user_data|user_activity|chat_prompt|activity_log|invite_tester)(?:/|$)|static/).*)",
+      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat$|tts$|offers$|public/offers|public/promotions|userdata$|user_activity$|gamification(?:/|$)|webhooks(?:/|$)|checkout/viva$|healthz$|functions(?:/|$)|admin/(?:health|me|usage|credits|llm_transactions|upload|offers|promotions|regions|levels|plans|rag_sources|invite_codes|profiles|users|user_data|user_activity|chat_prompt|activity_log|invite_tester)(?:/|$)|static/).*)",
       "destination": "/index.html"
     }
   ]

@@ -599,6 +599,14 @@ def record_llm_event(
     predict_time_s: Optional[float] = None,
     error_msg: str = "",
     key_identity: Optional[dict[str, str]] = None,
+    skip_event_row: bool = False,
+    purpose: str = "chat",
+    latency_ms: Optional[float] = None,
+    user_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+    input_chars: Optional[int] = None,
+    output_chars: Optional[int] = None,
+    meta: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Load, apply chat/LLM event plus any RAG embed calls from this request."""
     state = load_credits_state(sb, key_identity)
@@ -629,15 +637,24 @@ def record_llm_event(
         save_credits_state(sb, state)
     except Exception:
         pass
-    _maybe_insert_event_row(
-        sb,
-        provider=provider,
-        ok=ok,
-        model=model,
-        cost_usd=cost,
-        predict_time_s=predict_time_s,
-        error_kind=kind,
-    )
+    if not skip_event_row:
+        _maybe_insert_event_row(
+            sb,
+            provider=provider,
+            ok=ok,
+            model=model,
+            cost_usd=cost,
+            predict_time_s=predict_time_s,
+            error_kind=kind,
+            purpose=purpose,
+            latency_ms=latency_ms,
+            user_id=user_id,
+            request_id=request_id,
+            input_chars=input_chars,
+            output_chars=output_chars,
+            error_msg=error_msg,
+            meta=meta,
+        )
     return state
 
 
@@ -650,9 +667,44 @@ def _maybe_insert_event_row(
     cost_usd: float,
     predict_time_s: Optional[float],
     error_kind: Optional[str],
+    purpose: str = "chat",
+    latency_ms: Optional[float] = None,
+    user_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+    input_chars: Optional[int] = None,
+    output_chars: Optional[int] = None,
+    error_msg: Optional[str] = None,
+    meta: Optional[dict[str, Any]] = None,
 ) -> None:
+    """Prefer llm_transactions; fall back to legacy llm_usage_events."""
     if not sb:
         return
+    try:
+        try:
+            from .llm_wrapper import insert_llm_transaction
+        except ImportError:
+            from llm_wrapper import insert_llm_transaction
+        inserted = insert_llm_transaction(
+            sb,
+            purpose=purpose,
+            provider=provider,
+            model=model,
+            ok=ok,
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+            predict_time_s=predict_time_s,
+            input_chars=input_chars,
+            output_chars=output_chars,
+            user_id=user_id,
+            request_id=request_id,
+            error_kind=error_kind,
+            error_msg=error_msg,
+            meta=meta,
+        )
+        if inserted:
+            return
+    except Exception:
+        pass
     try:
         row = {
             "provider": provider,
@@ -665,6 +717,201 @@ def _maybe_insert_event_row(
         sb.table("llm_usage_events").insert(row).execute()
     except Exception:
         pass
+
+
+def list_llm_transactions(
+    sb,
+    *,
+    provider: Optional[str] = None,
+    purpose: Optional[str] = None,
+    ok: Optional[bool] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Paginated llm_transactions with filtered totals. Soft-fails if table missing."""
+    empty = {
+        "transactions": [],
+        "total": 0,
+        "total_cost_usd": 0.0,
+        "ok_count": 0,
+        "fail_count": 0,
+        "limit": limit,
+        "offset": offset,
+        "table_ready": True,
+    }
+    if not sb:
+        empty["table_ready"] = False
+        empty["error"] = "Database not configured"
+        return empty
+    try:
+        q = sb.table("llm_transactions").select(
+            "id,created_at,purpose,provider,model,ok,cost_usd,latency_ms,"
+            "predict_time_ms,input_chars,output_chars,user_id,request_id,"
+            "error_kind,error_msg",
+            count="exact",
+        )
+        if provider:
+            q = q.eq("provider", provider)
+        if purpose:
+            q = q.eq("purpose", purpose)
+        if ok is not None:
+            q = q.eq("ok", bool(ok))
+        if user_id:
+            q = q.eq("user_id", user_id)
+        if from_date:
+            q = q.gte("created_at", f"{from_date}T00:00:00+00:00")
+        if to_date:
+            q = q.lte("created_at", f"{to_date}T23:59:59.999+00:00")
+        lim = max(1, min(int(limit or 50), 200))
+        off = max(0, int(offset or 0))
+        res = q.order("created_at", desc=True).range(off, off + lim - 1).execute()
+        rows = list(res.data or [])
+        total = int(res.count if res.count is not None else len(rows))
+
+        sum_q = sb.table("llm_transactions").select("cost_usd,ok")
+        if provider:
+            sum_q = sum_q.eq("provider", provider)
+        if purpose:
+            sum_q = sum_q.eq("purpose", purpose)
+        if ok is not None:
+            sum_q = sum_q.eq("ok", bool(ok))
+        if user_id:
+            sum_q = sum_q.eq("user_id", user_id)
+        if from_date:
+            sum_q = sum_q.gte("created_at", f"{from_date}T00:00:00+00:00")
+        if to_date:
+            sum_q = sum_q.lte("created_at", f"{to_date}T23:59:59.999+00:00")
+        sum_res = sum_q.limit(10000).execute()
+        sum_rows = sum_res.data or []
+        total_cost = round(sum(float(r.get("cost_usd") or 0) for r in sum_rows), 6)
+        ok_count = sum(1 for r in sum_rows if r.get("ok"))
+        fail_count = sum(1 for r in sum_rows if not r.get("ok"))
+
+        _enrich_transactions_with_users(sb, rows)
+
+        return {
+            "transactions": rows,
+            "total": total,
+            "total_cost_usd": total_cost,
+            "ok_count": ok_count,
+            "fail_count": fail_count,
+            "limit": lim,
+            "offset": off,
+            "table_ready": True,
+            "totals_capped": total > len(sum_rows),
+            "filter_user_id": user_id,
+        }
+    except Exception as e:
+        msg = str(e).lower()
+        missing = "llm_transactions" in msg or "does not exist" in msg or "42p01" in msg
+        empty["table_ready"] = not missing
+        empty["error"] = (
+            "Run backend/migrations/llm_transactions.sql in Supabase"
+            if missing
+            else str(e)[:200]
+        )
+        return empty
+
+
+def _enrich_transactions_with_users(sb, rows: list[dict[str, Any]]) -> None:
+    ids = sorted({str(r.get("user_id")) for r in rows if r.get("user_id")})
+    if not ids:
+        for r in rows:
+            r["user_name"] = None
+            r["user_email"] = None
+            r["user_plan"] = None
+        return
+    by_id: dict[str, dict[str, Any]] = {}
+    try:
+        res = sb.table("users").select("id,name,email,plan").in_("id", ids).execute()
+        for u in res.data or []:
+            if u.get("id"):
+                by_id[str(u["id"])] = u
+    except Exception:
+        by_id = {}
+    for r in rows:
+        uid = str(r.get("user_id") or "")
+        u = by_id.get(uid) or {}
+        r["user_name"] = u.get("name") or None
+        r["user_email"] = u.get("email") or None
+        r["user_plan"] = u.get("plan") or None
+        # Display label: name preferred, else email local-part
+        if u.get("name"):
+            r["user_label"] = u["name"]
+        elif u.get("email"):
+            r["user_label"] = str(u["email"]).split("@")[0]
+        else:
+            r["user_label"] = None
+
+
+def llm_usage_by_users(sb, user_ids: Optional[list[str]] = None) -> dict[str, Any]:
+    """Per-user LLM tx count + cost, plus global total cost from llm_transactions."""
+    out: dict[str, Any] = {
+        "by_user": {},
+        "total_cost_usd": 0.0,
+        "total_transactions": 0,
+        "table_ready": False,
+    }
+    if not sb:
+        return out
+    try:
+        q = sb.table("llm_transactions").select("user_id,cost_usd,ok")
+        if user_ids:
+            # Only attribute rows with a user_id; still need global totals separately
+            pass
+        res = q.limit(10000).execute()
+        rows = res.data or []
+        out["table_ready"] = True
+        out["total_transactions"] = len(rows)
+        out["total_cost_usd"] = round(sum(float(r.get("cost_usd") or 0) for r in rows), 6)
+        by_user: dict[str, dict[str, float | int]] = {}
+        for r in rows:
+            uid = r.get("user_id")
+            if not uid:
+                continue
+            uid = str(uid)
+            if user_ids is not None and uid not in set(str(x) for x in user_ids):
+                continue
+            slot = by_user.setdefault(uid, {"tx_count": 0, "cost_usd": 0.0, "ok_count": 0})
+            slot["tx_count"] = int(slot["tx_count"]) + 1
+            slot["cost_usd"] = float(slot["cost_usd"]) + float(r.get("cost_usd") or 0)
+            if r.get("ok"):
+                slot["ok_count"] = int(slot["ok_count"]) + 1
+        for uid, slot in by_user.items():
+            slot["cost_usd"] = round(float(slot["cost_usd"]), 6)
+        out["by_user"] = by_user
+    except Exception:
+        out["table_ready"] = False
+    return out
+
+
+def llm_transaction_totals(sb) -> dict[str, Any]:
+    """Lightweight totals for Overview Usage card."""
+    out = {
+        "tx_total": 0,
+        "tx_total_cost_usd": 0.0,
+        "tx_table_ready": False,
+    }
+    if not sb:
+        return out
+    try:
+        res = (
+            sb.table("llm_transactions")
+            .select("id,cost_usd", count="exact")
+            .limit(10000)
+            .execute()
+        )
+        rows = res.data or []
+        out["tx_total"] = int(res.count if res.count is not None else len(rows))
+        out["tx_total_cost_usd"] = round(sum(float(r.get("cost_usd") or 0) for r in rows), 6)
+        out["tx_table_ready"] = True
+        out["tx_totals_capped"] = out["tx_total"] > len(rows)
+    except Exception:
+        out["tx_table_ready"] = False
+    return out
 
 
 def notify_admins_if_needed(

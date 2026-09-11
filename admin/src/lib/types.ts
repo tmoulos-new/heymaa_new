@@ -55,6 +55,26 @@ export interface LevelRow {
   name_en: string
 }
 
+export interface PlanRow {
+  id: string
+  name: string
+  price_label?: string | null
+  period_label?: string | null
+  badge?: string | null
+  sort_order?: number
+  featured?: boolean
+  active?: boolean
+  voice_listen_quota?: number | null
+  icon?: string | null
+  created_at?: string
+  updated_at?: string
+  user_count?: number
+  tx_count?: number
+  tx_cost_usd?: number
+  tx_limit?: number | null
+  tx_cost_limit_usd?: number | null
+}
+
 export interface InviteCodeRow {
   id?: string
   code: string
@@ -89,6 +109,14 @@ export interface UserRow {
   transaction_counts?: Partial<Record<keyof UserDataSummary, number>>
   active_grants?: PlanGrantRow[]
   pending_rewards?: number
+  package?: string
+  plan_id?: string
+  llm_tx_count?: number
+  llm_cost_usd?: number
+  llm_tx_limit?: number | null
+  llm_cost_limit_usd?: number | null
+  llm_tx_remaining?: number | null
+  llm_cost_remaining_usd?: number | null
 }
 
 export interface PlanGrantRow {
