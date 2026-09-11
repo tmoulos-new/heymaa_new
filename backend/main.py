@@ -1437,9 +1437,26 @@ def build_profile_context(profile):
     if profile.children:
         for c in profile.children:
             if c.name:
-                children.append({"name": c.name, "birthDate": c.birthDate})
+                children.append({
+                    "name": c.name,
+                    "birthDate": getattr(c, "birthDate", None),
+                    "gender": getattr(c, "gender", None),
+                })
     if not children and profile.childName:
-        children.append({"name": profile.childName, "birthDate": profile.childBirthDate, "ageFallback": profile.childAge})
+        children.append({
+            "name": profile.childName,
+            "birthDate": profile.childBirthDate,
+            "ageFallback": profile.childAge,
+            "gender": None,
+        })
+    country = (getattr(profile, "country", None) or "").strip()
+    city = (getattr(profile, "city", None) or "").strip()
+    if city and country:
+        lines.append(f"The user lives in {city}, {country}.")
+    elif city:
+        lines.append(f"The user lives in {city}.")
+    elif country:
+        lines.append(f"The user's country is {country}.")
     due_date_passed = False
     if profile.dueDate:
         try:
@@ -1466,13 +1483,46 @@ def build_profile_context(profile):
             "their doctor or a trusted person for support if appropriate. If the user has not brought up the "
             "topic, keep greetings and proactive messages neutral and general (e.g. simply ask how they are doing today)."
         )
+    if not children and not due_date_passed:
+        lines.append(
+            "This user has not registered any children yet. Do not invent a baby name or age. "
+            "If they ask how to add a child, tell them to open the Family tab (Οικογένεια / Family), "
+            "then in My Family (Η Οικογένειά μου) tap ＋ Add child (＋ Πρόσθεσε παιδί) and enter "
+            "the child's name, birth date or due date, and gender."
+        )
     for child in children:
         name = child.get("name") or "their child"
         if child.get("birthDate"):
             age_desc = _describe_child_age(child["birthDate"])
         else:
             age_desc = child.get("ageFallback") or "unknown age"
-        lines.append(f"This user has a child named {name}, currently {age_desc}.")
+        gender = (child.get("gender") or "").strip().lower()
+        gender_bit = f" ({gender})" if gender in {"girl", "boy", "surprise"} else ""
+        born = f", born {child['birthDate']}" if child.get("birthDate") else ""
+        lines.append(f"This user has a child named {name}{gender_bit}, currently {age_desc}{born}.")
+    members = getattr(profile, "familyMembers", None) or []
+    member_bits = []
+    for m in members:
+        mname = (getattr(m, "name", None) or "").strip()
+        if not mname:
+            continue
+        rel = (getattr(m, "relationship", None) or "family").strip()
+        bit = f"{mname} ({rel})"
+        mbdate = (getattr(m, "birthDate", None) or "").strip()
+        if mbdate:
+            bit += f", born {mbdate}"
+        note = (getattr(m, "note", None) or "").strip()
+        if note:
+            bit += f" — {note[:160]}"
+        member_bits.append(bit)
+    if member_bits:
+        lines.append("Registered family members: " + "; ".join(member_bits) + ".")
+    if children or member_bits:
+        lines.append(
+            "The registered family above is authoritative. Use these names, ages, and relationships. "
+            "If the user mentions a child who is not listed, they have not added that child yet — "
+            "give the Family → My Family → ＋ Add child path instead of inventing details."
+        )
     if len(children) > 1:
         lines.append(
             "This user has multiple children. Pay close attention to which child the user is referring to in "
@@ -1583,9 +1633,22 @@ _SHORT_DIALOGUE_RULE = (
     "Never answer with a single word or a cut-off phrase."
 )
 
+_APP_NAV_RULE = (
+    "\n\n--- How to add a child in the HeyMaa app (always follow) ---\n"
+    "HeyMaa cannot register children from chat. When the user asks how to add, save, or "
+    "καταχωρήσει a child / baby, tell them in their language: open the Family tab "
+    "(bottom navigation: Οικογένεια / Family), stay on My Family (Η Οικογένειά μου), "
+    "tap ＋ Add child (＋ Πρόσθεσε παιδί), then enter name, birth date or due date, and gender. "
+    "Do not send them to Profile settings, onboarding, or invented menus. "
+    "Use every registered child, family member, memory, milestone, and document listed below "
+    "as ground truth when answering — refer to real names and ages, never generic 'your baby' "
+    "when a name is on file."
+)
+
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
+    prompt += _APP_NAV_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
     if memories_context:
@@ -2202,12 +2265,18 @@ def _build_attachment_context(message: str, attachments) -> str:
 
 async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
     from groq import Groq
+    # Groq retired llama-3.3-70b-versatile / llama-3.1-8b-instant on 16 Aug 2026.
     model_candidates = (
-        "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
-        "llama-3.1-8b-instant",
-        "gemma2-9b-it",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.6-27b",
     )
+
+    def _message_text(choice_message) -> str:
+        text = (getattr(choice_message, "content", None) or "").strip()
+        if text:
+            return text
+        return (getattr(choice_message, "reasoning", None) or "").strip()
 
     def _run():
         client = Groq(api_key=api_key)
@@ -2219,20 +2288,23 @@ async def call_groq(message, history, system_prompt, api_key: str, history_limit
         last_err = None
         for model_name in model_candidates:
             try:
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    max_tokens=_CHAT_MAX_TOKENS,
-                    temperature=0.6,
-                )
-                text = (response.choices[0].message.content or "").strip()
+                kwargs = {
+                    "model": model_name,
+                    "messages": messages,
+                    "max_tokens": _CHAT_MAX_TOKENS,
+                    "temperature": 0.6,
+                }
+                if model_name.startswith("openai/gpt-oss"):
+                    kwargs["reasoning_effort"] = "low"
+                response = client.chat.completions.create(**kwargs)
+                text = _message_text(response.choices[0].message)
                 if text:
                     return text
                 last_err = RuntimeError(f"{model_name}: empty reply")
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
-                if any(x in msg for x in ("404", "not found", "decommission", "no longer supported", "model")):
+                if any(x in msg for x in ("404", "not found", "decommission", "no longer supported", "model", "unexpected keyword")):
                     continue
                 if any(x in msg for x in ("429", "quota", "rate limit")):
                     continue
@@ -2364,6 +2436,13 @@ class InviteRequest(BaseModel):
 class ChildContext(BaseModel):
     name: Optional[str] = None
     birthDate: Optional[str] = None
+    gender: Optional[str] = None
+
+class FamilyMemberContext(BaseModel):
+    name: Optional[str] = None
+    relationship: Optional[str] = None
+    birthDate: Optional[str] = None
+    note: Optional[str] = None
 
 class MemoryContext(BaseModel):
     text: str
@@ -2388,8 +2467,11 @@ class ProfileContext(BaseModel):
     childBirthDate: Optional[str] = None
     dueDate: Optional[str] = None
     children: Optional[list[ChildContext]] = None
+    familyMembers: Optional[list[FamilyMemberContext]] = None
     pregnancyStatus: Optional[str] = None
     lang: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
 
 class ChatAttachmentIn(BaseModel):
     kind: str
@@ -2802,9 +2884,10 @@ def _probe_llm_providers() -> dict:
             if name == "groq":
                 from groq import Groq
                 Groq(api_key=key).chat.completions.create(
-                    model="llama-3.1-8b-instant",
+                    model="openai/gpt-oss-20b",
                     messages=[{"role": "user", "content": "hi"}],
-                    max_tokens=8,
+                    max_tokens=16,
+                    reasoning_effort="low",
                 )
             else:
                 import anthropic
@@ -3362,7 +3445,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         docs_context = ""
         if req.recentDocs:
             doc_lines = []
-            for d in req.recentDocs[:10]:
+            for d in req.recentDocs[:40]:
                 line = d.title
                 if d.category: line += f" [{d.category}]"
                 if d.date: line += f" ({d.date})"

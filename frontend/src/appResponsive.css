@@ -2599,6 +2599,10 @@ body.hm-app-active .hm-sheet-overlay {
   border-bottom: 1px solid rgba(43, 58, 103, 0.06);
 }
 
+.hm-family-tree-panel:not(:has(.hm-family-tree-panel__canvas)) .hm-family-tree-panel__head {
+  border-bottom: none;
+}
+
 .hm-family-tree-panel__canvas {
   overflow-x: auto;
   overflow-y: hidden;
@@ -2650,6 +2654,18 @@ body.hm-app-active .hm-sheet-overlay {
   font-weight: 700;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
+}
+
+.hm-family-tree-panel__visibility-toggle {
+  background: none;
+  border: none;
+  color: #2b3a67;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  flex-shrink: 0;
+  padding: 4px 2px;
 }
 
 .hm-family-tree-panel__history-empty {
