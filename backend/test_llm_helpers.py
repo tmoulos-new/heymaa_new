@@ -26,5 +26,57 @@ class LlmReplyQualityTests(unittest.TestCase):
         self.assertFalse(looks_truncated_reply("Είμαι εδώ για να σε βοηθήσω. Πες μου τι χρειάζεσαι."))
 
 
+class ProfileContextTests(unittest.TestCase):
+    def test_lists_children_members_and_add_child_path(self):
+        from types import SimpleNamespace
+        from main import _APP_NAV_RULE, build_profile_context, build_system_prompt
+
+        profile = SimpleNamespace(
+            name="Ελένη",
+            lang="el",
+            childName=None,
+            childAge=None,
+            childBirthDate=None,
+            dueDate=None,
+            country="GR",
+            city="Athens",
+            children=[
+                SimpleNamespace(name="Άννα", birthDate="2025-08-01", gender="girl"),
+            ],
+            familyMembers=[
+                SimpleNamespace(name="Νίκος", relationship="Partner", birthDate=None, note=None),
+            ],
+        )
+        ctx = build_profile_context(profile)
+        self.assertIn("Άννα", ctx)
+        self.assertIn("girl", ctx)
+        self.assertIn("Νίκος", ctx)
+        self.assertIn("Athens", ctx)
+        self.assertIn("Family → My Family → ＋ Add child", ctx)
+
+        prompt = build_system_prompt("", ctx)
+        self.assertIn("Οικογένεια", _APP_NAV_RULE)
+        self.assertIn("＋ Πρόσθεσε παιδί", prompt)
+        self.assertIn("Άννα", prompt)
+
+    def test_empty_family_explains_add_child_path(self):
+        from types import SimpleNamespace
+        from main import build_profile_context
+
+        profile = SimpleNamespace(
+            name="Maria",
+            lang="en",
+            childName="",
+            childAge="",
+            childBirthDate=None,
+            dueDate=None,
+            children=[],
+            familyMembers=[],
+        )
+        ctx = build_profile_context(profile)
+        self.assertIn("not registered any children", ctx)
+        self.assertIn("Πρόσθεσε παιδί", ctx)
+
+
 if __name__ == "__main__":
     unittest.main()

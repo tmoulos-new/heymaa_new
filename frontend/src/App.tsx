@@ -374,6 +374,29 @@ interface Message {
   memorySuggestion?: MemorySuggestion | null;
 }
 interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
+
+/** Prefer at least a few memories per registered child, then fill with the newest overall. */
+function pickRegisteredMemoriesForChat(
+  memories: Memory[],
+  childNames: string[],
+  limit: number,
+): { text: string; date: string; ref?: string }[] {
+  if (limit <= 0) return [];
+  const textMems = memories.filter((m) => m.text && m.text !== "📷" && !isMemoryMilestone(m));
+  const picked: Memory[] = [];
+  const seen = new Set<Memory>();
+  const take = (m: Memory) => {
+    if (seen.has(m) || picked.length >= limit) return;
+    seen.add(m);
+    picked.push(m);
+  };
+  for (const name of childNames) {
+    if (!name) continue;
+    for (const m of textMems.filter((mem) => mem.ref === name).slice(0, 4)) take(m);
+  }
+  for (const m of textMems) take(m);
+  return picked.map((m) => ({ text: m.text, date: m.date, ref: m.ref }));
+}
 interface Thread { id: string; title: string; date: string; messages: Message[]; }
 const LANG_FLAG_EMOJI: Record<string, string> = {
   el: "🇬🇷", en: "🇬🇧", it: "🇮🇹", de: "🇩🇪", fr: "🇫🇷", es: "🇪🇸", ro: "🇷🇴",
@@ -1597,7 +1620,7 @@ const TR: Record<string,Record<string,string>> = {
   addchild:{el:"＋ Πρόσθεσε παιδί",en:"＋ Add child",ar:"＋ إضافة طفل",es:"＋ Agregar hijo/a",fr:"＋ Ajouter un enfant",de:"＋ Kind hinzufügen",pt:"＋ Adicionar filho/a",it:"＋ Aggiungi bambino",ru:"＋ Добавить ребёнка",tr:"＋ Çocuk ekle",hi:"＋ बच्चा जोड़ें",ur:"＋ بچہ شامل کریں",zh:"＋ 添加孩子",ja:"＋ 子どもを追加",nl:"＋ Kind toevoegen",pl:"＋ Dodaj dziecko",ro:"＋ Adaugă copil",bn:"＋ শিশু যুক্ত করুন",id:"＋ Tambah anak",sw:"＋ Ongeza mtoto",fil:"＋ Magdagdag ng anak",mr:"＋ मूल जोडा",te:"＋ పిల్లలను జోడించండి"},
   memberemail:{el:"Email (προαιρετικό)",en:"Email (optional)",ar:"البريد الإلكتروني (اختياري)",es:"Correo (opcional)",fr:"E-mail (facultatif)",de:"E-Mail (optional)",pt:"E-mail (opcional)",it:"Email (opzionale)",ru:"Email (необязательно)",tr:"E-posta (isteğe bağlı)",hi:"ईमेल (वैकल्पिक)",ur:"ای میل (اختیاری)",zh:"电子邮箱（选填）",ja:"メール（任意）",nl:"E-mail (optioneel)",pl:"E-mail (opcjonalnie)",ro:"E-mail (opțional)",bn:"ইমেল (ঐচ্ছিক)",id:"Email (opsional)",sw:"Barua pepe (si lazima)",fil:"Email (opsyonal)",mr:"ईमेल (पर्यायी)",te:"ఇమెయిల్ (ఐచ్ఛికం)"},
   memberphone:{el:"Κινητό τηλέφωνο (προαιρετικό)",en:"Phone number (optional)",ar:"رقم الهاتف (اختياري)",es:"Teléfono (opcional)",fr:"Téléphone (facultatif)",de:"Telefonnummer (optional)",pt:"Telefone (opcional)",it:"Telefono (opzionale)",ru:"Телефон (необязательно)",tr:"Telefon numarası (isteğe bağlı)",hi:"फ़ोन नंबर (वैकल्पिक)",ur:"فون نمبر (اختیاری)",zh:"电话号码（选填）",ja:"電話番号（任意）",nl:"Telefoonnummer (optioneel)",pl:"Numer telefonu (opcjonalnie)",ro:"Număr de telefon (opțional)",bn:"ফোন নম্বর (ঐচ্ছিক)",id:"Nomor telepon (opsional)",sw:"Nambari ya simu (si lazima)",fil:"Numero ng telepono (opsyonal)",mr:"फोन नंबर (पर्यायी)",te:"ఫోన్ నంబర్ (ఐచ్ఛికం)"},
-  nochildyet:{el:"Δεν έχεις προσθέσει ακόμα παιδί. Πρόσθεσέ το από την καρτέλα Οικογένεια για να δεις τα ορόσημά του.",en:"You haven't added a child yet. Add one from the Family tab to see their milestones.",ar:"لم تضيفي طفلاً بعد. أضيفيه من تبويب العائلة لعرض إنجازاته التطورية.",es:"Aún no has añadido un hijo/a. Añádelo en la pestaña Familia para ver sus hitos.",fr:"Vous n'avez pas encore ajouté d'enfant. Ajoutez-le dans l'onglet Famille pour voir ses étapes.",de:"Du hast noch kein Kind hinzugefügt. Füge es im Tab Familie hinzu, um die Meilensteine zu sehen.",pt:"Ainda não adicionaste um filho/a. Adiciona-o no separador Família para ver os marcos.",it:"Non hai ancora aggiunto un bambino. Aggiungilo nella scheda Famiglia per vedere le tappe.",ru:"Вы ещё не добавили ребёнка. Добавьте его на вкладке Семья, чтобы увидеть этапы развития.",tr:"Henüz çocuk eklemediniz. Gelişim aşamalarını görmek için Aile sekmesinden ekleyin.",hi:"आपने अभी तक बच्चा नहीं जोड़ा है। मील के पत्थर देखने के लिए परिवार टैब से जोड़ें।",ur:"آپ نے ابھی تک بچہ شامل نہیں کیا۔ سنگ میل دیکھنے کے لیے فیملی ٹیب سے شامل کریں۔",zh:"您还没有添加孩子。请在家庭标签中添加以查看发育里程碑。",ja:"まだお子さんが登録されていません。家族タブから追加するとマイルストーンが表示されます。",nl:"Je hebt nog geen kind toegevoegd. Voeg het toe via het tabblad Familie om mijlpalen te zien.",pl:"Nie dodałaś jeszcze dziecka. Dodaj je w zakładce Rodzina, aby zobaczyć kamienie milowe.",ro:"Nu ai adăugat încă un copil. Adaugă-l din fila Familie pentru a vedea reperele.",bn:"আপনি এখনও কোনো শিশু যুক্ত করেননি। মাইলফলক দেখতে পরিবার ট্যাব থেকে যুক্ত করুন।",id:"Anda belum menambahkan anak. Tambahkan dari tab Keluarga untuk melihat tonggak perkembangannya.",sw:"Bado hujamuongeza mtoto. Mwongeze kwenye kichupo cha Familia kuona hatua zake za maendeleo.",fil:"Wala ka pang naidagdag na anak. Idagdag sa tab ng Pamilya para makita ang mga milestone.",mr:"तुम्ही अजून मूल जोडलेले नाही. टप्पे पाहण्यासाठी कुटुंब टॅबमधून जोडा.",te:"మీరు ఇంకా పిల్లలను జోడించలేదు. మైలురాళ్లను చూడటానికి ఫ్యామిలీ టాబ్ నుండి జోడించండి."},
+  nochildyet:{el:"Δεν έχεις προσθέσει ακόμα παιδί. Πήγαινε στην καρτέλα Οικογένεια, άνοιξε Η Οικογένειά μου και πάτα ＋ Πρόσθεσε παιδί.",en:"You haven't added a child yet. Open the Family tab, go to My Family, and tap ＋ Add child.",ar:"لم تضيفي طفلاً بعد. أضيفيه من تبويب العائلة لعرض إنجازاته التطورية.",es:"Aún no has añadido un hijo/a. Añádelo en la pestaña Familia para ver sus hitos.",fr:"Vous n'avez pas encore ajouté d'enfant. Ajoutez-le dans l'onglet Famille pour voir ses étapes.",de:"Du hast noch kein Kind hinzugefügt. Füge es im Tab Familie hinzu, um die Meilensteine zu sehen.",pt:"Ainda não adicionaste um filho/a. Adiciona-o no separador Família para ver os marcos.",it:"Non hai ancora aggiunto un bambino. Aggiungilo nella scheda Famiglia per vedere le tappe.",ru:"Вы ещё не добавили ребёнка. Добавьте его на вкладке Семья, чтобы видеть вехи.",tr:"Henüz çocuk eklemedin. Aile sekmesinden ekle.",hi:"अभी बच्चा नहीं जोड़ा। Family टैब से जोड़ें।",ur:"ابھی بچہ شامل نہیں کیا۔ Family ٹیب سے شامل کریں۔",zh:"尚未添加孩子。请到家庭标签添加。",ja:"まだ子どもが登録されていません。家族タブから追加してください。",nl:"Je hebt nog geen kind toegevoegd. Voeg er een toe via het tabblad Familie.",pl:"Nie dodałaś jeszcze dziecka. Dodaj je w zakładce Rodzina.",ro:"Nu ai adăugat încă un copil. Adaugă-l din fila Familie.",bn:"এখনও শিশু যোগ করেননি। Family ট্যাব থেকে যোগ করুন।",id:"Belum menambah anak. Tambahkan dari tab Keluarga.",sw:"Bado hujaongeza mtoto. Ongeza kutoka kichupo cha Familia.",fil:"Wala ka pang anak na idinagdag. Idagdag mula sa Family tab.",mr:"अजून मूल जोडले नाही. Family टॅबमधून जोडा.",te:"ఇంకా పిల్లలను జోడించలేదు. Family ట్యాబ్ నుండి జోడించండి"},
 
   docs_title:{el:"Αρχείο Εγγράφων",en:"Document Archive",ar:"أرشيف المستندات",zh:"文件档案",es:"Archivo de Documentos",fr:"Archive de Documents",de:"Dokumentenarchiv",pt:"Arquivo de Documentos",it:"Archivio Documenti",ru:"Архив Документов",tr:"Belge Arşivi",hi:"दस्तावेज़ संग्रह",ur:"دستاویز آرکائیو",ja:"書類アーカイブ",nl:"Documentenarchief",pl:"Archiwum Dokumentów",ro:"Arhivă Documente",bn:"ডকুমেন্ট আর্কাইভ",id:"Arsip Dokumen",sw:"Kumbukumbu ya Hati",fil:"Archibo ng Dokumento",mr:"दस्तऐवज संग्रह",te:"పత్రాల సంగ్రహం"},
   docs_hint:{el:"Κράτα εδώ σημείωση για τα έγγραφα που έχεις — ποιον αφορά, τι είναι, πότε. Δεν χρειάζεται να ανεβάσεις αρχεία — απλώς κράτα μια λίστα για να ξέρεις τι έχεις.",en:"Note your documents here — who they concern, what they are, when. No need to upload files — just a list so you always know what you have.",ar:"سجّلي مستنداتك هنا — من تخص، ماذا تعني، ومتى. لا داعي لرفع ملفات — فقط قائمة سريعة.",zh:"在此记录您的文件——涉及谁、是什么、何时。无需上传文件——只需快速列表。",es:"Anota aquí tus documentos — a quién conciernen, qué son, cuándo. Sin subir archivos — solo una lista rápida.",fr:"Notez ici vos documents — qui ils concernent, ce qu'ils sont, quand. Sans téléchargement — juste une liste rapide.",de:"Notiere hier deine Dokumente — wen sie betreffen, was sie sind, wann. Kein Upload — nur eine schnelle Liste.",pt:"Regista os teus documentos aqui — a quem dizem respeito, o que são, quando. Sem uploads — só uma lista rápida.",it:"Annota qui i tuoi documenti — chi riguardano, cosa sono, quando. Senza caricare file — solo un elenco.",ru:"Записывайте свои документы здесь — кого касаются, что это, когда. Без загрузок — просто быстрый список.",tr:"Belgelerini burada not et — kimi ilgilendiriyor, ne, ne zaman. Dosya yüklemene gerek yok — sadece hızlı bir liste.",hi:"यहाँ अपने दस्तावेज़ नोट करें — किससे संबंधित, क्या है, कब। अपलोड की ज़रूरत नहीं — बस एक सूची।",ur:"یہاں اپنی دستاویزات نوٹ کریں — کس سے متعلق، کیا ہے، کب۔ اپلوڈ کی ضرورت نہیں — بس ایک فہرست۔",ja:"ここに書類をメモしましょう — 誰に関係するか、何か、いつか。アップロード不要 — 何があるかわかるリストだけ。",nl:"Noteer hier je documenten — wie ze betreffen, wat ze zijn, wanneer. Geen uploads — alleen een snelle lijst.",pl:"Notuj tu swoje dokumenty — kogo dotyczą, co to jest, kiedy. Bez przesyłania — tylko szybka lista.",ro:"Notează-ți documentele aici — pe cine privesc, ce sunt, când. Fără încărcări — doar o listă rapidă.",bn:"এখানে আপনার নথি নোট করুন — কার সংক্রান্ত, কী, কখন। আপলোড দরকার নেই — শুধু একটি তালিকা।",id:"Catat dokumenmu di sini — siapa yang terkait, apa, kapan. Tidak perlu upload — cukup daftar cepat.",sw:"Andika hati zako hapa — zinamhusu nani, ni nini, lini. Hakuna haja ya kupakia — orodha tu ya haraka.",fil:"Itala ang iyong mga dokumento dito — sino ang may kaugnayan, ano, kailan. Hindi kailangang mag-upload — listahan lang.",mr:"इथे तुमचे दस्तऐवज नोंदवा — कुणाचे, काय, केव्हा। अपलोडची गरज नाही — फक्त एक यादी.",te:"ఇక్కడ మీ పత్రాలను నమోదు చేయండి — ఎవరికి సంబంధించినది, ఏమిటి, ఎప్పుడు. అప్‌లోడ్ అవసరం లేదు — కేవలం ఒక జాబితా."},
@@ -2306,7 +2329,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [treeEditRelatedTo, setTreeEditRelatedTo] = useState(RELATED_TO_SELF);
   const [treeEditBirthDate, setTreeEditBirthDate] = useState("");
   const [treeEditNote, setTreeEditNote] = useState("");
-  const [familySaving, setFamilySaving] = useState(false);
   const treePhotoRef = useRef<HTMLInputElement>(null);
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
@@ -2449,39 +2471,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     clearBootLocalScanCache();
   }, [token]);
 
-  /** Push family to cloud — used by explicit Save (sets saving indicator). */
-  const saveFamilyCloud = useCallback(async (data: FamilyData, showFeedback = false) => {
-    const payload = normalizeFamilyData(data);
-    if (!payload.children.length && !payload.members.length && !payload.selfPhoto) return;
-    if (!cloudReady) {
-      if (showFeedback) {
-        showToastRef.current(
-          t("syncing_local", lang),
-          "ok",
-        );
-      }
-      return;
-    }
-    setFamilySaving(true);
-    try {
-      await axios.post(`${API}/userdata`, { key: "family", value: payload }, { headers: { "x-token": token } });
-      if (showFeedback) {
-        showToastRef.current(t("family_saved", lang), "ok");
-      }
-    } catch {
-      if (showFeedback) {
-        showToastRef.current(t("mem_save_fail", lang), "err");
-      }
-    } finally {
-      setFamilySaving(false);
-    }
-  }, [token, cloudReady, lang]);
-
-  const saveFamilyNow = useCallback(() => {
-    saveFamilyLocal(familyData);
-    void saveFamilyCloud(familyData, true);
-  }, [familyData, saveFamilyLocal, saveFamilyCloud]);
-
   /** Write memories to IndexedDB + local meta (fast, no UI state). */
   const saveMemoriesLocal = useCallback((data: Memory[]) => {
     void persistMemoriesDurable(token, data);
@@ -2540,7 +2529,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (typeof payload === "object" && !Array.isArray(payload)) {
       const keys = Object.keys(payload);
       if (
-        (key === "family" && !(payload.children?.length || payload.members?.length)) ||
+        (key === "family" && !(payload.children?.length || payload.members?.length || payload.selfPhoto)) ||
         (key === "milestones_map" && keys.length === 0)
       ) {
         return;
@@ -2698,7 +2687,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(() => {
     saveFamilyLocal(familyData);
   }, [familyData, saveFamilyLocal]);
-  useEffect(()=>{ if (!cloudReady) return; void sbSave("family", normalizeFamilyData(familyData)); },[familyData, sbSave, cloudReady]);
+  useEffect(() => {
+    if (!cloudReady) return;
+    const timer = window.setTimeout(() => {
+      void sbSave("family", normalizeFamilyData(familyData));
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [familyData, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("milestones_map", milestoneChecksMap); },[milestoneChecksMap, sbSave, cloudReady]);
   useEffect(()=>{ safeLocalSet(sk(token,"docs"), JSON.stringify(docs)); },[docs, token]);
   useEffect(() => {
@@ -2738,7 +2733,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         profile: {
           childName: profile.childName,
           dueDate: profile.dueDate || null,
-          children: familyChildren.map((c) => ({ name: c.name })),
+          children: familyChildren.map((c) => ({ name: c.name, birthDate: c.birthDate })),
         },
         recentMemories: memories.filter((m) => m.text && m.text !== "📷"),
         lang,
@@ -2747,18 +2742,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       setLoading(false);
       return;
     }
-    // Recent memories (text only) and ticked milestones for context — limits by plan
-    const recentMemories = memories
-      .filter((m) => m.text && m.text !== "📷" && !isMemoryMilestone(m))
-      .slice(0, memoryContextLimit)
-      .map((m) => ({ text: m.text, date: m.date, ref: m.ref }));
+    // Registered family + recent memories/milestones/docs for context
+    const recentMemories = pickRegisteredMemoriesForChat(
+      memories,
+      familyChildren.map((c) => c.name),
+      memoryContextLimit,
+    );
     const recentMilestones = collectCheckedMilestonesForChat(
       milestoneChecksMap,
       lang,
       milestoneContextLimit,
       lastCheckedMap,
     );
-    const recentDocs = docs.slice(0,30).map(d=>({title:d.title,category:d.category,date:d.date,ref:d.ref}));
+    const recentDocs = docs.slice(0, 40).map((d) => ({ title: d.title, category: d.category, date: d.date, ref: d.ref }));
     const historyForApi = messages.slice(-chatContextLimit).map((m) => ({
       role: m.role,
       content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
@@ -2779,14 +2775,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             childBirthDate: profile.childBirthDate || null,
             dueDate: profile.dueDate || null,
             lang: lang,
-            children: familyChildren.map((c) => ({ name: c.name, birthDate: c.birthDate || null })),
+            country: profile.country || null,
+            city: profile.city || null,
+            children: familyChildren.map((c) => ({
+              name: c.name,
+              birthDate: c.birthDate || null,
+              gender: c.gender || null,
+            })),
+            familyMembers: familyData.members.map((m) => ({
+              name: m.name,
+              relationship: m.relationship,
+              birthDate: m.birthDate || null,
+              note: m.note || null,
+            })),
             pregnancyStatus:
               profile.pregnancyStatus ||
               (profile.dueDate ? (isDueDatePassed(profile.dueDate, nowForAge) ? "awaiting_update" : "active") : undefined),
           },
           recentMemories,
           recentMilestones,
-          recentDocs: recentDocs.slice(0, 10),
+          recentDocs,
         },
         { headers: { "x-token": token }, timeout: 90000 },
       );
@@ -5424,8 +5432,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onEditNode={openTreeEdit}
             onNodeSelect={(ref) => { setActiveMemRef(ref ?? "__general__"); setTab("memories"); }}
             onPlaceMembers={placeMembersOnTree}
-            onSave={saveFamilyNow}
-            saving={familySaving}
           />
           <div className="hm-tab-card">
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
@@ -6031,8 +6037,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         </div>
         <p className="hm-confirm-dialog__message">
           {lang === "el"
-            ? "Για να σου μιλά η HeyMaa προσωπικά — με ορόσημα, αναμνήσεις και συμβουλές για το μωρό σου — πρόσθεσε το πρώτο σου παιδί."
-            : "So HeyMaa can speak personally — with milestones, memories, and advice for your baby — add your first child."}
+            ? "Πήγαινε στην καρτέλα Οικογένεια, άνοιξε Η Οικογένειά μου και πάτα ＋ Πρόσθεσε παιδί — όνομα, ημερομηνία γέννησης (ή τοκετού) και φύλο."
+            : "Open the Family tab, go to My Family, and tap ＋ Add child — name, birth date (or due date), and gender."}
         </p>
         <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
           <button

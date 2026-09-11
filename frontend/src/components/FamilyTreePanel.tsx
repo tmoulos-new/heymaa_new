@@ -176,8 +176,6 @@ export function FamilyTreePanel({
   onNodeSelect,
   onEditNode,
   onPlaceMembers,
-  onSave,
-  saving,
   selectedNodeId,
 }: {
   userName: string
@@ -190,12 +188,11 @@ export function FamilyTreePanel({
   onNodeSelect?: (ref?: string) => void
   onEditNode?: (node: LaidOutNode) => void
   onPlaceMembers?: (nextMembers: FamilyMemberRecord[]) => void
-  onSave?: () => void
-  saving?: boolean
   selectedNodeId?: string | null
 }) {
   const el = lang === 'el'
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const [showTree, setShowTree] = useState(true)
   const [showHistory, setShowHistory] = useState(true)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [hoverSlot, setHoverSlot] = useState<TreeRowSlot | null>(null)
@@ -220,8 +217,8 @@ export function FamilyTreePanel({
         : 'Add a partner, kids, or members to grow the tree',
       noHistory: el ? 'Πρόσθεσε ημερομηνίες γέννησης για να φανεί η ιστορία' : 'Add birth dates to reveal family history',
       dropHere: el ? 'Άφησε εδώ' : 'Drop here',
-      save: el ? 'Αποθήκευση' : 'Save',
-      saving: el ? 'Αποθήκευση…' : 'Saving…',
+      hide: el ? 'Απόκρυψη' : 'Hide',
+      show: el ? 'Εμφάνιση' : 'Show',
     }),
     [el],
   )
@@ -355,21 +352,22 @@ export function FamilyTreePanel({
             {copy.title}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {onSave && (
-              <button
-                type="button"
-                className="hm-btn hm-btn--primary hm-btn--pill hm-btn--sm"
-                onClick={onSave}
-                disabled={saving}
-              >
-                {saving ? copy.saving : copy.save}
-              </button>
-            )}
+            <button
+              type="button"
+              className="hm-family-tree-panel__visibility-toggle"
+              onClick={() => setShowTree((v) => !v)}
+            >
+              {showTree ? copy.hide : copy.show}
+            </button>
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{copy.subtitle}</div>
+        {showTree && (
+          <div style={{ fontSize: 11.5, color: MUTED, marginTop: 4, lineHeight: 1.45 }}>{copy.subtitle}</div>
+        )}
       </div>
 
+      {showTree && (
+      <>
       <div className="hm-family-tree-panel__canvas">
         <svg
           ref={svgRef}
@@ -525,6 +523,8 @@ export function FamilyTreePanel({
           {people.length <= 1 ? copy.empty : copy.tapHint}
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
