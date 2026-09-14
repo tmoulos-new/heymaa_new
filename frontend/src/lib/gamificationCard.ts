@@ -1,4 +1,4 @@
-/** Single source of truth — keep in sync with backend POINT_RULES + DEFAULT_LEVELS in main.py */
+/** Defaults — live values from GET /gamification/rules (admin /admin/points). */
 import type { HomeFaqItem } from '../i18n/homeTypes'
 
 export const GAMIFICATION_POINT_RULES = [
@@ -12,16 +12,85 @@ export const GAMIFICATION_POINT_RULES = [
 /** Chat video uses the same points as memory video, different path */
 export const GAMIFICATION_CHAT_VIDEO_PATH = '/app/chat/send-video';
 
-/** Keep in sync with backend CHAT_DAILY_POINTS_CAP */
+/** Keep in sync with backend CHAT_DAILY_POINTS_CAP fallback */
 export const CHAT_DAILY_POINTS_CAP = 30;
 
+export const REFERRAL_BONUS_POINTS = 40;
+
+export type LivePointAction = {
+  el: string
+  en: string
+  points: number
+  path: string
+}
+
+type LivePointRules = {
+  actions: LivePointAction[]
+  lookup: Record<string, number>
+  chat_daily_points_cap: number
+  referral_bonus_points: number
+}
+
+let liveRules: LivePointRules | null = null
+
+function defaultLookup(): Record<string, number> {
+  const lookup: Record<string, number> = {
+    [GAMIFICATION_CHAT_VIDEO_PATH]: GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8,
+    '/app/milestones/uncheck': -(GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 15),
+    '/auth/register': REFERRAL_BONUS_POINTS,
+  }
+  for (const row of GAMIFICATION_POINT_RULES) lookup[row.path] = row.points
+  return lookup
+}
+
+export function setLivePointRules(payload: Partial<LivePointRules> | null | undefined) {
+  if (!payload) return
+  const actions = Array.isArray(payload.actions) && payload.actions.length
+    ? payload.actions
+        .filter((a) => a && typeof a === 'object')
+        .map((a) => ({
+          el: String(a.el || ''),
+          en: String(a.en || ''),
+          points: Number(a.points) || 0,
+          path: String(a.path || ''),
+        }))
+    : (liveRules?.actions ?? GAMIFICATION_POINT_RULES.map((r) => ({ ...r })))
+  const lookup = {
+    ...defaultLookup(),
+    ...(liveRules?.lookup || {}),
+    ...(payload.lookup && typeof payload.lookup === 'object' ? payload.lookup : {}),
+  }
+  for (const row of actions) {
+    if (row.path) lookup[row.path] = row.points
+  }
+  const cap = Number(payload.chat_daily_points_cap)
+  const referral = Number(payload.referral_bonus_points)
+  liveRules = {
+    actions,
+    lookup,
+    chat_daily_points_cap: Number.isFinite(cap) ? cap : (liveRules?.chat_daily_points_cap ?? CHAT_DAILY_POINTS_CAP),
+    referral_bonus_points: Number.isFinite(referral) ? referral : (liveRules?.referral_bonus_points ?? REFERRAL_BONUS_POINTS),
+  }
+}
+
+export function getPointActions(): LivePointAction[] {
+  return liveRules?.actions ?? GAMIFICATION_POINT_RULES.map((r) => ({ ...r }))
+}
+
+/** @deprecated use getPointActions() — snapshot of defaults for older imports */
 export const POINT_ACTIONS = GAMIFICATION_POINT_RULES.map(({ el, en, points }) => ({
   el,
   en,
   points,
 }));
 
-export const REFERRAL_BONUS_POINTS = 40;
+export function getChatDailyPointsCap(): number {
+  return liveRules?.chat_daily_points_cap ?? CHAT_DAILY_POINTS_CAP
+}
+
+export function getReferralBonusPoints(): number {
+  return liveRules?.referral_bonus_points ?? REFERRAL_BONUS_POINTS
+}
 
 export const GAMIFICATION_LEVELS = [
   { number: 1, min_points: 0, name_el: 'Νέα Μαμά', name_en: 'New Mom' },
@@ -59,6 +128,8 @@ export function levelRewardsText(levelNumber: number, lang: string): string {
 
 export function gamificationPointsForPath(path: string): number {
   const normalized = path.trim();
+  const lookup = liveRules?.lookup
+  if (lookup && normalized in lookup) return Number(lookup[normalized]) || 0
   if (normalized === GAMIFICATION_CHAT_VIDEO_PATH) {
     return GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8;
   }
@@ -80,8 +151,12 @@ export function pointsToastSuffix(path: string, lang: string): string {
 /** FAQ entries generated from live rules — appended to home/help FAQ lists */
 export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
   const isEl = lang === 'el';
-  const milestonePts = GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 15;
-  const videoPts = GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8;
+  const milestonePts = getPointActions().find((r) => r.path === '/app/milestones/check')?.points
+    ?? GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 15;
+  const videoPts = getPointActions().find((r) => r.path === '/app/memories/add-video')?.points
+    ?? GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8;
+  const chatCap = getChatDailyPointsCap()
+  const referralPts = getReferralBonusPoints()
   return [
     {
       question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
@@ -91,7 +166,7 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
       sections: [
         {
           title: isEl ? 'Πόντοι ανά ενέργεια' : 'Points per action',
-          bullets: POINT_ACTIONS.map((a) =>
+          bullets: getPointActions().map((a) =>
             isEl ? `${a.el}: +${a.points} πόντοι` : `${a.en}: +${a.points} points`,
           ),
         },
@@ -101,14 +176,14 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
             ? [
                 `Ορόσημο: +${milestonePts} μία φορά ανά ορόσημο· αν ξετικάρεις, αφαιρούνται`,
                 `Βίντεο (+${videoPts}): σε Αναμνήσεις ή Chat`,
-                `Chat: έως ${CHAT_DAILY_POINTS_CAP} πόντοι/ημέρα από μηνύματα`,
-                `Πρόσκληση φίλης: +${REFERRAL_BONUS_POINTS} όταν εγγραφεί με τον κωδικό σου (Προφίλ)`,
+                `Chat: έως ${chatCap} πόντοι/ημέρα από μηνύματα`,
+                `Πρόσκληση φίλης: +${referralPts} όταν εγγραφεί με τον κωδικό σου (Προφίλ)`,
               ]
             : [
                 `Milestone: +${milestonePts} once per milestone; unticking removes points`,
                 `Video (+${videoPts}): in Memories or Chat`,
-                `Chat: up to ${CHAT_DAILY_POINTS_CAP} points/day from messages`,
-                `Friend referral: +${REFERRAL_BONUS_POINTS} when they sign up with your code (Profile)`,
+                `Chat: up to ${chatCap} points/day from messages`,
+                `Friend referral: +${referralPts} when they sign up with your code (Profile)`,
               ],
         },
       ],

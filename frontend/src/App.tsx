@@ -18,7 +18,7 @@ import {
   type FamilyMemberRecord,
 } from "./lib/familyData";
 import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, avatarInitial, AVATAR_COLOR, relationshipLabel, type LaidOutNode } from "./lib/familyTree";
-import { GAMIFICATION_CHAT_VIDEO_PATH, CHAT_DAILY_POINTS_CAP, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix } from "./lib/gamificationCard";
+import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
 import { API, LOCAL_DEMO_TOKEN, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isBrowserLocalHost, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
@@ -1932,6 +1932,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
   const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
+  const [pointRulesVersion, setPointRulesVersion] = useState(0);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState("");
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
@@ -1949,13 +1950,32 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
     const base = Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
     return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
-  }, [tHome, homeLng]);
+  }, [tHome, homeLng, pointRulesVersion]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
   const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "210 928 7420");
   const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287420");
   const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή Εξυπηρέτησης" : "Support line"));
   const helpPhoneHours = String(tHome("footer.phoneHours", { lng: homeLng }) || (lang === "el" ? "Δευτέρα–Παρασκευή 09:00–17:00" : "Monday–Friday 09:00–17:00"));
   const helpAddress = String(tHome("footer.address", { lng: homeLng }) || "");
+
+  const applyLivePointRulesFrom = useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== "object") return;
+    setLivePointRules(payload as Parameters<typeof setLivePointRules>[0]);
+    setPointRulesVersion((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/gamification/rules`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) applyLivePointRulesFrom(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [applyLivePointRulesFrom]);
 
   useEffect(() => {
     document.body.classList.add("hm-app-active");
@@ -1970,7 +1990,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(() => {
     axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
       .then(res => {
-        if (res.data?.gamification) setGamification(res.data.gamification);
+        if (res.data?.gamification) {
+          applyLivePointRulesFrom(res.data.gamification);
+          setGamification(res.data.gamification);
+        }
         if (typeof res.data?.referral_code === "string" && res.data.referral_code.trim()) {
           setReferralCode(res.data.referral_code.trim());
         }
@@ -1985,7 +2008,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
       })
       .catch(() => {});
-  }, [token]);
+  }, [token, applyLivePointRulesFrom]);
 
   const applySubscriptionSnapshot = useCallback((data: SubscriptionSnapshot) => {
     setSubSnapshot(data);
@@ -2033,7 +2056,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
     const result = await logUserActivity(token, { action, path, label, details });
-    if (result?.gamification) setGamification(result.gamification);
+    if (result?.gamification) {
+      applyLivePointRulesFrom(result.gamification);
+      setGamification(result.gamification);
+    }
     if (result?.rewards) setRewardsSnapshot(result.rewards);
     if (result?.level_up && result.rewards?.pending?.length) {
       openPendingReward(result.rewards, {
@@ -2055,12 +2081,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     ) {
       showToast(
         lang === "el"
-          ? `Έφτασες το ημερήσιο όριο πόντων από chat (${CHAT_DAILY_POINTS_CAP}/ημέρα).`
-          : `Daily chat points cap reached (${CHAT_DAILY_POINTS_CAP}/day).`,
+          ? `Έφτασες το ημερήσιο όριο πόντων από chat (${getChatDailyPointsCap()}/ημέρα).`
+          : `Daily chat points cap reached (${getChatDailyPointsCap()}/day).`,
         "ok",
       );
     }
-  }, [token, lang, openPendingReward]);
+  }, [token, lang, openPendingReward, applyLivePointRulesFrom]);
 
   const accessExpiryInfo = useMemo(
     () => getAccessExpiryInfo(lang, trialEndsAt, subSnapshot),

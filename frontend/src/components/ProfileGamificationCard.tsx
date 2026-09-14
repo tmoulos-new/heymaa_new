@@ -1,9 +1,9 @@
 import type { GamificationStatus } from '../lib/userGamification'
 import { levelName } from '../lib/userGamification'
 import {
-  CHAT_DAILY_POINTS_CAP,
-  POINT_ACTIONS,
-  REFERRAL_BONUS_POINTS,
+  getChatDailyPointsCap,
+  getPointActions,
+  getReferralBonusPoints,
   levelEmoji,
 } from '../lib/gamificationCard'
 
@@ -138,8 +138,8 @@ export function ProfileGamificationCard({
       <div className="hm-profile-gamification-card__divider" />
 
       <p className="hm-profile-gamification-card__actions" role="list">
-        {POINT_ACTIONS.map((action, i) => (
-          <span key={action.en} role="listitem">
+        {getPointActions().map((action, i) => (
+          <span key={action.path || action.en} role="listitem">
             {i > 0 ? ' • ' : null}
             {isEl ? action.el : action.en} +{action.points}
           </span>
@@ -147,8 +147,8 @@ export function ProfileGamificationCard({
       </p>
       <p className="hm-profile-gamification-card__cap-hint">
         {isEl
-          ? `Chat: έως ${CHAT_DAILY_POINTS_CAP} πόντοι/ημέρα από μηνύματα.`
-          : `Chat: up to ${CHAT_DAILY_POINTS_CAP} points/day from messages.`}
+          ? `Chat: έως ${getChatDailyPointsCap()} πόντοι/ημέρα από μηνύματα.`
+          : `Chat: up to ${getChatDailyPointsCap()} points/day from messages.`}
       </p>
 
       {referralCode ? (
@@ -161,8 +161,8 @@ export function ProfileGamificationCard({
             </p>
             <p className="hm-profile-gamification-card__referral-bonus">
               {isEl
-                ? `+${REFERRAL_BONUS_POINTS} πόντοι για κάθε φίλη που εγγράφεται!`
-                : `+${REFERRAL_BONUS_POINTS} points for every friend who signs up!`}
+                ? `+${getReferralBonusPoints()} πόντοι για κάθε φίλη που εγγράφεται!`
+                : `+${getReferralBonusPoints()} points for every friend who signs up!`}
             </p>
           </div>
         </>

@@ -37,7 +37,7 @@ function isLocalApiUrl(url: string): boolean {
 
 export function getApiBase(): string {
   const h = window.location.hostname
-  const envUrl = (process.env.REACT_APP_API_URL || '').trim()
+  const envUrl = (process.env.REACT_APP_API_URL || process.env.REACT_APP_API_PROXY || '').trim()
   // Never bake a localhost API into production (www.heymaa.ai / Vercel).
   if (envUrl && !(isLocalApiUrl(envUrl) && !isLocalHost(h))) {
     return envUrl.replace(/\/$/, '')

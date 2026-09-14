@@ -55,6 +55,24 @@ export interface LevelRow {
   name_en: string
 }
 
+export interface PointRuleRow {
+  id: number
+  action: string
+  path: string
+  points: number
+  label_el: string
+  label_en: string
+  sort_order: number
+  visible?: boolean
+}
+
+export interface PointSettingRow {
+  key: string
+  value_int: number
+  label_el: string
+  label_en: string
+}
+
 export interface PlanRow {
   id: string
   name: string

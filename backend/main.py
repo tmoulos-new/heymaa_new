@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, F
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 from typing import Optional, List
 
 try:
@@ -63,12 +63,27 @@ except ImportError:
         validate_memories_payload,
     )
 
-_backend_dir = os.path.dirname(__file__)
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
 _root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
+
+
+def _load_dotenv_file(path: str) -> None:
+    """Load keys from a .env file without clobbering non-empty OS env values."""
+    if not os.path.isfile(path):
+        return
+    for key, val in dotenv_values(path).items():
+        if val is None:
+            continue
+        if not (os.getenv(key) or "").strip():
+            os.environ[key] = val
+
+
 # On Vercel, use platform env only — never load a packaged .env that could blank secrets.
 if not os.getenv("VERCEL"):
-    load_dotenv(os.path.join(_root_dir, ".env"))
-    load_dotenv(os.path.join(_backend_dir, ".env"))
+    _load_dotenv_file(os.path.join(_root_dir, ".env"))
+    _load_dotenv_file(os.path.join(_backend_dir, ".env"))
+    _load_dotenv_file(os.path.join(os.getcwd(), ".env"))
+    _load_dotenv_file(os.path.abspath(os.path.join(os.getcwd(), "..", ".env")))
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -140,6 +155,8 @@ ACTIVITY_LOG_TABLE = "activity_log"
 USER_ACTIVITY_LOG_TABLE = "user_activity_log"
 LEVELS_TABLE = "levels"
 POINT_TRANSACTIONS_TABLE = "point_transactions"
+POINT_RULES_TABLE = "point_rules"
+POINT_SETTINGS_TABLE = "point_settings"
 CHAT_PROMPT_SETTINGS_TABLE = "chat_prompt_settings"
 CHAT_PROMPT_KEY = "system"
 _system_prompt_cache: Optional[str] = None
@@ -155,23 +172,42 @@ DEFAULT_LEVELS = [
     {"id": 5, "sort_order": 5, "min_points": 3500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
 ]
 
-# Keep in sync with frontend/src/lib/gamificationCard.ts (GAMIFICATION_POINT_RULES)
-POINT_RULES = {
-    ("submit", "/app/memories/add-note"): 2,
-    ("submit", "/app/memories/add-photo"): 5,
-    ("submit", "/app/memories/add-video"): 8,
-    ("submit", "/app/chat/send"): 3,
-    ("submit", "/app/chat/send-video"): 8,
-    ("submit", "/app/milestones/check"): 15,
-    ("submit", "/app/milestones/uncheck"): -15,
-}
+# Defaults — live values come from point_rules / point_settings (admin /admin/points).
+DEFAULT_POINT_RULE_ROWS = [
+    {"id": 1, "action": "submit", "path": "/app/memories/add-note", "points": 2,
+     "label_el": "Σημείωση", "label_en": "Note", "sort_order": 1, "visible": True},
+    {"id": 2, "action": "submit", "path": "/app/memories/add-photo", "points": 5,
+     "label_el": "Φωτό", "label_en": "Photo", "sort_order": 2, "visible": True},
+    {"id": 3, "action": "submit", "path": "/app/memories/add-video", "points": 8,
+     "label_el": "Βίντεο", "label_en": "Video", "sort_order": 3, "visible": True},
+    {"id": 4, "action": "submit", "path": "/app/chat/send", "points": 3,
+     "label_el": "Chat", "label_en": "Chat", "sort_order": 4, "visible": True},
+    {"id": 5, "action": "submit", "path": "/app/chat/send-video", "points": 8,
+     "label_el": "Chat βίντεο", "label_en": "Chat video", "sort_order": 5, "visible": False},
+    {"id": 6, "action": "submit", "path": "/app/milestones/check", "points": 15,
+     "label_el": "Ορόσημο", "label_en": "Milestone", "sort_order": 6, "visible": True},
+    {"id": 7, "action": "submit", "path": "/app/milestones/uncheck", "points": -15,
+     "label_el": "Ξετικάρισμα ορόσημου", "label_en": "Untick milestone", "sort_order": 7, "visible": False},
+    {"id": 8, "action": "referral", "path": "/auth/register", "points": 40,
+     "label_el": "Πρόσκληση φίλης", "label_en": "Friend referral", "sort_order": 8, "visible": False},
+]
+POINT_RULES = {(r["action"], r["path"]): int(r["points"]) for r in DEFAULT_POINT_RULE_ROWS}
 
 CHAT_POINT_PATHS = frozenset({"/app/chat/send", "/app/chat/send-video"})
 CHAT_DAILY_POINTS_CAP = 30
 MILESTONE_CHECK_PATH = "/app/milestones/check"
 MILESTONE_UNCHECK_PATH = "/app/milestones/uncheck"
+REFERRAL_PATH = "/auth/register"
 
 INVITE_REFERRAL_POINTS = 40
+DEFAULT_POINT_SETTINGS = {
+    "chat_daily_points_cap": {
+        "key": "chat_daily_points_cap",
+        "value_int": CHAT_DAILY_POINTS_CAP,
+        "label_el": "Ημερήσιο όριο πόντων chat",
+        "label_en": "Daily chat points cap",
+    },
+}
 TRIAL_DAYS = max(1, int(os.getenv("TRIAL_DAYS", "14")))
 
 def _parse_utc_dt(value) -> Optional["datetime"]:
@@ -213,6 +249,9 @@ def _ensure_full_trial_period(user_id: str, row: dict) -> Optional[str]:
     return new_end
 
 _levels_cache: Optional[list] = None
+_point_rules_cache: Optional[list] = None
+_point_settings_cache: Optional[dict] = None
+_point_rules_table_ready: Optional[bool] = None
 
 def _user_auth_client():
     """Separate client for end-user sign-in so user JWTs never attach to service-role `sb`."""
@@ -539,7 +578,7 @@ def _resolve_points_award(
 
     if path in CHAT_POINT_PATHS and amount > 0:
         earned_today = _chat_points_earned_today_utc(user_id)
-        remaining = max(0, CHAT_DAILY_POINTS_CAP - earned_today)
+        remaining = max(0, _chat_daily_points_cap() - earned_today)
         if remaining <= 0:
             return 0, "", "chat_daily_cap"
         amount = min(amount, remaining)
@@ -569,6 +608,119 @@ def _get_levels() -> list:
 def _invalidate_levels_cache():
     global _levels_cache
     _levels_cache = None
+
+
+def _point_table_missing(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "does not exist" in msg or "42p01" in msg or "could not find" in msg
+
+
+def _copy_point_rule_rows(rows: list) -> list:
+    return [dict(r) for r in rows]
+
+
+def _invalidate_point_rules_cache():
+    global _point_rules_cache, _point_settings_cache, _point_rules_table_ready
+    _point_rules_cache = None
+    _point_settings_cache = None
+    _point_rules_table_ready = None
+
+
+def _get_point_rule_rows() -> list:
+    global _point_rules_cache, _point_rules_table_ready
+    if _point_rules_cache is not None:
+        return _point_rules_cache
+    defaults = _copy_point_rule_rows(DEFAULT_POINT_RULE_ROWS)
+    if not sb:
+        _point_rules_cache = defaults
+        _point_rules_table_ready = False
+        return _point_rules_cache
+    try:
+        res = (
+            sb.table(POINT_RULES_TABLE)
+            .select("id,action,path,points,label_el,label_en,sort_order,visible")
+            .order("sort_order")
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            try:
+                sb.table(POINT_RULES_TABLE).insert(defaults).execute()
+                rows = defaults
+            except Exception:
+                rows = defaults
+        _point_rules_cache = rows
+        _point_rules_table_ready = True
+    except Exception as e:
+        _point_rules_table_ready = not _point_table_missing(e)
+        _point_rules_cache = defaults
+    return _point_rules_cache
+
+
+def _get_point_settings() -> dict:
+    global _point_settings_cache
+    if _point_settings_cache is not None:
+        return _point_settings_cache
+    fallback = {k: dict(v) for k, v in DEFAULT_POINT_SETTINGS.items()}
+    if not sb:
+        _point_settings_cache = fallback
+        return _point_settings_cache
+    try:
+        res = sb.table(POINT_SETTINGS_TABLE).select("key,value_int,label_el,label_en").execute()
+        rows = res.data or []
+        if not rows:
+            try:
+                sb.table(POINT_SETTINGS_TABLE).insert(list(fallback.values())).execute()
+                rows = list(fallback.values())
+            except Exception:
+                rows = list(fallback.values())
+        out = {str(r.get("key")): r for r in rows if r.get("key")}
+        for key, default in fallback.items():
+            out.setdefault(key, default)
+        _point_settings_cache = out
+    except Exception:
+        _point_settings_cache = fallback
+    return _point_settings_cache
+
+
+def _point_rules_map() -> dict:
+    return {(r.get("action"), r.get("path")): int(r.get("points") or 0) for r in _get_point_rule_rows()}
+
+
+def _chat_daily_points_cap() -> int:
+    row = _get_point_settings().get("chat_daily_points_cap") or {}
+    try:
+        return max(0, int(row.get("value_int") if row.get("value_int") is not None else CHAT_DAILY_POINTS_CAP))
+    except (TypeError, ValueError):
+        return CHAT_DAILY_POINTS_CAP
+
+
+def _invite_referral_points() -> int:
+    mapped = _point_rules_map().get(("referral", REFERRAL_PATH))
+    if mapped is None:
+        return INVITE_REFERRAL_POINTS
+    return int(mapped)
+
+
+def _public_point_rules_payload() -> dict:
+    rows = sorted(_get_point_rule_rows(), key=lambda r: int(r.get("sort_order") or 0))
+    lookup = {str(r.get("path") or ""): int(r.get("points") or 0) for r in rows if r.get("path")}
+    return {
+        "actions": [
+            {
+                "el": r.get("label_el") or "",
+                "en": r.get("label_en") or "",
+                "points": int(r.get("points") or 0),
+                "path": r.get("path") or "",
+                "action": r.get("action") or "submit",
+            }
+            for r in rows
+            if r.get("visible", True)
+        ],
+        "lookup": lookup,
+        "chat_daily_points_cap": _chat_daily_points_cap(),
+        "referral_bonus_points": _invite_referral_points(),
+    }
 
 def _gamification_status(
     points: int,
@@ -627,7 +779,13 @@ def _gamification_status(
     }
 
 def _points_for_activity(action: str, path: str) -> int:
-    return int(POINT_RULES.get((action, path), 0))
+    mapped = _point_rules_map()
+    amount = int(mapped.get((action, path), 0))
+    if amount == 0 and path == MILESTONE_UNCHECK_PATH:
+        check_pts = int(mapped.get(("submit", MILESTONE_CHECK_PATH), 0))
+        if check_pts:
+            return -abs(check_pts)
+    return amount
 
 def _level_id_for_points(points: int, levels: Optional[list] = None) -> int:
     levels = levels or _get_levels()
@@ -695,7 +853,9 @@ def _user_gamification(user_id: str) -> dict:
     points = _get_user_points(user_id)
     level_id, _, _ = _sync_user_level_id(user_id, points)
     current_level = _level_by_id(level_id, levels)
-    return _gamification_status(points, levels, current_level=current_level)
+    payload = _gamification_status(points, levels, current_level=current_level)
+    payload.update(_public_point_rules_payload())
+    return payload
 
 def _points_totals_for_users(user_ids: list) -> dict:
     if not sb or not user_ids:
@@ -1069,7 +1229,7 @@ def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
     canonical = _normalize_invite_code(invite_code).upper()
     _award_points(
         referrer_id,
-        INVITE_REFERRAL_POINTS,
+        _invite_referral_points(),
         f"referral:{canonical}:{new_user_id}",
         action="referral",
         path="/auth/register",
@@ -2651,6 +2811,18 @@ class LevelUpdate(BaseModel):
     min_points: Optional[int] = None
     name_el: Optional[str] = None
     name_en: Optional[str] = None
+
+
+class PointRuleUpdate(BaseModel):
+    points: Optional[int] = None
+    label_el: Optional[str] = None
+    label_en: Optional[str] = None
+    visible: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class PointSettingUpdate(BaseModel):
+    value_int: int
 
 
 class PlanUpdate(BaseModel):
@@ -5500,6 +5672,126 @@ async def admin_list_levels(x_token: Optional[str] = Header(None)):
         return {"levels": [], "error": str(e)}
 
 
+@app.get("/admin/point_rules")
+async def admin_list_point_rules(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not ensure_supabase():
+        return {
+            "rules": _copy_point_rule_rows(DEFAULT_POINT_RULE_ROWS),
+            "settings": list(DEFAULT_POINT_SETTINGS.values()),
+            "table_ready": False,
+            "error": _db_unavailable_detail(),
+        }
+    _invalidate_point_rules_cache()
+    rows = _get_point_rule_rows()
+    settings = list(_get_point_settings().values())
+    ready = bool(_point_rules_table_ready)
+    return {
+        "rules": rows,
+        "settings": settings,
+        "table_ready": ready,
+        "error": None if ready else "Run backend/migrations/point_rules.sql in Supabase SQL Editor",
+    }
+
+
+@app.put("/admin/point_rules/{rule_id}")
+async def admin_update_point_rule(rule_id: int, req: PointRuleUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    try:
+        fetch = sb.table(POINT_RULES_TABLE).select("*").eq("id", int(rule_id)).limit(1).execute()
+        if not fetch.data:
+            raise HTTPException(status_code=404, detail="Point rule not found")
+        before = fetch.data[0]
+        data: dict = {}
+        if req.points is not None:
+            data["points"] = int(req.points)
+        if req.label_el is not None:
+            label_el = req.label_el.strip()
+            if not label_el:
+                raise HTTPException(status_code=400, detail="label_el cannot be empty")
+            data["label_el"] = label_el
+        if req.label_en is not None:
+            label_en = req.label_en.strip()
+            if not label_en:
+                raise HTTPException(status_code=400, detail="label_en cannot be empty")
+            data["label_en"] = label_en
+        if req.visible is not None:
+            data["visible"] = bool(req.visible)
+        if req.sort_order is not None:
+            if int(req.sort_order) < 1:
+                raise HTTPException(status_code=400, detail="sort_order must be >= 1")
+            data["sort_order"] = int(req.sort_order)
+        if not data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        result = sb.table(POINT_RULES_TABLE).update(data).eq("id", int(rule_id)).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Point rule not found")
+        row = result.data[0]
+        if row.get("path") == MILESTONE_CHECK_PATH and "points" in data:
+            uncheck_pts = -abs(int(data["points"]))
+            sb.table(POINT_RULES_TABLE).update({"points": uncheck_pts}).eq(
+                "path", MILESTONE_UNCHECK_PATH
+            ).execute()
+        _invalidate_point_rules_cache()
+        _log_activity(
+            admin_id, "update", "point_rule", str(rule_id),
+            value_before=_activity_snapshot(before),
+            value_after=_activity_snapshot(row),
+        )
+        return {"ok": True, "rule": row, "rules": _get_point_rule_rows()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if _point_table_missing(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Run backend/migrations/point_rules.sql in Supabase SQL Editor",
+            )
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
+@app.put("/admin/point_settings/{key}")
+async def admin_update_point_setting(key: str, req: PointSettingUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=503, detail=_db_unavailable_detail())
+    setting_key = (key or "").strip()
+    if setting_key not in DEFAULT_POINT_SETTINGS:
+        raise HTTPException(status_code=404, detail="Unknown point setting")
+    if int(req.value_int) < 0:
+        raise HTTPException(status_code=400, detail="value_int must be >= 0")
+    try:
+        fetch = sb.table(POINT_SETTINGS_TABLE).select("*").eq("key", setting_key).limit(1).execute()
+        before = (fetch.data or [None])[0]
+        payload = {"value_int": int(req.value_int)}
+        if fetch.data:
+            result = sb.table(POINT_SETTINGS_TABLE).update(payload).eq("key", setting_key).execute()
+            row = (result.data or [{**fetch.data[0], **payload}])[0]
+        else:
+            seed = dict(DEFAULT_POINT_SETTINGS[setting_key])
+            seed["value_int"] = int(req.value_int)
+            result = sb.table(POINT_SETTINGS_TABLE).insert(seed).execute()
+            row = (result.data or [seed])[0]
+        _invalidate_point_rules_cache()
+        _log_activity(
+            admin_id, "update", "point_setting", setting_key,
+            value_before=_activity_snapshot(before) if before else None,
+            value_after=_activity_snapshot(row),
+        )
+        return {"ok": True, "setting": row, "settings": list(_get_point_settings().values())}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if _point_table_missing(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Run backend/migrations/point_rules.sql in Supabase SQL Editor",
+            )
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
 @app.get("/admin/plans")
 async def admin_list_plans(x_token: Optional[str] = Header(None)):
     verify_admin(x_token)
@@ -7259,6 +7551,12 @@ async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None
 
 class ClaimLevelRewardRequest(BaseModel):
     level_id: int
+
+
+@app.get("/gamification/rules")
+async def get_gamification_rules():
+    """Public live point amounts for FAQ, profile, and optimistic UI."""
+    return _public_point_rules_payload()
 
 
 @app.get("/gamification/rewards")

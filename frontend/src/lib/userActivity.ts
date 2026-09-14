@@ -2,7 +2,7 @@ import type { GamificationStatus } from "./userGamification";
 
 function getApiBase(): string {
   const h = window.location.hostname
-  const envUrl = (process.env.REACT_APP_API_URL || '').trim()
+  const envUrl = (process.env.REACT_APP_API_URL || process.env.REACT_APP_API_PROXY || '').trim()
   const envIsLocal = /localhost|127\.0\.0\.1/i.test(envUrl)
   const pageIsLocal = h === 'localhost' || h === '127.0.0.1'
   if (envUrl && !(envIsLocal && !pageIsLocal)) return envUrl.replace(/\/$/, '')

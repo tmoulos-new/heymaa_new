@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronsLeft,
+  Coins,
   CreditCard,
   Database,
   Globe2,
@@ -31,6 +32,7 @@ import { UsersTab } from '../tabs/UsersTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { LevelsTab } from '../tabs/LevelsTab'
+import { PointsTab } from '../tabs/PointsTab'
 import { PlansTab } from '../tabs/PlansTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
@@ -48,6 +50,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
   { id: 'regions', icon: Globe2, tip: 'Regions' },
   { id: 'levels', icon: Trophy, tip: 'Levels' },
+  { id: 'points', icon: Coins, tip: 'Points per action' },
   { id: 'plans', icon: CreditCard, tip: 'Plans' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
@@ -183,6 +186,7 @@ export function AdminShell() {
             <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
             <Route path="levels" element={<LevelsTab key={`lv-${refreshKey}`} />} />
+            <Route path="points" element={<PointsTab key={`pt-${refreshKey}`} />} />
             <Route path="plans" element={<PlansTab key={`pl-${refreshKey}`} />} />
             <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
             <Route path="sources" element={<RagSourcesTab key={`rs-${refreshKey}`} />} />
