@@ -24,14 +24,45 @@ export type LivePointAction = {
   path: string
 }
 
+export type LiveLevelReward = {
+  level_id: number
+  plan_slot: 'starter' | 'premium'
+  days: number
+}
+
 type LivePointRules = {
   actions: LivePointAction[]
   lookup: Record<string, number>
   chat_daily_points_cap: number
   referral_bonus_points: number
+  level_rewards: LiveLevelReward[]
 }
 
 let liveRules: LivePointRules | null = null
+
+const DEFAULT_LEVEL_REWARDS: LiveLevelReward[] = [
+  { level_id: 2, plan_slot: 'starter', days: 3 },
+  { level_id: 3, plan_slot: 'starter', days: 7 },
+  { level_id: 4, plan_slot: 'premium', days: 3 },
+  { level_id: 5, plan_slot: 'premium', days: 7 },
+]
+
+function parseLiveLevelRewards(raw: unknown): LiveLevelReward[] | null {
+  if (!Array.isArray(raw)) return null
+  const out: LiveLevelReward[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const item = row as { level_id?: unknown; plan_slot?: unknown; days?: unknown }
+    const levelId = Number(item.level_id)
+    const slot = String(item.plan_slot || '').trim().toLowerCase()
+    const days = Number(item.days)
+    if (!Number.isInteger(levelId) || levelId < 1) continue
+    if (slot !== 'starter' && slot !== 'premium') continue
+    if (!Number.isFinite(days) || days < 1) continue
+    out.push({ level_id: levelId, plan_slot: slot, days })
+  }
+  return out
+}
 
 function defaultLookup(): Record<string, number> {
   const lookup: Record<string, number> = {
@@ -65,12 +96,18 @@ export function setLivePointRules(payload: Partial<LivePointRules> | null | unde
   }
   const cap = Number(payload.chat_daily_points_cap)
   const referral = Number(payload.referral_bonus_points)
+  const parsedRewards = parseLiveLevelRewards(payload.level_rewards)
   liveRules = {
     actions,
     lookup,
     chat_daily_points_cap: Number.isFinite(cap) ? cap : (liveRules?.chat_daily_points_cap ?? CHAT_DAILY_POINTS_CAP),
     referral_bonus_points: Number.isFinite(referral) ? referral : (liveRules?.referral_bonus_points ?? REFERRAL_BONUS_POINTS),
+    level_rewards: parsedRewards ?? liveRules?.level_rewards ?? DEFAULT_LEVEL_REWARDS.map((r) => ({ ...r })),
   }
+}
+
+export function getLevelPlanRewards(): LiveLevelReward[] {
+  return (liveRules?.level_rewards ?? DEFAULT_LEVEL_REWARDS).map((r) => ({ ...r }))
 }
 
 export function getPointActions(): LivePointAction[] {
@@ -117,11 +154,28 @@ export const LEVEL_REWARDS: Record<number, { el: string; en: string }> = {
   5: { el: '7 μέρες δωρεάν Premium', en: '7 days free Premium' },
 };
 
+function giftCopy(slot: string, days: number): { el: string; en: string } {
+  const plan = slot.charAt(0).toUpperCase() + slot.slice(1)
+  return {
+    el: `${days} μέρες δωρεάν ${plan}`,
+    en: `${days} days free ${plan}`,
+  }
+}
+
 export function levelEmoji(levelNumber: number): string {
   return LEVEL_EMOJI[levelNumber] ?? '🌱';
 }
 
 export function levelRewardsText(levelNumber: number, lang: string): string {
+  const live = getLevelPlanRewards()
+  const match = live.find((r) => r.level_id === levelNumber)
+  if (match) {
+    const copy = giftCopy(match.plan_slot, match.days)
+    return lang === 'el' ? copy.el : copy.en
+  }
+  if (liveRules?.level_rewards) {
+    return lang === 'el' ? 'Χωρίς δώρο' : 'No gift'
+  }
   const row = LEVEL_REWARDS[levelNumber] ?? LEVEL_REWARDS[1];
   return lang === 'el' ? row.el : row.en;
 }
@@ -204,19 +258,25 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
         },
         {
           title: isEl ? 'Δώρα επιπέδου' : 'Level rewards',
-          bullets: isEl
-            ? [
-                'Επίπεδα 2–5: δωρεάν ημέρες Starter ή Premium',
-                'Αν έχεις ήδη Premium/Ετήσιο, δώρο Starter γίνεται ίσες μέρες στο πλάνο σου — χωρίς υποβάθμιση',
-                'Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασης (συνδρομή ή grant)',
-                'Πάτα «Πάρε το δώρο σου!» για να τις ενεργοποιήσεις',
-              ]
-            : [
-                'Levels 2–5: free Starter or Premium days',
-                'If you already have Premium/Annual, a Starter reward becomes the same days on your current plan — no downgrade',
-                'Days are added after your current access ends (subscription or grant)',
-                'Tap «Claim your gift!» to activate them',
-              ],
+          bullets: [
+            ...GAMIFICATION_LEVELS.map((lv) => {
+              const gift = levelRewardsText(lv.number, isEl ? 'el' : 'en')
+              return isEl
+                ? `Επίπεδο ${lv.number} — ${lv.name_el}: ${gift}`
+                : `Level ${lv.number} — ${lv.name_en}: ${gift}`
+            }),
+            ...(isEl
+              ? [
+                  'Αν έχεις ήδη Premium/Ετήσιο, δώρο Starter γίνεται ίσες μέρες στο πλάνο σου — χωρίς υποβάθμιση',
+                  'Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασης (συνδρομή ή grant)',
+                  'Πάτα «Πάρε το δώρο σου!» για να τις ενεργοποιήσεις',
+                ]
+              : [
+                  'If you already have Premium/Annual, a Starter reward becomes the same days on your current plan — no downgrade',
+                  'Days are added after your current access ends (subscription or grant)',
+                  'Tap «Claim your gift!» to activate them',
+                ]),
+          ],
         },
       ],
     },

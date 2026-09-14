@@ -53,6 +53,8 @@ export interface LevelRow {
   min_points: number
   name_el: string
   name_en: string
+  reward_plan_slot?: string | null
+  reward_days?: number | null
 }
 
 export interface PointRuleRow {

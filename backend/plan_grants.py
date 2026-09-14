@@ -175,11 +175,44 @@ def grant_access_ends_at(
     return max(candidates).isoformat()
 
 
-def pending_level_rewards(level_id: int, claimed: set[int]) -> list[dict[str, Any]]:
+def _cfg_from_level_row(row: dict[str, Any]) -> Optional[dict[str, Any]]:
+    try:
+        lid = int(row.get("id") or 0)
+        slot = str(row.get("reward_plan_slot") or "").strip().lower()
+        days = int(row.get("reward_days") or 0)
+    except (TypeError, ValueError):
+        return None
+    if lid < 1 or days < 1 or slot not in ("starter", "premium"):
+        return None
+    return {"plan_slot": slot, "days": days}
+
+
+def load_level_reward_grants(sb=None) -> dict[int, dict[str, Any]]:
+    """Live gifts from the levels table, falling back to hardcoded defaults."""
+    if sb:
+        try:
+            res = sb.table("levels").select("id,reward_plan_slot,reward_days").execute()
+            out: dict[int, dict[str, Any]] = {}
+            for row in res.data or []:
+                cfg = _cfg_from_level_row(row)
+                if cfg:
+                    out[int(row["id"])] = cfg
+            return out
+        except Exception:
+            pass
+    return {int(k): dict(v) for k, v in LEVEL_REWARD_GRANTS.items()}
+
+
+def pending_level_rewards(
+    level_id: int,
+    claimed: set[int],
+    grants: Optional[dict[int, dict[str, Any]]] = None,
+) -> list[dict[str, Any]]:
+    mapping = grants if grants is not None else LEVEL_REWARD_GRANTS
     pending: list[dict[str, Any]] = []
-    for lid in sorted(LEVEL_REWARD_GRANTS.keys()):
+    for lid in sorted(mapping.keys()):
         if lid <= level_id and lid not in claimed:
-            cfg = LEVEL_REWARD_GRANTS[lid]
+            cfg = mapping[lid]
             pending.append(
                 {
                     "level_id": lid,
@@ -194,8 +227,9 @@ def rewards_payload(sb, user_id: str, level_id: int) -> dict[str, Any]:
     grants = get_user_plan_grants(sb, user_id)
     claimed = get_claimed_level_ids(sb, user_id)
     active = _active_grants(grants)
+    mapping = load_level_reward_grants(sb)
     return {
-        "pending": pending_level_rewards(level_id, claimed),
+        "pending": pending_level_rewards(level_id, claimed, mapping),
         "claimed_level_ids": sorted(claimed),
         "active_grants": [
             {
@@ -305,7 +339,8 @@ def resolve_grant_terms(
 
 def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -> dict[str, Any]:
     level_key = int(level_id)
-    if level_key not in LEVEL_REWARD_GRANTS:
+    mapping = load_level_reward_grants(sb)
+    if level_key not in mapping:
         raise ValueError("Invalid reward level")
     if level_key > current_level_id:
         raise ValueError("Level not reached yet")
@@ -313,7 +348,7 @@ def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -
     if level_key in claimed:
         raise ValueError("Reward already claimed")
 
-    cfg = LEVEL_REWARD_GRANTS[level_key]
+    cfg = mapping[level_key]
     days = int(cfg["days"])
     reward_plan_slot = str(cfg["plan_slot"])
 

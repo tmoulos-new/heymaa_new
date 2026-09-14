@@ -1,6 +1,6 @@
-/** Keep in sync with backend/plan_grants.py LEVEL_REWARD_GRANTS */
+/** Defaults — live values from GET /gamification/rules (admin Levels gifts). */
 
-import { GAMIFICATION_LEVELS } from './gamificationCard'
+import { GAMIFICATION_LEVELS, getLevelPlanRewards } from './gamificationCard'
 
 export type LevelPlanReward = {
   levelId: number
@@ -14,6 +14,16 @@ export const LEVEL_PLAN_REWARDS: LevelPlanReward[] = [
   { levelId: 4, planSlot: 'premium', days: 3 },
   { levelId: 5, planSlot: 'premium', days: 7 },
 ]
+
+export function liveLevelPlanRewards(): LevelPlanReward[] {
+  const live = getLevelPlanRewards()
+  if (!live.length) return LEVEL_PLAN_REWARDS.map((r) => ({ ...r }))
+  return live.map((r) => ({
+    levelId: r.level_id,
+    planSlot: r.plan_slot,
+    days: r.days,
+  }))
+}
 
 export type PendingLevelReward = {
   level_id: number

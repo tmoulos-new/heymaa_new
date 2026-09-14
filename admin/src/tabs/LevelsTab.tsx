@@ -43,6 +43,14 @@ function Modal({
   )
 }
 
+function giftLabel(row: LevelRow): string {
+  const slot = (row.reward_plan_slot || '').trim()
+  const days = Number(row.reward_days) || 0
+  if (!slot || days < 1) return 'No gift'
+  const plan = slot.charAt(0).toUpperCase() + slot.slice(1)
+  return `${days} days free ${plan}`
+}
+
 function nextLevelPoints(levels: LevelRow[], row: LevelRow): number | null {
   const sorted = [...levels].sort((a, b) => a.sort_order - b.sort_order)
   const idx = sorted.findIndex((l) => l.id === row.id)
@@ -63,6 +71,8 @@ export function LevelsTab() {
   const [newMinPoints, setNewMinPoints] = useState('0')
   const [newNameEl, setNewNameEl] = useState('')
   const [newNameEn, setNewNameEn] = useState('')
+  const [newRewardSlot, setNewRewardSlot] = useState('')
+  const [newRewardDays, setNewRewardDays] = useState('0')
   const [creating, setCreating] = useState(false)
 
   const [editRow, setEditRow] = useState<LevelRow | null>(null)
@@ -70,6 +80,8 @@ export function LevelsTab() {
   const [editMinPoints, setEditMinPoints] = useState('')
   const [editNameEl, setEditNameEl] = useState('')
   const [editNameEn, setEditNameEn] = useState('')
+  const [editRewardSlot, setEditRewardSlot] = useState('')
+  const [editRewardDays, setEditRewardDays] = useState('0')
   const [saving, setSaving] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<LevelRow | null>(null)
@@ -99,6 +111,8 @@ export function LevelsTab() {
     setEditMinPoints(String(row.min_points))
     setEditNameEl(row.name_el)
     setEditNameEn(row.name_en)
+    setEditRewardSlot((row.reward_plan_slot || '').trim())
+    setEditRewardDays(String(row.reward_days || 0))
   }
 
   const createLevel = async () => {
@@ -121,6 +135,10 @@ export function LevelsTab() {
       show('Greek and English names are required', 'err')
       return
     }
+    if (newRewardSlot && (Number(newRewardDays) || 0) < 1) {
+      show('Free days must be 1 or more when a gift plan is selected', 'err')
+      return
+    }
     setCreating(true)
     try {
       const d = await adminFetch('/admin/levels', {
@@ -132,6 +150,8 @@ export function LevelsTab() {
           min_points: minPoints,
           name_el: newNameEl.trim(),
           name_en: newNameEn.trim(),
+          reward_plan_slot: newRewardSlot || '',
+          reward_days: Number(newRewardDays) || 0,
         }),
       })
       if (d.ok) {
@@ -142,6 +162,8 @@ export function LevelsTab() {
         setNewMinPoints('0')
         setNewNameEl('')
         setNewNameEn('')
+        setNewRewardSlot('')
+        setNewRewardDays('0')
         void loadLevels()
       } else {
         show(apiDetail(d) || 'Failed', 'err')
@@ -169,6 +191,10 @@ export function LevelsTab() {
       show('Greek and English names are required', 'err')
       return
     }
+    if (editRewardSlot && (Number(editRewardDays) || 0) < 1) {
+      show('Free days must be 1 or more when a gift plan is selected', 'err')
+      return
+    }
     setSaving(true)
     try {
       const d = await adminFetch(`/admin/levels/${editRow.id}`, {
@@ -179,6 +205,8 @@ export function LevelsTab() {
           min_points: minPoints,
           name_el: editNameEl.trim(),
           name_en: editNameEn.trim(),
+          reward_plan_slot: editRewardSlot || '',
+          reward_days: Number(editRewardDays) || 0,
         }),
       })
       if (d.ok) {
@@ -229,8 +257,8 @@ export function LevelsTab() {
           </div>
         </div>
         <p className="card-desc">
-          Gamification levels for moms in the app. Entry threshold is cumulative points from activity.
-          Users are assigned a level automatically when they earn enough points.
+          Gamification levels for moms in the app. Entry threshold is cumulative points from the
+          actions above. Reaching a level can unlock a gift of free Starter or Premium days.
         </p>
 
         {loading && <div className="empty">Loading…</div>}
@@ -243,17 +271,25 @@ export function LevelsTab() {
           !err &&
           sortedLevels.map((row) => {
             const step = nextLevelPoints(sortedLevels, row)
+            const gift = giftLabel(row)
+            const hasGift = gift !== 'No gift'
             return (
               <div key={row.id} className="list-item">
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="t">
                     <span className="badge badge-ok">Lv {row.id}</span>
                     {row.name_el} / {row.name_en}
+                    <span className={hasGift ? 'badge badge-ok' : 'badge badge-muted'} style={{ marginLeft: 8 }}>
+                      {hasGift ? `🎁 ${gift}` : 'No gift'}
+                    </span>
                   </div>
                   <div className="b">
                     Entry: {row.min_points} pts
                     {step != null ? ` · +${step} pts to level up` : ' · Max level'}
                     {' · '}sort {row.sort_order}
+                    {hasGift
+                      ? ' · Claimed in the app as free program days after this level is reached'
+                      : ''}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -298,6 +334,20 @@ export function LevelsTab() {
           <input value={newNameEl} onChange={(e) => setNewNameEl(e.target.value)} placeholder="π.χ. Νέα Μαμά" />
           <FieldLabel required>English name</FieldLabel>
           <input value={newNameEn} onChange={(e) => setNewNameEn(e.target.value)} placeholder="e.g. New Mom" />
+          <FieldLabel>Gift on reaching this level</FieldLabel>
+          <select value={newRewardSlot} onChange={(e) => setNewRewardSlot(e.target.value)}>
+            <option value="">No gift</option>
+            <option value="starter">Starter</option>
+            <option value="premium">Premium</option>
+          </select>
+          <FieldLabel>Free days</FieldLabel>
+          <input
+            type="number"
+            min={0}
+            value={newRewardDays}
+            onChange={(e) => setNewRewardDays(e.target.value)}
+            disabled={!newRewardSlot}
+          />
           <div className="modal-foot">
             <button type="button" className="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
               Cancel
@@ -329,6 +379,21 @@ export function LevelsTab() {
           <input value={editNameEl} onChange={(e) => setEditNameEl(e.target.value)} />
           <FieldLabel required>English name</FieldLabel>
           <input value={editNameEn} onChange={(e) => setEditNameEn(e.target.value)} />
+          <FieldLabel>Gift on reaching this level</FieldLabel>
+          <select value={editRewardSlot} onChange={(e) => setEditRewardSlot(e.target.value)}>
+            <option value="">No gift</option>
+            <option value="starter">Starter</option>
+            <option value="premium">Premium</option>
+          </select>
+          <FieldLabel>Free days</FieldLabel>
+          <input
+            type="number"
+            min={0}
+            value={editRewardDays}
+            onChange={(e) => setEditRewardDays(e.target.value)}
+            disabled={!editRewardSlot}
+          />
+          <p className="card-desc">Claimed in the app as free program days after the mom reaches this level.</p>
           <div className="modal-foot">
             <button type="button" className="ghost" onClick={() => setEditRow(null)} disabled={saving}>
               Cancel

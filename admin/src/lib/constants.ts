@@ -9,8 +9,7 @@ export const TAB_TITLES: Record<string, string> = {
   testers: 'Testers',
   invites: 'Invite Codes',
   regions: 'Regions',
-  levels: 'Levels',
-  points: 'Points',
+  points: 'Points & Levels',
   plans: 'Plans',
   content: 'Offers & Promos',
   sources: 'RAG Sources',
@@ -32,7 +31,6 @@ export const TAB_PATHS: Record<TabId, string> = {
   testers: 'testers',
   invites: 'invite-codes',
   regions: 'regions',
-  levels: 'levels',
   points: 'points',
   plans: 'plans',
   content: 'content',
@@ -53,6 +51,7 @@ const PATH_TO_TAB = Object.fromEntries(
 
 export function tabIdFromLocation(pathname: string): TabId {
   const segment = pathname.replace(/^\/+/, '').split('/')[0] || '_root'
+  if (segment === 'levels') return 'points'
   return PATH_TO_TAB[segment] ?? 'overview'
 }
 
@@ -62,7 +61,7 @@ export function pathForTab(id: TabId): string {
 }
 
 export const ADMIN_UI_GET_PATHS = new Set(
-  ['', ...Object.values(TAB_PATHS).filter(Boolean)].map((p) => (p ? `/admin/${p}` : '/admin')),
+  ['', ...Object.values(TAB_PATHS).filter(Boolean), 'levels'].map((p) => (p ? `/admin/${p}` : '/admin')),
 )
 
 export const TESTER_CODES = Array.from({ length: 30 }, (_, i) =>

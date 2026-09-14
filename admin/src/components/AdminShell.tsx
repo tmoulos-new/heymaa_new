@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronsLeft,
-  Coins,
   CreditCard,
   Database,
   Globe2,
@@ -31,8 +30,7 @@ import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
-import { LevelsTab } from '../tabs/LevelsTab'
-import { PointsTab } from '../tabs/PointsTab'
+import { GamificationTab } from '../tabs/GamificationTab'
 import { PlansTab } from '../tabs/PlansTab'
 import { ToolsTab } from '../tabs/ToolsTab'
 import { ActivityLogTab } from '../tabs/ActivityLogTab'
@@ -49,8 +47,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'testers', icon: MailPlus, tip: 'Testers' },
   { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
   { id: 'regions', icon: Globe2, tip: 'Regions' },
-  { id: 'levels', icon: Trophy, tip: 'Levels' },
-  { id: 'points', icon: Coins, tip: 'Points per action' },
+  { id: 'points', icon: Trophy, tip: 'Points & Levels' },
   { id: 'plans', icon: CreditCard, tip: 'Plans' },
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
@@ -185,8 +182,8 @@ export function AdminShell() {
             />
             <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
-            <Route path="levels" element={<LevelsTab key={`lv-${refreshKey}`} />} />
-            <Route path="points" element={<PointsTab key={`pt-${refreshKey}`} />} />
+            <Route path="points" element={<GamificationTab key={`gm-${refreshKey}`} />} />
+            <Route path="levels" element={<Navigate to="/points" replace />} />
             <Route path="plans" element={<PlansTab key={`pl-${refreshKey}`} />} />
             <Route path="content" element={<ContentTab key={`co-${refreshKey}`} />} />
             <Route path="sources" element={<RagSourcesTab key={`rs-${refreshKey}`} />} />

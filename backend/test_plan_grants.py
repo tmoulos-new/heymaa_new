@@ -3,8 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 from plan_grants import (
     LEVEL_REWARD_GRANTS,
+    _cfg_from_level_row,
     _stack_starts_at,
     effective_grant_plan_slot,
+    load_level_reward_grants,
     pending_level_rewards,
     resolve_grant_terms,
 )
@@ -41,6 +43,63 @@ def test_level_reward_config():
     assert LEVEL_REWARD_GRANTS[3]["days"] == 7
     assert LEVEL_REWARD_GRANTS[5]["plan_slot"] == "premium"
     assert LEVEL_REWARD_GRANTS[5]["days"] == 7
+
+
+def test_cfg_from_level_row_requires_gift():
+    assert _cfg_from_level_row({"id": 2, "reward_plan_slot": "starter", "reward_days": 3}) == {
+        "plan_slot": "starter",
+        "days": 3,
+    }
+    assert _cfg_from_level_row({"id": 1, "reward_plan_slot": None, "reward_days": None}) is None
+    assert _cfg_from_level_row({"id": 6, "reward_plan_slot": "starter", "reward_days": 0}) is None
+
+
+class _FakeLevelsTable:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        return type("R", (), {"data": self._rows})()
+
+
+class _FakeSb:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def table(self, name):
+        assert name == "levels"
+        return _FakeLevelsTable(self._rows)
+
+
+def test_load_level_reward_grants_fallback():
+    mapping = load_level_reward_grants(None)
+    assert mapping[2]["days"] == 3
+    assert mapping[4]["plan_slot"] == "premium"
+
+
+def test_load_level_reward_grants_from_levels_table():
+    mapping = load_level_reward_grants(
+        _FakeSb(
+            [
+                {"id": 1, "reward_plan_slot": None, "reward_days": None},
+                {"id": 2, "reward_plan_slot": "starter", "reward_days": 5},
+                {"id": 4, "reward_plan_slot": "premium", "reward_days": 2},
+            ]
+        )
+    )
+    assert mapping == {
+        2: {"plan_slot": "starter", "days": 5},
+        4: {"plan_slot": "premium", "days": 2},
+    }
+
+
+def test_pending_uses_live_grant_map():
+    custom = {2: {"plan_slot": "premium", "days": 9}}
+    pending = pending_level_rewards(3, set(), custom)
+    assert pending == [{"level_id": 2, "plan_slot": "premium", "days": 9}]
 
 
 def test_starter_reward_upgrades_for_active_premium_subscriber():

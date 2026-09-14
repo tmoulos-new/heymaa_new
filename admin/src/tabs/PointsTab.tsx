@@ -189,7 +189,7 @@ export function PointsTab() {
         <p className="card-desc">
           These values are awarded live in the app (memories, chat, milestones, referrals). Changing a
           milestone amount also updates untick to the negative of the same value. Existing earned
-          points are not rewritten.
+          points are not rewritten. Level thresholds are in the Levels card below.
         </p>
 
         {!tableReady && (

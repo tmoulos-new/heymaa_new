@@ -165,11 +165,16 @@ USER_ACTIVITY_ACTIONS = frozenset({
 })
 
 DEFAULT_LEVELS = [
-    {"id": 1, "sort_order": 1, "min_points": 0, "name_el": "Νέα Μαμά", "name_en": "New Mom"},
-    {"id": 2, "sort_order": 2, "min_points": 400, "name_el": "Ενεργή Μαμά", "name_en": "Active Mom"},
-    {"id": 3, "sort_order": 3, "min_points": 1000, "name_el": "Αφοσιωμένη Μαμά", "name_en": "Dedicated Mom"},
-    {"id": 4, "sort_order": 4, "min_points": 2000, "name_el": "Super Μαμά", "name_en": "Super Mom"},
-    {"id": 5, "sort_order": 5, "min_points": 3500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion"},
+    {"id": 1, "sort_order": 1, "min_points": 0, "name_el": "Νέα Μαμά", "name_en": "New Mom",
+     "reward_plan_slot": None, "reward_days": None},
+    {"id": 2, "sort_order": 2, "min_points": 400, "name_el": "Ενεργή Μαμά", "name_en": "Active Mom",
+     "reward_plan_slot": "starter", "reward_days": 3},
+    {"id": 3, "sort_order": 3, "min_points": 1000, "name_el": "Αφοσιωμένη Μαμά", "name_en": "Dedicated Mom",
+     "reward_plan_slot": "starter", "reward_days": 7},
+    {"id": 4, "sort_order": 4, "min_points": 2000, "name_el": "Super Μαμά", "name_en": "Super Mom",
+     "reward_plan_slot": "premium", "reward_days": 3},
+    {"id": 5, "sort_order": 5, "min_points": 3500, "name_el": "HeyMaa Champion", "name_en": "HeyMaa Champion",
+     "reward_plan_slot": "premium", "reward_days": 7},
 ]
 
 # Defaults — live values come from point_rules / point_settings (admin /admin/points).
@@ -585,25 +590,92 @@ def _resolve_points_award(
 
     return amount, f"{action}:{path}", None
 
+LEVEL_REWARD_SLOTS = frozenset({"starter", "premium"})
+LEVEL_SELECT_FULL = "id,sort_order,min_points,name_el,name_en,reward_plan_slot,reward_days"
+LEVEL_SELECT_BASIC = "id,sort_order,min_points,name_el,name_en"
+
+
+def _level_gift_fields(slot: Optional[str], days: Optional[int]) -> tuple[Optional[str], Optional[int]]:
+    cleaned = (slot or "").strip().lower()
+    try:
+        days_i = int(days) if days is not None and str(days).strip() != "" else 0
+    except (TypeError, ValueError):
+        days_i = 0
+    if not cleaned or cleaned == "none" or days_i <= 0:
+        return None, None
+    if cleaned not in LEVEL_REWARD_SLOTS:
+        raise HTTPException(status_code=400, detail="Gift plan must be starter or premium")
+    return cleaned, days_i
+
+
+def _normalize_level_row(row: dict) -> dict:
+    out = dict(row)
+    if "reward_plan_slot" not in out:
+        src = next((r for r in DEFAULT_LEVELS if int(r["id"]) == int(out.get("id") or 0)), None)
+        if src:
+            out["reward_plan_slot"] = src.get("reward_plan_slot")
+            out["reward_days"] = src.get("reward_days")
+    slot = (out.get("reward_plan_slot") or "").strip().lower() or None
+    try:
+        days_i = int(out.get("reward_days")) if out.get("reward_days") is not None else 0
+    except (TypeError, ValueError):
+        days_i = 0
+    if not slot or days_i <= 0:
+        out["reward_plan_slot"] = None
+        out["reward_days"] = None
+    else:
+        out["reward_plan_slot"] = slot
+        out["reward_days"] = days_i
+    return out
+
+
+def _level_rewards_public(rows: Optional[list] = None) -> list:
+    out = []
+    for row in rows or _get_levels():
+        slot = (row.get("reward_plan_slot") or "").strip().lower()
+        days = row.get("reward_days")
+        try:
+            days_i = int(days) if days is not None else 0
+        except (TypeError, ValueError):
+            days_i = 0
+        if slot and days_i > 0:
+            out.append({
+                "level_id": int(row.get("id") or 0),
+                "plan_slot": slot,
+                "days": days_i,
+            })
+    return out
+
+
 def _get_levels() -> list:
     global _levels_cache
     if _levels_cache is not None:
         return _levels_cache
+    defaults = [_normalize_level_row(r) for r in DEFAULT_LEVELS]
     if not sb:
-        _levels_cache = list(DEFAULT_LEVELS)
+        _levels_cache = defaults
         return _levels_cache
     try:
-        res = (
-            sb.table(LEVELS_TABLE)
-            .select("id,sort_order,min_points,name_el,name_en")
-            .order("sort_order")
-            .execute()
-        )
+        try:
+            res = (
+                sb.table(LEVELS_TABLE)
+                .select(LEVEL_SELECT_FULL)
+                .order("sort_order")
+                .execute()
+            )
+        except Exception:
+            res = (
+                sb.table(LEVELS_TABLE)
+                .select(LEVEL_SELECT_BASIC)
+                .order("sort_order")
+                .execute()
+            )
         rows = res.data or []
-        _levels_cache = rows if rows else list(DEFAULT_LEVELS)
+        _levels_cache = [_normalize_level_row(r) for r in rows] if rows else defaults
     except Exception:
-        _levels_cache = list(DEFAULT_LEVELS)
+        _levels_cache = defaults
     return _levels_cache
+
 
 def _invalidate_levels_cache():
     global _levels_cache
@@ -720,6 +792,7 @@ def _public_point_rules_payload() -> dict:
         "lookup": lookup,
         "chat_daily_points_cap": _chat_daily_points_cap(),
         "referral_bonus_points": _invite_referral_points(),
+        "level_rewards": _level_rewards_public(),
     }
 
 def _gamification_status(
@@ -2805,12 +2878,16 @@ class LevelCreate(BaseModel):
     min_points: int
     name_el: str
     name_en: str
+    reward_plan_slot: Optional[str] = None
+    reward_days: Optional[int] = None
 
 class LevelUpdate(BaseModel):
     sort_order: Optional[int] = None
     min_points: Optional[int] = None
     name_el: Optional[str] = None
     name_en: Optional[str] = None
+    reward_plan_slot: Optional[str] = None
+    reward_days: Optional[int] = None
 
 
 class PointRuleUpdate(BaseModel):
@@ -5937,8 +6014,23 @@ async def admin_create_level(req: LevelCreate, x_token: Optional[str] = Header(N
         "name_el": name_el,
         "name_en": name_en,
     }
+    slot, days = _level_gift_fields(req.reward_plan_slot, req.reward_days)
+    payload["reward_plan_slot"] = slot
+    payload["reward_days"] = days
     try:
-        result = sb.table(LEVELS_TABLE).insert(payload).execute()
+        try:
+            result = sb.table(LEVELS_TABLE).insert(payload).execute()
+        except Exception as e:
+            if "reward_" not in str(e).lower():
+                raise
+            if slot or days:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Run backend/migrations/levels_reward_gift.sql in Supabase SQL Editor",
+                )
+            payload.pop("reward_plan_slot", None)
+            payload.pop("reward_days", None)
+            result = sb.table(LEVELS_TABLE).insert(payload).execute()
         row = (result.data or [payload])[0]
         _invalidate_levels_cache()
         _log_activity(admin_id, "insert", "level", str(row.get("id")), value_after=_activity_snapshot(row))
@@ -5981,9 +6073,23 @@ async def admin_update_level(level_id: int, req: LevelUpdate, x_token: Optional[
             if not name_en:
                 raise HTTPException(status_code=400, detail="name_en cannot be empty")
             data["name_en"] = name_en
+        if req.reward_plan_slot is not None or req.reward_days is not None:
+            slot_in = req.reward_plan_slot if req.reward_plan_slot is not None else fetch.data[0].get("reward_plan_slot")
+            days_in = req.reward_days if req.reward_days is not None else fetch.data[0].get("reward_days")
+            slot, days = _level_gift_fields(slot_in, days_in)
+            data["reward_plan_slot"] = slot
+            data["reward_days"] = days
         if not data:
             raise HTTPException(status_code=400, detail="No fields to update")
-        result = sb.table(LEVELS_TABLE).update(data).eq("id", level_key).execute()
+        try:
+            result = sb.table(LEVELS_TABLE).update(data).eq("id", level_key).execute()
+        except Exception as e:
+            if "reward_" not in str(e).lower():
+                raise
+            raise HTTPException(
+                status_code=503,
+                detail="Run backend/migrations/levels_reward_gift.sql in Supabase SQL Editor",
+            )
         if not result.data:
             raise HTTPException(status_code=404, detail="Level not found")
         row = result.data[0]
@@ -6747,16 +6853,19 @@ def _grants_summary_for_users(user_ids: list) -> dict:
         for row in users_res.data or []:
             level_by_user[str(row.get("id"))] = int(row.get("level_id") or 1)
         try:
-            from .plan_grants import pending_level_rewards, serialize_active_grants
+            from .plan_grants import load_level_reward_grants, pending_level_rewards, serialize_active_grants
         except ImportError:
-            from plan_grants import pending_level_rewards, serialize_active_grants
+            from plan_grants import load_level_reward_grants, pending_level_rewards, serialize_active_grants
 
+        gift_map = load_level_reward_grants(sb)
         for uid in user_ids:
             grants = grants_by_user.get(uid, [])
             level_id = level_by_user.get(uid, 1)
             result[uid] = {
                 "active_grants": serialize_active_grants(grants),
-                "pending_rewards": len(pending_level_rewards(level_id, claimed_by_user.get(uid, set()))),
+                "pending_rewards": len(
+                    pending_level_rewards(level_id, claimed_by_user.get(uid, set()), gift_map)
+                ),
             }
     except Exception:
         pass
