@@ -1948,7 +1948,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
-  const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(null);
   const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
   useEffect(() => {
@@ -2230,19 +2229,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setHeaderPointsVisible(next);
   }, [token]);
 
+  const openFaqDialog = useCallback((index: number | null = null) => {
+    setShowHelpSupport(false);
+    setOpenProfileFaqIndex(index);
+    setShowFaqDialog(true);
+  }, []);
+
+  const openHelpContact = useCallback(() => {
+    setShowFaqDialog(false);
+    setShowHelpSupport(true);
+  }, []);
+
   const openProfilePointsFaq = useCallback(() => {
     const idx = helpFaqItems.findIndex((item) =>
       /Πώς κερδίζω πόντους|How do I earn points/i.test(item.question),
     );
-    const openIdx = idx >= 0 ? idx : 0;
-    setOpenProfileFaqIndex(openIdx);
-    window.setTimeout(() => {
-      document.getElementById(`profile-faq-trigger-${openIdx}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }, 60);
-  }, [helpFaqItems]);
+    openFaqDialog(idx >= 0 ? idx : 0);
+  }, [helpFaqItems, openFaqDialog]);
 
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
@@ -2253,6 +2256,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const tourAutoStartedForTokenRef = useRef<string | null>(null);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
   const [showHelpSupport, setShowHelpSupport] = useState(false);
+  const [showFaqDialog, setShowFaqDialog] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
@@ -4002,14 +4006,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 },
               },
               {
-                key: "help",
-                icon: "💬",
-                title: lang==="el"?"Βοήθεια & υποστήριξη":"Help & support",
-                subtitle: lang==="el"?"Συχνές ερωτήσεις, επικοινωνία":"FAQ, contact",
+                key: "faq",
+                icon: "❓",
+                title: lang==="el"?"Συχνές ερωτήσεις":"FAQ",
+                subtitle: lang==="el"?"Πλάνα, πόντοι, εφαρμογή":"Plans, points, the app",
                 onClick: () => {
                   setShowProfileSettings(false);
-                  setOpenHelpFaqIndex(null);
-                  setShowHelpSupport(true);
+                  openFaqDialog(null);
+                },
+              },
+              {
+                key: "help",
+                icon: "💬",
+                title: lang==="el"?"Βοήθεια & επικοινωνία":"Help & contact",
+                subtitle: lang==="el"?"Email, τηλέφωνο, διεύθυνση":"Email, phone, address",
+                onClick: () => {
+                  setShowProfileSettings(false);
+                  openHelpContact();
                 },
               },
               {
@@ -4059,30 +4072,51 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         />
       )}
 
-      {/* HELP & SUPPORT POPUP */}
+      {/* FAQ POPUP */}
+      <AppDialog
+        open={showFaqDialog}
+        onClose={() => setShowFaqDialog(false)}
+        size="lg"
+        ariaLabel={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
+      >
+        <DialogPanel variant="cream" padding="md">
+          <SheetHeader
+            title={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
+            subtitle={lang === "el" ? "Πλάνα, πόντοι και η εφαρμογή" : "Plans, points, and the app"}
+            onBack={() => setShowFaqDialog(false)}
+            backLabel={lang === "el" ? "Πίσω" : "Back"}
+          />
+          <FaqAccordionList
+            items={helpFaqItems}
+            openIndex={openProfileFaqIndex}
+            onOpenIndexChange={setOpenProfileFaqIndex}
+            idPrefix="profile-faq"
+          />
+          <button
+            type="button"
+            className="hm-btn hm-btn--outline hm-btn--block"
+            style={{ marginTop: 12 }}
+            onClick={openHelpContact}
+          >
+            {lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
+          </button>
+        </DialogPanel>
+      </AppDialog>
+
+      {/* HELP & CONTACT POPUP */}
       <AppDialog
         open={showHelpSupport}
         onClose={() => setShowHelpSupport(false)}
         size="md"
-        ariaLabel={lang === "el" ? "Βοήθεια & υποστήριξη" : "Help & support"}
+        ariaLabel={lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
       >
         <DialogPanel variant="cream" padding="md">
           <SheetHeader
-            title={lang === "el" ? "Βοήθεια & υποστήριξη" : "Help & support"}
+            title={lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
             subtitle={lang === "el" ? "Είμαστε εδώ για σένα" : "We're here for you"}
             onBack={() => setShowHelpSupport(false)}
             backLabel={lang === "el" ? "Πίσω" : "Back"}
           />
-
-            <div className="hm-section-label">
-              {displayUppercase(tHome("faq.label", { lng: homeLng }) || (lang==="el"?"Συχνές ερωτήσεις":"FAQ"), lang)}
-            </div>
-            <FaqAccordionList
-              items={helpFaqItems}
-              openIndex={openHelpFaqIndex}
-              onOpenIndexChange={setOpenHelpFaqIndex}
-              idPrefix="help-faq"
-            />
 
             <div className="hm-contact-card">
               <div className="hm-section-label">
@@ -4118,6 +4152,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </div>
               ) : null}
             </div>
+            <button
+              type="button"
+              className="hm-btn hm-btn--outline hm-btn--block"
+              style={{ marginTop: 12 }}
+              onClick={() => openFaqDialog(null)}
+            >
+              {lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
+            </button>
         </DialogPanel>
       </AppDialog>
 
@@ -4500,8 +4542,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           onClose={() => setShowSubscriptionSheet(false)}
           onOpenHelp={() => {
             setShowSubscriptionSheet(false);
-            setOpenHelpFaqIndex(null);
-            setShowHelpSupport(true);
+            openHelpContact();
           }}
         />
       )}
@@ -5299,33 +5340,67 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </AppTabSection>
 
-            <AppTabSection lang={lang} label={tHome("faq.label", { lng: homeLng }) || (lang === "el" ? "Συχνές ερωτήσεις" : "FAQ")}>
-              <FaqAccordionList
-                items={helpFaqItems}
-                openIndex={openProfileFaqIndex}
-                onOpenIndexChange={setOpenProfileFaqIndex}
-                idPrefix="profile-faq"
-              />
-              <button
-                type="button"
-                onClick={() => setShowHelpSupport(true)}
-                style={{
-                  width: "100%",
-                  marginTop: 10,
-                  padding: "12px 14px",
-                  border: "none",
-                  borderRadius: 12,
-                  background: "rgba(43,58,103,.06)",
-                  color: navy,
-                  fontFamily: "'DM Sans',sans-serif",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  textAlign: "center",
-                }}
-              >
-                {lang === "el" ? "Βοήθεια & επικοινωνία →" : "Help & contact →"}
-              </button>
+            <AppTabSection lang={lang} label={lang === "el" ? "Υποστήριξη" : "Support"}>
+              <div className="hm-tab-card hm-tab-card--flush">
+                {[
+                  {
+                    key: "faq",
+                    icon: "❓",
+                    iconBg: "rgba(91,127,232,.15)",
+                    label: lang === "el" ? "Συχνές ερωτήσεις" : "FAQ",
+                    onClick: () => openFaqDialog(null),
+                  },
+                  {
+                    key: "help",
+                    icon: "💬",
+                    iconBg: "rgba(74,190,170,.18)",
+                    label: lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact",
+                    onClick: openHelpContact,
+                  },
+                ].map((row, i, rows) => (
+                  <button
+                    key={row.key}
+                    type="button"
+                    onClick={row.onClick}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "13px 16px",
+                      border: "none",
+                      background: "#fff",
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans',sans-serif",
+                      textAlign: "left",
+                      borderBottom: i < rows.length - 1 ? "1px solid " + gl : "none",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: row.iconBg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 17,
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {row.icon}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: navy }}>
+                      {row.label}
+                    </span>
+                    <span style={{ color: "rgba(43,58,103,.28)", fontSize: 20, lineHeight: 1 }} aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))}
+              </div>
             </AppTabSection>
 
             {!isLocalDemoToken(token) ? (

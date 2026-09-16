@@ -130,9 +130,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-
-.subscription-plan-cell--badged {
+  /* Same top inset on every card so a corner badge never shifts neighbors up */
   padding-top: 14px;
 }
 

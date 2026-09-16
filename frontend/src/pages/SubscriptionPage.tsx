@@ -257,7 +257,6 @@ export function SubscriptionPage() {
                 key={`${plan.name}-${index}`}
                 className={[
                   'subscription-plan-cell',
-                  plan.badge ? 'subscription-plan-cell--badged' : '',
                   isCurrent ? 'subscription-plan-cell--current' : '',
                 ]
                   .filter(Boolean)
