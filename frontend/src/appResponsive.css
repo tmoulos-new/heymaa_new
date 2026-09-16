@@ -2328,7 +2328,8 @@ body.hm-app-active #root {
   .subscription-page .pricing-cards-layout {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    column-gap: 18px;
+    row-gap: 40px;
     align-items: stretch;
   }
   .subscription-page .pricing-trial-col,
@@ -2340,7 +2341,24 @@ body.hm-app-active #root {
 @media (min-width: 1024px) {
   .subscription-page .pricing-cards-layout {
     grid-template-columns: repeat(4, 1fr);
+    row-gap: 40px;
   }
+}
+
+.subscription-page .plan-stack {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.subscription-page .plan-stack.has-badge {
+  margin-top: 0;
+  padding-top: 22px;
+}
+
+.subscription-page .pricing-cards-layout .plan-stack:hover,
+.subscription-page .pricing-cards-layout .plan-stack.highlighted:hover,
+.subscription-page .pricing-cards-layout .plan-stack.selectable:hover {
+  transform: none;
+  z-index: auto;
 }
 
 /* ── In-app header ── */
