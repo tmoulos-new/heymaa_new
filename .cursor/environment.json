@@ -1,0 +1,20 @@
+{
+  "name": "HeyMaa",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "backend (FastAPI :8000)",
+      "command": "cd backend && ../.venv/bin/python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
+    },
+    {
+      "name": "admin (Vite :5174)",
+      "command": "cd admin && npm run dev"
+    },
+    {
+      "name": "frontend (CRA :3002)",
+      "command": "cd frontend && BROWSER=none npm start"
+    }
+  ],
+  "ports": [3002, 5174, 8000]
+}
