@@ -96,7 +96,10 @@ export function PlanCard({
     'plan-stack',
     isCurrent ? 'current' : plan.variant,
     isRadioFilled ? 'selected' : '',
-    !isCurrent && !isRadioFilled && (plan.featured || plan.badge) ? 'highlighted' : '',
+    // Hover lift only in select mode (landing). CTA-only sheets must not lift over the row above.
+    selectMode && !isCurrent && !isRadioFilled && (plan.featured || plan.badge)
+      ? 'highlighted'
+      : '',
     plan.badge ? 'has-badge' : '',
     selectMode ? 'selectable' : '',
   ]

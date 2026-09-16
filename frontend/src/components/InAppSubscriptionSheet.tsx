@@ -232,7 +232,6 @@ export function InAppSubscriptionSheet({
                 data-plan-slot={slot}
                 className={[
                   'hm-subscription-plan-cell',
-                  plan.badge ? 'hm-subscription-plan-cell--badged' : '',
                   isActive ? 'hm-subscription-plan-active' : '',
                 ]
                   .filter(Boolean)
