@@ -16,6 +16,8 @@ export function useModalFocus(
   onClose: () => void,
 ) {
   const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
@@ -27,6 +29,9 @@ export function useModalFocus(
     const focusInitial = window.setTimeout(() => {
       const root = containerRef.current
       if (!root) return
+      // Don't steal focus if the user already focused a field inside the dialog
+      // (e.g. while typing — onClose identity changes must not re-run autofocus).
+      if (root.contains(document.activeElement)) return
       const items = focusableElements(root)
       if (items.length > 0) {
         items[0].focus()
@@ -38,7 +43,7 @@ export function useModalFocus(
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab') return
@@ -74,5 +79,7 @@ export function useModalFocus(
         restore.focus()
       }
     }
-  }, [open, onClose, containerRef])
+    // Intentionally omit onClose — keep it in a ref so inline () => ... callers
+    // don't re-run autofocus on every parent render (breaks text inputs).
+  }, [open, containerRef])
 }
