@@ -69,6 +69,9 @@ export function AddMemoryModal({
   const [description, setDescription] = useState('')
   const [dateIso, setDateIso] = useState(todayIso())
   const titleRef = useRef<HTMLInputElement>(null)
+  // Stable while the same memory is open — avoid reset/refocus if parent re-renders
+  // with a new `initial` object identity (would interrupt typing).
+  const editKey = initial?.createdAt || (initial ? 'edit' : 'new')
 
   useEffect(() => {
     if (!open) return
@@ -78,7 +81,8 @@ export function AddMemoryModal({
     setDateIso(isoFromMemory(initial))
     const t = window.setTimeout(() => titleRef.current?.focus(), 120)
     return () => window.clearTimeout(t)
-  }, [open, initial])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only when dialog opens / edit target changes
+  }, [open, editKey])
 
   const canSave = text.trim().length > 0 || !!pendingPhoto || !!initial?.img
 
