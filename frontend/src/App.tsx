@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, invalidateAuthCaches, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -138,7 +138,7 @@ import {
   readExpiryPopupDismissed,
 } from "./lib/accessExpiry";
 import type { PendingLevelReward, RewardsSnapshot } from "./lib/levelRewards";
-import { claimSuccessMessage, dismissRewardLevel, firstUnseenPendingReward, selectPendingReward } from "./lib/levelRewards";
+import { claimSuccessMessage, dismissRewardLevel, emptyRewardsSnapshot, excludeClaimedRewards, firstUnseenPendingReward, markRewardClaimed, persistLocallyClaimedRewardLevel, readLocallyClaimedRewardLevels, selectPendingReward } from "./lib/levelRewards";
 import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
@@ -1945,6 +1945,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showAccessExpiryModal, setShowAccessExpiryModal] = useState(false);
   const [pendingLevelReward, setPendingLevelReward] = useState<PendingLevelReward | null>(null);
   const [rewardsSnapshot, setRewardsSnapshot] = useState<RewardsSnapshot | null>(null);
+  const locallyClaimedRewardIds = useRef<Set<number>>(readLocallyClaimedRewardLevels(token));
+  const claimedTokenRef = useRef(token);
+  if (claimedTokenRef.current !== token) {
+    claimedTokenRef.current = token;
+    locallyClaimedRewardIds.current = readLocallyClaimedRewardLevels(token);
+  }
+  const rewardSheetOpenRef = useRef(false);
+  const rewardsSnapshotRef = useRef<RewardsSnapshot | null>(null);
+  rewardSheetOpenRef.current = showLevelRewardSheet;
+  const ingestRewards = useCallback((rewards: RewardsSnapshot | null | undefined) => {
+    if (!rewards) return null;
+    const claimed = new Set<number>();
+    locallyClaimedRewardIds.current.forEach((id) => claimed.add(id));
+    readLocallyClaimedRewardLevels(token).forEach((id) => claimed.add(id));
+    const next = excludeClaimedRewards(rewards, claimed) || rewards;
+    rewardsSnapshotRef.current = next;
+    setRewardsSnapshot(next);
+    return next;
+  }, [token]);
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
@@ -2009,23 +2028,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
         if (typeof u.email === "string") setAccountEmail(u.email.trim());
         if (u.rewards) {
-          setRewardsSnapshot(u.rewards);
-          const firstPending = firstUnseenPendingReward(token, u.rewards);
-          if (firstPending) {
-            setPendingLevelReward(firstPending);
-            setShowLevelRewardSheet(true);
+          const next = ingestRewards(u.rewards);
+          if (!rewardSheetOpenRef.current) {
+            const firstPending = firstUnseenPendingReward(token, next);
+            if (firstPending && !locallyClaimedRewardIds.current.has(firstPending.level_id)) {
+              setPendingLevelReward(firstPending);
+              setShowLevelRewardSheet(true);
+            }
           }
         }
       })
       .catch(() => {});
-  }, [token, applyLivePointRulesFrom]);
+  }, [token, applyLivePointRulesFrom, ingestRewards]);
 
   const applySubscriptionSnapshot = useCallback((data: SubscriptionSnapshot) => {
     setSubSnapshot(data);
     if (data.entitlements) setPlanEntitlements(data.entitlements);
     if (data.voice_quota) setVoiceQuota(data.voice_quota);
-    if (data.rewards) setRewardsSnapshot(data.rewards);
-  }, []);
+    if (data.rewards) ingestRewards(data.rewards);
+  }, [ingestRewards]);
 
   useEffect(() => {
     fetchSubscriptionStatus(token)
@@ -2046,12 +2067,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const openPendingReward = useCallback((
     rewards: RewardsSnapshot | null | undefined,
-    options?: { force?: boolean; levelId?: number },
+    options?: { force?: boolean; levelId?: number; userInitiated?: boolean },
   ) => {
+    if (rewardSheetOpenRef.current && !options?.userInitiated) return;
     const first = selectPendingReward(rewards, {
       token,
       force: options?.force,
       levelId: options?.levelId,
+      claimedIds: locallyClaimedRewardIds.current,
     });
     if (first) {
       setPendingLevelReward(first);
@@ -2059,23 +2082,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
   }, [token]);
 
-  const profilePendingReward = useMemo(
-    () => firstUnseenPendingReward(token, rewardsSnapshot),
-    [token, rewardsSnapshot],
-  );
-
   const track = useCallback(async (action: string, path: string, label?: string, details?: Record<string, unknown>) => {
     const result = await logUserActivity(token, { action, path, label, details });
     if (result?.gamification) {
       applyLivePointRulesFrom(result.gamification);
       setGamification(result.gamification);
     }
-    if (result?.rewards) setRewardsSnapshot(result.rewards);
-    if (result?.level_up && result.rewards?.pending?.length) {
-      openPendingReward(result.rewards, {
-        force: true,
-        levelId: result.level_up.to,
-      });
+    if (result?.rewards) {
+      const next = ingestRewards(result.rewards);
+      if (result.level_up && next?.pending?.length) {
+        openPendingReward(next, {
+          force: true,
+          levelId: result.level_up.to,
+        });
+      }
     }
     if (result?.points_awarded) {
       const ptsLabel = t("points", lang);
@@ -2096,7 +2116,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         "ok",
       );
     }
-  }, [token, lang, openPendingReward, applyLivePointRulesFrom]);
+  }, [token, lang, openPendingReward, applyLivePointRulesFrom, ingestRewards]);
 
   const accessExpiryInfo = useMemo(
     () => getAccessExpiryInfo(lang, trialEndsAt, subSnapshot),
@@ -2133,22 +2153,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [accessExpiryInfo]);
 
   const handleLevelRewardClaimed = useCallback((payload: {
-    rewards: RewardsSnapshot;
+    rewards?: RewardsSnapshot;
     status?: SubscriptionSnapshot;
     grant?: { upgraded?: boolean; plan_slot?: string; days?: number };
+    levelId: number;
   }) => {
-    setRewardsSnapshot(payload.rewards);
-    if (payload.status) applySubscriptionSnapshot(payload.status);
-    showToast(claimSuccessMessage(payload.grant, lang), "ok");
-    const next = firstUnseenPendingReward(token, payload.rewards);
-    if (next) {
-      setPendingLevelReward(next);
-      setShowLevelRewardSheet(true);
-    } else {
-      setPendingLevelReward(null);
-      setShowLevelRewardSheet(false);
+    locallyClaimedRewardIds.current.add(payload.levelId);
+    persistLocallyClaimedRewardLevel(token, payload.levelId);
+    dismissRewardLevel(token, payload.levelId);
+    invalidateAuthCaches(token);
+    const base = payload.rewards || rewardsSnapshotRef.current || emptyRewardsSnapshot();
+    const next = markRewardClaimed(base, payload.levelId);
+    ingestRewards(next);
+    if (payload.status) {
+      applySubscriptionSnapshot({
+        ...payload.status,
+        rewards: markRewardClaimed(payload.status.rewards || next, payload.levelId),
+      });
     }
-  }, [applySubscriptionSnapshot, lang, token]);
+    showToast(claimSuccessMessage(payload.grant, lang), "ok");
+  }, [applySubscriptionSnapshot, ingestRewards, lang, token]);
 
   // Threads state — bootstrap from full localStorage scan (all past JWT keys)
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
@@ -4574,8 +4598,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         reward={pendingLevelReward}
         currentPlanSlot={subSnapshot?.entitlements?.plan_slot || subSnapshot?.plan}
         onClose={() => {
-          if (pendingLevelReward) dismissRewardLevel(token, pendingLevelReward.level_id);
+          if (pendingLevelReward && !locallyClaimedRewardIds.current.has(pendingLevelReward.level_id)) {
+            dismissRewardLevel(token, pendingLevelReward.level_id);
+          }
           setShowLevelRewardSheet(false);
+          setPendingLevelReward(null);
         }}
         onClaimed={handleLevelRewardClaimed}
       />
@@ -5282,8 +5309,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               activeGrantEndsAt={activeRewardGrant?.ends_at}
               activeGrantPlan={activeRewardGrant?.plan_slot}
               currentPlanSlot={subSnapshot?.entitlements?.plan_slot || subSnapshot?.plan}
-              pendingRewards={profilePendingReward ? [profilePendingReward] : rewardsSnapshot?.pending}
-              onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true })}
+              pendingRewards={rewardsSnapshot?.pending}
+              onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true, userInitiated: true })}
               showHeaderChip={headerPointsVisible}
               onToggleHeaderChip={toggleHeaderPointsChip}
               onOpenFaq={openProfilePointsFaq}

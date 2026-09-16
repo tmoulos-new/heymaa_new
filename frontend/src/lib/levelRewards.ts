@@ -161,11 +161,49 @@ export function claimSuccessMessage(
     : `You earned ${days} days free ${plan} 🎁`
 }
 
-const REWARD_DISMISS_PREFIX = 'hm_reward_dismiss_'
+export function emptyRewardsSnapshot(): RewardsSnapshot {
+  return { pending: [], claimed_level_ids: [], active_grants: [] }
+}
 
-export function readDismissedRewardLevels(token: string): Set<number> {
+/** Drop a claimed level from a snapshot so the banner cannot come back. */
+export function markRewardClaimed(
+  rewards: RewardsSnapshot | null | undefined,
+  levelId: number,
+): RewardsSnapshot {
+  const base = rewards || emptyRewardsSnapshot()
+  const claimed = new Set([...(base.claimed_level_ids || []), levelId])
+  return {
+    ...base,
+    pending: (base.pending || []).filter((p) => p.level_id !== levelId && !claimed.has(p.level_id)),
+    claimed_level_ids: Array.from(claimed),
+  }
+}
+
+export function excludeClaimedRewards(
+  rewards: RewardsSnapshot | null | undefined,
+  claimedIds: Iterable<number>,
+): RewardsSnapshot | null {
+  if (!rewards) return null
+  let next = rewards
+  const add = (id: number) => {
+    next = markRewardClaimed(next, id)
+  }
+  if (claimedIds instanceof Set || Array.isArray(claimedIds)) {
+    claimedIds.forEach(add)
+  }
+  return next
+}
+
+export function isAlreadyClaimedError(message: string): boolean {
+  return /already claimed|ήδη διεκδικ|already been claimed/i.test(message || '')
+}
+
+const REWARD_DISMISS_PREFIX = 'hm_reward_dismiss_'
+const REWARD_CLAIMED_PREFIX = 'hm_reward_claimed_'
+
+function readStoredLevelIds(key: string): Set<number> {
   try {
-    const raw = sessionStorage.getItem(`${REWARD_DISMISS_PREFIX}${token.slice(-12)}`)
+    const raw = sessionStorage.getItem(key)
     if (!raw) return new Set()
     const parsed = JSON.parse(raw)
     return new Set(Array.isArray(parsed) ? parsed.map(Number).filter((n) => n > 1) : [])
@@ -174,15 +212,42 @@ export function readDismissedRewardLevels(token: string): Set<number> {
   }
 }
 
-export function dismissRewardLevel(token: string, levelId: number): void {
+function writeStoredLevelIds(key: string, ids: Set<number>): void {
   try {
-    const key = `${REWARD_DISMISS_PREFIX}${token.slice(-12)}`
-    const set = readDismissedRewardLevels(token)
-    set.add(levelId)
-    sessionStorage.setItem(key, JSON.stringify(Array.from(set)))
+    sessionStorage.setItem(key, JSON.stringify(Array.from(ids)))
   } catch {
     /* ignore */
   }
+}
+
+function rewardStorageKey(prefix: string, token: string): string {
+  return `${prefix}${token.slice(-12)}`
+}
+
+export function readDismissedRewardLevels(token: string): Set<number> {
+  if (!token) return new Set()
+  return readStoredLevelIds(rewardStorageKey(REWARD_DISMISS_PREFIX, token))
+}
+
+export function dismissRewardLevel(token: string, levelId: number): void {
+  if (!token || levelId < 2) return
+  const key = rewardStorageKey(REWARD_DISMISS_PREFIX, token)
+  const set = readStoredLevelIds(key)
+  set.add(levelId)
+  writeStoredLevelIds(key, set)
+}
+
+export function readLocallyClaimedRewardLevels(token: string): Set<number> {
+  if (!token) return new Set()
+  return readStoredLevelIds(rewardStorageKey(REWARD_CLAIMED_PREFIX, token))
+}
+
+export function persistLocallyClaimedRewardLevel(token: string, levelId: number): void {
+  if (!token || levelId < 2) return
+  const key = rewardStorageKey(REWARD_CLAIMED_PREFIX, token)
+  const set = readStoredLevelIds(key)
+  set.add(levelId)
+  writeStoredLevelIds(key, set)
 }
 
 export function firstUnseenPendingReward(
@@ -191,24 +256,32 @@ export function firstUnseenPendingReward(
 ) {
   if (!rewards?.pending?.length) return null
   const dismissed = readDismissedRewardLevels(token)
-  return rewards.pending.find((p) => !dismissed.has(p.level_id)) ?? null
+  const claimed = readLocallyClaimedRewardLevels(token)
+  return rewards.pending.find((p) => !dismissed.has(p.level_id) && !claimed.has(p.level_id)) ?? null
 }
 
 /** Pick which pending reward to show — prefer a specific level (e.g. fresh level-up). */
 export function selectPendingReward(
   rewards: RewardsSnapshot | null | undefined,
-  options?: { token?: string; levelId?: number; force?: boolean },
+  options?: { token?: string; levelId?: number; force?: boolean; claimedIds?: Iterable<number> },
 ): PendingLevelReward | null {
   if (!rewards?.pending?.length) return null
+  const claimed = new Set<number>()
+  if (options?.claimedIds instanceof Set || Array.isArray(options?.claimedIds)) {
+    options.claimedIds.forEach((id) => claimed.add(id))
+  }
+  const pending = rewards.pending.filter((p) => !claimed.has(p.level_id))
+  if (!pending.length) return null
+  const filtered: RewardsSnapshot = { ...rewards, pending }
   if (options?.levelId != null) {
-    const match = rewards.pending.find((p) => p.level_id === options.levelId)
+    const match = pending.find((p) => p.level_id === options.levelId)
     if (match) return match
   }
   if (options?.force) {
-    return rewards.pending[0] ?? null
+    return pending[0] ?? null
   }
   if (options?.token) {
-    return firstUnseenPendingReward(options.token, rewards)
+    return firstUnseenPendingReward(options.token, filtered)
   }
-  return rewards.pending[0] ?? null
+  return pending[0] ?? null
 }

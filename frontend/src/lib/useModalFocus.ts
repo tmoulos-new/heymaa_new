@@ -14,10 +14,13 @@ export function useModalFocus(
   containerRef: RefObject<HTMLElement | null>,
   open: boolean,
   onClose: () => void,
+  preventClose = false,
 ) {
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
+  const preventCloseRef = useRef(preventClose)
   onCloseRef.current = onClose
+  preventCloseRef.current = preventClose
 
   useEffect(() => {
     if (!open) return
@@ -43,7 +46,7 @@ export function useModalFocus(
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onCloseRef.current()
+        if (!preventCloseRef.current) onCloseRef.current()
         return
       }
       if (e.key !== 'Tab') return

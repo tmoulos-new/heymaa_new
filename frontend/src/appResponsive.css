@@ -4795,6 +4795,13 @@ body.hm-app-active .hm-sheet-overlay {
   cursor: wait;
 }
 
+.hm-reward-sheet__claim--done,
+.hm-reward-sheet__claim--done:disabled {
+  background: var(--hm-teal, #4abeaa);
+  opacity: 1;
+  cursor: pointer;
+}
+
 .hm-reward-sheet__claim:focus-visible,
 .hm-expiry-modal__cta:focus-visible {
   outline: 2px solid var(--hm-navy, #2b3a67);
@@ -4815,6 +4822,11 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.55);
   cursor: pointer;
   box-sizing: border-box;
+}
+
+.hm-reward-sheet__later:disabled {
+  opacity: 0.45;
+  cursor: wait;
 }
 
 .hm-reward-sheet__later:focus-visible,

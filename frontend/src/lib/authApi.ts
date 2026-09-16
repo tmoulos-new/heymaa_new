@@ -231,6 +231,20 @@ function coalesceAuthFetch<T>(
   return p
 }
 
+export function invalidateAuthCaches(token?: string | null) {
+  if (token) {
+    inflightMe.delete(token)
+    inflightStatus.delete(token)
+    cachedMe.delete(token)
+    cachedStatus.delete(token)
+    return
+  }
+  inflightMe.clear()
+  inflightStatus.clear()
+  cachedMe.clear()
+  cachedStatus.clear()
+}
+
 function subActiveCacheKey(token: string): string {
   return `${SUB_ACTIVE_CACHE_PREFIX}${token.slice(-16)}`
 }

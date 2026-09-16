@@ -73,14 +73,28 @@ def _read_user_data_json(sb, user_id: str, key: str) -> Any:
 
 def _write_user_data_json(sb, user_id: str, key: str, value: Any) -> None:
     if not sb or not user_id:
+        raise ValueError("Cannot persist user data")
+    existing = (
+        sb.table("user_data")
+        .select("key")
+        .eq("user_id", user_id)
+        .eq("key", key)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        sb.table("user_data").update({"value": value}).eq("user_id", user_id).eq("key", key).execute()
         return
+    payload = {"user_id": user_id, "key": key, "value": value}
     try:
-        sb.table("user_data").upsert(
-            {"user_id": user_id, "key": key, "value": value},
-            on_conflict="user_id,key",
-        ).execute()
-    except Exception:
-        pass
+        sb.table("user_data").insert(payload).execute()
+    except Exception as e:
+        err = str(e)
+        if "token" in err.lower() and "not-null" in err.lower():
+            payload["token"] = str(user_id)
+            sb.table("user_data").insert(payload).execute()
+            return
+        raise
 
 
 def get_user_plan_grants(sb, user_id: str) -> list[dict[str, Any]]:
@@ -381,7 +395,11 @@ def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -
     return {
         "ok": True,
         "grant": grant,
-        "rewards": rewards_payload(sb, user_id, current_level_id),
+        "rewards": {
+            "pending": pending_level_rewards(current_level_id, claimed, mapping),
+            "claimed_level_ids": sorted(claimed),
+            "active_grants": serialize_active_grants(grants),
+        },
     }
 
 

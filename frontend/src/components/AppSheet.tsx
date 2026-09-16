@@ -15,6 +15,8 @@ type Props = {
   /** Visible title element id — preferred over ariaLabel */
   titleId?: string
   closeOnBackdrop?: boolean
+  /** Block Escape and backdrop dismiss (e.g. while a claim is in flight). */
+  preventClose?: boolean
 }
 
 export function AppSheet({
@@ -26,11 +28,12 @@ export function AppSheet({
   ariaLabel,
   titleId,
   closeOnBackdrop = true,
+  preventClose = false,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useBodyScrollLock(open)
-  useModalFocus(panelRef, open, onClose)
+  useModalFocus(panelRef, open, onClose, preventClose)
 
   if (!open) return null
 
@@ -43,7 +46,7 @@ export function AppSheet({
         aria-labelledby={titleId}
         className={`hm-sheet-overlay${dialog ? ' hm-sheet-overlay--dialog' : ''}`}
         onClick={(e) => {
-          if (closeOnBackdrop && e.target === e.currentTarget) onClose()
+          if (!preventClose && closeOnBackdrop && e.target === e.currentTarget) onClose()
         }}
       >
         <div
