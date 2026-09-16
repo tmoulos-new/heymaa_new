@@ -59,7 +59,8 @@ export function InAppSubscriptionSheet({
 
   const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(initialSnapshot ?? null)
-  const [loading, setLoading] = useState(!initialSnapshot)
+  // Plans come from i18n — never block the list on status fetch.
+  const [statusPending, setStatusPending] = useState(!initialSnapshot)
   const [cancelBusy, setCancelBusy] = useState(false)
   const [cancelError, setCancelError] = useState('')
 
@@ -74,12 +75,15 @@ export function InAppSubscriptionSheet({
   }, [])
 
   useEffect(() => {
-    if (initialSnapshot) setSnapshot(initialSnapshot)
+    if (initialSnapshot) {
+      setSnapshot(initialSnapshot)
+      setStatusPending(false)
+    }
   }, [initialSnapshot])
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
+    // Never flip statusPending back to true — that used to hide the plan list.
     fetchSubscriptionStatus(token)
       .then((data) => {
         if (!cancelled) setSnapshot(data)
@@ -90,11 +94,13 @@ export function InAppSubscriptionSheet({
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setStatusPending(false)
       })
     return () => {
       cancelled = true
     }
+  // initialSnapshot is only used as a failure fallback; live updates come from the effect above.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid refetch when parent snapshot changes
   }, [token, trialEndsAt])
 
   const basePlans = asObjectArray<HomePlan>(
@@ -131,12 +137,12 @@ export function InAppSubscriptionSheet({
   const activePlanRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!activeSlot || loading) return
+    if (!activeSlot || statusPending) return
     const timer = window.setTimeout(() => {
       activePlanRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     }, 80)
     return () => window.clearTimeout(timer)
-  }, [activeSlot, loading])
+  }, [activeSlot, statusPending])
 
   const activePlanName = useMemo(
     () => (activeSlot ? activePlanNameForSlot(activeSlot, basePlans, lang) : null),
@@ -205,44 +211,43 @@ export function InAppSubscriptionSheet({
           </div>
         ) : null}
 
-        {loading ? (
+        {statusPending && !plans.length ? (
           <div className="hm-empty-state" style={{ padding: '40px 12px' }}>
             {lang === 'el' ? 'Φόρτωση πλάνων…' : 'Loading plans…'}
           </div>
-        ) : (
-          <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>
-            {plans.map((plan, index) => {
-              const slot = slotForPlanIndex(index)
-              const isActive = activeSlot === slot
-              const trialExpired =
-                slot === 'trial' &&
-                !!snapshot &&
-                !snapshot.subscription_active &&
-                snapshot.subscription_status === 'trial'
-              return (
-                <div
-                  key={`${plan.name}-${index}`}
-                  ref={isActive ? activePlanRef : undefined}
-                  data-plan-slot={slot}
-                  className={isActive ? 'hm-subscription-plan-active' : undefined}
-                >
-                  <PlanCard
-                    plan={plan}
-                    disabled={trialExpired || isActive}
-                    buttonState={isActive ? 'current' : 'idle'}
-                    radioSelected={isActive}
-                    onButtonClick={() =>
-                      continueWithPlan(
-                        isActive ? slot : plan.variant || slot || 'trial',
-                        navigate,
-                      )
-                    }
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
+        ) : null}
+        <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>
+          {plans.map((plan, index) => {
+            const slot = slotForPlanIndex(index)
+            const isActive = activeSlot === slot
+            const trialExpired =
+              slot === 'trial' &&
+              !!snapshot &&
+              !snapshot.subscription_active &&
+              snapshot.subscription_status === 'trial'
+            return (
+              <div
+                key={`${plan.name}-${index}`}
+                ref={isActive ? activePlanRef : undefined}
+                data-plan-slot={slot}
+                className={isActive ? 'hm-subscription-plan-active' : undefined}
+              >
+                <PlanCard
+                  plan={plan}
+                  disabled={trialExpired || isActive}
+                  buttonState={isActive ? 'current' : 'idle'}
+                  radioSelected={isActive}
+                  onButtonClick={() =>
+                    continueWithPlan(
+                      isActive ? slot : plan.variant || slot || 'trial',
+                      navigate,
+                    )
+                  }
+                />
+              </div>
+            )
+          })}
+        </div>
 
         {showCancelHelp ? (
           <div className="hm-subscription-cancel-card">
