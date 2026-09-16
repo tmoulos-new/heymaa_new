@@ -2230,6 +2230,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setHeaderPointsVisible(next);
   }, [token]);
 
+  const openProfilePointsFaq = useCallback(() => {
+    const idx = helpFaqItems.findIndex((item) =>
+      /Πώς κερδίζω πόντους|How do I earn points/i.test(item.question),
+    );
+    const openIdx = idx >= 0 ? idx : 0;
+    setOpenProfileFaqIndex(openIdx);
+    window.setTimeout(() => {
+      document.getElementById(`profile-faq-trigger-${openIdx}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 60);
+  }, [helpFaqItems]);
+
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -5212,6 +5226,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true })}
               showHeaderChip={headerPointsVisible}
               onToggleHeaderChip={toggleHeaderPointsChip}
+              onOpenFaq={openProfilePointsFaq}
             />
 
             <AppTabSection lang={lang} label={lang==="el"?"Ρυθμίσεις":"Settings"}>

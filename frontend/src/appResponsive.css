@@ -4029,22 +4029,24 @@ body.hm-app-active .hm-sheet-overlay {
   line-height: 1.45;
 }
 
-.hm-profile-gamification-card__actions {
+.hm-profile-gamification-card__faq-link {
+  display: block;
+  width: 100%;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
   text-align: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(43, 58, 103, 0.58);
-  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hm-navy);
+  line-height: 1.45;
 }
 
-.hm-profile-gamification-card__cap-hint {
-  margin: 8px 0 0;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(43, 58, 103, 0.52);
-  line-height: 1.45;
+.hm-profile-gamification-card__faq-link:hover {
+  text-decoration: underline;
 }
 
 .hm-profile-gamification-card__referral {
@@ -4855,7 +4857,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-profile-gamification-card__gift-btn:focus-visible,
-.hm-profile-gamification-card__header-toggle:focus-visible {
+.hm-profile-gamification-card__header-toggle:focus-visible,
+.hm-profile-gamification-card__faq-link:focus-visible {
   outline: 2px solid var(--hm-navy, #2b3a67);
   outline-offset: 2px;
 }

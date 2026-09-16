@@ -1,8 +1,6 @@
 import type { GamificationStatus } from '../lib/userGamification'
 import { levelName } from '../lib/userGamification'
 import {
-  getChatDailyPointsCap,
-  getPointActions,
   getReferralBonusPoints,
   levelEmoji,
 } from '../lib/gamificationCard'
@@ -21,6 +19,7 @@ type Props = {
   onClaimPending?: () => void
   showHeaderChip?: boolean
   onToggleHeaderChip?: () => void
+  onOpenFaq?: () => void
 }
 
 export function ProfileGamificationCard({
@@ -34,6 +33,7 @@ export function ProfileGamificationCard({
   onClaimPending,
   showHeaderChip,
   onToggleHeaderChip,
+  onOpenFaq,
 }: Props) {
   const isEl = lang === 'el'
   const { level, points, progress_percent, points_to_next, level: currentLevel } = gamification
@@ -137,21 +137,14 @@ export function ProfileGamificationCard({
         </>
       ) : null}
 
-      <div className="hm-profile-gamification-card__divider" />
-
-      <p className="hm-profile-gamification-card__actions" role="list">
-        {getPointActions().map((action, i) => (
-          <span key={action.path || action.en} role="listitem">
-            {i > 0 ? ' • ' : null}
-            {isEl ? action.el : action.en} +{action.points}
-          </span>
-        ))}
-      </p>
-      <p className="hm-profile-gamification-card__cap-hint">
-        {isEl
-          ? `Chat: έως ${getChatDailyPointsCap()} πόντοι/ημέρα από μηνύματα.`
-          : `Chat: up to ${getChatDailyPointsCap()} points/day from messages.`}
-      </p>
+      {onOpenFaq ? (
+        <>
+          <div className="hm-profile-gamification-card__divider" />
+          <button type="button" className="hm-profile-gamification-card__faq-link" onClick={onOpenFaq}>
+            {isEl ? 'Πώς κερδίζεις πόντους; Δες τις Συχνές ερωτήσεις →' : 'How do points work? See the FAQ →'}
+          </button>
+        </>
+      ) : null}
 
       {referralCode ? (
         <>
