@@ -1708,7 +1708,7 @@ function ResetScreen({ token, lang, onDone }: { token: string; lang: string; onD
   const [error, setError] = React.useState("");
   const [done, setDone] = React.useState(false);
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"};
-  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any};
   const handleReset = async () => {
     if (password.length < 6) { setError(isEl ? "Τουλάχιστον 6 χαρακτήρες." : "Minimum 6 characters."); return; }
     if (password !== confirm) { setError(isEl ? "Οι κωδικοί δεν ταιριάζουν." : "Passwords do not match."); return; }
@@ -1757,7 +1757,7 @@ function ChangePasswordScreen({
   const [error, setError] = React.useState("")
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false)
   const cardStyle: React.CSSProperties = {background:"#fff",borderRadius:24,padding:"36px 32px",maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}
-  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any}
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10,textAlign:"left" as any}
   const handleChange = async () => {
     if (password.length < 6) { setError(lang==="el"?"Τουλάχιστον 6 χαρακτήρες.":"Min 6 characters."); return; }
     if (password !== confirm) { setError(lang==="el"?"Οι κωδικοί δεν ταιριάζουν.":"Passwords do not match."); return; }
@@ -1832,7 +1832,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     onDone(p);
   };
   const s: React.CSSProperties = {minHeight:"100dvh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
-  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
+  const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   return (
     <div style={s}>
       {showLang && (
@@ -1888,7 +1888,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           </>}
           {isPregnant===null&&<button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(0)}>{t("back",lang)}</button>}
         </>}
-        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><button type="button" className="lang-row is-selected" style={{marginBottom:10}} onClick={()=>setShowLang(true)}><span className="lang-row__code">{getLanguagePickerItem(lang).displayCode}</span><span className="lang-row__name">{getLanguagePickerItem(lang).name}</span><span className="lang-row__radio" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.2l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span></button><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>{t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:15,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
+        {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><button type="button" className="lang-row is-selected" style={{marginBottom:10}} onClick={()=>setShowLang(true)}><span className="lang-row__code">{getLanguagePickerItem(lang).displayCode}</span><span className="lang-row__name">{getLanguagePickerItem(lang).name}</span><span className="lang-row__radio" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.2l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span></button><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>{t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
         {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button type="button" className="hm-btn hm-btn--accent hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
@@ -4394,7 +4394,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   placeholder={lang==="el"?"π.χ. Μάνος":"e.g. Manos"}
                   style={{
                     width:"100%",padding:"14px 16px",border:"1.5px solid rgba(43,58,103,.12)",
-                    borderRadius:14,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:15,
+                    borderRadius:14,background:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:16,
                     outline:"none",boxSizing:"border-box" as any,color:navy,
                   }}
                 />
@@ -5430,7 +5430,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 width:"100%",padding:"14px 12px",marginTop:4,
                 border:".5px solid rgba(43,58,103,.08)",background:"#fff",borderRadius:14,
                 boxSizing:"border-box",
-                color:"var(--hm-destructive)",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
+                color:"var(--hm-destructive)",fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:600,
                 cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
               }}
             >
@@ -5939,7 +5939,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         })()}
         {/* ── SHOPPING ── */}
         {tab==="shopping"&&<div className="hm-tab-card">
-          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,color:navy,marginBottom:11,fontWeight:600}}>Shopping</div>
           <div style={{display:"flex",marginBottom:12,borderRadius:9,overflow:"hidden",border:"1.5px solid #E6E0D8"}}>
             <button onClick={()=>setShopTab("p")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="p"?navy:"#fff",color:shopTab==="p"?"#fff":"rgba(43,58,103,.55)",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛍️ {t("products",lang)}</button>
             <button onClick={()=>setShopTab("s")} style={{flex:1,padding:"8px 3px",fontSize:11,fontWeight:600,cursor:"pointer",background:shopTab==="s"?navy:"#fff",color:shopTab==="s"?"#fff":"rgba(43,58,103,.55)",border:"none",fontFamily:"'DM Sans',sans-serif"}}>🛒 {t("supermarket",lang)}</button>

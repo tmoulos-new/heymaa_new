@@ -13,6 +13,7 @@ import {
 import { normalizeAppLang, readStoredAppLang, writeStoredAppLang } from '../lib/appLang'
 import { authStrings, PRIVACY_URL, TERMS_URL, localizeAuthApiMessage, type AuthLang } from './authStrings'
 import { EyeIcon, EyeOffIcon } from './passwordVisibilityIcons'
+import { useStableMobileViewport } from '../lib/useStableMobileViewport'
 import './appAuth.css'
 
 /** Auth copy is el/en only — do not overwrite a user's full app language preference. */
@@ -45,6 +46,7 @@ export function AppAuthScreen({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+  useStableMobileViewport()
 
   useEffect(() => {
     document.title = 'HeyMaa'

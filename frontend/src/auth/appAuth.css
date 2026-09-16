@@ -3,6 +3,14 @@
 .app-auth-page {
   min-height: 100vh;
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+  position: relative;
   background: #f5f0eb;
   display: flex;
   flex-direction: column;
@@ -80,6 +88,7 @@
 .app-auth-card {
   width: 100%;
   max-width: 420px;
+  min-width: 0;
 }
 
 .app-auth-title {
@@ -106,12 +115,15 @@
 
 .app-auth-input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 13px 14px;
   border-radius: 12px;
   border: 1.5px solid rgba(43, 58, 103, 0.14);
   background: #fff;
   font-family: inherit;
-  font-size: 15px;
+  /* 16px avoids iOS Safari auto-zoom on focus (keyboard / password manager). */
+  font-size: 16px;
   color: #2b3a67;
   outline: none;
   box-sizing: border-box;

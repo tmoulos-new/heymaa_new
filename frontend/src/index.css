@@ -15,6 +15,8 @@ html {
   overflow-x: hidden;
   overflow-x: clip;
   overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -43,6 +45,17 @@ body {
   overflow-x: clip;
 }
 
+html.hm-auth-lock,
+html.hm-auth-lock body,
+html.hm-auth-lock #root {
+  overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  width: 100%;
+  max-width: 100%;
+  touch-action: pan-y;
+}
+
 button,
 input,
 textarea,
@@ -67,4 +80,13 @@ option {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* iOS Safari zooms (and then pans left/right) when a focused field is under 16px. */
+@media (max-width: 699px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='range']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

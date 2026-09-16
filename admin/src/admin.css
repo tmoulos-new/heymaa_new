@@ -7,18 +7,47 @@
   --sidebar-w:240px;--sidebar-w-collapsed:68px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--navy);line-height:1.5;min-height:100vh}
+html{
+  overflow-x:hidden;
+  overflow-x:clip;
+  overscroll-behavior-x:none;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--navy);line-height:1.5;
+  min-height:100vh;width:100%;max-width:100%;
+  overflow-x:hidden;overflow-x:clip;overscroll-behavior-x:none;
+}
+html.hm-auth-lock,
+html.hm-auth-lock body,
+html.hm-auth-lock #root{
+  overflow-x:hidden;
+  overflow-x:clip;
+  overscroll-behavior-x:none;
+  width:100%;
+  max-width:100%;
+  touch-action:pan-y;
+}
 h1{font-family:'Fraunces',Georgia,serif;font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.25}
 h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-height:1.3}
 .sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.45}
 
 /* ── Login gate ── */
-.gate-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--cream) 0%,var(--gl) 50%,rgba(74,190,170,.12) 100%)}
-.gate{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;box-shadow:var(--shadow);border:.5px solid var(--border);text-align:center;display:flex;flex-direction:column}
+.gate-wrap{
+  min-height:100vh;min-height:100dvh;
+  width:100%;max-width:100%;min-width:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px));
+  background:linear-gradient(160deg,var(--cream) 0%,var(--gl) 50%,rgba(74,190,170,.12) 100%);
+  overflow-x:hidden;overflow-x:clip;overscroll-behavior-x:none;touch-action:pan-y;
+  box-sizing:border-box;
+}
+.gate{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;min-width:0;box-shadow:var(--shadow);border:.5px solid var(--border);text-align:center;display:flex;flex-direction:column}
 .gate .logo{margin:0}
 .gate .logo span{color:var(--teal)}
 .gate .sub{margin:12px 0 26px}
-.gate input{margin:0;text-align:center}
+.gate input{margin:0;text-align:center;max-width:100%;min-width:0;font-size:16px}
 .gate input + input{margin-top:12px}
 .gate input:last-of-type{margin-bottom:18px}
 .gate button:not(.plan-feat-info-btn){width:100%;margin-top:0}
@@ -174,6 +203,11 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 label.field{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 .req{color:var(--coral);margin-left:2px;font-weight:700}
 input,textarea,select{width:100%;padding:11px 13px;border:1.5px solid #DDD7D0;border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:14px;outline:none;background:#fff;transition:border-color .15s,box-shadow .15s}
+@media (max-width:699px){
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='range']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']),
+  textarea,
+  select{font-size:16px !important}
+}
 input:focus,textarea:focus,select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,190,170,.15)}
 textarea{min-height:80px;resize:vertical}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}

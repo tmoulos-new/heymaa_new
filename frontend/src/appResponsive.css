@@ -957,7 +957,7 @@ body.hm-app-active #root {
   border-radius: var(--hm-radius-md);
   background: #fff;
   font-family: var(--hm-font-sans);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--hm-navy);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -5365,7 +5365,7 @@ body.hm-app-active .hm-sheet-overlay {
   border-radius: 12px;
   background: #f0ebe6;
   font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--hm-navy);
   outline: none;
 }
