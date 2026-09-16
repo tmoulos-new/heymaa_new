@@ -46,18 +46,18 @@ export function InAppSubscriptionSheet({
 }) {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
   const tHome = useCallback(
     (key: string, opts?: Record<string, unknown>) =>
-      t(key, { ns: 'home', ...opts }),
-    [t],
+      t(key, { ns: 'home', lng: contentLang, ...opts }),
+    [t, contentLang],
   )
   const tSub = useCallback(
     (key: string, opts?: Record<string, unknown>) =>
-      t(key, { ns: 'subscription', ...opts }),
-    [t],
+      t(key, { ns: 'subscription', lng: contentLang, ...opts }),
+    [t, contentLang],
   )
 
-  const contentLang = homeDisplayLocale(lang || i18n.language || 'el')
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(initialSnapshot ?? null)
   // Plans come from i18n — never block the list on status fetch.
   const [statusPending, setStatusPending] = useState(!initialSnapshot)
@@ -237,6 +237,7 @@ export function InAppSubscriptionSheet({
                   disabled={trialExpired || isActive}
                   buttonState={isActive ? 'current' : 'idle'}
                   radioSelected={isActive}
+                  lng={contentLang}
                   onButtonClick={() =>
                     continueWithPlan(
                       isActive ? slot : plan.variant || slot || 'trial',

@@ -1893,7 +1893,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 
 // ── Main App ──────────────────────────────────────────────────
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onTokenUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; onTokenUpdate?: (t: string) => void; trialEndsAt?: string | null }) {
-  const { t: tHome } = useTranslation();
+  const { t: tHome, i18n } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const showToast = (text: string, kind: ToastKind = "ok", undo?: () => void, undoLabel?: string) => {
     const trimmed = text.trim();
@@ -1947,6 +1947,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(null);
   const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
+  useEffect(() => {
+    // Keep i18next in sync with the in-app language (plans, FAQs, sheets).
+    if (i18n.language !== homeLng) {
+      void i18n.changeLanguage(homeLng);
+    }
+  }, [homeLng, i18n]);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
     const base = Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
