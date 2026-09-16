@@ -5,6 +5,7 @@ import { PlanCard } from '../components/PlanCard'
 import { SiteFooter } from '../components/SiteFooter'
 import { SiteNavbarLogo } from '../components/SiteNavbarLogo'
 import '../home/home.css'
+import '../appResponsive.css'
 import './subscription.css'
 import {
   HOME_I18N_STORAGE_KEY,
@@ -22,7 +23,6 @@ import { mergeGamificationFaqItems } from '../lib/gamificationCard'
 import { useFaqAccordion } from '../lib/useFaqAccordion'
 import {
   applySubscriptionPlanState,
-  displaySelectedPlanSlot,
   formatTrialEnd,
   slotForPlanIndex,
 } from '../lib/subscriptionPlans'
@@ -30,6 +30,7 @@ import { LANGS } from '../home/homeContent'
 import { LanguageFlagOverlay, LanguageTriggerCode } from '../components/LanguageFlagPicker'
 import { APP_ROUTE } from '../publicRoutes'
 import { continueWithPlan } from '../lib/planCheckoutFlow'
+import { SUPPORTED_LANG_CODE_SET } from '../lib/supportedLanguages'
 
 const SUB_SNAPSHOT_CACHE_KEY = 'hm_subscription_snapshot'
 
@@ -67,14 +68,6 @@ function asObjectArray<T>(value: unknown): T[] {
 export function SubscriptionPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
-  const tHome = useCallback(
-    (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'home', ...opts }),
-    [t],
-  )
-  const tSub = useCallback(
-    (key: string, opts?: Record<string, unknown>) => t(key, { ns: 'subscription', ...opts }),
-    [t],
-  )
   const [langOpen, setLangOpen] = useState(false)
   const { openIndex: openFaqIndex, setOpenIndex: setOpenFaqIndex } = useFaqAccordion(null)
   const token = getAuthToken()
@@ -87,7 +80,21 @@ export function SubscriptionPage() {
     'el',
   )
   const contentLang = homeDisplayLocale(preferredLang)
-  const langMeta = LANGS.find((l) => l.code === preferredLang) ?? LANGS[0]
+  const langMeta =
+    LANGS.find((l) => l.code === preferredLang && SUPPORTED_LANG_CODE_SET.has(l.code)) ??
+    LANGS.find((l) => l.code === 'el') ??
+    LANGS[0]
+
+  const tHome = useCallback(
+    (key: string, opts?: Record<string, unknown>) =>
+      t(key, { ns: 'home', lng: contentLang, ...opts }),
+    [t, contentLang],
+  )
+  const tSub = useCallback(
+    (key: string, opts?: Record<string, unknown>) =>
+      t(key, { ns: 'subscription', lng: contentLang, ...opts }),
+    [t, contentLang],
+  )
 
   const basePlans = asObjectArray<HomePlan>(
     tHome('pricing.plans', { returnObjects: true }),
@@ -100,13 +107,18 @@ export function SubscriptionPage() {
 
   const plans = useMemo(
     () =>
-      applySubscriptionPlanState(basePlans, snapshot, {
-        currentBadge: tSub('plan.currentBadge'),
-        currentButton: tSub('plan.currentButton'),
-        expiredBadge: tSub('trial.expiredBadge'),
-        expiredButton: tSub('trial.expiredButton'),
-        signupButton: tSub('trial.signupButton'),
-      }, !!token),
+      applySubscriptionPlanState(
+        basePlans,
+        snapshot,
+        {
+          currentBadge: tSub('plan.currentBadge'),
+          currentButton: tSub('plan.currentButton'),
+          expiredBadge: tSub('trial.expiredBadge'),
+          expiredButton: tSub('trial.expiredButton'),
+          signupButton: tSub('trial.signupButton'),
+        },
+        !!token,
+      ),
     [basePlans, snapshot, tSub, token],
   )
 
@@ -128,6 +140,12 @@ export function SubscriptionPage() {
       document.head.removeChild(link)
     }
   }, [])
+
+  useEffect(() => {
+    if (i18n.language !== contentLang) {
+      void i18n.changeLanguage(contentLang)
+    }
+  }, [contentLang, i18n])
 
   useEffect(() => {
     if (!token) {
@@ -157,9 +175,6 @@ export function SubscriptionPage() {
     },
     [i18n],
   )
-
-
-  const selectedSlot = displaySelectedPlanSlot(snapshot)
 
   const goApp = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
   const goLogin = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth?mode=login`)
@@ -202,7 +217,7 @@ export function SubscriptionPage() {
         </div>
       </nav>
 
-      <div className="hero subscription-hero">
+      <header className="subscription-hero">
         <div className="hero-badge">
           <span className="hero-badge-dot" />
           <span>{tSub(`hero.${heroKey}.badge`)}</span>
@@ -220,71 +235,47 @@ export function SubscriptionPage() {
             })}
           </p>
         ) : null}
-      </div>
+      </header>
 
-      <div className="section pricing-section" style={{ paddingTop: 0 }}>
-        <div className="pricing-panel">
-          <div className="pricing-panel-header">
-            <h2 className="sec-title pricing-panel-title">{tHome('pricing.title')}</h2>
-            <p className="pricing-panel-sub">{tHome('pricing.subtitle')}</p>
-          </div>
-          <div className="pricing-panel-body">
-            <div className="pricing-cards-layout">
-              <div className="pricing-trial-col">
-                {plans.slice(0, 1).map((plan, index) => {
-                  const slot = slotForPlanIndex(index)
-                  const isSelected = selectedSlot === slot
-                  const trialExpired =
-                    slot === 'trial' &&
-                    !!snapshot &&
-                    !snapshot.subscription_active &&
-                    snapshot.subscription_status === 'trial'
-                  const buttonState =
-                    plan.variant === 'current' ? 'current' : isSelected ? 'selected' : 'idle'
-                  return (
-                    <PlanCard
-                      plan={plan}
-                      key={plan.name}
-                      disabled={trialExpired}
-                      buttonState={buttonState}
-                      radioSelected={isSelected}
-                      onButtonClick={() =>
-                        continueWithPlan(plan.variant === 'current' ? slot : plan.variant || slot, navigate)
-                      }
-                    />
-                  )
-                })}
+      <section className="subscription-plans" aria-label={String(tHome('pricing.title'))}>
+        <div className="subscription-plans-grid">
+          {plans.map((plan, index) => {
+            const slot = slotForPlanIndex(index)
+            const isCurrent = plan.variant === 'current'
+            const trialExpired =
+              slot === 'trial' &&
+              !!snapshot &&
+              !snapshot.subscription_active &&
+              snapshot.subscription_status === 'trial'
+            const buttonState = isCurrent ? 'current' : 'idle'
+            return (
+              <div
+                key={`${plan.name}-${index}`}
+                className={[
+                  'subscription-plan-cell',
+                  plan.badge ? 'subscription-plan-cell--badged' : '',
+                  isCurrent ? 'subscription-plan-cell--current' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <PlanCard
+                  plan={plan}
+                  disabled={trialExpired || isCurrent}
+                  buttonState={buttonState}
+                  lng={contentLang}
+                  onButtonClick={() =>
+                    continueWithPlan(
+                      isCurrent ? slot : plan.variant || slot,
+                      navigate,
+                    )
+                  }
+                />
               </div>
-              <div className="pricing-paid-grid">
-                {plans.slice(1).map((plan, offset) => {
-                  const index = offset + 1
-                  const slot = slotForPlanIndex(index)
-                  const isSelected = selectedSlot === slot
-                  const trialExpired =
-                    slot === 'trial' &&
-                    !!snapshot &&
-                    !snapshot.subscription_active &&
-                    snapshot.subscription_status === 'trial'
-                  const buttonState =
-                    plan.variant === 'current' ? 'current' : isSelected ? 'selected' : 'idle'
-                  return (
-                    <PlanCard
-                      plan={plan}
-                      key={plan.name}
-                      disabled={trialExpired}
-                      buttonState={buttonState}
-                      radioSelected={isSelected}
-                      onButtonClick={() =>
-                        continueWithPlan(plan.variant === 'current' ? slot : plan.variant || slot, navigate)
-                      }
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          </div>
+            )
+          })}
         </div>
-      </div>
+      </section>
 
       <div className="section faq-section">
         <div className="sec-title">{tHome('faq.label')}</div>

@@ -17,8 +17,8 @@
     },
     "default": {
       "badge": "Subscriptions",
-      "title": "",
-      "subtitle": ""
+      "title": "HeyMaa <em>Subscription</em>",
+      "subtitle": "See the plans and pick the one that fits you."
     },
     "trialEnds": "Trial ends {{date}}"
   },

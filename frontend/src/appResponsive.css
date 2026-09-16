@@ -2323,7 +2323,7 @@ body.hm-app-active #root {
   background: var(--hm-navy);
 }
 
-/* Public subscription: multi-column on tablet/desktop */
+/* Public subscription page plan grid lives in subscription.css */
 @media (min-width: 700px) {
   .subscription-page .pricing-cards-layout {
     display: grid;
@@ -2343,22 +2343,6 @@ body.hm-app-active #root {
     grid-template-columns: repeat(4, 1fr);
     row-gap: 40px;
   }
-}
-
-.subscription-page .plan-stack {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.subscription-page .plan-stack.has-badge {
-  margin-top: 0;
-  padding-top: 22px;
-}
-
-.subscription-page .pricing-cards-layout .plan-stack:hover,
-.subscription-page .pricing-cards-layout .plan-stack.highlighted:hover,
-.subscription-page .pricing-cards-layout .plan-stack.selectable:hover {
-  transform: none;
-  z-index: auto;
 }
 
 /* ── In-app header ── */

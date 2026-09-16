@@ -17,8 +17,8 @@
     },
     "default": {
       "badge": "Συνδρομές",
-      "title": "",
-      "subtitle": ""
+      "title": "Συνδρομή <em>HeyMaa</em>",
+      "subtitle": "Δες τα πλάνα και διάλεξε αυτό που σου ταιριάζει."
     },
     "trialEnds": "Η δοκιμή λήγει {{date}}"
   },
