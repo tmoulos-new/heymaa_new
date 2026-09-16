@@ -2487,6 +2487,44 @@ def _scrub_language_leaks(text: str, lang: str) -> str:
     return out
 
 
+_CAPABILITY_PITCH_RE = _re.compile(
+    r"είμαι εδώ για να (σου )?προσφέρω|"
+    r"είμαι πάντα έτοιμη να σε βοηθήσω με οποιαδήποτε|"
+    r"i('m| am) here to (offer|provide) (you )?(support|information)",
+    _re.I | _re.U,
+)
+
+
+def _looks_like_capability_pitch(text: str) -> bool:
+    return bool(_CAPABILITY_PITCH_RE.search(text or ""))
+
+
+def _filter_capability_pitch_history(history: list | None) -> list:
+    """Drop old canned 'I help with nutrition/sleep' assistant turns from history."""
+    out = []
+    for item in history or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "")
+        content = item.get("content") or ""
+        if role == "assistant" and _looks_like_capability_pitch(content):
+            continue
+        out.append(item)
+    return out
+
+
+def prepare_llm_history(message: str, history: list | None) -> list:
+    """History actually sent to the model. Greetings match admin (empty thread)."""
+    cleaned = _filter_capability_pitch_history(history)
+    try:
+        from .evaluator import is_pure_greeting
+    except ImportError:
+        from evaluator import is_pure_greeting
+    if is_pure_greeting(message):
+        return []
+    return cleaned
+
+
 def _is_usable_reply(text: str) -> bool:
     """Reject empty, truncated, or instruction-leakage replies. Allow markdown (*bold*)."""
     t = (text or "").strip()
@@ -3808,6 +3846,7 @@ async def _run_chat_core(
         }
     timing["evaluator_ms"] = evaluator.get("elapsed_ms", 0)
     needs_rag = bool(evaluator.get("needs_rag", True))
+    llm_history = prepare_llm_history(req.message, req.history)
 
     t_rag0 = _time.perf_counter()
     rag_chunks: list = []
@@ -3939,6 +3978,7 @@ async def _run_chat_core(
                 "complex_query": complex_query,
                 "msg_lang": msg_lang or profile_lang or "",
                 "history_len": len(req.history or []),
+                "llm_history_len": len(llm_history),
                 "memories_used": len(req.recentMemories or []),
                 "docs_used": len(req.recentDocs or []),
                 "system_prompt_chars": len(system_prompt or ""),
@@ -3959,7 +3999,7 @@ async def _run_chat_core(
             async def _replicate_call():
                 reply, model_slug, meta = await call_replicate_chat(
                     message_for_llm,
-                    req.history,
+                    llm_history,
                     system_prompt,
                     replicate_key,
                     image_parts=image_parts or None,
@@ -4034,13 +4074,13 @@ async def _run_chat_core(
             async def _legacy_call(p=provider, k=key):
                 if p == "groq":
                     reply = await call_groq(
-                        message_for_llm, req.history, system_prompt, k, history_limit=chat_context_limit
+                        message_for_llm, llm_history, system_prompt, k, history_limit=chat_context_limit
                     )
                     model = "groq"
                 elif p == "gemini":
                     reply = await call_gemini(
                         message_for_llm,
-                        req.history,
+                        llm_history,
                         system_prompt,
                         k,
                         image_parts=image_parts or None,
@@ -4050,7 +4090,7 @@ async def _run_chat_core(
                 else:
                     reply = await call_claude(
                         message_for_llm,
-                        req.history,
+                        llm_history,
                         system_prompt,
                         k,
                         image_parts=image_parts or None,

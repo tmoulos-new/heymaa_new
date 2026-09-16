@@ -2810,10 +2810,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       lastCheckedMap,
     );
     const recentDocs = docs.slice(0, 40).map((d) => ({ title: d.title, category: d.category, date: d.date, ref: d.ref }));
-    const historyForApi = messages.slice(-chatContextLimit).map((m) => ({
-      role: m.role,
-      content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
-    }));
+    const greetingOnly = /^(hi|hello|hey|γεια σου|γεια|γειά σου|γειά|καλημέρα|καλησπέρα|καλημερα|καλησπερα|χαίρετε|τι κάνεις|τι κανεις|πώς είσαι|πως είσαι|πως εισαι|πώς εισαι|how are you|how's it going)\s*[;?!]*$/i.test(trimmed);
+    const historyForApi = greetingOnly
+      ? []
+      : messages.slice(-chatContextLimit).map((m) => ({
+          role: m.role,
+          content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
+        }));
     try {
       const res = await axios.post(
         `${API}/chat`,

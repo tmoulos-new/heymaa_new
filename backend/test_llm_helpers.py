@@ -101,5 +101,36 @@ class LanguageLeakScrubTests(unittest.TestCase):
         self.assertEqual(_scrub_language_leaks(src, "en"), src)
 
 
+class LlmHistoryTests(unittest.TestCase):
+    _pitch = (
+        "Γιώργο, είμαι εδώ για να σου προσφέρω υποστήριξη και πληροφορίες σχετικά "
+        "με τη διατροφή, το ύπνο και την ανάπτυξη του Πανού."
+    )
+
+    def test_greeting_drops_thread_like_admin(self):
+        from main import prepare_llm_history
+
+        history = [
+            {"role": "user", "content": "γεια"},
+            {"role": "assistant", "content": self._pitch},
+        ]
+        self.assertEqual(prepare_llm_history("Τι κάνεις;", history), [])
+
+    def test_real_question_keeps_non_pitch_turns(self):
+        from main import prepare_llm_history
+
+        history = [
+            {"role": "user", "content": "γεια"},
+            {"role": "assistant", "content": self._pitch},
+            {"role": "user", "content": "πόσο είναι ο Πάνος;"},
+            {"role": "assistant", "content": "Ο Πάνος είναι 11 μηνών."},
+        ]
+        out = prepare_llm_history("πώς κοιμάται ο Πάνος;", history)
+        contents = [h["content"] for h in out]
+        self.assertNotIn(self._pitch, contents)
+        self.assertIn("Ο Πάνος είναι 11 μηνών.", contents)
+        self.assertIn("πόσο είναι ο Πάνος;", contents)
+
+
 if __name__ == "__main__":
     unittest.main()

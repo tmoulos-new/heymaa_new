@@ -216,5 +216,24 @@ def _result(
     }
 
 
+def is_pure_greeting(message: str) -> bool:
+    """True when the whole message is only a greeting / how-are-you / thanks.
+
+    App threads often contain an older canned 'I can help with nutrition/sleep'
+    assistant turn. Passing that history on 'τι κάνεις' makes the model copy it.
+    Admin chat-as-user starts with empty history, so greetings work there.
+    """
+    text = (message or "").strip()
+    if not text:
+        return False
+    if _word_count(text) > 6:
+        return False
+    result = evaluate_rag_need(text)
+    return (not result.get("needs_rag")) and result.get("reason") in {
+        "chitchat",
+        "meta_or_emotion",
+    }
+
+
 # Alias for callers that prefer a shorter name
 evaluate = evaluate_rag_need

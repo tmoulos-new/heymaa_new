@@ -41,6 +41,13 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(r["needs_rag"])
         self.assertEqual(r["reason"], "knowledge_intent")
 
+    def test_pure_greeting_detects_how_are_you(self):
+        from evaluator import is_pure_greeting
+        self.assertTrue(is_pure_greeting("Τι κάνεις;"))
+        self.assertTrue(is_pure_greeting("τι κάνεις?"))
+        self.assertFalse(is_pure_greeting("τι κάνεις για τον ύπνο του μωρού;"))
+        self.assertFalse(is_pure_greeting("πώς κοιμάται ο Πάνος;"))
+
     def test_attachment_only_skips(self):
         r = evaluate_rag_need("", has_attachments=True)
         self.assertFalse(r["needs_rag"])
