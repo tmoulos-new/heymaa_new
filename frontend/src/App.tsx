@@ -5001,7 +5001,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           {headerPointsVisible ? (
             <button
               type="button"
-              className="hm-header-points-chip"
+              className={
+                "hm-header-points-chip" +
+                (subSnapshot?.subscription_active &&
+                displaySelectedPlanSlot(subSnapshot) !== "trial"
+                  ? " hm-header-points-chip--plan-active"
+                  : "")
+              }
               aria-label={
                 lang === "el"
                   ? `${gamification?.points ?? 0} πόντοι, ${levelName((gamification ?? defaultGamificationStatus()).level, lang)}. Άνοιγμα προφίλ`

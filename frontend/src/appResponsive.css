@@ -36,6 +36,7 @@
   --hm-destructive: #e07b54;
   --hm-teal: #4abeaa;
   --hm-coral: #e07b54;
+  --hm-magenta: #de5a9e;
   --hm-chat-assistant-bg: #e8e2f0;
   --hm-border-input: rgba(43, 58, 103, 0.18);
   --hm-overlay-bg: rgba(43, 58, 103, 0.45);
@@ -3826,6 +3827,14 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-header-points-chip:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+.hm-header-points-chip--plan-active {
+  background: var(--hm-magenta, #de5a9e);
+}
+
+.hm-header-points-chip--plan-active:hover {
+  background: #c94d8c;
 }
 
 .hm-header-points-chip__icon {
