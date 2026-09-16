@@ -242,7 +242,6 @@ export function InAppSubscriptionSheet({
                   plan={plan}
                   disabled={trialExpired || isActive}
                   buttonState={isActive ? 'current' : 'idle'}
-                  radioSelected={isActive}
                   lng={contentLang}
                   onButtonClick={() =>
                     continueWithPlan(

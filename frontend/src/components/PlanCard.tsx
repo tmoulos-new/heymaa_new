@@ -127,14 +127,7 @@ export function PlanCard({
           >
             <span className="plan-radio-dot" />
           </button>
-        ) : (
-          <div
-            className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
-            aria-hidden="true"
-          >
-            <span className="plan-radio-dot" />
-          </div>
-        )}
+        ) : null}
       </div>
       <div className="plan-meta">
         <div className="plan-name-row">
