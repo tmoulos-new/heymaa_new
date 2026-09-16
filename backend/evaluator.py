@@ -18,6 +18,9 @@ _SKIP_PATTERNS = [
     r"^\s*(ok|okay|ωραία|ωραια|εντάξει|ενταξει|ναι|όχι|οχι|yes|no|yep|nope)\s*[!.]*\s*$",
     r"^\s*(bye|goodbye|αντίο|αντιο|τα λέμε|τα λεμε)\b",
     r"^\s*(lol|haha|χαχα)\s*$",
+    # Whole-message how-are-you — not "τι κάνεις για τον ύπνο…"
+    r"^\s*(τι κάνεις|τι κανεις|πώς είσαι|πως είσαι|πως εισαι|πώς εισαι|"
+    r"how are you|how's it going|how are you doing)\s*[;?!]*\s*$",
 ]
 
 # Strong signals that parenthood / medical / developmental knowledge helps
@@ -34,7 +37,8 @@ _NEED_PATTERNS = [
     r"\b(how (do|can|should) (i|we|my)|what (should|can|do) (i|we)|"
     r"when (should|can|do) (i|we)|"
     r"is it (normal|safe)|why (is|does|do)|"
-    r"πώς|πως|τι (να|κάνω|κανω)|πότε|ποτε|είναι (φυσιολογ|ασφαλ)|"
+    r"πώς (να|μπορώ|μπορω|θα|κάνω|κανω)|πως (να|μπορώ|μπορω|θα|κάνω|κανω)|"
+    r"τι (να|κάνω|κανω)|πότε|ποτε|είναι (φυσιολογ|ασφαλ)|"
     r"γιατί|γιατι)\b",
     # nutrition / health
     r"\b(nutrition|allergy|allerg|symptom|doctor|pediatric|"
@@ -44,7 +48,8 @@ _NEED_PATTERNS = [
 # Soft chitchat / meta about the product — usually no RAG
 _SOFT_SKIP_PATTERNS = [
     r"\b(who are you|what (can|do) you do|your name|"
-    r"ποια είσαι|ποια εισαι|τι κάνεις|τι κανεις|πώς σε λένε|πως σε λενε)\b",
+    r"ποια είσαι|ποια εισαι|τι κάνεις|τι κανεις|πώς είσαι|πως εισαι|"
+    r"πώς σε λένε|πως σε λενε|how are you)\b",
     r"\b(i('m| am) (just )?(sad|happy|tired|lonely|scared)|"
     r"νιώθω|νιωθω|είμαι (κουρασ|στεναχωρη|στενοχωρη|χαρούμεν))\w*",
 ]

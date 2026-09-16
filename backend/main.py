@@ -1782,6 +1782,11 @@ def build_profile_context(profile):
         gender_bit = f" ({gender})" if gender in {"girl", "boy", "surprise"} else ""
         born = f", born {child['birthDate']}" if child.get("birthDate") else ""
         lines.append(f"This user has a child named {name}{gender_bit}, currently {age_desc}{born}.")
+    if children:
+        lines.append(
+            "Use the child's name when the user is asking about them. "
+            "On a mere greeting, do not volunteer the name or a list of support topics."
+        )
     members = getattr(profile, "familyMembers", None) or []
     member_bits = []
     for m in members:
@@ -1915,6 +1920,18 @@ _SHORT_DIALOGUE_RULE = (
     "Never answer with a single word or a cut-off phrase."
 )
 
+_CONVERSATION_STYLE_RULE = (
+    "\n\n--- Greetings and language (always follow) ---\n"
+    "If the user only greets or asks how you are (e.g. τι κάνεις, πώς είσαι, γεια, how are you), "
+    "answer as a short social greeting. Do not introduce your role, do not list topics or capabilities, "
+    "and do not mention nutrition, sleep, development, or a child's name unless the user asked. "
+    "English topic labels in the instructions (sleep, nutrition, development, breastfeeding) are for you only. "
+    "In the user-facing reply always use native words of the user's language "
+    "(Greek: ύπνος, διατροφή, ανάπτυξη, θηλασμός). Never mix languages or leave English fragments "
+    "such as SLEEP, σLEEP, or nutrition inside another language. "
+    "If an earlier assistant turn mixed languages or had broken words, do not copy it; rewrite cleanly."
+)
+
 _APP_NAV_RULE = (
     "\n\n--- How to add a child in the HeyMaa app (always follow) ---\n"
     "HeyMaa cannot register children from chat. When the user asks how to add, save, or "
@@ -1930,6 +1947,7 @@ _APP_NAV_RULE = (
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
+    prompt += _CONVERSATION_STYLE_RULE
     prompt += _APP_NAV_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
@@ -2446,6 +2464,28 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
 
 _CHAT_MAX_TOKENS = 1024
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
+
+_EL_TOPIC_LEAKS = (
+    (_re.compile(r"σLEEP", _re.I), "ύπνο"),
+    (_re.compile(r"\bSLEEP\b"), "ύπνο"),
+    (_re.compile(r"\bsleep\b"), "ύπνο"),
+    (_re.compile(r"\bnutrition\b", _re.I), "διατροφή"),
+    (_re.compile(r"\bbreastfeeding\b", _re.I), "θηλασμό"),
+    (_re.compile(r"\bdevelopment\b", _re.I), "ανάπτυξη"),
+)
+
+
+def _scrub_language_leaks(text: str, lang: str) -> str:
+    """Replace English topic labels that leaked into a Greek reply (e.g. σLEEP)."""
+    t = text or ""
+    lang_l = (lang or "").strip().lower()
+    if not t or not lang_l.startswith("el"):
+        return t
+    out = t
+    for rx, repl in _EL_TOPIC_LEAKS:
+        out = rx.sub(repl, out)
+    return out
+
 
 def _is_usable_reply(text: str) -> bool:
     """Reject empty, truncated, or instruction-leakage replies. Allow markdown (*bold*)."""
@@ -3857,6 +3897,7 @@ async def _run_chat_core(
 
     def _chat_success(reply: str, provider: str):
         t_post0 = _time.perf_counter()
+        reply = _scrub_language_leaks(reply, msg_lang or profile_lang or "")
         promo_data = None
         if promo:
             promo_data = {

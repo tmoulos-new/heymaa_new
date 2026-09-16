@@ -30,6 +30,17 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(r["needs_rag"])
         self.assertEqual(r["reason"], "meta_or_emotion")
 
+    def test_ti_kaneis_skips_rag(self):
+        for msg in ("Τι κάνεις", "τι κάνεις;", "πώς είσαι", "Πώς είσαι;"):
+            r = evaluate_rag_need(msg)
+            self.assertFalse(r["needs_rag"], msg)
+            self.assertIn(r["reason"], ("chitchat", "meta_or_emotion"), msg)
+
+    def test_ti_kaneis_about_sleep_still_needs_rag(self):
+        r = evaluate_rag_need("τι κάνεις για τον ύπνο του μωρού;")
+        self.assertTrue(r["needs_rag"])
+        self.assertEqual(r["reason"], "knowledge_intent")
+
     def test_attachment_only_skips(self):
         r = evaluate_rag_need("", has_attachments=True)
         self.assertFalse(r["needs_rag"])

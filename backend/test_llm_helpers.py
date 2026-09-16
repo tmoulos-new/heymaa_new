@@ -58,6 +58,9 @@ class ProfileContextTests(unittest.TestCase):
         self.assertIn("Οικογένεια", _APP_NAV_RULE)
         self.assertIn("＋ Πρόσθεσε παιδί", prompt)
         self.assertIn("Άννα", prompt)
+        self.assertIn("Greetings and language", prompt)
+        self.assertIn("ύπνος", prompt)
+        self.assertIn("do not volunteer the name", ctx)
 
     def test_empty_family_explains_add_child_path(self):
         from types import SimpleNamespace
@@ -76,6 +79,26 @@ class ProfileContextTests(unittest.TestCase):
         ctx = build_profile_context(profile)
         self.assertIn("not registered any children", ctx)
         self.assertIn("Πρόσθεσε παιδί", ctx)
+
+
+class LanguageLeakScrubTests(unittest.TestCase):
+    def test_replaces_sleep_garble_in_greek(self):
+        from main import _scrub_language_leaks
+
+        src = (
+            "Γιώργο, είμαι εδώ για να σου προσφέρω υποστήριξη σχετικά με τη διατροφή, "
+            "το σLEEP και την ανάπτυξη του Πανού."
+        )
+        out = _scrub_language_leaks(src, "el")
+        self.assertNotIn("SLEEP", out)
+        self.assertNotIn("σLEEP", out)
+        self.assertIn("ύπνο", out)
+
+    def test_leaves_english_replies_alone(self):
+        from main import _scrub_language_leaks
+
+        src = "I can help with sleep and nutrition."
+        self.assertEqual(_scrub_language_leaks(src, "en"), src)
 
 
 if __name__ == "__main__":
