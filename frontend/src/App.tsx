@@ -126,6 +126,10 @@ import {
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
 import { AccessExpiryModal } from "./components/AccessExpiryModal";
+import {
+  resolveSubscriptionRequiredReason,
+  SubscriptionRequiredScreen,
+} from "./components/SubscriptionRequiredScreen";
 import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
 import { HmDateField } from "./components/HmDateField";
 import {
@@ -6211,9 +6215,10 @@ export default function App() {
     }catch{return null;}
   });
   const [subActive, setSubActive] = useState<boolean|null>(null);
+  const [subStatus, setSubStatus] = useState<string | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setMustChangePassword(false);};
+  const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setSubStatus(null);setMustChangePassword(false);};
   const handleLogoutRef = useRef(handleLogout);
   handleLogoutRef.current = handleLogout;
 
@@ -6290,13 +6295,14 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) { setSubActive(null); setTrialEndsAt(null); return; }
-    if (isLocalDemoToken(token)) { setSubActive(null); setTrialEndsAt(null); return; }
+    if (!token) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
+    if (isLocalDemoToken(token)) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
     let cancelled = false;
     axios.get(`${API}/auth/status`, { headers: { "x-token": token } })
       .then(res => {
         if (cancelled) return;
         setSubActive(res.data.subscription_active !== false);
+        setSubStatus(res.data.subscription_status || null);
         setTrialEndsAt(res.data.is_trial ? (res.data.trial_ends_at || null) : null);
       })
       .catch(err => {
@@ -6313,12 +6319,21 @@ export default function App() {
   }
   if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{setAuthToken(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
-  if(subActive===false)return <Navigate to="/subscription" replace />;
+  if(subActive===false) {
+    const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");
+    return (
+      <SubscriptionRequiredScreen
+        lang={gateLang}
+        reason={resolveSubscriptionRequiredReason(subStatus)}
+        onLogout={handleLogout}
+      />
+    );
+  }
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
   if(subActive===null && !isLocalDemoToken(token))return <AppLoadingShell lang={profile.lang}/>;
   return (
     <AppErrorBoundary lang={profile.lang}>
-      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>setSubActive(false)} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
+      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
     </AppErrorBoundary>
   );
 }
