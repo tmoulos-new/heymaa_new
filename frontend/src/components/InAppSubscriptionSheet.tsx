@@ -216,7 +216,7 @@ export function InAppSubscriptionSheet({
             {lang === 'el' ? 'Φόρτωση πλάνων…' : 'Loading plans…'}
           </div>
         ) : null}
-        <div className="pricing-stack" style={{ gap: 12, marginTop: 18 }}>
+        <div className="pricing-stack">
           {plans.map((plan, index) => {
             const slot = slotForPlanIndex(index)
             const isActive = activeSlot === slot
@@ -230,7 +230,13 @@ export function InAppSubscriptionSheet({
                 key={`${plan.name}-${index}`}
                 ref={isActive ? activePlanRef : undefined}
                 data-plan-slot={slot}
-                className={isActive ? 'hm-subscription-plan-active' : undefined}
+                className={[
+                  'hm-subscription-plan-cell',
+                  plan.badge ? 'hm-subscription-plan-cell--badged' : '',
+                  isActive ? 'hm-subscription-plan-active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 <PlanCard
                   plan={plan}

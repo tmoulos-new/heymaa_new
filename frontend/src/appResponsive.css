@@ -2254,13 +2254,16 @@ body.hm-app-active #root {
 .in-app-subscription-sheet .pricing-stack {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 22px;
+  margin-top: 18px;
+  align-items: stretch;
 }
 
 @media (min-width: 700px) {
   .in-app-subscription-sheet .pricing-stack {
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    column-gap: 16px;
+    row-gap: 28px;
   }
 }
 
@@ -2268,6 +2271,37 @@ body.hm-app-active #root {
   .in-app-subscription-sheet .hm-sheet-panel--wide .pricing-stack {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+.in-app-subscription-sheet .hm-subscription-plan-cell {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+}
+
+/* Room for corner badges so they don't collide with the row above */
+.in-app-subscription-sheet .hm-subscription-plan-cell--badged {
+  padding-top: 12px;
+}
+
+.in-app-subscription-sheet .hm-subscription-plan-cell .plan-stack {
+  height: 100%;
+}
+
+/* Hover: lift shadow only — no translateY (that stacks cards over the row above) */
+.in-app-subscription-sheet .plan-stack.selectable:hover,
+.in-app-subscription-sheet .plan-stack.highlighted:hover {
+  transform: none;
+  box-shadow: 0 8px 20px rgba(43, 58, 103, 0.14);
+  z-index: 2;
+}
+
+.in-app-subscription-sheet .plan-badge-corner {
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
 }
 
 .in-app-subscription-sheet .plan-stack.current {
@@ -2283,13 +2317,6 @@ body.hm-app-active #root {
 .in-app-subscription-sheet .plan-stack.current .plan-radio.filled .plan-radio-dot {
   display: block;
   background: var(--hm-navy);
-}
-
-.in-app-subscription-sheet .plan-badge-corner {
-  z-index: 2;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 /* Public subscription: multi-column on tablet/desktop */
