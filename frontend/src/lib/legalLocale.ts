@@ -1,8 +1,11 @@
 import { LANGS } from '../home/homeContent'
 import { normalizeAppLang } from './appLang'
+import { SUPPORTED_LANG_CODE_SET } from './supportedLanguages'
 
-/** UI languages with at least cookie-banner + legal shell strings. */
-export const LEGAL_UI_LANGS = LANGS.map((l) => l.code)
+/** UI languages with complete legal shell strings (Greek + English). */
+export const LEGAL_UI_LANGS = LANGS.map((l) => l.code).filter((code) =>
+  SUPPORTED_LANG_CODE_SET.has(code),
+)
 
 export function legalUiLang(stored?: string | null): string {
   const code = normalizeAppLang(stored || 'el', 'el')
