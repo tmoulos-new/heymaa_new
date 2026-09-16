@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useState } from 'react'
+import { AUTH_LOGO_SRC } from '../auth/authLogo'
 
 export type SubscriptionRequiredReason = 'trial_expired' | 'subscription_inactive'
 
@@ -25,6 +26,7 @@ function copy(lang: string, reason: SubscriptionRequiredReason) {
       logoutMessage: el
         ? 'Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;'
         : 'Are you sure you want to log out?',
+      logoAlt: 'HeyMaa',
     }
   }
   return {
@@ -39,6 +41,7 @@ function copy(lang: string, reason: SubscriptionRequiredReason) {
     logoutMessage: el
       ? 'Είσαι σίγουρη/ος ότι θέλεις να αποσυνδεθείς;'
       : 'Are you sure you want to log out?',
+    logoAlt: 'HeyMaa',
   }
 }
 
@@ -51,8 +54,8 @@ export function SubscriptionRequiredScreen({ lang, reason, onLogout }: Props) {
   return (
     <div className="hm-sub-required" role="alertdialog" aria-modal="true" aria-labelledby="hm-sub-required-title">
       <div className="hm-sub-required__card">
-        <div className="hm-sub-required__brand" aria-hidden="true">
-          Hey<span>Maa</span>
+        <div className="hm-sub-required__logo-wrap">
+          <img src={AUTH_LOGO_SRC} alt={t.logoAlt} className="hm-sub-required__logo" />
         </div>
         <p className="hm-sub-required__badge">{t.badge}</p>
         <h1 id="hm-sub-required-title" className="hm-sub-required__title">

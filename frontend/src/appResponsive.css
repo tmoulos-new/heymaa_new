@@ -6001,17 +6001,18 @@ body.hm-app-active .hm-sheet-overlay {
   box-sizing: border-box;
 }
 
-.hm-sub-required__brand {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  color: #2b3a67;
+.hm-sub-required__logo-wrap {
+  display: flex;
+  justify-content: center;
   margin-bottom: 18px;
-  letter-spacing: -0.02em;
 }
 
-.hm-sub-required__brand span {
-  color: #4abeaa;
+.hm-sub-required__logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .hm-sub-required__badge {
