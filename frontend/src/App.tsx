@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -2316,7 +2316,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         );
         const nextToken = res.data?.token;
         if (typeof nextToken === "string" && nextToken) {
-          setAuthToken(nextToken);
+          persistAuthSession(nextToken, res.data?.refresh_token);
           onTokenUpdate?.(nextToken);
         }
       }
@@ -6301,9 +6301,25 @@ export default function App() {
   const [subStatus, setSubStatus] = useState<string | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [sessionReady, setSessionReady] = useState(() => !!resolveAppAuthToken() || !!new URLSearchParams(window.location.search).get("reset"));
   const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setSubStatus(null);setMustChangePassword(false);};
   const handleLogoutRef = useRef(handleLogout);
   handleLogoutRef.current = handleLogout;
+
+  useEffect(() => {
+    if (sessionReady) return;
+    let cancelled = false;
+    restoreAuthSession()
+      .then((tk) => {
+        if (cancelled) return;
+        if (tk && !isLocalDemoToken(tk)) setToken(tk);
+        setSessionReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setSessionReady(true);
+      });
+    return () => { cancelled = true; };
+  }, [sessionReady]);
 
   useEffect(() => {
     if (!token) { setProfile(null); setMustChangePassword(false); return; }
@@ -6389,20 +6405,37 @@ export default function App() {
         setSubStatus(res.subscription_status || null);
         setTrialEndsAt(res.is_trial ? (res.trial_ends_at || null) : null);
       })
-      .catch(err => {
+      .catch(async (err) => {
         if (cancelled) return;
-        if (err.response?.status === 401) { handleLogoutRef.current(); }
-        else setSubActive(true); // fail open on network/server errors
+        if (err.response?.status === 401) {
+          const next = await refreshAuthSession();
+          if (cancelled) return;
+          if (next && next !== token) {
+            setToken(next);
+            return;
+          }
+          handleLogoutRef.current();
+          return;
+        }
+        setSubActive(true); // fail open on network/server errors
       });
     return () => { cancelled = true; };
   }, [token]);
 
+  if(!sessionReady) {
+    const isEl = (localStorage.getItem("hm_pre_lang") || "el").toLowerCase().startsWith("el");
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F5F0EB", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>{isEl ? "Φόρτωση…" : "Loading…"}</div>
+      </div>
+    );
+  }
   if(resetToken) {
     const resetLang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || profile?.lang || "el", "el");
     return <ResetScreen token={resetToken} lang={resetLang} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   }
   if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
-  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{setAuthToken(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
+  if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false) {
     const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");
     return (
@@ -6416,7 +6449,7 @@ export default function App() {
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
   return (
     <AppErrorBoundary lang={profile.lang}>
-      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ writeCachedSubscriptionActive(token, false); setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
+      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ writeCachedSubscriptionActive(token, false); setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{persistAuthSession(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
     </AppErrorBoundary>
   );
 }

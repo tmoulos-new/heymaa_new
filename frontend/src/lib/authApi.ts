@@ -1,13 +1,16 @@
 import axios from 'axios'
 import { normalizeAppLang } from './appLang'
 import { stableSk } from './userDataRecovery'
+import { getRefreshToken, persistAuthSession } from './authStorage'
 
 axios.defaults.withCredentials = true
 
 export {
   HM_TOKEN_KEY,
   getAuthToken,
+  getRefreshToken,
   setAuthToken,
+  persistAuthSession,
   clearAuthToken,
   hasAuthToken,
 } from './authStorage'
@@ -267,6 +270,49 @@ export async function fetchSubscriptionStatus(token: string, opts?: { force?: bo
 export async function logoutUser(token?: string | null) {
   const headers = token ? { 'x-token': token } : undefined
   return axios.post(`${API}/auth/logout`, {}, { headers })
+}
+
+type AuthSessionPayload = { token?: string; refresh_token?: string }
+
+function applySessionPayload(data: AuthSessionPayload | undefined): string | null {
+  const token = typeof data?.token === 'string' ? data.token : ''
+  if (!token) return null
+  persistAuthSession(token, data?.refresh_token)
+  return token
+}
+
+let refreshInflight: Promise<string | null> | null = null
+
+/** Exchange the saved refresh token / cookie for a new access token. */
+export function refreshAuthSession(): Promise<string | null> {
+  if (refreshInflight) return refreshInflight
+  refreshInflight = (async () => {
+    try {
+      const refresh = getRefreshToken()
+      const res = await axios.post<AuthSessionPayload>(
+        `${API}/auth/refresh`,
+        refresh ? { refresh_token: refresh } : {},
+      )
+      return applySessionPayload(res.data)
+    } catch {
+      return null
+    } finally {
+      refreshInflight = null
+    }
+  })()
+  return refreshInflight
+}
+
+/** Reopen a saved login from localStorage or the HttpOnly session cookie. */
+export async function restoreAuthSession(): Promise<string | null> {
+  const existing = getAuthToken()
+  if (existing) return existing
+  try {
+    const res = await axios.get<AuthSessionPayload>(`${API}/auth/session`)
+    return applySessionPayload(res.data)
+  } catch {
+    return refreshAuthSession()
+  }
 }
 
 export async function requestSubscriptionCancel(token: string) {

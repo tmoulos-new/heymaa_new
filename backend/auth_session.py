@@ -1,4 +1,4 @@
-"""HttpOnly session cookie for HeyMaa JWT — reduces XSS token theft vs localStorage."""
+"""HttpOnly session cookies for HeyMaa JWT — reduces XSS token theft vs localStorage."""
 from __future__ import annotations
 
 import os
@@ -7,7 +7,9 @@ from typing import Optional
 from fastapi import Request, Response
 
 SESSION_COOKIE = "hm_session"
-SESSION_MAX_AGE = 60 * 60 * 24 * 7  # 7 days — Supabase JWT may expire sooner; client re-auths
+REFRESH_COOKIE = "hm_refresh"
+SESSION_MAX_AGE = 60 * 60 * 24 * 7  # 7 days — access JWT may expire sooner
+REFRESH_MAX_AGE = 60 * 60 * 24 * 30  # 30 days — stay signed in on this device
 
 
 def _cookie_secure() -> bool:
@@ -29,17 +31,33 @@ def session_token_from_request(request: Request) -> Optional[str]:
     return None
 
 
-def set_session_cookie(response: Response, token: str) -> None:
+def _set_auth_cookie(response: Response, key: str, value: str, max_age: int) -> None:
     response.set_cookie(
-        key=SESSION_COOKIE,
-        value=token,
+        key=key,
+        value=value,
         httponly=True,
         secure=_cookie_secure(),
         samesite="lax",
-        max_age=SESSION_MAX_AGE,
+        max_age=max_age,
         path="/",
     )
 
 
+def set_session_cookie(response: Response, token: str) -> None:
+    _set_auth_cookie(response, SESSION_COOKIE, token, SESSION_MAX_AGE)
+
+
+def set_refresh_cookie(response: Response, token: str) -> None:
+    _set_auth_cookie(response, REFRESH_COOKIE, token, REFRESH_MAX_AGE)
+
+
+def refresh_token_from_request(request: Request) -> Optional[str]:
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if raw and raw.strip():
+        return raw.strip()
+    return None
+
+
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(key=SESSION_COOKIE, path="/")
+    response.delete_cookie(key=REFRESH_COOKIE, path="/")

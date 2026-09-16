@@ -1,31 +1,64 @@
-/** Auth token storage — sessionStorage reduces XSS persistence vs localStorage. */
+/** Persist login across visits. HttpOnly cookies remain the API backup. */
 
 export const HM_TOKEN_KEY = 'hm_token'
+export const HM_REFRESH_KEY = 'hm_refresh'
 
-export function getAuthToken(): string | null {
+function readStore(store: Storage, key: string): string | null {
   try {
-    return sessionStorage.getItem(HM_TOKEN_KEY) ?? localStorage.getItem(HM_TOKEN_KEY)
+    const v = store.getItem(key)
+    return v && v.trim() ? v : null
   } catch {
     return null
   }
 }
 
-export function setAuthToken(token: string): void {
+function writeStore(store: Storage, key: string, value: string) {
   try {
-    sessionStorage.setItem(HM_TOKEN_KEY, token)
-    localStorage.removeItem(HM_TOKEN_KEY)
+    store.setItem(key, value)
   } catch {
     /* ignore quota / private mode */
   }
 }
 
-export function clearAuthToken(): void {
+function removeStore(store: Storage, key: string) {
   try {
-    sessionStorage.removeItem(HM_TOKEN_KEY)
-    localStorage.removeItem(HM_TOKEN_KEY)
+    store.removeItem(key)
   } catch {
     /* ignore */
   }
+}
+
+export function getAuthToken(): string | null {
+  const session = readStore(sessionStorage, HM_TOKEN_KEY)
+  const local = readStore(localStorage, HM_TOKEN_KEY)
+  if (session && !local) writeStore(localStorage, HM_TOKEN_KEY, session)
+  return session ?? local
+}
+
+export function getRefreshToken(): string | null {
+  return readStore(localStorage, HM_REFRESH_KEY) ?? readStore(sessionStorage, HM_REFRESH_KEY)
+}
+
+export function setAuthToken(token: string): void {
+  writeStore(sessionStorage, HM_TOKEN_KEY, token)
+  writeStore(localStorage, HM_TOKEN_KEY, token)
+}
+
+export function setRefreshToken(token: string): void {
+  writeStore(sessionStorage, HM_REFRESH_KEY, token)
+  writeStore(localStorage, HM_REFRESH_KEY, token)
+}
+
+export function persistAuthSession(token: string, refreshToken?: string | null): void {
+  setAuthToken(token)
+  if (refreshToken && refreshToken.trim()) setRefreshToken(refreshToken.trim())
+}
+
+export function clearAuthToken(): void {
+  removeStore(sessionStorage, HM_TOKEN_KEY)
+  removeStore(localStorage, HM_TOKEN_KEY)
+  removeStore(sessionStorage, HM_REFRESH_KEY)
+  removeStore(localStorage, HM_REFRESH_KEY)
 }
 
 export function hasAuthToken(): boolean {

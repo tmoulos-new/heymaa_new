@@ -16,9 +16,21 @@ except ImportError:
     from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
 
 try:
-    from .auth_session import clear_session_cookie, session_token_from_request, set_session_cookie
+    from .auth_session import (
+        clear_session_cookie,
+        refresh_token_from_request,
+        session_token_from_request,
+        set_refresh_cookie,
+        set_session_cookie,
+    )
 except ImportError:
-    from auth_session import clear_session_cookie, session_token_from_request, set_session_cookie
+    from auth_session import (
+        clear_session_cookie,
+        refresh_token_from_request,
+        session_token_from_request,
+        set_refresh_cookie,
+        set_session_cookie,
+    )
 
 try:
     from .cors_config import cors_allowed_origin_regex, cors_allowed_origins
@@ -265,6 +277,24 @@ def _user_auth_client():
 def _sign_in_with_password_as_user(email: str, password: str):
     """Return a user session without touching the shared service-role client."""
     return _user_auth_client().auth.sign_in_with_password({"email": email, "password": password})
+
+
+def _auth_json_response(session, extra: Optional[dict] = None) -> JSONResponse:
+    """Return access token JSON and persist access + refresh HttpOnly cookies."""
+    sess = getattr(session, "session", None) or session
+    access = getattr(sess, "access_token", None) or ""
+    refresh = getattr(sess, "refresh_token", None) or ""
+    payload = {**(extra or {}), "token": access}
+    if refresh:
+        payload["refresh_token"] = refresh
+    response = JSONResponse(content=payload)
+    if access:
+        set_session_cookie(response, access)
+    if refresh:
+        set_refresh_cookie(response, refresh)
+    return response
+
+
 IMAGE_BUCKETS = {"offers", "promotions"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -3456,7 +3486,6 @@ def register_user(req: RegisterRequest):
         if invite_code:
             _award_invite_referral(invite_code, user_id)
         session = _sign_in_with_password_as_user(email, req.password)
-        access_token = session.session.access_token
         if RESEND_API_KEY:
             try:
                 try:
@@ -3477,10 +3506,7 @@ def register_user(req: RegisterRequest):
                 )
             except Exception:
                 pass
-        payload = {'token': access_token, 'plan': 'trial', 'name': req.name}
-        response = JSONResponse(content=payload)
-        set_session_cookie(response, access_token)
-        return response
+        return _auth_json_response(session, {"plan": "trial", "name": req.name})
     except HTTPException:
         if user_id:
             try:
@@ -3506,22 +3532,17 @@ def login_user(req: LoginRequest):
     try:
         email = req.email.lower().strip()
         session = _sign_in_with_password_as_user(email, req.password)
-        access_token = session.session.access_token
         user_id = session.user.id
         from datetime import datetime
         sb.table('users').update({'last_login': datetime.utcnow().isoformat()}).eq('id', user_id).execute()
         u = sb.table('users').select('plan,name,role,must_change_password').eq('id', user_id).execute()
         row = u.data[0] if u.data else {}
-        payload = {
-            'token': access_token,
+        return _auth_json_response(session, {
             'plan': row.get('plan', 'trial'),
             'name': row.get('name', ''),
             'role': row.get('role'),
             'must_change_password': bool(row.get('must_change_password')),
-        }
-        response = JSONResponse(content=payload)
-        set_session_cookie(response, access_token)
-        return response
+        })
     except HTTPException:
         raise
     except Exception as e:
@@ -3535,6 +3556,47 @@ def logout_user(x_token: Optional[str] = Header(None)):
     response = JSONResponse(content={'ok': True})
     clear_session_cookie(response)
     return response
+
+
+def _refresh_user_session(refresh_token: str):
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    try:
+        return _user_auth_client().auth.refresh_session(refresh_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Your session has expired or is not valid. Please sign in again.")
+
+
+@app.post("/auth/refresh")
+async def refresh_auth_session(request: Request):
+    body = {}
+    try:
+        body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
+    except Exception:
+        body = {}
+    token = str(body.get("refresh_token") or refresh_token_from_request(request) or "").strip()
+    session = _refresh_user_session(token)
+    return _auth_json_response(session)
+
+
+@app.get("/auth/session")
+def current_auth_session(request: Request, x_token: Optional[str] = Header(None)):
+    """Restore a saved login from the access cookie, x-token, or refresh cookie."""
+    access = (x_token or session_token_from_request(request) or "").strip()
+    if access and sb:
+        try:
+            user_res = sb.auth.get_user(access)
+            if user_res and user_res.user:
+                return {"token": access}
+        except Exception:
+            pass
+    refresh = refresh_token_from_request(request)
+    if not refresh:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    session = _refresh_user_session(refresh)
+    return _auth_json_response(session)
 
 SUBSCRIPTION_CANCEL_KEY = "subscription_cancel_requested"
 
@@ -7311,7 +7373,6 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
         sb.auth.admin.update_user_by_id(user_id, {"password": new_password})
         sb.table("users").update({"must_change_password": False}).eq("id", user_id).execute()
         session = _sign_in_with_password_as_user(email, new_password)
-        access_token = session.session.access_token
         if RESEND_API_KEY:
             try:
                 try:
@@ -7333,9 +7394,7 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
                 )
             except Exception:
                 pass
-        response = JSONResponse(content={"ok": True, "token": access_token})
-        set_session_cookie(response, access_token)
-        return response
+        return _auth_json_response(session, {"ok": True})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
