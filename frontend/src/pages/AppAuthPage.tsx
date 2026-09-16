@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AppAuthScreen } from '../auth/AppAuthScreen'
 import {
   clearAuthToken,
@@ -7,6 +7,7 @@ import {
   isLocalDemoToken,
 } from '../lib/authApi'
 import { resumePlanAfterAuth } from '../lib/planCheckoutFlow'
+import { prefetchAppChunk } from '../lib/prefetchApp'
 
 function realAuthToken(): string | null {
   const existing = getAuthToken()
@@ -24,6 +25,10 @@ export function AppAuthPage() {
   const existing = realAuthToken()
   const mode = search.get('mode') === 'login' ? 'login' : 'signup'
   const wantsAuthForm = search.get('mode') === 'login' || search.get('mode') === 'signup'
+
+  useEffect(() => {
+    prefetchAppChunk()
+  }, [])
 
   useEffect(() => {
     if (!existing || wantsAuthForm) return

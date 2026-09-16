@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -7,7 +7,6 @@ import {
   useLocation,
   useSearchParams,
 } from "react-router-dom";
-import App from "./App";
 import Home from "./home/Home";
 import { AuthPage } from "./pages/AuthPage";
 import { AppAuthPage } from "./pages/AppAuthPage";
@@ -23,6 +22,38 @@ import { hasAuthToken } from "./lib/authApi";
 import reportWebVitals from "./reportWebVitals";
 import { analyticsCookiesAllowed } from "./lib/cookieConsent";
 import { initGoogleAnalytics, trackPageView } from "./lib/gtag";
+
+const App = lazy(() => import("./App"));
+
+function AppChunkFallback() {
+  const isEl = (localStorage.getItem("hm_pre_lang") || "el").toLowerCase().startsWith("el");
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#F5F0EB",
+        fontFamily: "'DM Sans', sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <img
+          src="/logo192.png"
+          alt=""
+          width={52}
+          height={52}
+          style={{ borderRadius: "50%", marginBottom: 14, display: "block", marginLeft: "auto", marginRight: "auto" }}
+        />
+        <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>
+          {isEl ? "Φόρτωση…" : "Loading…"}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -100,7 +131,14 @@ export default function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/" element={<PublicHome />} />
         <Route path="/home" element={<Home />} />
-        <Route path={`${APP_ROUTE}/*`} element={<App />} />
+        <Route
+          path={`${APP_ROUTE}/*`}
+          element={
+            <Suspense fallback={<AppChunkFallback />}>
+              <App />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

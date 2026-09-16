@@ -177,11 +177,91 @@ export type SubscriptionSnapshot = {
   ok?: boolean
 }
 
-export async function fetchSubscriptionStatus(token: string) {
-  const res = await axios.get<SubscriptionSnapshot>(`${API}/auth/status`, {
-    headers: { 'x-token': token },
-  })
-  return res.data
+type AuthMeSnapshot = {
+  name?: string
+  email?: string
+  must_change_password?: boolean
+  gamification?: unknown
+  referral_code?: string
+  rewards?: import('./levelRewards').RewardsSnapshot
+  [key: string]: unknown
+}
+
+const AUTH_BOOTSTRAP_TTL_MS = 8000
+const SUB_ACTIVE_CACHE_PREFIX = 'hm_sub_active_'
+
+const inflightMe = new Map<string, Promise<AuthMeSnapshot>>()
+const inflightStatus = new Map<string, Promise<SubscriptionSnapshot>>()
+const cachedMe = new Map<string, { at: number; data: AuthMeSnapshot }>()
+const cachedStatus = new Map<string, { at: number; data: SubscriptionSnapshot }>()
+
+function coalesceAuthFetch<T>(
+  inflight: Map<string, Promise<T>>,
+  cache: Map<string, { at: number; data: T }>,
+  token: string,
+  run: () => Promise<T>,
+  force?: boolean,
+): Promise<T> {
+  if (!force) {
+    const hit = cache.get(token)
+    if (hit && Date.now() - hit.at < AUTH_BOOTSTRAP_TTL_MS) return Promise.resolve(hit.data)
+    const pending = inflight.get(token)
+    if (pending) return pending
+  }
+  const p = run()
+    .then((data) => {
+      cache.set(token, { at: Date.now(), data })
+      return data
+    })
+    .finally(() => {
+      inflight.delete(token)
+    })
+  inflight.set(token, p)
+  return p
+}
+
+function subActiveCacheKey(token: string): string {
+  return `${SUB_ACTIVE_CACHE_PREFIX}${token.slice(-16)}`
+}
+
+export function readCachedSubscriptionActive(token: string): boolean | null {
+  if (!token) return null
+  try {
+    const v = sessionStorage.getItem(subActiveCacheKey(token))
+    if (v === '1') return true
+    if (v === '0') return false
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+export function writeCachedSubscriptionActive(token: string, active: boolean): void {
+  if (!token) return
+  try {
+    sessionStorage.setItem(subActiveCacheKey(token), active ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function fetchAuthMe(token: string, opts?: { force?: boolean }) {
+  return coalesceAuthFetch(inflightMe, cachedMe, token, async () => {
+    const res = await axios.get<AuthMeSnapshot>(`${API}/auth/me`, {
+      headers: { 'x-token': token },
+    })
+    return res.data
+  }, opts?.force)
+}
+
+export async function fetchSubscriptionStatus(token: string, opts?: { force?: boolean }) {
+  return coalesceAuthFetch(inflightStatus, cachedStatus, token, async () => {
+    const res = await axios.get<SubscriptionSnapshot>(`${API}/auth/status`, {
+      headers: { 'x-token': token },
+    })
+    writeCachedSubscriptionActive(token, res.data.subscription_active !== false)
+    return res.data
+  }, opts?.force)
 }
 
 export async function logoutUser(token?: string | null) {

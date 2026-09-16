@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, apiDetail, applyAuthUserName, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, isLocalDemoToken, clearAuthToken, getAuthToken, setAuthToken, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -1812,10 +1812,10 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
   useEffect(() => {
     if (isLocalDemoToken(token)) return;
     let cancelled = false;
-    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
-      .then((res) => {
+    fetchAuthMe(token)
+      .then((u) => {
         if (cancelled) return;
-        const apiName = String(res.data?.name || "").trim();
+        const apiName = String(u.name || "").trim();
         if (apiName) setName((prev) => prev.trim() || apiName);
       })
       .catch(() => {});
@@ -1998,19 +1998,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [lang]);
 
   useEffect(() => {
-    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
-      .then(res => {
-        if (res.data?.gamification) {
-          applyLivePointRulesFrom(res.data.gamification);
-          setGamification(res.data.gamification);
+    fetchAuthMe(token)
+      .then((u) => {
+        if (u.gamification) {
+          applyLivePointRulesFrom(u.gamification);
+          setGamification(u.gamification as GamificationStatus);
         }
-        if (typeof res.data?.referral_code === "string" && res.data.referral_code.trim()) {
-          setReferralCode(res.data.referral_code.trim());
+        if (typeof u.referral_code === "string" && u.referral_code.trim()) {
+          setReferralCode(u.referral_code.trim());
         }
-        if (typeof res.data?.email === "string") setAccountEmail(res.data.email.trim());
-        if (res.data?.rewards) {
-          setRewardsSnapshot(res.data.rewards);
-          const firstPending = firstUnseenPendingReward(token, res.data.rewards);
+        if (typeof u.email === "string") setAccountEmail(u.email.trim());
+        if (u.rewards) {
+          setRewardsSnapshot(u.rewards);
+          const firstPending = firstUnseenPendingReward(token, u.rewards);
           if (firstPending) {
             setPendingLevelReward(firstPending);
             setShowLevelRewardSheet(true);
@@ -2597,13 +2597,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     try { await axios.post(`${API}/userdata`, { key, value: payload }, { headers: { "x-token": token } }); } catch {}
   }, [token, cloudReady]);
 
-  // Emergency restore: scan all local JWT keys + IDB, then merge cloud — then allow saves
+  // Emergency restore after first paint so login is not blocked on IDB + /userdata.
   useEffect(() => {
     let cancelled = false;
     setCloudReady(false);
     setMemoriesLocalReady(false);
+    let idleId: number | undefined;
+    let timeoutId: number | undefined;
 
-    (async () => {
+    const run = async () => {
+      if (cancelled) return;
       try {
         const local = await recoverAllLocalUserData(token);
         if (cancelled) return;
@@ -2694,9 +2697,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           setCloudReady(true);
         }
       }
-    })();
+    };
 
-    return () => { cancelled = true; };
+    const ric = window.requestIdleCallback;
+    if (typeof ric === "function") {
+      idleId = ric(() => { void run(); }, { timeout: 800 });
+    } else {
+      timeoutId = window.setTimeout(() => { void run(); }, 0) as unknown as number;
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -6254,36 +6270,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 }
 
 // ── Root ──────────────────────────────────────────────────────
-function AppLoadingShell({ lang }: { lang?: string }) {
-  const isEl = normalizeAppLang(lang || localStorage.getItem("hm_pre_lang") || "el", "el") === "el";
-  return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#F5F0EB",
-        fontFamily: "'DM Sans', sans-serif",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <img
-          src="/logo192.png"
-          alt=""
-          width={52}
-          height={52}
-          style={{ borderRadius: "50%", marginBottom: 14, display: "block", marginLeft: "auto", marginRight: "auto" }}
-        />
-        <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>
-          {isEl ? "Φόρτωση…" : "Loading…"}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /** Real session only — local demo tokens are cleared so /app shows sign-in/sign-up. */
 function resolveAppAuthToken(): string | null {
   const existing = getAuthToken();
@@ -6307,7 +6293,11 @@ export default function App() {
       return legacyRaw ? JSON.parse(legacyRaw) : null;
     }catch{return null;}
   });
-  const [subActive, setSubActive] = useState<boolean|null>(null);
+  const [subActive, setSubActive] = useState<boolean|null>(() => {
+    const tk = resolveAppAuthToken();
+    if (!tk) return null;
+    return readCachedSubscriptionActive(tk);
+  });
   const [subStatus, setSubStatus] = useState<string | null>(null);
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
@@ -6342,9 +6332,8 @@ export default function App() {
         return { ...parsed, lang };
       } catch { return null; }
     })();
-    axios.get(`${API}/auth/me`, { headers: { "x-token": token } })
-      .then(res => {
-        const u = res.data;
+    fetchAuthMe(token)
+      .then((u) => {
         setMustChangePassword(!!u.must_change_password);
         const apiName = String(u.name || "").trim();
         if (apiName) applyAuthUserName(token, apiName);
@@ -6391,12 +6380,14 @@ export default function App() {
     if (!token) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
     if (isLocalDemoToken(token)) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
     let cancelled = false;
-    axios.get(`${API}/auth/status`, { headers: { "x-token": token } })
+    fetchSubscriptionStatus(token)
       .then(res => {
         if (cancelled) return;
-        setSubActive(res.data.subscription_active !== false);
-        setSubStatus(res.data.subscription_status || null);
-        setTrialEndsAt(res.data.is_trial ? (res.data.trial_ends_at || null) : null);
+        const active = res.subscription_active !== false;
+        writeCachedSubscriptionActive(token, active);
+        setSubActive(active);
+        setSubStatus(res.subscription_status || null);
+        setTrialEndsAt(res.is_trial ? (res.trial_ends_at || null) : null);
       })
       .catch(err => {
         if (cancelled) return;
@@ -6423,10 +6414,9 @@ export default function App() {
     );
   }
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
-  if(subActive===null && !isLocalDemoToken(token))return <AppLoadingShell lang={profile.lang}/>;
   return (
     <AppErrorBoundary lang={profile.lang}>
-      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
+      <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ writeCachedSubscriptionActive(token, false); setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{setAuthToken(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>
     </AppErrorBoundary>
   );
 }
