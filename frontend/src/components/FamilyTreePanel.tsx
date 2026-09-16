@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayUppercase } from '../lib/greekText'
 import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
 import {
@@ -22,14 +22,20 @@ const NAVY = '#2B3A67'
 const ACCENT = '#BEB4CD'
 const MUTED = 'rgba(43, 58, 103, 0.55)'
 const BLOOD_LINE = 'rgba(43, 58, 103, 0.32)'
+const DRAG_ARM_MS = 240
+const DRAG_MOVE_PX = 8
 
 type DragState = {
   memberIndex: number
+  pointerId: number
   startSvgX: number
   startSvgY: number
+  startClientX: number
+  startClientY: number
   x: number
   y: number
   moved: boolean
+  armed: boolean
 }
 
 function clientToSvg(svg: SVGSVGElement, clientX: number, clientY: number) {
@@ -72,7 +78,6 @@ function TreeCard({
       transform={`translate(${node.x}, ${node.y})`}
       style={{
         cursor: movable ? (dragging ? 'grabbing' : 'grab') : editable ? 'pointer' : 'default',
-        touchAction: 'none',
         opacity: dragging ? 0.35 : 1,
       }}
       onPointerDown={(e) => onPointerDown?.(e, node)}
@@ -192,10 +197,13 @@ export function FamilyTreePanel({
 }) {
   const el = lang === 'el'
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const armTimerRef = useRef<number | null>(null)
+  const dragRef = useRef<DragState | null>(null)
   const [showTree, setShowTree] = useState(true)
   const [showHistory, setShowHistory] = useState(true)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [hoverSlot, setHoverSlot] = useState<TreeRowSlot | null>(null)
+  dragRef.current = drag
 
   const copy = useMemo(
     () => ({
@@ -210,8 +218,8 @@ export function FamilyTreePanel({
       hideHistory: el ? 'Απόκρυψη' : 'Hide',
       showHistory: el ? 'Εμφάνιση' : 'Show',
       tapHint: el
-        ? 'Πάτα για επεξεργασία ή διαγραφή · σύρε για μετακίνηση'
-        : 'Tap to edit or delete · drag to move',
+        ? 'Πάτα για επεξεργασία · κράτα και σύρε για μετακίνηση'
+        : 'Tap to edit · hold and drag to move',
       empty: el
         ? 'Πρόσθεσε σύντροφο, παιδιά ή μέλη για να γεμίσει το δέντρο'
         : 'Add a partner, kids, or members to grow the tree',
@@ -261,54 +269,136 @@ export function FamilyTreePanel({
     else if (node.ref !== undefined || node.kind === 'self') onNodeSelect?.(node.ref)
   }
 
+  const clearArmTimer = () => {
+    if (armTimerRef.current != null) {
+      window.clearTimeout(armTimerRef.current)
+      armTimerRef.current = null
+    }
+  }
+
+  const releasePointer = (pointerId: number) => {
+    try {
+      svgRef.current?.releasePointerCapture(pointerId)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const capturePointer = (pointerId: number) => {
+    const svg = svgRef.current
+    if (!svg) return
+    try {
+      svg.setPointerCapture(pointerId)
+    } catch {
+      /* pointer already up */
+    }
+  }
+
+  useEffect(() => () => clearArmTimer(), [])
+
+  // If the finger starts scrolling the page, drop the pending tree drag so the
+  // tree cannot steal the gesture with pointer capture / touch-action:none.
+  useEffect(() => {
+    if (!drag || drag.moved || drag.armed) return
+
+    const abortPending = () => {
+      clearArmTimer()
+      setDrag(null)
+      setHoverSlot(null)
+    }
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return
+      const dx = e.clientX - drag.startClientX
+      const dy = e.clientY - drag.startClientY
+      if (Math.hypot(dx, dy) < DRAG_MOVE_PX) return
+      if (Math.abs(dy) >= Math.abs(dx)) abortPending()
+    }
+
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return
+      abortPending()
+    }
+
+    const scroller = document.querySelector('.hm-app-body')
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('pointercancel', onCancel)
+    scroller?.addEventListener('scroll', abortPending, { passive: true })
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointercancel', onCancel)
+      scroller?.removeEventListener('scroll', abortPending)
+    }
+  }, [drag])
+
   const onPointerDown = (e: ReactPointerEvent, node: LaidOutNode) => {
     if (node.memberIndex == null || !svgRef.current || !onPlaceMembers) {
       activateNode(node)
       return
     }
-    e.preventDefault()
-    e.stopPropagation()
     const svg = svgRef.current
-    svg.setPointerCapture(e.pointerId)
     const p = clientToSvg(svg, e.clientX, e.clientY)
+    clearArmTimer()
+    const pointerId = e.pointerId
     setDrag({
       memberIndex: node.memberIndex,
+      pointerId,
       startSvgX: p.x,
       startSvgY: p.y,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
       x: node.x,
       y: node.y,
       moved: false,
+      armed: false,
     })
-    const band = resolveBand(node.y)
-    setHoverSlot(band?.slot ?? null)
+    armTimerRef.current = window.setTimeout(() => {
+      armTimerRef.current = null
+      const current = dragRef.current
+      if (!current || current.pointerId !== pointerId || current.moved) return
+      capturePointer(pointerId)
+      setDrag((prev) => (prev && prev.pointerId === pointerId ? { ...prev, armed: true } : prev))
+    }, DRAG_ARM_MS)
   }
 
   const onPointerMove = (e: ReactPointerEvent) => {
-    if (!drag || !svgRef.current) return
+    if (!drag || !svgRef.current || e.pointerId !== drag.pointerId) return
+    const clientDx = e.clientX - drag.startClientX
+    const clientDy = e.clientY - drag.startClientY
+    const clientDist = Math.hypot(clientDx, clientDy)
+
+    if (!drag.moved && !drag.armed) {
+      if (clientDist < DRAG_MOVE_PX) return
+      if (Math.abs(clientDy) >= Math.abs(clientDx)) {
+        clearArmTimer()
+        setDrag(null)
+        setHoverSlot(null)
+        return
+      }
+      clearArmTimer()
+      capturePointer(drag.pointerId)
+    }
+
     const p = clientToSvg(svgRef.current, e.clientX, e.clientY)
     const dx = p.x - drag.startSvgX
     const dy = p.y - drag.startSvgY
-    const moved = drag.moved || Math.hypot(dx, dy) > 6
     const node = layout.nodes.find((n) => n.memberIndex === drag.memberIndex)
     if (!node) return
     const x = node.x + dx
     const y = node.y + dy
     const band = resolveBand(y)
     setHoverSlot(band?.slot ?? null)
-    setDrag({ ...drag, x, y, moved })
+    setDrag({ ...drag, x, y, moved: true, armed: true })
   }
 
-  const finishDrag = (e: ReactPointerEvent) => {
-    if (!drag || !svgRef.current) return
-    try {
-      svgRef.current.releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
+  const finishDrag = (e: ReactPointerEvent, cancelled = false) => {
+    clearArmTimer()
+    if (!drag || e.pointerId !== drag.pointerId) return
+    releasePointer(e.pointerId)
 
     const node = layout.nodes.find((n) => n.memberIndex === drag.memberIndex)
-    if (!drag.moved || !node || !onPlaceMembers) {
-      if (!drag.moved) activateNode(node)
+    if (cancelled || !drag.moved || !node || !onPlaceMembers) {
+      if (!cancelled && !drag.moved) activateNode(node)
       setDrag(null)
       setHoverSlot(null)
       return
@@ -371,12 +461,12 @@ export function FamilyTreePanel({
       <div className="hm-family-tree-panel__canvas">
         <svg
           ref={svgRef}
-          className="hm-family-tree-panel__svg"
+          className={`hm-family-tree-panel__svg${drag?.armed || drag?.moved ? ' hm-family-tree-panel__svg--dragging' : ''}`}
           viewBox={`0 0 ${layout.width} ${layout.height}`}
           preserveAspectRatio="xMidYMin meet"
           onPointerMove={onPointerMove}
-          onPointerUp={finishDrag}
-          onPointerCancel={finishDrag}
+          onPointerUp={(e) => finishDrag(e, false)}
+          onPointerCancel={(e) => finishDrag(e, true)}
         >
           <defs>
             <filter id="hm-ft-shadow" x="-25%" y="-25%" width="150%" height="150%">
@@ -395,7 +485,7 @@ export function FamilyTreePanel({
                 stroke={e.kind === 'spouse' ? ACCENT : BLOOD_LINE}
                 strokeWidth={e.kind === 'spouse' ? 2 : 1.5}
                 strokeLinecap={e.kind === 'spouse' ? 'round' : 'butt'}
-                opacity={drag ? 0.35 : 1}
+                opacity={drag?.moved || drag?.armed ? 0.35 : 1}
               />
             ))}
 
@@ -409,7 +499,7 @@ export function FamilyTreePanel({
                   textAnchor="middle"
                   fontSize={9}
                   fill={ACCENT}
-                  opacity={drag ? 0.35 : 0.9}
+                  opacity={drag?.moved || drag?.armed ? 0.35 : 0.9}
                 >
                   ♡
                 </text>
@@ -453,14 +543,14 @@ export function FamilyTreePanel({
                 key={n.id}
                 node={n}
                 lang={lang}
-                dragging={drag?.memberIndex === n.memberIndex}
+                dragging={!!drag && drag.memberIndex === n.memberIndex && (drag.moved || drag.armed)}
                 highlight={selectedNodeId === n.id}
                 onPointerDown={onPointerDown}
               />
             ))}
           </g>
 
-          {drag && ghost && (
+          {drag && (drag.moved || drag.armed) && ghost && (
             <g transform={`translate(${drag.x}, ${drag.y})`} style={{ pointerEvents: 'none' }}>
               <rect
                 x={-(isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_W : TREE_NODE_W) / 2}

@@ -2625,6 +2625,8 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-family-tree-panel {
   overflow: hidden;
+  overflow: clip;
+  touch-action: pan-y;
 }
 
 .hm-family-tree-panel__head {
@@ -2638,10 +2640,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-family-tree-panel__canvas {
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
+  touch-action: pan-y;
   background: #fff;
   padding: 10px 8px 14px;
   max-width: 100%;
@@ -2654,6 +2654,10 @@ body.hm-app-active .hm-sheet-overlay {
   margin: 0 auto;
   height: auto;
   min-height: 240px;
+  touch-action: pan-y;
+}
+
+.hm-family-tree-panel__svg--dragging {
   touch-action: none;
 }
 
