@@ -1,7 +1,15 @@
 import axios from 'axios'
 import { normalizeAppLang } from './appLang'
 import { stableSk } from './userDataRecovery'
-import { getRefreshToken, persistAuthSession } from './authStorage'
+import {
+  HM_TOKEN_KEY,
+  getAuthToken,
+  getRefreshToken,
+  setAuthToken,
+  persistAuthSession,
+  clearAuthToken,
+  hasAuthToken,
+} from './authStorage'
 
 axios.defaults.withCredentials = true
 
@@ -13,7 +21,7 @@ export {
   persistAuthSession,
   clearAuthToken,
   hasAuthToken,
-} from './authStorage'
+}
 /** Local-only session when Supabase/DB is unavailable — never used in production auth. */
 export const LOCAL_DEMO_TOKEN = 'hm_local_demo'
 
