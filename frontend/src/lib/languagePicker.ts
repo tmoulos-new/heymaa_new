@@ -1,4 +1,5 @@
 import { LANGS } from "../home/homeContent";
+import { SUPPORTED_LANG_CODE_SET } from "./supportedLanguages";
 
 export type LanguagePickerItem = {
   code: string;
@@ -129,7 +130,7 @@ let cachedHaystack: Array<{ item: LanguagePickerItem; tokens: string[] }> | null
 
 export function getLanguagePickerItems(): LanguagePickerItem[] {
   if (cachedItems) return cachedItems;
-  cachedItems = LANGS.map((lang) => {
+  cachedItems = LANGS.filter((lang) => SUPPORTED_LANG_CODE_SET.has(lang.code)).map((lang) => {
     const names = LANG_NAMES[lang.code];
     return {
       code: lang.code,

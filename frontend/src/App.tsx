@@ -139,6 +139,7 @@ import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
+import { SUPPORTED_LANG_CODE_SET } from "./lib/supportedLanguages";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { IconPencil, IconTrash } from "./components/ui/LineIcons";
 import { ChatIconRail } from "./components/ChatIconRail";
@@ -404,7 +405,7 @@ const LANG_FLAG_EMOJI: Record<string, string> = {
   ru: "🇷🇺", pt: "🇵🇹", nl: "🇳🇱",
 };
 
-const LANGS = HOME_LANGS.map((l) => ({
+const LANGS = HOME_LANGS.filter((l) => SUPPORTED_LANG_CODE_SET.has(l.code)).map((l) => ({
   c: l.code,
   f: LANG_FLAG_EMOJI[l.code] || "🌐",
   n: l.name,
