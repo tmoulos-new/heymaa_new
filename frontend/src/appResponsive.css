@@ -36,6 +36,7 @@
   --hm-destructive: #e07b54;
   --hm-teal: #4abeaa;
   --hm-coral: #e07b54;
+  --hm-magenta: #de5a9e;
   --hm-chat-assistant-bg: #e8e2f0;
   --hm-border-input: rgba(43, 58, 103, 0.18);
   --hm-overlay-bg: rgba(43, 58, 103, 0.45);
@@ -2253,20 +2254,58 @@ body.hm-app-active #root {
 .in-app-subscription-sheet .pricing-stack {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 28px;
+  margin-top: 18px;
+  align-items: stretch;
 }
 
 @media (min-width: 700px) {
   .in-app-subscription-sheet .pricing-stack {
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    column-gap: 18px;
+    row-gap: 40px;
   }
 }
 
 @media (min-width: 1024px) {
   .in-app-subscription-sheet .hm-sheet-panel--wide .pricing-stack {
     grid-template-columns: repeat(4, 1fr);
+    row-gap: 40px;
   }
+}
+
+.in-app-subscription-sheet .hm-subscription-plan-cell {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  /* Always reserve badge clearance so rows never collide */
+  padding-top: 14px;
+}
+
+.in-app-subscription-sheet .hm-subscription-plan-cell .plan-stack {
+  height: 100%;
+  /* Kill marketing hover lift — must beat home.css .plan-stack.highlighted:hover */
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.in-app-subscription-sheet .pricing-stack .plan-stack:hover,
+.in-app-subscription-sheet .pricing-stack .plan-stack.highlighted:hover,
+.in-app-subscription-sheet .pricing-stack .plan-stack.selectable:hover,
+.in-app-subscription-sheet .pricing-stack .plan-stack.selected:hover,
+.in-app-subscription-sheet .pricing-stack .plan-stack.current:hover {
+  transform: none;
+  z-index: auto;
+  box-shadow: 0 6px 16px rgba(43, 58, 103, 0.12);
+}
+
+/* Keep corner badges inside the reserved cell padding, not over the card above */
+.in-app-subscription-sheet .plan-badge-corner {
+  top: -12px;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
 }
 
 .in-app-subscription-sheet .plan-stack.current {
@@ -2284,19 +2323,13 @@ body.hm-app-active #root {
   background: var(--hm-navy);
 }
 
-.in-app-subscription-sheet .plan-badge-corner {
-  z-index: 2;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-/* Public subscription: multi-column on tablet/desktop */
+/* Public subscription page plan grid lives in subscription.css */
 @media (min-width: 700px) {
   .subscription-page .pricing-cards-layout {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    column-gap: 18px;
+    row-gap: 40px;
     align-items: stretch;
   }
   .subscription-page .pricing-trial-col,
@@ -2308,6 +2341,7 @@ body.hm-app-active #root {
 @media (min-width: 1024px) {
   .subscription-page .pricing-cards-layout {
     grid-template-columns: repeat(4, 1fr);
+    row-gap: 40px;
   }
 }
 
@@ -3826,6 +3860,14 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-header-points-chip:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+.hm-header-points-chip--plan-active {
+  background: var(--hm-magenta, #de5a9e);
+}
+
+.hm-header-points-chip--plan-active:hover {
+  background: #c94d8c;
 }
 
 .hm-header-points-chip__icon {

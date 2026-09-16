@@ -16,6 +16,7 @@ export function PlanCard({
   buttonState,
   selectMode = false,
   radioSelected,
+  lng,
 }: {
   plan: HomePlan
   disabled?: boolean
@@ -26,6 +27,7 @@ export function PlanCard({
   buttonState?: PlanButtonState
   selectMode?: boolean
   radioSelected?: boolean
+  lng?: string
 }) {
   const navigate = useNavigate()
   const isCurrent = plan.variant === 'current'
@@ -76,7 +78,7 @@ export function PlanCard({
         <div className="plan-price">{plan.price}</div>
         <div className="plan-period">{plan.period}</div>
         <div className="plan-save">{plan.save || '\u00a0'}</div>
-        <PlanFeatureList features={plan.features} layout="grid" />
+        <PlanFeatureList features={plan.features} layout="grid" lng={lng} />
         <button
           type="button"
           className={`plan-btn ${plan.buttonClass}`}
@@ -94,7 +96,10 @@ export function PlanCard({
     'plan-stack',
     isCurrent ? 'current' : plan.variant,
     isRadioFilled ? 'selected' : '',
-    !isCurrent && !isRadioFilled && (plan.featured || plan.badge) ? 'highlighted' : '',
+    // Hover lift only in select mode (landing). CTA-only sheets must not lift over the row above.
+    selectMode && !isCurrent && !isRadioFilled && (plan.featured || plan.badge)
+      ? 'highlighted'
+      : '',
     plan.badge ? 'has-badge' : '',
     selectMode ? 'selectable' : '',
   ]
@@ -125,14 +130,7 @@ export function PlanCard({
           >
             <span className="plan-radio-dot" />
           </button>
-        ) : (
-          <div
-            className={`plan-radio${isRadioFilled ? ' filled' : ''}`}
-            aria-hidden="true"
-          >
-            <span className="plan-radio-dot" />
-          </div>
-        )}
+        ) : null}
       </div>
       <div className="plan-meta">
         <div className="plan-name-row">
@@ -154,7 +152,7 @@ export function PlanCard({
           </div>
         )}
       </div>
-      <PlanFeatureList features={plan.features} layout="stack" />
+      <PlanFeatureList features={plan.features} layout="stack" lng={lng} />
       <button
         type="button"
         className={`plan-btn btn-plan-${resolvedButtonState}`}

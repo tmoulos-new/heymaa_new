@@ -314,7 +314,7 @@ button.plan-radio:focus-visible{outline:2px solid rgba(42,42,90,0.45);outline-of
 .plan-grid .plan-feat-info-text{font-size:11px;}
 .plan-btn{width:100%;border:none;border-radius:8px;padding:10px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;margin-top:4px;min-height:44px;}
 .plan-btn:focus-visible{outline:2px solid var(--navy);outline-offset:2px;}
-.btn-plan-current{background:#2B3A67;color:#fff;cursor:default;}
+.btn-plan-current{background:var(--hm-magenta,#de5a9e);color:#fff;cursor:default;}
 .btn-plan-current:disabled{opacity:1;color:#fff;}
 .btn-plan-idle{background:#FCECDD;color:#2A2A5A;transition:background .2s,color .2s;}
 .plan-stack:hover .btn-plan-idle:not(:disabled),

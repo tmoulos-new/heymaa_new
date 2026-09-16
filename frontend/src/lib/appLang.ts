@@ -1,6 +1,6 @@
 import { SUPPORTED_LANG_CODES } from "./supportedLanguages";
 
-/** App UI language codes — same 17 as landing flag picker. */
+/** App UI language codes — Greek + English only (complete interface). */
 export const APP_LANG_CODES = SUPPORTED_LANG_CODES;
 
 export type AppLangCode = (typeof APP_LANG_CODES)[number];
@@ -16,17 +16,33 @@ const LANG_ALIASES: Record<string, AppLangCode> = {
   gr: "el",
   gre: "el",
   eng: "en",
-  spa: "es",
-  fra: "fr",
-  deu: "de",
-  por: "pt",
-  ita: "it",
-  nld: "nl",
+  // Former multi-language codes map to English until those UIs are ready
+  spa: "en",
+  fra: "en",
+  deu: "en",
+  por: "en",
+  ita: "en",
+  nld: "en",
   ind: "en",
-  zho: "zh",
-  cmn: "zh",
-  bul: "bg",
-  srp: "sr",
+  zho: "en",
+  cmn: "en",
+  bul: "en",
+  srp: "en",
+  es: "en",
+  fr: "en",
+  de: "en",
+  pt: "en",
+  it: "en",
+  nl: "en",
+  zh: "en",
+  ja: "en",
+  ru: "en",
+  ar: "en",
+  tr: "en",
+  ro: "en",
+  bg: "en",
+  pl: "en",
+  sr: "en",
 };
 
 const PRE_LANG_KEY = "hm_pre_lang";

@@ -1,23 +1,5 @@
-/** Supported HeyMaa UI + chat languages (landing flag picker, app, FAQ). */
-export const SUPPORTED_LANG_CODES = [
-  "el",
-  "en",
-  "it",
-  "de",
-  "fr",
-  "es",
-  "ro",
-  "bg",
-  "pl",
-  "sr",
-  "ar",
-  "tr",
-  "zh",
-  "ja",
-  "ru",
-  "pt",
-  "nl",
-] as const;
+/** Supported HeyMaa UI languages (complete interface only). */
+export const SUPPORTED_LANG_CODES = ["el", "en"] as const;
 
 export type SupportedLangCode = (typeof SUPPORTED_LANG_CODES)[number];
 

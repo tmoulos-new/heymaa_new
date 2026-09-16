@@ -126,7 +126,7 @@ export function applySubscriptionPlanState(
             variant: 'current',
             featured: true,
             badge: labels.currentBadge,
-            badgeColor: '#2B3A67',
+            badgeColor: '#de5a9e',
             button: labels.currentButton,
             buttonClass: 'btn-plan-current',
           }
@@ -188,7 +188,7 @@ export function applySubscriptionPlanState(
         variant: 'current',
         featured: true,
         badge: labels.currentBadge,
-        badgeColor: '#2B3A67',
+        badgeColor: '#de5a9e',
         button: labels.currentButton,
         buttonClass: 'btn-plan-current',
       }

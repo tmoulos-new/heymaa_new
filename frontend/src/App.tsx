@@ -139,6 +139,7 @@ import { AppTabPageShell, AppTabSection } from "./components/AppTabPageShell";
 import { LANGS as HOME_LANGS } from "./home/homeContent";
 import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
+import { SUPPORTED_LANG_CODE_SET } from "./lib/supportedLanguages";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
 import { IconPencil, IconTrash } from "./components/ui/LineIcons";
 import { ChatIconRail } from "./components/ChatIconRail";
@@ -404,7 +405,7 @@ const LANG_FLAG_EMOJI: Record<string, string> = {
   ru: "🇷🇺", pt: "🇵🇹", nl: "🇳🇱",
 };
 
-const LANGS = HOME_LANGS.map((l) => ({
+const LANGS = HOME_LANGS.filter((l) => SUPPORTED_LANG_CODE_SET.has(l.code)).map((l) => ({
   c: l.code,
   f: LANG_FLAG_EMOJI[l.code] || "🌐",
   n: l.name,
@@ -1892,7 +1893,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 
 // ── Main App ──────────────────────────────────────────────────
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onTokenUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; onTokenUpdate?: (t: string) => void; trialEndsAt?: string | null }) {
-  const { t: tHome } = useTranslation();
+  const { t: tHome, i18n } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const showToast = (text: string, kind: ToastKind = "ok", undo?: () => void, undoLabel?: string) => {
     const trimmed = text.trim();
@@ -1946,6 +1947,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [openHelpFaqIndex, setOpenHelpFaqIndex] = useState<number | null>(null);
   const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
+  useEffect(() => {
+    // Keep i18next in sync with the in-app language (plans, FAQs, sheets).
+    if (i18n.language !== homeLng) {
+      void i18n.changeLanguage(homeLng);
+    }
+  }, [homeLng, i18n]);
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
     const base = Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
@@ -2211,13 +2218,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setHeaderPointsVisible(readHeaderPointsChipVisible(token));
   }, [token]);
 
-  const toggleHeaderPointsChip = () => {
-    setHeaderPointsVisible((v) => {
-      const next = !v;
-      writeHeaderPointsChipVisible(token, next);
-      return next;
-    });
-  };
+  const toggleHeaderPointsChip = useCallback(() => {
+    // Compute + persist outside the setState updater so React Strict Mode
+    // double-invoke cannot flip the preference twice and look like a no-op.
+    const next = !readHeaderPointsChipVisible(token);
+    writeHeaderPointsChipVisible(token, next);
+    setHeaderPointsVisible(next);
+  }, [token]);
 
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
@@ -5001,7 +5008,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           {headerPointsVisible ? (
             <button
               type="button"
-              className="hm-header-points-chip"
+              className={
+                "hm-header-points-chip" +
+                (subSnapshot?.subscription_active &&
+                displaySelectedPlanSlot(subSnapshot) !== "trial"
+                  ? " hm-header-points-chip--plan-active"
+                  : "")
+              }
               aria-label={
                 lang === "el"
                   ? `${gamification?.points ?? 0} πόντοι, ${levelName((gamification ?? defaultGamificationStatus()).level, lang)}. Άνοιγμα προφίλ`
@@ -5507,7 +5520,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <HeyMaaAvatar size={32} />
               <div>
                 <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
-                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : lang === "ar" ? `أخبريني عن تطور الطفل في عمر ${displayAge}` : lang === "zh" ? `告诉我${displayAge}宝宝的发育情况` : lang === "es" ? `Cuéntame sobre el desarrollo del bebé de ${displayAge}` : lang === "fr" ? `Parle-moi du développement de bébé à ${displayAge}` : lang === "de" ? `Erzähl mir über die Entwicklung eines Babys im Alter von ${displayAge}` : lang === "pt" ? `Fala-me sobre o desenvolvimento do bebé com ${displayAge}` : lang === "it" ? `Parlami dello sviluppo del bambino di ${displayAge}` : lang === "ru" ? `Расскажи мне о развитии ребёнка в возрасте ${displayAge}` : lang === "tr" ? `${displayAge} yaşındaki bebek gelişimi hakkında anlat` : lang === "ja" ? `${displayAge}の赤ちゃんの発達について教えて` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${navy}`,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
+                <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${navy}`,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
               </div>
             </div>
           </div>

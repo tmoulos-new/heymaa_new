@@ -175,6 +175,45 @@ export function mergeFamily(a: FamilyData, b: FamilyData): FamilyData {
   });
 }
 
+/**
+ * On load, cloud family is the source of truth.
+ * Keep local only to fill photos / missing fields on matching people —
+ * never add stale local children that would overwrite cloud on autosave.
+ */
+export function preferCloudFamily(cloud: FamilyData, local: FamilyData): FamilyData {
+  if (familyScore(cloud) === 0) return ensureFamilyMemberIds(local);
+  if (familyScore(local) === 0) return ensureFamilyMemberIds(cloud);
+
+  const localChildrenByName = new Map(
+    local.children.map((c) => [c.name.trim().toLowerCase(), c] as const),
+  );
+  const children = cloud.children.map((c) => {
+    const loc = localChildrenByName.get(c.name.trim().toLowerCase());
+    if (!loc) return c;
+    return {
+      ...c,
+      photo: c.photo || loc.photo,
+      gender: c.gender || loc.gender,
+      birthDate: c.birthDate || loc.birthDate,
+    };
+  });
+
+  const localById = new Map(local.members.filter((m) => m.id).map((m) => [m.id, m] as const));
+  const localByIdent = new Map(local.members.map((m) => [memberIdentityKey(m), m] as const));
+  const members = cloud.members.map((m) => {
+    const loc = (m.id && localById.get(m.id)) || localByIdent.get(memberIdentityKey(m));
+    return loc ? mergeMemberPreferPrimary(m, loc) : m;
+  });
+
+  return ensureFamilyMemberIds({
+    children,
+    members,
+    ...(cloud.selfPhoto || local.selfPhoto
+      ? { selfPhoto: cloud.selfPhoto || local.selfPhoto }
+      : {}),
+  });
+}
+
 /** Scan legacy hm_family_* keys (JWT-scoped blobs). */
 function recoverFamilyFromLegacyScan(): FamilyData {
   const buckets = scanLocalStorageBuckets();
@@ -450,21 +489,11 @@ export function mergeCloudUserData(
   let family = local.family;
   if (cloud.family != null) {
     const remote = parseFamilyDataValue(cloud.family, undefined);
-    const localN = local.family.children.length + local.family.members.length;
-    const remoteN = remote.children.length + remote.members.length;
-    if (familyScore(local.family) === 0) {
-      family = remote;
-    } else if (familyScore(remote) === 0) {
+    if (familyScore(remote) > 0) {
+      // Cloud wins on load. Local-only children (e.g. stale Πανος) must not replace cloud.
+      family = preferCloudFamily(remote, local.family);
+    } else if (familyScore(local.family) > 0) {
       family = local.family;
-    } else if (remoteN > 0 && localN > remoteN + 2) {
-      // Local often inflated by merging every legacy JWT hm_family_* key.
-      // Prefer cloud as the base; only pull missing photos/fields from local.
-      family = mergeFamily(remote, local.family);
-      // Cap: if merge still ballooned (un-dedupable name/role variants), keep cloud
-      const mergedN = family.children.length + family.members.length;
-      if (mergedN > remoteN + 2) family = ensureFamilyMemberIds(remote);
-    } else if (familyScore(remote) > familyScore(local.family)) {
-      family = mergeFamily(local.family, remote);
     }
   }
 

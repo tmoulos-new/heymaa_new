@@ -6,12 +6,13 @@ type Props = {
   features: unknown
   layout?: 'stack' | 'grid' | 'checkout'
   className?: string
+  lng?: string
 }
 
-export function PlanFeatureList({ features, layout = 'stack', className }: Props) {
+export function PlanFeatureList({ features, layout = 'stack', className, lng }: Props) {
   const { t: tBase } = useTranslation()
   const tHome = (key: string, opts?: Record<string, unknown>) =>
-    tBase(key, { ns: 'home', ...opts })
+    tBase(key, { ns: 'home', ...(lng ? { lng } : {}), ...opts })
   const listId = useId()
   const items = normalizePlanFeatures(features)
   const hints = tHome('pricing.featureHints', { returnObjects: true }) as Record<string, string>
