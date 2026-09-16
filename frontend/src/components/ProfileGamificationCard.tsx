@@ -122,7 +122,9 @@ export function ProfileGamificationCard({
           <button
             type="button"
             className="hm-profile-gamification-card__header-toggle"
-            aria-pressed={!!showHeaderChip}
+            role="switch"
+            aria-checked={!!showHeaderChip}
+            aria-label={isEl ? 'Εμφάνιση πόντων στο header' : 'Show points in header'}
             onClick={onToggleHeaderChip}
           >
             <span className="hm-profile-gamification-card__header-toggle-copy">

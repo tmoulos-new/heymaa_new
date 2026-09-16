@@ -2211,13 +2211,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setHeaderPointsVisible(readHeaderPointsChipVisible(token));
   }, [token]);
 
-  const toggleHeaderPointsChip = () => {
-    setHeaderPointsVisible((v) => {
-      const next = !v;
-      writeHeaderPointsChipVisible(token, next);
-      return next;
-    });
-  };
+  const toggleHeaderPointsChip = useCallback(() => {
+    // Compute + persist outside the setState updater so React Strict Mode
+    // double-invoke cannot flip the preference twice and look like a no-op.
+    const next = !readHeaderPointsChipVisible(token);
+    writeHeaderPointsChipVisible(token, next);
+    setHeaderPointsVisible(next);
+  }, [token]);
 
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
   const [showProfileSettings, setShowProfileSettings] = useState(false);
