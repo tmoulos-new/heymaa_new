@@ -1,6 +1,10 @@
 .subscription-page {
+  --landing-content-max: min(1100px, calc(100% - 48px));
+  --landing-pad-x: 24px;
   min-height: 100vh;
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--cream, #f5f0eb);
 }
 
@@ -64,6 +68,53 @@
   margin: 0 auto;
   padding: 28px 16px 8px;
   box-sizing: border-box;
+  flex: 1 0 auto;
+}
+
+.subscription-faq-cta {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 36px;
+}
+
+.subscription-faq-btn {
+  min-width: min(280px, 100%);
+  border-radius: 999px;
+}
+
+.subscription-page .site-footer {
+  margin-top: auto;
+  background: #efeaf3;
+  border-top: 1px solid rgba(43, 58, 103, 0.1);
+  padding: 36px var(--landing-pad-x) calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+.subscription-page .footer-grid {
+  gap: 28px 40px;
+  margin-bottom: 20px;
+}
+
+.subscription-page .footer-about {
+  max-width: none;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.subscription-page .footer-about-text {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.subscription-page .footer-col-title {
+  margin-bottom: 10px;
+}
+
+.subscription-page .footer-list {
+  gap: 10px;
+}
+
+.subscription-page .footer-bottom {
+  padding-top: 16px;
 }
 
 .subscription-plans-grid {
@@ -141,10 +192,19 @@
     padding: 36px 24px 12px;
   }
 
+  .subscription-faq-cta {
+    padding: 16px 24px 48px;
+  }
+
   .subscription-plans-grid {
     grid-template-columns: repeat(2, 1fr);
     column-gap: 20px;
     row-gap: 40px;
+  }
+
+  .subscription-page .footer-grid {
+    grid-template-columns: minmax(200px, 1.2fr) minmax(220px, 1fr) minmax(180px, 0.9fr);
+    align-items: start;
   }
 }
 

@@ -18,6 +18,9 @@ import {
   getAuthToken,
   type SubscriptionSnapshot,
 } from '../lib/authApi'
+import { AppDialog } from '../components/AppDialog'
+import { DialogPanel } from '../components/ui/DialogPanel'
+import { SheetHeader } from '../components/ui/SheetHeader'
 import { FaqAccordionList } from '../components/FaqAccordionList'
 import { mergeGamificationFaqItems } from '../lib/gamificationCard'
 import { useFaqAccordion } from '../lib/useFaqAccordion'
@@ -69,6 +72,7 @@ export function SubscriptionPage() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
+  const [faqOpen, setFaqOpen] = useState(false)
   const { openIndex: openFaqIndex, setOpenIndex: setOpenFaqIndex } = useFaqAccordion(null)
   const token = getAuthToken()
   const [snapshot, setSnapshot] = useState<SubscriptionSnapshot | null>(() =>
@@ -277,15 +281,40 @@ export function SubscriptionPage() {
         </div>
       </section>
 
-      <div className="section faq-section">
-        <div className="sec-title">{tHome('faq.label')}</div>
-        <FaqAccordionList
-          items={faqItems}
-          openIndex={openFaqIndex}
-          onOpenIndexChange={setOpenFaqIndex}
-          idPrefix="subscription-faq"
-        />
+      <div className="subscription-faq-cta">
+        <button
+          type="button"
+          className="hm-btn hm-btn--outline subscription-faq-btn"
+          onClick={() => {
+            setOpenFaqIndex(null)
+            setFaqOpen(true)
+          }}
+        >
+          {tSub('faq.button')}
+        </button>
       </div>
+
+      <AppDialog
+        open={faqOpen}
+        onClose={() => setFaqOpen(false)}
+        size="lg"
+        ariaLabel={String(tSub('faq.title'))}
+      >
+        <DialogPanel variant="cream" padding="md">
+          <SheetHeader
+            title={tSub('faq.title')}
+            subtitle={tSub('faq.subtitle')}
+            onBack={() => setFaqOpen(false)}
+            backLabel={String(tSub('faq.close'))}
+          />
+          <FaqAccordionList
+            items={faqItems}
+            openIndex={openFaqIndex}
+            onOpenIndexChange={setOpenFaqIndex}
+            idPrefix="subscription-faq"
+          />
+        </DialogPanel>
+      </AppDialog>
 
       <SiteFooter contentLang={contentLang} />
     </div>

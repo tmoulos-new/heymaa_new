@@ -31,6 +31,12 @@
     "currentBadge": "Current",
     "currentButton": "Active"
   },
+  "faq": {
+    "button": "Frequently asked questions",
+    "title": "FAQ",
+    "subtitle": "Plans, points, and the app",
+    "close": "Close"
+  },
   "cancel": {
     "title": "Cancel subscription",
     "body": "Request cancellation here. You keep access until the end of your billing period. Our team will confirm by email.",
