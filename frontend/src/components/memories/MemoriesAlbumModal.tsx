@@ -26,6 +26,7 @@ type Props = {
   savedAlbums?: SavedMemoryAlbum[]
   onAlbumsChange?: (next: SavedMemoryAlbum[]) => void
   onAlbumSaved?: () => void
+  editingAlbum?: SavedMemoryAlbum | null
 }
 
 export function MemoriesAlbumModal({
@@ -48,6 +49,7 @@ export function MemoriesAlbumModal({
   savedAlbums,
   onAlbumsChange,
   onAlbumSaved,
+  editingAlbum,
 }: Props) {
   return (
     <AppDialog
@@ -55,11 +57,16 @@ export function MemoriesAlbumModal({
       onClose={onClose}
       size="lg"
       align="bottom"
-      ariaLabel={lang === 'el' ? 'Άλμπουμ αναμνήσεων' : 'Memories album'}
+      ariaLabel={
+        lang === 'el'
+          ? (editingAlbum ? 'Επεξεργασία άλμπουμ' : 'Άλμπουμ αναμνήσεων')
+          : (editingAlbum ? 'Edit album' : 'Memories album')
+      }
       panelClassName="hm-memory-album-modal"
     >
       <DialogPanel variant="white" padding="lg" className="hm-memory-album-modal__panel">
         <MemoriesAlbumSection
+          key={editingAlbum?.id || 'new-album'}
           layout="modal"
           memories={memories}
           userName={userName}
@@ -78,6 +85,7 @@ export function MemoriesAlbumModal({
           savedAlbums={savedAlbums}
           onAlbumsChange={onAlbumsChange}
           onAlbumSaved={onAlbumSaved}
+          editingAlbum={editingAlbum}
           onClose={onClose}
         />
       </DialogPanel>

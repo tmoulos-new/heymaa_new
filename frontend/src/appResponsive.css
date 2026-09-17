@@ -5690,6 +5690,10 @@ body.hm-app-active .hm-sheet-overlay {
   margin-bottom: 10px;
 }
 
+.hm-memories-album-section .hm-memories-date-presets {
+  margin: 0 0 12px;
+}
+
 .hm-memories-album-section__date-field {
   display: flex;
   flex-direction: column;
@@ -5740,6 +5744,11 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 16px;
   color: var(--hm-navy);
   outline: none;
+}
+
+.hm-memories-album-section__title-input::placeholder {
+  color: rgba(43, 58, 103, 0.38);
+  font-weight: 500;
 }
 
 .hm-memories-album-section__title-input:focus {
@@ -5908,17 +5917,28 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.55);
 }
 
-.hm-memories-album-saved__delete {
-  border: none;
-  background: rgba(43, 58, 103, 0.08);
-  color: var(--hm-navy);
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
+.hm-memories-album-saved__actions {
+  display: flex;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.hm-memories-album-saved__action {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--hm-navy);
+  box-shadow: 0 2px 8px rgba(43, 58, 103, 0.16);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-memories-album-saved__action--delete {
+  color: #de5a9e;
 }
 
 .hm-memories-album-section__hint {

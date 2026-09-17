@@ -58,13 +58,15 @@ export function upsertSavedMemoryAlbum(
   albums: SavedMemoryAlbum[],
   next: Omit<SavedMemoryAlbum, 'id' | 'createdAt'> & { id?: string; createdAt?: string },
 ): SavedMemoryAlbum[] {
-  const match = albums.find(
-    (a) =>
-      a.journalName === next.journalName &&
-      a.fromDate === next.fromDate &&
-      a.toDate === next.toDate &&
-      a.title === next.title,
-  )
+  const match =
+    (next.id ? albums.find((a) => a.id === next.id) : undefined) ||
+    albums.find(
+      (a) =>
+        a.journalName === next.journalName &&
+        a.fromDate === next.fromDate &&
+        a.toDate === next.toDate &&
+        a.title === next.title,
+    )
   const saved: SavedMemoryAlbum = {
     id: next.id || match?.id || `alb_${Date.now()}`,
     createdAt: next.createdAt || match?.createdAt || new Date().toISOString(),

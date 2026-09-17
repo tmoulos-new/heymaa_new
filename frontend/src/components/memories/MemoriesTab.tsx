@@ -4,7 +4,8 @@ import { memberMemoryRef, memoryBelongsToMember } from '../../lib/familyData'
 import type { AppMemory } from '../../lib/memoryTypes'
 import { isMemoryMilestone, memorySortTime } from '../../lib/memoryTypes'
 import { memoriesInDateRange, toIsoDate } from '../../lib/memoriesBooklet'
-import { useSavedMemoryAlbums } from '../../lib/memoryAlbums'
+import { datePresetChips, datePresetRange, type DatePreset } from '../../lib/memoryDatePresets'
+import { useSavedMemoryAlbums, type SavedMemoryAlbum } from '../../lib/memoryAlbums'
 import { AppTabPageShell } from '../AppTabPageShell'
 import { MemoryCard } from './MemoryCard'
 import { AddMemoryModal, type MemoryFormValues } from './AddMemoryModal'
@@ -46,7 +47,6 @@ export type MemoriesTabProps = {
 }
 
 type FeedFilter = 'all' | 'photos' | 'milestones'
-type DatePreset = 'all' | 'month' | 'months3' | 'year' | 'custom'
 type MemoriesView = 'journal' | 'albums'
 
 function memoryMatchesJournal(
@@ -58,18 +58,6 @@ function memoryMatchesJournal(
   if (m.ref === journalRef) return true
   const member = members.find((fm) => memberMemoryRef(fm.id) === journalRef)
   return member ? memoryBelongsToMember(m.ref, member, members) : false
-}
-
-function presetRange(preset: Exclude<DatePreset, 'all' | 'custom'>): { from: string; to: string } {
-  const now = new Date()
-  const to = toIsoDate(now)
-  if (preset === 'month') {
-    return { from: toIsoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to }
-  }
-  if (preset === 'months3') {
-    return { from: toIsoDate(new Date(now.getFullYear(), now.getMonth() - 2, 1)), to }
-  }
-  return { from: toIsoDate(new Date(now.getFullYear(), 0, 1)), to }
 }
 
 export function MemoriesTab({
@@ -112,6 +100,7 @@ export function MemoriesTab({
   const [toDate, setToDate] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
+  const [editingAlbum, setEditingAlbum] = useState<SavedMemoryAlbum | null>(null)
   const [editIndex, setEditIndex] = useState<number | null>(null)
   const [savedAlbums, replaceAlbums] = useSavedMemoryAlbums()
 
@@ -174,7 +163,7 @@ export function MemoriesTab({
       }
       return
     }
-    const range = presetRange(preset)
+    const range = datePresetRange(preset)
     setFromDate(range.from)
     setToDate(range.to)
   }
@@ -206,7 +195,14 @@ export function MemoriesTab({
   }
 
   const openAlbums = () => setView('albums')
-  const openComposer = () => setShowAlbumModal(true)
+  const openComposer = () => {
+    setEditingAlbum(null)
+    setShowAlbumModal(true)
+  }
+  const openEditAlbum = (album: SavedMemoryAlbum) => {
+    setEditingAlbum(album)
+    setShowAlbumModal(true)
+  }
 
   const headerActions = (
     <div className="hm-memories-head-actions">
@@ -244,13 +240,7 @@ export function MemoriesTab({
     </div>
   )
 
-  const dateChips: { id: DatePreset; label: string }[] = [
-    { id: 'all', label: el ? 'Όλες οι ημερομηνίες' : 'All dates' },
-    { id: 'month', label: el ? 'Αυτόν τον μήνα' : 'This month' },
-    { id: 'months3', label: el ? '3 μήνες' : '3 months' },
-    { id: 'year', label: el ? 'Φέτος' : 'This year' },
-    { id: 'custom', label: el ? 'Προσαρμογή' : 'Custom' },
-  ]
+  const dateChips = datePresetChips(el)
 
   return (
     <>
@@ -308,6 +298,7 @@ export function MemoriesTab({
             savedAlbums={savedAlbums}
             onAlbumsChange={replaceAlbums}
             onCreateAlbum={openComposer}
+            onEditAlbum={openEditAlbum}
             onDownload={onAlbumDownload}
             exportAllowed={exportAllowed}
             onUpgradeExport={onUpgradeExport}
@@ -488,7 +479,10 @@ export function MemoriesTab({
 
       <MemoriesAlbumModal
         open={showAlbumModal}
-        onClose={() => setShowAlbumModal(false)}
+        onClose={() => {
+          setShowAlbumModal(false)
+          setEditingAlbum(null)
+        }}
         memories={journalMemories}
         userName={profileName}
         journalName={journalName}
@@ -505,8 +499,10 @@ export function MemoriesTab({
         onDeleteMemory={onDeleteAlbumMemory}
         savedAlbums={savedAlbums}
         onAlbumsChange={replaceAlbums}
+        editingAlbum={editingAlbum}
         onAlbumSaved={() => {
           setShowAlbumModal(false)
+          setEditingAlbum(null)
           setView('albums')
         }}
       />

@@ -4,8 +4,6 @@ import {
   bookletLabelsForLang,
   bookletMemoryKey,
   bookletMemoryTitle,
-  defaultAlbumTitle,
-  defaultBookletDateRange,
   downloadMemoriesBooklet,
   formatBookletDateRangeLabel,
   memoriesInDateRange,
@@ -13,9 +11,18 @@ import {
   type AlbumPhotoFrame,
   type BookletMemory,
 } from '../../lib/memoriesBooklet'
+import {
+  datePresetChips,
+  datePresetRange,
+  inferDatePreset,
+  memoriesDateSpan,
+  type DatePreset,
+} from '../../lib/memoryDatePresets'
 import { formatMemoryDisplayDate } from '../../lib/memoryTypes'
 import { displayUppercase } from '../../lib/greekText'
 import { BookletFlipbookModal } from '../MemoriesBookletPanel'
+import { ConfirmDialog } from '../ConfirmDialog'
+import { IconPencil, IconTrash } from '../ui/LineIcons'
 import { MemoryEmojiIcon, memoryEmojiTone } from './MemoryEmojiIcon'
 import { HmDateField } from '../HmDateField'
 import {
@@ -41,6 +48,8 @@ type Props = {
   onAlbumsChange?: (next: SavedMemoryAlbum[]) => void
   onAlbumSaved?: () => void
   onCreateAlbum?: () => void
+  onEditAlbum?: (album: SavedMemoryAlbum) => void
+  editingAlbum?: SavedMemoryAlbum | null
   onDownload?: () => void
   onSave?: () => void
   saving?: boolean
@@ -66,6 +75,8 @@ export function MemoriesAlbumSection({
   onAlbumsChange,
   onAlbumSaved,
   onCreateAlbum,
+  onEditAlbum,
+  editingAlbum,
   onDownload,
   onSave,
   saving,
@@ -78,27 +89,21 @@ export function MemoriesAlbumSection({
   exportRequiredPlanLabel,
 }: Props) {
   const el = lang === 'el'
-  const saveAlbumLabel = el ? 'Αποθήκευση άλμπουμ' : 'Save album'
+  const saveAlbumLabel = editingAlbum
+    ? (el ? 'Αποθήκευση αλλαγών' : 'Save changes')
+    : (el ? 'Αποθήκευση άλμπουμ' : 'Save album')
   const savingLabel = el ? 'Αποθήκευση…' : 'Saving…'
   const labels = useMemo(() => bookletLabelsForLang(lang), [lang])
-  const defaults = useMemo(() => defaultBookletDateRange(memories, lang), [memories, lang])
-  const [fromDate, setFromDate] = useState(defaults.fromDate)
-  const [toDate, setToDate] = useState(defaults.toDate)
+  const dateChips = datePresetChips(el)
+  const [datePreset, setDatePreset] = useState<DatePreset>(
+    editingAlbum ? inferDatePreset(editingAlbum.fromDate, editingAlbum.toDate) : 'all',
+  )
+  const [fromDate, setFromDate] = useState(editingAlbum?.fromDate || '')
+  const [toDate, setToDate] = useState(editingAlbum?.toDate || '')
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [rangeTouched, setRangeTouched] = useState(false)
-  const subjectGender = useMemo(
-    () => familyChildren.find((c) => c.name === journalName)?.gender,
-    [familyChildren, journalName],
-  )
-  const suggestedTitle = useMemo(
-    () => defaultAlbumTitle(journalName || userName, labels, lang, subjectGender),
-    [journalName, userName, labels, lang, subjectGender],
-  )
-  const [albumTitle, setAlbumTitle] = useState(suggestedTitle)
-  const [titleTouched, setTitleTouched] = useState(false)
-  const [albumSubtitle, setAlbumSubtitle] = useState(labels.dedication)
-  const [subtitleTouched, setSubtitleTouched] = useState(false)
-  const [coverKey, setCoverKey] = useState('')
+  const [albumTitle, setAlbumTitle] = useState(editingAlbum?.title || '')
+  const [albumSubtitle, setAlbumSubtitle] = useState(editingAlbum?.subtitle || '')
+  const [coverKey, setCoverKey] = useState(editingAlbum?.coverMemoryKey || '')
   const [internalAlbums, setInternalAlbums] = useState<SavedMemoryAlbum[]>(() => loadSavedMemoryAlbums())
   const savedAlbums = savedAlbumsProp ?? internalAlbums
   const setSavedAlbums = (next: SavedMemoryAlbum[]) => {
@@ -109,38 +114,57 @@ export function MemoriesAlbumSection({
     }
   }
   const [previewAlbumId, setPreviewAlbumId] = useState<string | null>(null)
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
-  const [selectionTouched, setSelectionTouched] = useState(false)
-  const [photoFrames, setPhotoFrames] = useState<Record<string, AlbumPhotoFrame>>({})
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(editingAlbum?.memoryKeys || [])
+  const [selectionTouched, setSelectionTouched] = useState(Boolean(editingAlbum?.memoryKeys?.length))
+  const [photoFrames, setPhotoFrames] = useState<Record<string, AlbumPhotoFrame>>(editingAlbum?.photoFrames || {})
+  const [deleteAlbumId, setDeleteAlbumId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (rangeTouched) return
-    setFromDate(defaults.fromDate)
-    setToDate(defaults.toDate)
-  }, [defaults.fromDate, defaults.toDate, rangeTouched])
+    if (!editingAlbum) return
+    setDatePreset(inferDatePreset(editingAlbum.fromDate, editingAlbum.toDate))
+    setFromDate(editingAlbum.fromDate)
+    setToDate(editingAlbum.toDate)
+    setAlbumTitle(editingAlbum.title)
+    setAlbumSubtitle(editingAlbum.subtitle || '')
+    setCoverKey(editingAlbum.coverMemoryKey || '')
+    setSelectedKeys(editingAlbum.memoryKeys || [])
+    setSelectionTouched(Boolean(editingAlbum.memoryKeys?.length))
+    setPhotoFrames(editingAlbum.photoFrames || {})
+  }, [editingAlbum])
 
   const lastJournalRef = useRef(journalName)
   useEffect(() => {
+    if (editingAlbum) return
     const journalChanged = lastJournalRef.current !== journalName
     lastJournalRef.current = journalName
-    const name = journalName || userName
-    const legacyDefault = Boolean(name) && albumTitle.trim() === `Αναμνήσεις της ${name}`
-    if (!journalChanged && titleTouched && !legacyDefault) return
-    if (journalChanged) setTitleTouched(false)
-    setAlbumTitle(suggestedTitle)
-  }, [suggestedTitle, titleTouched, albumTitle, journalName, userName])
+    if (!journalChanged) return
+    setDatePreset('all')
+    setFromDate('')
+    setToDate('')
+    setAlbumTitle('')
+    setAlbumSubtitle('')
+  }, [journalName, editingAlbum])
 
-  useEffect(() => {
-    if (subtitleTouched) return
-    setAlbumSubtitle(labels.dedication)
-  }, [labels.dedication, subtitleTouched])
+  const applyPreset = (preset: DatePreset) => {
+    setDatePreset(preset)
+    if (preset === 'all') {
+      setFromDate('')
+      setToDate('')
+      return
+    }
+    if (preset === 'custom') return
+    const range = datePresetRange(preset)
+    setFromDate(range.from)
+    setToDate(range.to)
+  }
 
-  const rangeOk = Boolean(fromDate && toDate)
-  const normalizedFrom = rangeOk && fromDate > toDate ? toDate : fromDate
-  const normalizedTo = rangeOk && fromDate > toDate ? fromDate : toDate
+  const allDates = datePreset === 'all'
+  const rangeOk = allDates || Boolean(fromDate && toDate)
+  const normalizedFrom = !allDates && rangeOk && fromDate > toDate ? toDate : fromDate
+  const normalizedTo = !allDates && rangeOk && fromDate > toDate ? fromDate : toDate
   const inRange = useMemo(
-    () => (rangeOk ? memoriesInDateRange(memories, normalizedFrom, normalizedTo, lang) : []),
-    [memories, normalizedFrom, normalizedTo, lang, rangeOk],
+    () => (allDates ? memories : rangeOk ? memoriesInDateRange(memories, normalizedFrom, normalizedTo, lang) : []),
+    [allDates, memories, rangeOk, normalizedFrom, normalizedTo, lang],
   )
   const rangeKeys = useMemo(() => inRange.map((m) => bookletMemoryKey(m)), [inRange])
   const effectiveKeys = useMemo(() => {
@@ -155,15 +179,23 @@ export function MemoriesAlbumSection({
   )
   const countInPeriod = inRange.length
   const selectedCount = selectedMemories.length
-  const periodText = rangeOk ? formatBookletDateRangeLabel(normalizedFrom, normalizedTo, lang) : ''
+  const periodText = allDates
+    ? (el ? 'Όλες οι ημερομηνίες' : 'All dates')
+    : rangeOk
+      ? formatBookletDateRangeLabel(normalizedFrom, normalizedTo, lang)
+      : ''
   const coverPhotos = useMemo(() => selectedMemories.filter((m) => Boolean(m.img)), [selectedMemories])
   const resolvedCoverKey = coverPhotos.some((m) => bookletMemoryKey(m) === coverKey)
     ? coverKey
     : coverPhotos[0]
       ? bookletMemoryKey(coverPhotos[0])
       : ''
-  const resolvedTitle = albumTitle.trim() || suggestedTitle
-  const resolvedSubtitle = albumSubtitle.trim() || labels.dedication
+  const resolvedTitle = albumTitle.trim()
+  const resolvedSubtitle = albumSubtitle.trim()
+  const copyReady = Boolean(resolvedTitle && resolvedSubtitle)
+  const composerReady = rangeOk && selectedCount > 0 && copyReady
+  const titlePlaceholder = el ? 'Γράψε τον τίτλο' : 'Write the title'
+  const subtitlePlaceholder = el ? 'Γράψε ένα υπότιτλο' : 'Write a subtitle'
 
   const toggleMemory = (key: string) => {
     setSelectionTouched(true)
@@ -177,12 +209,17 @@ export function MemoriesAlbumSection({
     setSelectedKeys(on ? rangeKeys : [])
   }
 
+  const persistRange = useMemo(() => {
+    if (allDates) return memoriesDateSpan(selectedMemories.length ? selectedMemories : memories, lang)
+    return { from: normalizedFrom, to: normalizedTo }
+  }, [allDates, selectedMemories, memories, lang, normalizedFrom, normalizedTo])
+
   const bookletOpts = useMemo(
     () => ({
       userName,
       memories: selectedMemories,
-      fromDate: normalizedFrom,
-      toDate: normalizedTo,
+      fromDate: persistRange.from,
+      toDate: persistRange.to,
       lang,
       children: familyChildren,
       members,
@@ -195,8 +232,7 @@ export function MemoriesAlbumSection({
     [
       userName,
       selectedMemories,
-      normalizedFrom,
-      normalizedTo,
+      persistRange,
       lang,
       familyChildren,
       members,
@@ -284,12 +320,14 @@ export function MemoriesAlbumSection({
   }
 
   const handleSaveAlbum = () => {
-    if (!rangeOk || selectedCount === 0) return
+    if (!composerReady) return
     const next = upsertSavedMemoryAlbum(savedAlbums, {
+      id: editingAlbum?.id,
+      createdAt: editingAlbum?.createdAt,
       title: resolvedTitle,
       subtitle: resolvedSubtitle,
-      fromDate: normalizedFrom,
-      toDate: normalizedTo,
+      fromDate: persistRange.from,
+      toDate: persistRange.to,
       coverMemoryKey: resolvedCoverKey || undefined,
       memoryKeys: effectiveKeys,
       photoFrames,
@@ -357,14 +395,28 @@ export function MemoriesAlbumSection({
               </div>
             </div>
           </button>
-          <button
-            type="button"
-            className="hm-memories-album-saved__delete"
-            onClick={() => handleDeleteAlbum(album.id)}
-            aria-label={el ? 'Διαγραφή άλμπουμ' : 'Delete album'}
-          >
-            ×
-          </button>
+          <div className="hm-memories-album-saved__actions">
+            {onEditAlbum && (
+              <button
+                type="button"
+                className="hm-memories-album-saved__action"
+                onClick={() => onEditAlbum(album)}
+                title={el ? 'Επεξεργασία' : 'Edit'}
+                aria-label={el ? 'Επεξεργασία άλμπουμ' : 'Edit album'}
+              >
+                <IconPencil size={15} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="hm-memories-album-saved__action hm-memories-album-saved__action--delete"
+              onClick={() => setDeleteAlbumId(album.id)}
+              title={el ? 'Διαγραφή' : 'Delete'}
+              aria-label={el ? 'Διαγραφή άλμπουμ' : 'Delete album'}
+            >
+              <IconTrash size={15} />
+            </button>
+          </div>
         </div>
         <div className="hm-memory-album-modal__actions">
           <button
@@ -444,6 +496,31 @@ export function MemoriesAlbumSection({
           <div className="hm-memories-album-library__grid">{albumCards}</div>
         )}
         {previewModal}
+        <ConfirmDialog
+          open={Boolean(deleteAlbumId)}
+          title={el ? 'Διαγραφή άλμπουμ' : 'Delete album'}
+          message={
+            el
+              ? `Είσαι σίγουρη/ος ότι θέλεις να διαγράψεις το άλμπουμ${
+                  deleteAlbumId
+                    ? ` «${journalAlbums.find((a) => a.id === deleteAlbumId)?.title || ''}»`
+                    : ''
+                };`
+              : `Are you sure you want to delete this album${
+                  deleteAlbumId
+                    ? ` “${journalAlbums.find((a) => a.id === deleteAlbumId)?.title || ''}”`
+                    : ''
+                }?`
+          }
+          confirmLabel={el ? 'Διαγραφή' : 'Delete'}
+          cancelLabel={el ? 'Ακύρωση' : 'Cancel'}
+          variant="danger"
+          onConfirm={() => {
+            if (deleteAlbumId) handleDeleteAlbum(deleteAlbumId)
+            setDeleteAlbumId(null)
+          }}
+          onCancel={() => setDeleteAlbumId(null)}
+        />
       </div>
     )
   }
@@ -460,7 +537,7 @@ export function MemoriesAlbumSection({
           <div className="hm-memories-album-section__head-text">
             <div className="hm-memories-album-section__title">
               <span aria-hidden="true">✦</span>
-              {el ? 'Άλμπουμ Αναμνήσεων' : 'Memories Album'}
+              {el ? (editingAlbum ? 'Επεξεργασία άλμπουμ' : 'Άλμπουμ Αναμνήσεων') : (editingAlbum ? 'Edit album' : 'Memories Album')}
             </div>
             <p className="hm-memories-album-section__sub">
               {selectedCount || countInPeriod || memories.length} {el ? 'αναμνήσεις' : 'memories'} · {journalName}
@@ -485,6 +562,19 @@ export function MemoriesAlbumSection({
         {displayUppercase(labels.pickPeriod, lang)}
       </p>
       <p className="hm-memories-album-section__step-hint">{labels.pickPeriodHint}</p>
+      <div className="hm-memories-date-presets">
+        {dateChips.map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            className={`hm-memories-filter hm-memories-filter--date${datePreset === chip.id ? ' hm-memories-filter--active' : ''}`}
+            onClick={() => applyPreset(chip.id)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+      {datePreset === 'custom' && (
       <div className="hm-memories-album-section__dates">
         <label className="hm-memories-album-section__date-field">
           <span>{labels.dateFrom}</span>
@@ -493,7 +583,7 @@ export function MemoriesAlbumSection({
             value={fromDate}
             max={toDate || undefined}
             onChange={(iso) => {
-              setRangeTouched(true)
+              setDatePreset('custom')
               setFromDate(iso)
             }}
             variant="input"
@@ -508,7 +598,7 @@ export function MemoriesAlbumSection({
             value={toDate}
             min={fromDate || undefined}
             onChange={(iso) => {
-              setRangeTouched(true)
+              setDatePreset('custom')
               setToDate(iso)
             }}
             variant="input"
@@ -517,6 +607,7 @@ export function MemoriesAlbumSection({
           />
         </label>
       </div>
+      )}
 
       {rangeOk && (
         <p className="hm-memories-album-section__period-summary">
@@ -533,11 +624,8 @@ export function MemoriesAlbumSection({
           type="text"
           className="hm-memories-album-section__title-input"
           value={albumTitle}
-          onChange={(e) => {
-            setTitleTouched(true)
-            setAlbumTitle(e.target.value)
-          }}
-          placeholder={suggestedTitle}
+          onChange={(e) => setAlbumTitle(e.target.value)}
+          placeholder={titlePlaceholder}
           maxLength={80}
           autoComplete="off"
           aria-label={labels.albumTitleField}
@@ -551,11 +639,8 @@ export function MemoriesAlbumSection({
           type="text"
           className="hm-memories-album-section__title-input"
           value={albumSubtitle}
-          onChange={(e) => {
-            setSubtitleTouched(true)
-            setAlbumSubtitle(e.target.value)
-          }}
-          placeholder={labels.dedication}
+          onChange={(e) => setAlbumSubtitle(e.target.value)}
+          placeholder={subtitlePlaceholder}
           maxLength={140}
           autoComplete="off"
           aria-label={labels.albumSubtitleField}
@@ -566,7 +651,7 @@ export function MemoriesAlbumSection({
         <div className="hm-memory-album-preview__header">
           <span className="hm-memory-album-preview__brand">HeyMaa · {journalName}</span>
           <span className="hm-memory-album-preview__meta">
-            {resolvedTitle}
+            {resolvedTitle || titlePlaceholder}
             {rangeOk ? ` — ${periodText}` : ''}
           </span>
         </div>
@@ -686,18 +771,23 @@ export function MemoriesAlbumSection({
         <button
           type="button"
           className="hm-memories-album-section__btn hm-memories-album-section__btn--preview"
-          disabled={!rangeOk || selectedCount === 0}
+          disabled={!composerReady}
           onClick={() => {
             setPreviewAlbumId(null)
             setPreviewOpen(true)
           }}
+          title={
+            !copyReady
+              ? (el ? 'Γράψε τίτλο και υπότιτλο για προεπισκόπηση.' : 'Add a title and subtitle to preview.')
+              : undefined
+          }
         >
           ✦ {labels.preview}
         </button>
         <button
           type="button"
           className="hm-memories-album-section__btn hm-memories-album-section__btn--save"
-          disabled={!rangeOk || selectedCount === 0 || saving}
+          disabled={!composerReady || saving}
           onClick={handleSaveAlbum}
         >
           {saving ? savingLabel : saveAlbumLabel}
