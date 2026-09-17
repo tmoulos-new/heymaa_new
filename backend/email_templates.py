@@ -153,6 +153,19 @@ def _plan_label(plan: str, lang: str) -> str:
     return plan or ("Συνδρομή" if lang == "el" else "Subscription")
 
 
+def _gift_plan_name(plan: str, lang: str) -> str:
+    key = (plan or "").strip().lower()
+    if key in ("annual", "annual_premium"):
+        return "Annual Premium" if lang == "en" else "Ετήσιο Premium"
+    if key == "premium":
+        return "Premium"
+    if key == "starter":
+        return "Starter"
+    if key == "trial":
+        return "Free trial" if lang == "en" else "Δωρεάν δοκιμή"
+    return plan or ("plan" if lang == "en" else "πλάνο")
+
+
 def _email_shell(body_html: str, *, preheader: str = "") -> str:
     preheader_html = ""
     if preheader:
@@ -612,6 +625,177 @@ def render_access_expiry_reminder_email(
         )
         subject = "Η πρόσβασή σου στην HeyMaa λήγει σε 2 ημέρες"
         preheader = f"Λήξη πρόσβασης {end_label}"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
+def _format_email_date(value: Optional[str], lang: str) -> str:
+    if not value:
+        return ""
+    try:
+        end_dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if lang == "en":
+            return end_dt.strftime("%d %B %Y")
+        return end_dt.strftime("%d/%m/%Y")
+    except Exception:
+        return str(value)[:10]
+
+
+def _gift_line(days: int, plan_slot: str, lang: str) -> str:
+    plan = _gift_plan_name(plan_slot, lang)
+    if lang == "en":
+        unit = "day" if days == 1 else "days"
+        return f"{days} {unit} free {plan}"
+    unit = "μέρα" if days == 1 else "μέρες"
+    return f"{days} {unit} δωρεάν {plan}"
+
+
+def render_level_gift_won_email(
+    *,
+    name: Optional[str],
+    gifts: list[dict],
+    level_name: Optional[str],
+    app_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    lang = normalize_email_lang(lang)
+    app_href = f"{app_url.rstrip('/')}/app"
+    lines = []
+    for gift in gifts:
+        days = int(gift.get("days") or 0)
+        slot = str(gift.get("plan_slot") or "starter")
+        gift_name = str(gift.get("level_name") or "").strip()
+        desc = _gift_line(days, slot, lang)
+        if gift_name:
+            lines.append(f"{escape(gift_name)} — {escape(desc)}")
+        else:
+            lines.append(escape(desc))
+    gifts_html = "".join(
+        f'<li style="margin-bottom:8px;">{line}</li>' for line in lines
+    ) or f'<li style="margin-bottom:8px;">{escape(_gift_line(0, "starter", lang))}</li>'
+    reached = escape((level_name or "").strip())
+
+    if lang == "en":
+        reached_bit = (
+            f' You reached <strong style="color:{TEXT};">{reached}</strong>.'
+            if reached
+            else ""
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(f"You leveled up!{reached_bit} A HeyMaa gift is waiting for you:")
+            + (
+                f'<ul style="font-family:{_font()};color:{TEXT};font-size:15px;'
+                f'line-height:1.65;margin:0 0 16px;padding-left:20px;">{gifts_html}</ul>'
+            )
+            + _paragraph(
+                'Open the app and tap <strong style="color:{TEXT};">Claim your gift!</strong> '
+                "to activate the extra days — they are not applied until you claim."
+            )
+            + _button(app_href, "Claim your gift")
+            + _help_footer(lang)
+        )
+        subject = "You unlocked a HeyMaa gift"
+        preheader = "A level reward is waiting in the app"
+    else:
+        reached_bit = (
+            f' Έφτασες το επίπεδο <strong style="color:{TEXT};">{reached}</strong>.'
+            if reached
+            else ""
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(f"Ανέβηκες επίπεδο!{reached_bit} Σε περιμένει ένα δώρο HeyMaa:")
+            + (
+                f'<ul style="font-family:{_font()};color:{TEXT};font-size:15px;'
+                f'line-height:1.65;margin:0 0 16px;padding-left:20px;">{gifts_html}</ul>'
+            )
+            + _paragraph(
+                'Άνοιξε την εφαρμογή και πάτα <strong style="color:{TEXT};">Πάρε το δώρο σου!</strong> '
+                "για να ενεργοποιήσεις τις επιπλέον μέρες — δεν προστίθενται μόνες τους."
+            )
+            + _button(app_href, "Πάρε το δώρο σου")
+            + _help_footer(lang)
+        )
+        subject = "Ξεκλείδωσες ένα δώρο HeyMaa"
+        preheader = "Ένα δώρο επιπέδου σε περιμένει στην εφαρμογή"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
+def render_level_gift_activated_email(
+    *,
+    name: Optional[str],
+    days: int,
+    plan_slot: str,
+    level_name: Optional[str] = None,
+    upgraded: bool = False,
+    starts_at: Optional[str] = None,
+    ends_at: Optional[str] = None,
+    app_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    lang = normalize_email_lang(lang)
+    app_href = f"{app_url.rstrip('/')}/app"
+    gift = _gift_line(int(days or 0), plan_slot, lang)
+    start_label = _format_email_date(starts_at, lang)
+    end_label = _format_email_date(ends_at, lang)
+    level_bit = escape((level_name or "").strip())
+
+    if lang == "en":
+        timing = ""
+        if upgraded:
+            timing = (
+                "Matched to your current plan — not a downgrade. "
+                "The extra days start after your current access ends."
+            )
+        elif start_label and end_label:
+            timing = f"They start on {start_label} and last until {end_label}."
+        elif end_label:
+            timing = f"They are active until {end_label}."
+        level_intro = (
+            f' Your <strong style="color:{TEXT};">{level_bit}</strong> gift is now active: '
+            if level_bit
+            else " Your level gift is now active: "
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Done!{level_intro}"
+                f"<strong style=\"color:{TEXT};\">{escape(gift)}</strong>."
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Open HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Your HeyMaa gift is active"
+        preheader = gift
+    else:
+        timing = ""
+        if upgraded:
+            timing = (
+                "Ισοδυναμεί με το τρέχον πλάνο σου — χωρίς υποβάθμιση. "
+                "Οι επιπλέον μέρες ξεκινούν μετά τη λήξη της τρέχουσας πρόσβασής σου."
+            )
+        elif start_label and end_label:
+            timing = f"Ξεκινά στις {start_label} και ισχύει μέχρι {end_label}."
+        elif end_label:
+            timing = f"Είναι ενεργό μέχρι {end_label}."
+        level_intro = (
+            f' Το δώρο για το επίπεδο <strong style="color:{TEXT};">{level_bit}</strong> ενεργοποιήθηκε: '
+            if level_bit
+            else " Το δώρο επιπέδου ενεργοποιήθηκε: "
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Τέλεια!{level_intro}"
+                f"<strong style=\"color:{TEXT};\">{escape(gift)}</strong>."
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Άνοιξε την HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Το δώρο σου στην HeyMaa ενεργοποιήθηκε"
+        preheader = gift
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 

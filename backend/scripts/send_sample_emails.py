@@ -23,6 +23,8 @@ from email_templates import (  # noqa: E402
     render_subscription_activated_email,
     render_subscription_welcome_email,
     render_welcome_trial_email,
+    render_level_gift_won_email,
+    render_level_gift_activated_email,
     send_email,
 )
 
@@ -84,6 +86,24 @@ def main() -> int:
         )),
         ("password_changed", render_password_changed_email(
             name=args.name,
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("level_gift_won", render_level_gift_won_email(
+            name=args.name,
+            gifts=[{"days": 3, "plan_slot": "starter", "level_name": "Ενεργή Μαμά"}],
+            level_name="Ενεργή Μαμά",
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("level_gift_activated", render_level_gift_activated_email(
+            name=args.name,
+            days=3,
+            plan_slot="starter",
+            level_name="Ενεργή Μαμά",
+            upgraded=False,
+            starts_at="2026-10-20T00:00:00+00:00",
+            ends_at="2026-10-23T00:00:00+00:00",
             app_url=APP_URL,
             lang="el",
         )),

@@ -1330,6 +1330,7 @@ def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
     if not referrer_id or referrer_id == new_user_id:
         return
     canonical = _normalize_invite_code(invite_code).upper()
+    previous_level = _get_user_level_id(referrer_id)
     _award_points(
         referrer_id,
         _invite_referral_points(),
@@ -1337,6 +1338,9 @@ def _award_invite_referral(invite_code: str, new_user_id: str) -> None:
         action="referral",
         path="/auth/register",
     )
+    new_level = _get_user_level_id(referrer_id)
+    if new_level > previous_level:
+        _notify_level_gifts_won(referrer_id, previous_level, new_level)
 
 def _maybe_award_points(
     auth: dict,
@@ -1365,9 +1369,55 @@ def _maybe_award_points(
         result["points_cap"] = cap_key
     if new_level > previous_level:
         result["level_up"] = {"from": previous_level, "to": new_level}
+        _notify_level_gifts_won(user_id, previous_level, new_level)
     if sb:
         result["rewards"] = rewards_payload(sb, user_id, new_level)
     return result
+
+
+def _notify_level_gifts_won(user_id: str, previous_level: int, new_level: int) -> None:
+    if not RESEND_API_KEY or not sb or not user_id:
+        return
+    try:
+        try:
+            from .gift_emails import maybe_send_gift_won_email
+        except ImportError:
+            from gift_emails import maybe_send_gift_won_email
+        levels = {int(row.get("id") or 0): row for row in _get_levels()}
+        maybe_send_gift_won_email(
+            sb,
+            user_id=user_id,
+            from_level=int(previous_level),
+            to_level=int(new_level),
+            level_rows=levels,
+            app_url=APP_URL,
+            api_key=RESEND_API_KEY,
+            from_address=RESEND_FROM,
+        )
+    except Exception:
+        pass
+
+
+def _notify_level_gift_activated(user_id: str, grant: Optional[dict]) -> None:
+    if not RESEND_API_KEY or not sb or not user_id or not grant:
+        return
+    try:
+        try:
+            from .gift_emails import maybe_send_gift_activated_email
+        except ImportError:
+            from gift_emails import maybe_send_gift_activated_email
+        levels = {int(row.get("id") or 0): row for row in _get_levels()}
+        maybe_send_gift_activated_email(
+            sb,
+            user_id=user_id,
+            grant=grant,
+            level_rows=levels,
+            app_url=APP_URL,
+            api_key=RESEND_API_KEY,
+            from_address=RESEND_FROM,
+        )
+    except Exception:
+        pass
 
 def _attach_user_activity_names(rows: list) -> list:
     if not rows:
@@ -4515,6 +4565,8 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             render_subscription_activated_email,
             render_subscription_welcome_email,
             render_welcome_trial_email,
+            render_level_gift_won_email,
+            render_level_gift_activated_email,
             send_email,
         )
     except ImportError:
@@ -4525,6 +4577,8 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             render_subscription_activated_email,
             render_subscription_welcome_email,
             render_welcome_trial_email,
+            render_level_gift_won_email,
+            render_level_gift_activated_email,
             send_email,
         )
     name = (req.name or "Gad").strip() or "Gad"
@@ -4571,6 +4625,24 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
         )),
         ("password_changed", render_password_changed_email(
             name=name,
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("level_gift_won", render_level_gift_won_email(
+            name=name,
+            gifts=[{"days": 3, "plan_slot": "starter", "level_name": "Ενεργή Μαμά"}],
+            level_name="Ενεργή Μαμά",
+            app_url=APP_URL,
+            lang="el",
+        )),
+        ("level_gift_activated", render_level_gift_activated_email(
+            name=name,
+            days=3,
+            plan_slot="starter",
+            level_name="Ενεργή Μαμά",
+            upgraded=False,
+            starts_at="2026-10-20T00:00:00+00:00",
+            ends_at="2026-10-23T00:00:00+00:00",
             app_url=APP_URL,
             lang="el",
         )),
@@ -7832,6 +7904,7 @@ async def claim_gamification_reward(req: ClaimLevelRewardRequest, x_token: Optio
         result = claim_level_reward(sb, user_id, int(req.level_id), current_level)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _notify_level_gift_activated(user_id, result.get("grant") if isinstance(result, dict) else None)
     subscription = {"ok": True, "subscription_active": check_subscription(x_token)}
     subscription.update(_subscription_status_for_user(user_id))
     status = build_status_payload(sb, auth, subscription)
