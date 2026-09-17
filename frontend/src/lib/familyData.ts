@@ -1,10 +1,33 @@
 /** Persisted under user_data key `family` (JSON). */
 
+/** Portrait crop: object-position 0–100 and zoom 1–3. */
+export interface FamilyPhotoFrame {
+  x: number
+  y: number
+  zoom: number
+}
+
+export function parseFamilyPhotoFrame(raw: unknown): FamilyPhotoFrame | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as { x?: unknown; y?: unknown; zoom?: unknown }
+  const x = typeof o.x === 'number' && Number.isFinite(o.x) ? o.x : undefined
+  const y = typeof o.y === 'number' && Number.isFinite(o.y) ? o.y : undefined
+  const zoom = typeof o.zoom === 'number' && Number.isFinite(o.zoom) ? o.zoom : undefined
+  if (x == null && y == null && zoom == null) return undefined
+  return {
+    x: Math.min(100, Math.max(0, x ?? 50)),
+    y: Math.min(100, Math.max(0, y ?? 50)),
+    zoom: Math.min(3, Math.max(1, zoom ?? 1)),
+  }
+}
+
 export interface FamilyChild {
   name: string
   birthDate: string
   /** Optional portrait as data URL or remote URL. */
   photo?: string
+  /** Placement / zoom applied on the tree card. */
+  photoFrame?: FamilyPhotoFrame
   /** Optional: girl | boy | surprise */
   gender?: 'girl' | 'boy' | 'surprise'
 }
@@ -32,6 +55,8 @@ export interface FamilyMemberRecord {
   note?: string
   /** Optional portrait as data URL or remote URL. */
   photo?: string
+  /** Placement / zoom applied on the tree card. */
+  photoFrame?: FamilyPhotoFrame
 }
 
 export interface FamilyData {
@@ -39,6 +64,8 @@ export interface FamilyData {
   members: FamilyMemberRecord[]
   /** Portrait for the signed-in user (tree "You" node). */
   selfPhoto?: string
+  /** Placement / zoom for the signed-in user's tree portrait. */
+  selfPhotoFrame?: FamilyPhotoFrame
 }
 
 export const EMPTY_FAMILY: FamilyData = { children: [], members: [] }
@@ -124,17 +151,31 @@ export function memoryBelongsToMember(
 
 function normalizeChild(raw: unknown): FamilyChild | null {
   if (!raw || typeof raw !== 'object') return null
-  const o = raw as { name?: string; birthDate?: string; birth_date?: string; photo?: string; gender?: string }
+  const o = raw as {
+    name?: string
+    birthDate?: string
+    birth_date?: string
+    photo?: string
+    photoFrame?: unknown
+    gender?: string
+  }
   const name = (o.name || '').trim()
   if (!name) return null
   const birthDate = (o.birthDate || o.birth_date || '').trim()
   const photo = typeof o.photo === 'string' && o.photo.trim() ? o.photo.trim() : undefined
+  const photoFrame = photo ? parseFamilyPhotoFrame(o.photoFrame) : undefined
   const g = typeof o.gender === 'string' ? o.gender.trim().toLowerCase() : ''
   const gender =
     g === 'girl' || g === 'boy' || g === 'surprise'
       ? (g as FamilyChild['gender'])
       : undefined
-  return { name, birthDate, ...(photo ? { photo } : {}), ...(gender ? { gender } : {}) }
+  return {
+    name,
+    birthDate,
+    ...(photo ? { photo } : {}),
+    ...(photoFrame ? { photoFrame } : {}),
+    ...(gender ? { gender } : {}),
+  }
 }
 
 function normalizeRelatedTo(raw: unknown): string | undefined {
@@ -152,6 +193,7 @@ function normalizeMember(raw: unknown): FamilyMemberRecord | null {
     note?: string
     facts?: string
     photo?: string
+    photoFrame?: unknown
   }
   const name = (o.name || '').trim()
   if (!name) return null
@@ -162,6 +204,7 @@ function normalizeMember(raw: unknown): FamilyMemberRecord | null {
   const birthDate = (o.birthDate || o.birth_date || '').trim()
   const note = (o.note || o.facts || '').trim()
   const photo = typeof o.photo === 'string' && o.photo.trim() ? o.photo.trim() : undefined
+  const photoFrame = photo ? parseFamilyPhotoFrame(o.photoFrame) : undefined
   const id = (typeof o.id === 'string' && o.id.trim()) || newFamilyMemberId()
   return {
     id,
@@ -173,6 +216,7 @@ function normalizeMember(raw: unknown): FamilyMemberRecord | null {
     ...(birthDate ? { birthDate } : {}),
     ...(note ? { note } : {}),
     ...(photo ? { photo } : {}),
+    ...(photoFrame ? { photoFrame } : {}),
   }
 }
 
@@ -208,6 +252,8 @@ export function dedupeFamilyMembers(members: FamilyMemberRecord[]): FamilyMember
           phone: m.phone || prev.phone,
           birthDate: m.birthDate || prev.birthDate,
           note: m.note || prev.note,
+          photo: m.photo || prev.photo,
+          photoFrame: m.photo ? m.photoFrame || prev.photoFrame : prev.photoFrame || m.photoFrame,
         })
       }
       return
@@ -225,6 +271,8 @@ export function dedupeFamilyMembers(members: FamilyMemberRecord[]): FamilyMember
         phone: m.phone || prev.phone,
         birthDate: m.birthDate || prev.birthDate,
         note: m.note || prev.note,
+        photo: m.photo || prev.photo,
+        photoFrame: m.photo ? m.photoFrame || prev.photoFrame : prev.photoFrame || m.photoFrame,
       })
       byId.set(mergedId, ident)
       return
@@ -331,10 +379,14 @@ export function parseFamilyData(
         (parsed as { selfPhoto?: string }).selfPhoto!.trim()
           ? (parsed as { selfPhoto: string }).selfPhoto.trim()
           : undefined
+      const selfPhotoFrame = selfPhoto
+        ? parseFamilyPhotoFrame((parsed as { selfPhotoFrame?: unknown }).selfPhotoFrame)
+        : undefined
       return ensureFamilyMemberIds({
         children: children.length > 0 ? children : fallbackChildren,
         members,
         ...(selfPhoto ? { selfPhoto } : {}),
+        ...(selfPhotoFrame ? { selfPhotoFrame } : {}),
       })
     }
   } catch {
@@ -364,7 +416,12 @@ export function normalizeFamilyData(data: FamilyData): FamilyData {
     members: data.members.map(normalizeMember).filter(Boolean) as FamilyMemberRecord[],
   })
   const selfPhoto = typeof data.selfPhoto === 'string' && data.selfPhoto.trim() ? data.selfPhoto.trim() : undefined
-  return { ...normalized, ...(selfPhoto ? { selfPhoto } : {}) }
+  const selfPhotoFrame = selfPhoto ? parseFamilyPhotoFrame(data.selfPhotoFrame) : undefined
+  return {
+    ...normalized,
+    ...(selfPhoto ? { selfPhoto } : {}),
+    ...(selfPhotoFrame ? { selfPhotoFrame } : {}),
+  }
 }
 
 export function getFamilyChildren(

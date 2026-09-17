@@ -18,7 +18,16 @@ import {
 } from '../lib/milestoneTimeline'
 import { MilestoneProgressBar } from './MilestoneProgressBar'
 
-type RefOption = { label: string; value: string }
+import { FamilyPersonAvatar } from './FamilyPersonAvatar'
+import type { AlbumPhotoFrame } from '../lib/memoriesBooklet'
+
+type RefOption = {
+  label: string
+  value: string
+  photo?: string
+  photoFrame?: AlbumPhotoFrame
+  color?: string
+}
 
 const NEXT_PREVIEW_BULLETS = 4
 
@@ -176,6 +185,16 @@ export function MilestonesPanel({
               className={`hm-ms-ref-chip${activeRef === r.value ? ' hm-ms-ref-chip--active' : ''}`}
               onClick={() => onActiveRefChange(r.value)}
             >
+              {r.photo || r.color ? (
+                <FamilyPersonAvatar
+                  size={20}
+                  name={r.label}
+                  photo={r.photo}
+                  photoFrame={r.photoFrame}
+                  color={r.color}
+                  shadow={false}
+                />
+              ) : null}
               {r.label}
             </button>
           ))}

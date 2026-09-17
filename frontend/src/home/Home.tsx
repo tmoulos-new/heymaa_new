@@ -21,7 +21,10 @@ import { normalizeAppLang, writeStoredAppLang } from "../lib/appLang";
 import type {
   HomeFaqItem,
   HomeHowItem,
+  HomeInsideExtra,
+  HomeInsideItem,
   HomePlan,
+  HomeSafetyItem,
   HomeTestimonialItem,
 } from "../i18n/homeTypes";
 import { PlanCard } from "../components/PlanCard";
@@ -32,7 +35,14 @@ import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
 import whatIsImage from "../assets/heymaa-what-is.jpg";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
-import momentsImage from "../assets/heymaa-moments-collage.png";
+import momentsExpecting from "../assets/heymaa-moment-expecting.jpg";
+import momentsNight from "../assets/heymaa-moment-night.jpg";
+import momentsHolding from "../assets/heymaa-moment-holding.jpg";
+import momentsPlay from "../assets/heymaa-moment-play.jpg";
+import phoneChat from "../assets/heymaa-phone-chat.png";
+import phoneMemories from "../assets/heymaa-phone-memories.png";
+import phoneFamily from "../assets/heymaa-phone-family.png";
+import phoneMilestones from "../assets/heymaa-phone-milestones.png";
 import { displayUppercase } from "../lib/greekText";
 import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
 import {
@@ -46,6 +56,13 @@ import { LanguageFlagOverlay, LanguageTriggerCode } from "../components/Language
 import { useLandingI18n } from "../lib/useLandingI18n";
 import "../auth/appAuth.css";
 import "./home.css";
+
+const INSIDE_IMAGES: Record<string, string> = {
+  chat: phoneChat,
+  memories: phoneMemories,
+  family: phoneFamily,
+  milestones: phoneMilestones,
+};
 
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
@@ -86,6 +103,17 @@ export default function Home() {
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })
   );
+  const insideItems = asObjectArray<HomeInsideItem>(
+    t("inside.items", { returnObjects: true })
+  );
+  const insideExtras = asObjectArray<HomeInsideExtra>(
+    t("inside.extras", { returnObjects: true })
+  );
+  const safetyItems = asObjectArray<HomeSafetyItem>(
+    t("safety.items", { returnObjects: true })
+  );
+  const featuredInside = insideItems.find((item) => item.id === "chat");
+  const insideCards = insideItems.filter((item) => item.id !== "chat");
   const basePlans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
   );
@@ -321,16 +349,32 @@ export default function Home() {
         </section>
 
         <section className="what-is section">
-          <div className="what-is-grid">
-            <div className="what-is-copy">
-              <h2 className="sec-title">{t("whatIs.title")}</h2>
-              <p
-                className="what-is-body"
-                dangerouslySetInnerHTML={{ __html: t("whatIs.body") }}
-              />
-            </div>
-            <div className="what-is-media">
-              <img src={whatIsImage} alt={t("whatIs.imageAlt")} />
+          <div className="what-is-panel">
+            <div className="what-is-grid">
+              <div className="what-is-copy">
+                <h2 className="sec-title">{t("whatIs.title")}</h2>
+                <p
+                  className="what-is-body"
+                  dangerouslySetInnerHTML={{ __html: t("whatIs.body") }}
+                />
+                <ul className="what-is-modes">
+                  {howItems.map((item) => (
+                    <li className="what-is-mode" key={item.title}>
+                      <span
+                        className="what-is-mode-icon"
+                        style={{ background: item.bg, color: item.color }}
+                        aria-hidden="true"
+                      >
+                        <i className={`ti ${item.icon}`} />
+                      </span>
+                      {item.title}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="what-is-media">
+                <img src={whatIsImage} alt={t("whatIs.imageAlt")} />
+              </div>
             </div>
           </div>
         </section>
@@ -359,9 +403,60 @@ export default function Home() {
           </div>
         </div>
 
+        <section className="section inside-section" id="inside-section" aria-labelledby="inside-title">
+          {t("inside.label") && (
+            <div className="sec-label">{displayUppercase(t("inside.label"), contentLang)}</div>
+          )}
+          <h2 className="sec-title" id="inside-title">{t("inside.title")}</h2>
+          <p className="sec-sub">{t("inside.subtitle")}</p>
+          {featuredInside ? (
+            <div className="inside-featured">
+              <div className="inside-featured-copy">
+                <h3 className="inside-card-title">{featuredInside.title}</h3>
+                <p className="inside-card-body">{featuredInside.body}</p>
+              </div>
+              <div className="inside-phone">
+                <img
+                  src={INSIDE_IMAGES[featuredInside.id]}
+                  alt={featuredInside.imageAlt}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div className="inside-grid">
+            {insideCards.map((item) => (
+              <article className="inside-card" key={item.id}>
+                <div className="inside-phone inside-phone--card">
+                  <img src={INSIDE_IMAGES[item.id]} alt={item.imageAlt} />
+                </div>
+                <h3 className="inside-card-title">{item.title}</h3>
+                <p className="inside-card-body">{item.body}</p>
+              </article>
+            ))}
+          </div>
+          {insideExtras.length > 0 ? (
+            <div className="inside-extras">
+              {insideExtras.map((extra) => (
+                <article className="inside-extra" key={extra.title}>
+                  <div className="inside-extra-icon" aria-hidden="true">
+                    <i className={`ti ${extra.icon}`} />
+                  </div>
+                  <div className="inside-extra-copy">
+                    <h3 className="inside-card-title">{extra.title}</h3>
+                    <p className="inside-card-body">{extra.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
         <div className="section story-section">
           <div className="moments-visual">
-            <img src={momentsImage} alt={t("moments.imageAlt")} />
+            <img src={momentsExpecting} alt={t("moments.altExpecting")} />
+            <img src={momentsNight} alt={t("moments.altNight")} />
+            <img src={momentsHolding} alt={t("moments.altHolding")} />
+            <img src={momentsPlay} alt={t("moments.altPlay")} />
           </div>
           <div className="testimonial-carousel">
             <button
@@ -449,6 +544,21 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <section className="section safety-section" aria-labelledby="safety-title">
+          <h2 className="sec-title" id="safety-title">{t("safety.title")}</h2>
+          <p className="sec-sub">{t("safety.subtitle")}</p>
+          <div className="safety-grid">
+            {safetyItems.map((item) => (
+              <article className="safety-card" key={item.text}>
+                <div className="safety-icon" aria-hidden="true">
+                  <i className={`ti ${item.icon}`} />
+                </div>
+                <p className="safety-text">{item.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="section faq-section">
           <div className="sec-title">{t("faq.label")}</div>

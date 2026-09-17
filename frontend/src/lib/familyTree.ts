@@ -7,6 +7,7 @@ import {
   memberMemoryRef,
   type FamilyChild,
   type FamilyMemberRecord,
+  type FamilyPhotoFrame,
 } from './familyData'
 
 export type KinKind =
@@ -260,6 +261,7 @@ export type TreePerson = {
   memoryCount: number
   color: string
   photo?: string
+  photoFrame?: FamilyPhotoFrame
   /** Index in familyData.members when this node is a member */
   memberIndex?: number
   /** Index in family children list */
@@ -318,11 +320,11 @@ const NODE_W = TREE_NODE_W
 const NODE_H = TREE_NODE_H
 const FOCUS_W = TREE_FOCUS_NODE_W
 const FOCUS_H = TREE_FOCUS_NODE_H
-const H_GAP = 28
-const COUPLE_GAP = 36
-const ROW_GAP = 96
-const PAD_X = 32
-const PAD_Y = 44
+const H_GAP = 16
+const COUPLE_GAP = 22
+const ROW_GAP = 40
+const PAD_X = 20
+const PAD_Y = 16
 
 
 function distribute(count: number, center: number, slot: number): number[] {
@@ -442,6 +444,7 @@ export function buildTreePeople(opts: {
   members: FamilyMemberRecord[]
   memoryCounts?: Record<string, number>
   selfPhoto?: string
+  selfPhotoFrame?: FamilyPhotoFrame
 }): TreePerson[] {
   const people: TreePerson[] = []
 
@@ -455,6 +458,7 @@ export function buildTreePeople(opts: {
     memoryCount: opts.memoryCounts?.['__general__'] ?? 0,
     color: AVATAR_COLOR.self,
     ...(opts.selfPhoto ? { photo: opts.selfPhoto } : {}),
+    ...(opts.selfPhotoFrame ? { photoFrame: opts.selfPhotoFrame } : {}),
   })
 
   if (opts.pregnancyActive) {
@@ -485,6 +489,7 @@ export function buildTreePeople(opts: {
       color: avatarColorForChild(c.gender),
       childIndex: i,
       ...(c.photo ? { photo: c.photo } : {}),
+      ...(c.photoFrame ? { photoFrame: c.photoFrame } : {}),
     })
   })
 
@@ -529,6 +534,7 @@ export function buildTreePeople(opts: {
       color: avatarColorForRelationship(m.relationship),
       memberIndex: i,
       ...(m.photo ? { photo: m.photo } : {}),
+      ...(m.photoFrame ? { photoFrame: m.photoFrame } : {}),
     })
   })
 

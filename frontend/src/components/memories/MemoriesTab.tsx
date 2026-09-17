@@ -3,7 +3,7 @@ import type { FamilyChild, FamilyMemberRecord } from '../../lib/familyData'
 import { memberMemoryRef, memoryBelongsToMember } from '../../lib/familyData'
 import type { AppMemory } from '../../lib/memoryTypes'
 import { isMemoryMilestone, memorySortTime } from '../../lib/memoryTypes'
-import { memoriesInDateRange, toIsoDate } from '../../lib/memoriesBooklet'
+import { memoriesInDateRange, toIsoDate, type AlbumPhotoFrame } from '../../lib/memoriesBooklet'
 import { datePresetChips, datePresetRange, type DatePreset } from '../../lib/memoryDatePresets'
 import { useSavedMemoryAlbums, type SavedMemoryAlbum } from '../../lib/memoryAlbums'
 import { AppTabPageShell } from '../AppTabPageShell'
@@ -15,6 +15,8 @@ import { MemoriesAlbumSection } from './MemoriesAlbumSection'
 import { MemoryEmojiIcon } from './MemoryEmojiIcon'
 import { HmDateField } from '../HmDateField'
 import { IconSearch } from '../ui/LineIcons'
+import { FamilyPersonAvatar } from '../FamilyPersonAvatar'
+import { avatarColorForChild, AVATAR_COLOR } from '../../lib/familyTree'
 
 export type MemoriesTabProps = {
   lang: string
@@ -23,6 +25,8 @@ export type MemoriesTabProps = {
   familyChildren: FamilyChild[]
   members: FamilyMemberRecord[]
   pregnancyActive: boolean
+  selfPhoto?: string
+  selfPhotoFrame?: AlbumPhotoFrame
   activeMemRef: string | null
   setActiveMemRef: (ref: string | null) => void
   photoAllowed: boolean
@@ -69,6 +73,8 @@ export function MemoriesTab({
   familyChildren,
   members,
   pregnancyActive,
+  selfPhoto,
+  selfPhotoFrame,
   activeMemRef,
   setActiveMemRef,
   photoAllowed,
@@ -110,16 +116,36 @@ export function MemoriesTab({
   const [savedAlbums, replaceAlbums] = useSavedMemoryAlbums()
 
   const journalOptions = useMemo(() => {
-    const opts: { label: string; value: string }[] = []
+    const opts: {
+      label: string
+      value: string
+      photo?: string
+      photoFrame?: AlbumPhotoFrame
+      color?: string
+    }[] = []
     if (familyChildren.length > 0) {
-      familyChildren.forEach((c) => opts.push({ label: c.name, value: c.name }))
+      familyChildren.forEach((c) =>
+        opts.push({
+          label: c.name,
+          value: c.name,
+          photo: c.photo,
+          photoFrame: c.photoFrame,
+          color: avatarColorForChild(c.gender),
+        }),
+      )
     } else if (pregnancyActive) {
       opts.push({ label: el ? 'Εγκυμοσύνη' : 'Pregnancy', value: 'pregnancy' })
     } else {
-      opts.push({ label: profileName || (el ? 'Εσύ' : 'You'), value: '__general__' })
+      opts.push({
+        label: profileName || (el ? 'Εσύ' : 'You'),
+        value: '__general__',
+        photo: selfPhoto,
+        photoFrame: selfPhotoFrame,
+        color: AVATAR_COLOR.self,
+      })
     }
     return opts
-  }, [familyChildren, pregnancyActive, profileName, el])
+  }, [familyChildren, pregnancyActive, profileName, el, selfPhoto, selfPhotoFrame])
 
   const journalRef = useMemo(() => {
     if (activeMemRef && journalOptions.some((o) => o.value === activeMemRef)) return activeMemRef
@@ -294,7 +320,15 @@ export function MemoriesTab({
                   className={`hm-memories-journal-tab${journalRef === opt.value ? ' hm-memories-journal-tab--active' : ''}`}
                   onClick={() => setActiveMemRef(opt.value)}
                 >
-                  👶 {opt.label}
+                  <FamilyPersonAvatar
+                    size={20}
+                    name={opt.label}
+                    photo={opt.photo}
+                    photoFrame={opt.photoFrame}
+                    color={opt.color}
+                    shadow={false}
+                  />
+                  {opt.label}
                 </button>
               ))}
             </div>

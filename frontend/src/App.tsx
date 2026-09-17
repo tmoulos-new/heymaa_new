@@ -17,7 +17,7 @@ import {
   type FamilyData,
   type FamilyMemberRecord,
 } from "./lib/familyData";
-import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, avatarInitial, AVATAR_COLOR, relationshipLabel, type LaidOutNode } from "./lib/familyTree";
+import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship, avatarColorForKind, avatarColorForRelationship, avatarColorForChild, avatarInitial, relationshipLabel, isFocusKind, type LaidOutNode } from "./lib/familyTree";
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
@@ -33,6 +33,8 @@ import { APP_ROUTE } from "./publicRoutes";
 import { MemoriesTab } from "./components/memories/MemoriesTab";
 import type { MemoryFormValues } from "./components/memories/AddMemoryModal";
 import { FamilyTreePanel } from "./components/FamilyTreePanel";
+import { FamilyPhotoCropDialog } from "./components/FamilyPhotoCropDialog";
+import { FamilyPersonAvatar } from "./components/FamilyPersonAvatar";
 import { FamilyDocumentsPanel } from "./components/FamilyDocumentsPanel";
 import { MilestonesPanel } from "./components/MilestonesPanel";
 import { normalizeDocEntries, type DocEntry } from "./lib/familyDocuments";
@@ -134,6 +136,12 @@ import {
 } from "./components/SubscriptionRequiredScreen";
 import { ProfileGamificationCard } from "./components/ProfileGamificationCard";
 import { HmDateField } from "./components/HmDateField";
+import {
+  albumPhotoFrameStyle,
+  clampAlbumPhotoFrame,
+  DEFAULT_ALBUM_PHOTO_FRAME,
+  type AlbumPhotoFrame,
+} from "./lib/memoriesBooklet";
 import {
   dismissExpiryPopup,
   getAccessExpiryInfo,
@@ -261,57 +269,6 @@ function HeyMaaAvatar({ size }: { size: number }) {
           transform: "scale(1.05)",
         }}
       />
-    </div>
-  );
-}
-
-function UserChatAvatar({
-  size,
-  name,
-  photo,
-}: {
-  size: number;
-  name: string;
-  photo?: string | null;
-}) {
-  const initial = name.trim() ? name.trim().charAt(0).toUpperCase() : "?";
-  if (photo) {
-    return (
-      <img
-        src={photo}
-        alt={name || "User"}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          objectFit: "cover",
-          flexShrink: 0,
-          display: "block",
-          boxShadow: "0 4px 12px rgba(43,58,103,0.08)",
-        }}
-      />
-    );
-  }
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: AVATAR_COLOR.self,
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'DM Sans',sans-serif",
-        fontSize: Math.max(11, Math.round(size * 0.4)),
-        fontWeight: 700,
-        flexShrink: 0,
-        boxShadow: "0 4px 12px rgba(43,58,103,0.08)",
-      }}
-      aria-hidden="true"
-    >
-      {initial}
     </div>
   );
 }
@@ -1933,7 +1890,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const syncProfileInBackground = (p: Profile) => { void syncProfileSafe(p, { silent: true }); };
   const displayName = String(profile.name || "").trim();
   const vocativeName = nameInVocative(displayName, lang);
-  const displayInitial = displayName ? displayName.charAt(0).toUpperCase() : "?";
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
@@ -2286,7 +2242,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showFaqDialog, setShowFaqDialog] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editName, setEditName] = useState(() => profile.name || "");
-  const [editPhoto, setEditPhoto] = useState<string | null>(null);
   const [editNewPassword, setEditNewPassword] = useState("");
   const [editConfirmPassword, setEditConfirmPassword] = useState("");
   const [editCurrentPassword, setEditCurrentPassword] = useState("");
@@ -2298,7 +2253,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setEditNewPassword("");
     setEditConfirmPassword("");
     setEditCurrentPassword("");
-    setEditPhoto(familyData.selfPhoto || null);
     setShowProfileEdit(true);
   };
 
@@ -2327,14 +2281,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       if (!synced) return;
       localStorage.setItem(sk(token, "profile"), JSON.stringify(updated));
       onProfileUpdate(updated);
-      if (editPhoto !== (familyData.selfPhoto || null)) {
-        setFamilyData((cur) => {
-          const next = { ...cur };
-          if (editPhoto) next.selfPhoto = editPhoto;
-          else delete next.selfPhoto;
-          return next;
-        });
-      }
       if (newPw) {
         const res = await axios.post(
           `${API}/auth/change-password`,
@@ -2411,6 +2357,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [treeEditRelatedTo, setTreeEditRelatedTo] = useState(RELATED_TO_SELF);
   const [treeEditBirthDate, setTreeEditBirthDate] = useState("");
   const [treeEditNote, setTreeEditNote] = useState("");
+  const [photoCrop, setPhotoCrop] = useState<{
+    photo: string
+    frame: AlbumPhotoFrame
+    mode: "tree" | "profile"
+  } | null>(null);
   const treePhotoRef = useRef<HTMLInputElement>(null);
   /** null = no person selected (list hidden); "__general__" = self/general memories */
   const [activeMemRef, setActiveMemRef] = useState<string | null>(null);
@@ -3661,6 +3612,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       childIndex: i,
       ref: child.name,
       photo: child.photo,
+      photoFrame: child.photoFrame,
       x: 0,
       y: 0,
     });
@@ -3681,6 +3633,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       relatedTo: m.relatedTo,
       ref: memberMemoryRef(m.id),
       photo: m.photo,
+      photoFrame: m.photoFrame,
       x: 0,
       y: 0,
     });
@@ -3694,6 +3647,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return treeEdit.photo;
   };
 
+  const currentTreeEditFrame = (): AlbumPhotoFrame => {
+    if (!treeEdit) return DEFAULT_ALBUM_PHOTO_FRAME;
+    if (treeEdit.kind === "self") return clampAlbumPhotoFrame(familyData.selfPhotoFrame);
+    if (treeEdit.childIndex != null) return clampAlbumPhotoFrame(familyChildren[treeEdit.childIndex]?.photoFrame);
+    if (treeEdit.memberIndex != null) return clampAlbumPhotoFrame(familyData.members[treeEdit.memberIndex]?.photoFrame);
+    return clampAlbumPhotoFrame(treeEdit.photoFrame);
+  };
+
   const readPhotoFile = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -3701,7 +3662,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         const raw = String(reader.result || "");
         const img = new Image();
         img.onload = () => {
-          const max = 360;
+          const max = 720;
           const scale = Math.min(1, max / Math.max(img.width, img.height));
           const canvas = document.createElement("canvas");
           canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -3721,29 +3682,61 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       reader.readAsDataURL(file);
     });
 
+  const applySelfPortrait = (photo: string, frame: AlbumPhotoFrame) => {
+    const nextFrame = clampAlbumPhotoFrame(frame);
+    setFamilyData((cur) => ({ ...cur, selfPhoto: photo, selfPhotoFrame: nextFrame }));
+    setTreeEdit((n) => (n?.kind === "self" ? { ...n, photo, photoFrame: nextFrame } : n));
+  };
+
+  const commitTreePhoto = (photo: string, frame: AlbumPhotoFrame) => {
+    if (!treeEdit) {
+      applySelfPortrait(photo, frame);
+      return;
+    }
+    const nextFrame = clampAlbumPhotoFrame(frame);
+    if (treeEdit.kind === "self") {
+      applySelfPortrait(photo, nextFrame);
+      return;
+    }
+    if (treeEdit.childIndex != null) {
+      const idx = treeEdit.childIndex;
+      setFamilyData((cur) => ({
+        ...cur,
+        children: cur.children.map((c, i) => (i === idx ? { ...c, photo, photoFrame: nextFrame } : c)),
+      }));
+    } else if (treeEdit.memberIndex != null) {
+      const idx = treeEdit.memberIndex;
+      setFamilyData((cur) => ({
+        ...cur,
+        members: cur.members.map((m, i) => (i === idx ? { ...m, photo, photoFrame: nextFrame } : m)),
+      }));
+    }
+    setTreeEdit((n) => (n ? { ...n, photo, photoFrame: nextFrame } : n));
+  };
+
   const applyTreePhoto = async (file: File | null) => {
     if (!file || !treeEdit) return;
     try {
       const photo = await readPhotoFile(file);
-      if (treeEdit.kind === "self") {
-        setFamilyData((cur) => ({ ...cur, selfPhoto: photo }));
-      } else if (treeEdit.childIndex != null) {
-        const idx = treeEdit.childIndex;
-        setFamilyData((cur) => ({
-          ...cur,
-          children: cur.children.map((c, i) => (i === idx ? { ...c, photo } : c)),
-        }));
-      } else if (treeEdit.memberIndex != null) {
-        const idx = treeEdit.memberIndex;
-        setFamilyData((cur) => ({
-          ...cur,
-          members: cur.members.map((m, i) => (i === idx ? { ...m, photo } : m)),
-        }));
-      }
-      setTreeEdit((n) => (n ? { ...n, photo } : n));
+      setPhotoCrop({ photo, frame: DEFAULT_ALBUM_PHOTO_FRAME, mode: "tree" });
     } catch {
       /* ignore */
     }
+  };
+
+  const applyProfilePhotoFile = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const photo = await readPhotoFile(file);
+      setPhotoCrop({ photo, frame: DEFAULT_ALBUM_PHOTO_FRAME, mode: "profile" });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const closeTreeEdit = () => {
+    setPhotoCrop((cur) => (cur?.mode === "tree" ? null : cur));
+    setTreeEdit(null);
   };
 
   const saveTreeEdit = () => {
@@ -3783,7 +3776,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       };
       setFamilyData(nextFamily);
     }
-    setTreeEdit(null);
+    closeTreeEdit();
   };
 
   const deleteChild = (index: number) => {
@@ -3829,7 +3822,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (!familyDeleteConfirm) return;
     const { kind, index } = familyDeleteConfirm;
     setFamilyDeleteConfirm(null);
-    setTreeEdit(null);
+    closeTreeEdit();
     if (kind === "child") deleteChild(index);
     else deleteFamilyMember(index);
   };
@@ -4219,7 +4212,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
       {/* PROFILE EDIT — popup screen */}
       <AppDialog
-        open={showProfileEdit}
+        open={showProfileEdit && photoCrop?.mode !== "profile"}
         onClose={() => setShowProfileEdit(false)}
         size="md"
         ariaLabel={lang === "el" ? "Επεξεργασία προφίλ" : "Edit profile"}
@@ -4232,15 +4225,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               type="file"
               accept="image/*"
               style={{display:"none"}}
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (!f) return;
-                try {
-                  const photo = await readPhotoFile(f);
-                  setEditPhoto(photo);
-                } catch { /* ignore */ }
-              }}
+              onChange={(e) => { void applyProfilePhotoFile(e.target.files?.[0] || null); e.target.value = ""; }}
             />
             <SheetHeader
               title={lang==="el"?"Επεξεργασία προφίλ":"Edit profile"}
@@ -4249,21 +4234,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               backLabel={lang==="el"?"Πίσω":"Back"}
             />
 
-            <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:22,gap:10}}>
               <div style={{position:"relative",width:108,height:108}}>
-                <div style={{
-                  width:108,height:108,borderRadius:"50%",overflow:"hidden",background:"#fff",
-                  boxShadow:"0 8px 24px rgba(43,58,103,0.08)",display:"flex",alignItems:"center",justifyContent:"center",
-                }}>
-                  {editPhoto ? (
-                    <img src={editPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
-                  ) : (
-                    <div style={{
-                      width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",
-                      background: AVATAR_COLOR.self, color: "#fff", fontSize:36, fontWeight:700,
-                    }}>{displayInitial}</div>
-                  )}
-                </div>
+                <FamilyPersonAvatar
+                  size={108}
+                  name={displayName}
+                  photo={familyData.selfPhoto}
+                  photoFrame={familyData.selfPhotoFrame}
+                />
                 <button
                   type="button"
                   aria-label={lang==="el"?"Αλλαγή φωτογραφίας":"Change photo"}
@@ -4273,6 +4251,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     border:"2px solid #fff",background:"var(--hm-navy)",color:"#fff",cursor:"pointer",
                     display:"flex",alignItems:"center",justifyContent:"center",padding:0,
                     boxShadow:"0 2px 8px rgba(43,58,103,.25)",
+                    zIndex: 1,
                   }}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -4281,6 +4260,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   </svg>
                 </button>
               </div>
+              {familyData.selfPhoto ? (
+                <button
+                  type="button"
+                  className="hm-btn hm-btn--sm hm-btn--outline"
+                  onClick={() => setPhotoCrop({
+                    photo: familyData.selfPhoto!,
+                    frame: clampAlbumPhotoFrame(familyData.selfPhotoFrame),
+                    mode: "profile",
+                  })}
+                >
+                  {lang==="el"?"Τοποθέτηση":"Place"}
+                </button>
+              ) : null}
             </div>
 
             <div className="hm-profile-edit-fields">
@@ -4633,8 +4625,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       />
 
       <AppDialog
-        open={!!treeEdit}
-        onClose={() => setTreeEdit(null)}
+        open={!!treeEdit && photoCrop?.mode !== "tree"}
+        onClose={closeTreeEdit}
         size="lg"
         align="bottom"
         ariaLabel={lang === "el" ? "Επεξεργασία" : "Edit"}
@@ -4647,21 +4639,55 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button
                 type="button"
                 onClick={()=>treePhotoRef.current?.click()}
-                style={{width:72,height:72,borderRadius:"50%",border:`2px solid ${logoPurple}`,background:treeEdit?.color || gl,overflow:"hidden",padding:0,cursor:"pointer",flexShrink:0}}
+                style={{
+                  width:72,
+                  height:78,
+                  borderRadius:16,
+                  border:`2px solid ${logoPurple}`,
+                  background:treeEdit?.color || gl,
+                  overflow:"hidden",
+                  padding:0,
+                  cursor:"pointer",
+                  flexShrink:0,
+                }}
                 title={lang==="el"?"Ανέβασε φωτογραφία":"Upload photo"}
               >
                 {currentTreeEditPhoto() ? (
-                  <img src={currentTreeEditPhoto()} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} />
+                  <img src={currentTreeEditPhoto()} alt="" style={albumPhotoFrameStyle(currentTreeEditFrame(), true)} />
                 ) : (
                   <span style={{fontSize:24,color:"#fff",fontWeight:700,background:treeEdit?.color || navy,width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
                     {avatarInitial(treeEditName || treeEdit?.name)}
                   </span>
                 )}
               </button>
-              <div style={{flex:1,fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45}}>
-                {lang==="el"
-                  ? "Πάτα τον κύκλο για να προσθέσεις ή αλλάξεις φωτογραφία."
-                  : "Tap the circle to add or change their photo."}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,color:"rgba(43,58,103,.55)",lineHeight:1.45,marginBottom:8}}>
+                  {lang==="el"
+                    ? "Πρόσθεσε φωτογραφία και όρισε τοποθέτηση, ζουμ και εστίαση πριν την αποθήκευση."
+                    : "Add a photo, then place, zoom, and focus it before saving."}
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  <button
+                    type="button"
+                    className="hm-btn hm-btn--sm hm-btn--outline"
+                    onClick={()=>treePhotoRef.current?.click()}
+                  >
+                    {currentTreeEditPhoto() ? t("change_photo", lang) : t("add_photo", lang)}
+                  </button>
+                  {currentTreeEditPhoto() ? (
+                    <button
+                      type="button"
+                      className="hm-btn hm-btn--sm hm-btn--outline"
+                      onClick={() => {
+                        const photo = currentTreeEditPhoto();
+                        if (!photo) return;
+                        setPhotoCrop({ photo, frame: currentTreeEditFrame(), mode: "tree" });
+                      }}
+                    >
+                      {lang==="el"?"Τοποθέτηση":"Place"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
             <input
@@ -4753,7 +4779,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   style={{ minWidth: 90 }}
                   onClick={()=>{
                     setActiveMemRef(treeEdit!.kind === "self" ? "__general__" : (treeEdit!.ref ?? null));
-                    setTreeEdit(null);
+                    closeTreeEdit();
                     setTab("memories");
                   }}
                 >
@@ -4778,10 +4804,28 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   🗑 {t("delete_memory",lang)}
                 </button>
               )}
-              <button type="button" className="hm-btn hm-btn--secondary" onClick={()=>setTreeEdit(null)}>{t("cancel",lang)}</button>
+              <button type="button" className="hm-btn hm-btn--secondary" onClick={closeTreeEdit}>{t("cancel",lang)}</button>
             </div>
           </div>
       </AppDialog>
+
+      <FamilyPhotoCropDialog
+        open={!!photoCrop}
+        photo={photoCrop?.photo || ""}
+        initialFrame={photoCrop?.frame}
+        lang={lang}
+        focusCard={photoCrop?.mode === "profile" || (treeEdit ? isFocusKind(treeEdit.kind) : true)}
+        onCancel={() => setPhotoCrop(null)}
+        onSave={(frame) => {
+          if (!photoCrop) return;
+          if (photoCrop.mode === "profile" || treeEdit?.kind === "self" || !treeEdit) {
+            applySelfPortrait(photoCrop.photo, frame);
+          } else {
+            commitTreePhoto(photoCrop.photo, frame);
+          }
+          setPhotoCrop(null);
+        }}
+      />
 
       {familyDeleteConfirm && (
         <ConfirmDialog
@@ -5203,13 +5247,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
           <button
             type="button"
-            className="hm-header-avatar hm-header-avatar-btn"
+            className={`hm-header-avatar hm-header-avatar-btn${familyData.selfPhoto ? " hm-header-avatar--has-photo" : ""}`}
             aria-label={lang === "el" ? "Λογαριασμός" : "Account"}
             aria-expanded={showAccountMenu}
             aria-haspopup="menu"
             onClick={() => { setShowNotifications(false); setShowAccountMenu((v) => !v); }}
           >
-            {displayInitial}
+            <span className="hm-header-avatar__face">
+              <FamilyPersonAvatar
+                size={44}
+                name={displayName}
+                photo={familyData.selfPhoto}
+                photoFrame={familyData.selfPhotoFrame}
+              />
+            </span>
             {showAccountMenu && (
               <div className="hm-header-account-menu" role="menu" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -5297,21 +5348,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             )}
           >
             <div className="hm-tab-card" style={{display:"flex",alignItems:"center",gap:14,padding:"16px 18px"}}>
-              {familyData.selfPhoto ? (
-                <img
-                  src={familyData.selfPhoto}
-                  alt=""
-                  style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",flexShrink:0,display:"block"}}
-                />
-              ) : (
-                <div style={{
-                  width:64,height:64,borderRadius:"50%",background:AVATAR_COLOR.self,color:"#fff",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'DM Sans',sans-serif",fontSize:26,fontWeight:700,flexShrink:0,
-                }}>
-                  {displayInitial}
-                </div>
-              )}
+              <FamilyPersonAvatar
+                size={64}
+                name={displayName}
+                photo={familyData.selfPhoto}
+                photoFrame={familyData.selfPhotoFrame}
+              />
               <div style={{minWidth:0,flex:1}}>
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:700,color:navy,lineHeight:1.25}}>
                   {displayName || (lang==="el"?"Χωρίς όνομα":"No name")}
@@ -5596,7 +5638,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         <div>{msg.content}</div>
                       )}
                     </div>
-                    <UserChatAvatar size={32} name={displayName} photo={familyData.selfPhoto} />
+                    <FamilyPersonAvatar size={32} name={displayName} photo={familyData.selfPhoto} photoFrame={familyData.selfPhotoFrame} />
                   </div>
                 )}
               {msg.role==="assistant"&&msg.memorySuggestion&&!msg.memorySuggestion.dismissed&&(
@@ -5687,7 +5729,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             pregnancyActive={pregnancyActive}
             memoryCounts={memoryCountsByRef}
             selfPhoto={familyData.selfPhoto}
-            selectedNodeId={treeEdit?.id}
+            selfPhotoFrame={familyData.selfPhotoFrame}
             onEditNode={openTreeEdit}
             onNodeSelect={(ref) => { setActiveMemRef(ref ?? "__general__"); setTab("memories"); }}
             onPlaceMembers={placeMembersOnTree}
@@ -5725,9 +5767,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               return (<div key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
                 <div
                   onClick={() => openChildProfileEdit(i)}
-                  style={{width:36,height:36,borderRadius:"50%",background:avatarColorForChild(child.gender),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                  style={{cursor:"pointer",flexShrink:0}}
                 >
-                  {child.photo ? <img src={child.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(child.name)}
+                  <FamilyPersonAvatar
+                    size={36}
+                    name={child.name}
+                    photo={child.photo}
+                    photoFrame={child.photoFrame}
+                    color={avatarColorForChild(child.gender)}
+                  />
                 </div>
                 <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:13,color:navy}}>{child.name}</div><div style={{fontSize:11,color:"rgba(43,58,103,.55)",marginTop:1}}>{age}</div></div>
                 <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
@@ -5753,9 +5801,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
                     onClick={() => openMemberProfileEdit(m, i)}
-                    style={{width:36,height:36,borderRadius:"50%",background:avatarColorForKind("pet"),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{cursor:"pointer",flexShrink:0}}
                   >
-                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(m.name)}
+                    <FamilyPersonAvatar
+                      size={36}
+                      name={m.name}
+                      photo={m.photo}
+                      photoFrame={m.photoFrame}
+                      color={avatarColorForKind("pet")}
+                    />
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,color:navy}}>{m.name}</div>
@@ -5791,9 +5845,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div
                     onClick={() => openMemberProfileEdit(m, i)}
-                    style={{width:36,height:36,borderRadius:"50%",background:avatarColorForRelationship(m.relationship),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0,overflow:"hidden",cursor:"pointer",padding:0}}
+                    style={{cursor:"pointer",flexShrink:0}}
                   >
-                    {m.photo ? <img src={m.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : avatarInitial(m.name)}
+                    <FamilyPersonAvatar
+                      size={36}
+                      name={m.name}
+                      photo={m.photo}
+                      photoFrame={m.photoFrame}
+                      color={avatarColorForRelationship(m.relationship)}
+                    />
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,color:navy}}>{memberDisplayLabel(m, familyData.members, relationshipLabel(m.relationship, lang))}</div>
@@ -5908,6 +5968,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             familyChildren={familyChildren}
             members={familyData.members}
             pregnancyActive={pregnancyActive}
+            selfPhoto={familyData.selfPhoto}
+            selfPhotoFrame={familyData.selfPhotoFrame}
             activeMemRef={activeMemRef}
             setActiveMemRef={setActiveMemRef}
             photoAllowed={featureAllowed("full_memory", planEntitlements, subSnapshot)}
@@ -5941,9 +6003,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
         {/* ── MILESTONES ── */}
         {tab==="milestones"&&(()=>{
-          const msRefs: {label:string,value:string}[] = [];
-          if(profile.dueDate) msRefs.push({label:"🤰 "+t("pregnancy_short",lang),value:"pregnancy"});
-          familyChildren.forEach(ch=>msRefs.push({label:"👶 "+ch.name,value:ch.name}));
+          const msRefs: {
+            label: string
+            value: string
+            photo?: string
+            photoFrame?: typeof familyChildren[number]["photoFrame"]
+            color?: string
+          }[] = [];
+          if(profile.dueDate) msRefs.push({label: t("pregnancy_short",lang), value:"pregnancy"});
+          familyChildren.forEach(ch=>msRefs.push({
+            label: ch.name,
+            value: ch.name,
+            photo: ch.photo,
+            photoFrame: ch.photoFrame,
+            color: avatarColorForChild(ch.gender),
+          }));
           const effectiveRef = (activeMilestoneRef&&msRefs.some(r=>r.value===activeMilestoneRef))?activeMilestoneRef:msRefs[0]?.value||"";
           const isPreg = effectiveRef==="pregnancy";
           const currentChild = isPreg?null:familyChildren.find(ch=>ch.name===effectiveRef);

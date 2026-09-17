@@ -38,7 +38,7 @@
   "how": {
     "label": "How it works",
     "title": "Write · Speak · Show",
-    "subtitle": "Three simple ways to capture your day. Discover useful tips by starting today.",
+    "subtitle": "Three simple ways to talk to her. Whenever you want, whenever you can.",
     "items": [
       {
         "icon": "ti-pencil",
@@ -46,7 +46,7 @@
         "color": "#de5a9e",
         "title": "Write",
         "lead": "When you only have a few seconds.",
-        "body": "A thought, a sentence, something you don't want to lose."
+        "body": "A message in chat. She replies with what she already remembers from your conversation, memories and milestones."
       },
       {
         "icon": "ti-microphone",
@@ -54,7 +54,7 @@
         "color": "#7C5CBF",
         "title": "Speak",
         "lead": "When your hands are busy.",
-        "body": "Speak naturally. HeyMaa records and organizes."
+        "body": "Speak naturally into the microphone. It becomes text, and you get a reply."
       },
       {
         "icon": "ti-camera",
@@ -62,12 +62,16 @@
         "color": "#2D9E6B",
         "title": "Show",
         "lead": "Send a photo.",
-        "body": "The system recognizes the moment and links it to your story."
+        "body": "She sees it in the moment and answers based on what you show."
       }
     ]
   },
   "moments": {
-    "imageAlt": "Mother and baby in everyday moments — feeding, night time, care and memories on the phone"
+    "imageAlt": "Mother and baby in everyday moments",
+    "altExpecting": "Pregnant mother by the crib, holding tiny baby shoes",
+    "altNight": "Mother beside the crib at night while the baby sleeps",
+    "altHolding": "Mother holding her baby",
+    "altPlay": "Mother and baby playing with wooden toys on the floor"
   },
   "testimonial": {
     "ratingLabel": "5 out of 5 stars",
@@ -194,6 +198,49 @@
         ],
         "button": "Choose Plan",
         "buttonClass": "btn-plan-idle"
+      }
+    ]
+  },
+  "inside": {
+    "label": "The app",
+    "title": "Inside HeyMaa",
+    "subtitle": "Chat, family, memories and milestones — all in one place.",
+    "items": [
+      {
+        "id": "chat",
+        "title": "Chat with HeyMaa",
+        "body": "Write, speak or send a photo. HeyMaa answers in the moment and remembers what you have already saved.",
+        "imageAlt": "HeyMaa chat screen on a phone"
+      },
+      {
+        "id": "memories",
+        "title": "Memories and albums",
+        "body": "Notes, photos and videos in a journal. Build albums from the moments you want to keep.",
+        "imageAlt": "HeyMaa memories journal on a phone"
+      },
+      {
+        "id": "family",
+        "title": "Family tree",
+        "body": "You, your partner, children and family on a visual tree. Each member has their own memories.",
+        "imageAlt": "HeyMaa family tree on a phone"
+      },
+      {
+        "id": "milestones",
+        "title": "Development milestones",
+        "body": "Age periods with progress: tick what has already happened, and milestones flow into the journal.",
+        "imageAlt": "HeyMaa milestones on a phone"
+      }
+    ],
+    "extras": [
+      {
+        "icon": "ti-folder",
+        "title": "Document archive",
+        "body": "Tests, vaccines, treatments and medicines, organised by family member."
+      },
+      {
+        "icon": "ti-gift",
+        "title": "Points and gifts",
+        "body": "Earn points from chat, memories and milestones. Unlock free plan days and invite friends."
       }
     ]
   },

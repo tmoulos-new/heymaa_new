@@ -124,6 +124,9 @@ function mergeMemberPreferPrimary(primary: FamilyMember, secondary: FamilyMember
         ? primary.relatedTo
         : secondary.relatedTo,
     photo: primary.photo || secondary.photo,
+    photoFrame: primary.photo
+      ? primary.photoFrame || secondary.photoFrame
+      : secondary.photoFrame || primary.photoFrame,
     email: primary.email || secondary.email,
     phone: primary.phone || secondary.phone,
     birthDate: primary.birthDate || secondary.birthDate,
@@ -166,12 +169,15 @@ export function mergeFamily(a: FamilyData, b: FamilyData): FamilyData {
   a.children.forEach((c) => childrenByName.set(c.name.toLowerCase(), c));
   b.children.forEach((c) => {
     const prev = childrenByName.get(c.name.toLowerCase());
-    childrenByName.set(c.name.toLowerCase(), prev ? { ...prev, ...c, photo: c.photo || prev.photo } : c);
+    childrenByName.set(c.name.toLowerCase(), prev ? { ...prev, ...c, photo: c.photo || prev.photo, photoFrame: c.photo ? c.photoFrame || prev.photoFrame : prev.photoFrame || c.photoFrame } : c);
   });
   return ensureFamilyMemberIds({
     children: Array.from(childrenByName.values()),
     members: mergeMembersPreferPrimary(a.members, b.members),
     ...(a.selfPhoto || b.selfPhoto ? { selfPhoto: a.selfPhoto || b.selfPhoto } : {}),
+    ...(a.selfPhotoFrame || b.selfPhotoFrame
+      ? { selfPhotoFrame: a.selfPhoto ? a.selfPhotoFrame || b.selfPhotoFrame : b.selfPhotoFrame || a.selfPhotoFrame }
+      : {}),
   });
 }
 
@@ -193,6 +199,7 @@ export function preferCloudFamily(cloud: FamilyData, local: FamilyData): FamilyD
     return {
       ...c,
       photo: c.photo || loc.photo,
+      photoFrame: c.photo ? c.photoFrame || loc.photoFrame : loc.photoFrame || c.photoFrame,
       gender: c.gender || loc.gender,
       birthDate: c.birthDate || loc.birthDate,
     };
@@ -210,6 +217,13 @@ export function preferCloudFamily(cloud: FamilyData, local: FamilyData): FamilyD
     members,
     ...(cloud.selfPhoto || local.selfPhoto
       ? { selfPhoto: cloud.selfPhoto || local.selfPhoto }
+      : {}),
+    ...(cloud.selfPhotoFrame || local.selfPhotoFrame
+      ? {
+          selfPhotoFrame: cloud.selfPhoto
+            ? cloud.selfPhotoFrame || local.selfPhotoFrame
+            : local.selfPhotoFrame || cloud.selfPhotoFrame,
+        }
       : {}),
   });
 }

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayUppercase } from '../lib/greekText'
-import type { FamilyChild, FamilyMemberRecord } from '../lib/familyData'
+import type { FamilyChild, FamilyMemberRecord, FamilyPhotoFrame } from '../lib/familyData'
+import { albumPhotoFrameStyle } from '../lib/memoriesBooklet'
 import {
   TREE_FOCUS_NODE_H,
   TREE_FOCUS_NODE_W,
@@ -18,12 +19,38 @@ import {
   type TreeRowSlot,
 } from '../lib/familyTree'
 
-const NAVY = '#2B3A67'
 const ACCENT = '#BEB4CD'
 const MUTED = 'rgba(43, 58, 103, 0.55)'
 const BLOOD_LINE = 'rgba(43, 58, 103, 0.32)'
 const DRAG_ARM_MS = 240
 const DRAG_MOVE_PX = 8
+
+function TreeFramedPhoto({
+  href,
+  frame,
+  x,
+  y,
+  w,
+  h,
+  clipId,
+}: {
+  href: string
+  frame?: FamilyPhotoFrame
+  x: number
+  y: number
+  w: number
+  h: number
+  clipId: string
+}) {
+  const imgStyle = albumPhotoFrameStyle(frame, true) as CSSProperties
+  return (
+    <foreignObject x={x} y={y} width={w} height={h} clipPath={`url(#${clipId})`} pointerEvents="none">
+      <div style={{ width: `${w}px`, height: `${h}px`, overflow: 'hidden', pointerEvents: 'none' }}>
+        <img src={href} alt="" draggable={false} style={imgStyle} />
+      </div>
+    </foreignObject>
+  )
+}
 
 type DragState = {
   memberIndex: number
@@ -52,25 +79,25 @@ function TreeCard({
   node,
   lang,
   dragging,
-  highlight,
   onPointerDown,
 }: {
   node: LaidOutNode
   lang: string
   dragging: boolean
-  highlight: boolean
   onPointerDown?: (e: ReactPointerEvent, node: LaidOutNode) => void
 }) {
   const initial = avatarInitial(node.name)
-  const isYou = node.kind === 'self'
   const focus = isFocusKind(node.kind)
   const w = focus ? TREE_FOCUS_NODE_W : TREE_NODE_W
   const h = focus ? TREE_FOCUS_NODE_H : TREE_NODE_H
   const movable = node.memberIndex != null
   const editable = node.kind !== 'pregnancy'
-  const avatarR = focus ? 17 : 14
-  const avatarY = focus ? -18 : -16
+  const hasPhoto = Boolean(node.photo)
+  const rx = focus ? 18 : 14
+  const x = -w / 2
+  const y = -h / 2
   const clipId = `hm-avatar-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+  const fadeId = `${clipId}-fade`
   const roleLabel = relationshipLabel(node.role, lang, true)
 
   return (
@@ -84,48 +111,38 @@ function TreeCard({
     >
       <defs>
         <clipPath id={clipId}>
-          <circle cx={0} cy={avatarY} r={avatarR} />
+          <rect x={x} y={y} width={w} height={h} rx={rx} />
         </clipPath>
+        <linearGradient id={fadeId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="40%" stopColor="#1a2238" stopOpacity="0" />
+          <stop offset="100%" stopColor="#1a2238" stopOpacity="0.72" />
+        </linearGradient>
       </defs>
       <rect
-        x={-w / 2}
-        y={-h / 2}
+        x={x}
+        y={y}
         width={w}
         height={h}
-        rx={focus ? 18 : 14}
-        fill="#fff"
-        fillOpacity={1}
-        stroke={
-          highlight
-            ? ACCENT
-            : isYou
-              ? NAVY
-              : node.kind === 'partner' || node.kind === 'child' || node.kind === 'pet'
-                ? 'rgba(190,180,205,.75)'
-                : movable
-                  ? 'rgba(190,180,205,.45)'
-                  : 'rgba(43,58,103,.08)'
-        }
-        strokeWidth={highlight || focus ? 2 : 1}
+        rx={rx}
+        fill={node.color}
         filter="url(#hm-ft-shadow)"
       />
-      <circle cx={0} cy={avatarY} r={avatarR} fill={node.color} stroke="#fff" strokeWidth={1.5} />
-      {node.photo ? (
-        <image
-          href={node.photo}
-          x={-avatarR}
-          y={avatarY - avatarR}
-          width={avatarR * 2}
-          height={avatarR * 2}
-          clipPath={`url(#${clipId})`}
-          preserveAspectRatio="xMidYMid slice"
+      {hasPhoto ? (
+        <TreeFramedPhoto
+          href={node.photo!}
+          frame={node.photoFrame}
+          x={x}
+          y={y}
+          w={w}
+          h={h}
+          clipId={clipId}
         />
       ) : (
         <text
           textAnchor="middle"
           dominantBaseline="central"
-          y={avatarY}
-          fontSize={focus ? 14 : 12}
+          y={focus ? -12 : -10}
+          fontSize={focus ? 20 : 17}
           fontWeight={700}
           fill="#fff"
           fontFamily="'DM Sans', sans-serif"
@@ -133,12 +150,20 @@ function TreeCard({
           {initial}
         </text>
       )}
+      <rect x={x} y={y} width={w} height={h} rx={rx} fill={`url(#${fadeId})`} />
       {editable && (
         <>
-          <circle cx={avatarR - 2} cy={avatarY + avatarR - 4} r={7} fill="#fff" stroke={ACCENT} strokeWidth={1.25} />
+          <circle
+            cx={w / 2 - 11}
+            cy={-h / 2 + 11}
+            r={7}
+            fill="#fff"
+            stroke={ACCENT}
+            strokeWidth={1.25}
+          />
           <text
-            x={avatarR - 2}
-            y={avatarY + avatarR - 3.5}
+            x={w / 2 - 11}
+            y={-h / 2 + 11.5}
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={8}
@@ -149,7 +174,14 @@ function TreeCard({
         </>
       )}
       {movable && (
-        <text x={0} y={-h / 2 + 11} textAnchor="middle" fontSize={9} fill={NAVY} opacity={0.55}>
+        <text
+          x={0}
+          y={-h / 2 + 11}
+          textAnchor="middle"
+          fontSize={9}
+          fill="#fff"
+          opacity={0.85}
+        >
           ⋮⋮
         </text>
       )}
@@ -158,12 +190,18 @@ function TreeCard({
         y={focus ? 14 : 12}
         fontSize={focus ? 11.5 : 10.5}
         fontWeight={700}
-        fill={NAVY}
+        fill="#fff"
         fontFamily="'DM Sans', sans-serif"
       >
         {node.name.length > (focus ? 10 : 9) ? `${node.name.slice(0, focus ? 9 : 8)}…` : node.name}
       </text>
-      <text textAnchor="middle" y={focus ? 28 : 26} fontSize={8.5} fill={MUTED} fontFamily="'DM Sans', sans-serif">
+      <text
+        textAnchor="middle"
+        y={focus ? 28 : 26}
+        fontSize={8.5}
+        fill="rgba(255,255,255,0.9)"
+        fontFamily="'DM Sans', sans-serif"
+      >
         {roleLabel.length > 12 ? `${roleLabel.slice(0, 11)}…` : roleLabel}
       </text>
     </g>
@@ -178,10 +216,10 @@ export function FamilyTreePanel({
   pregnancyActive,
   memoryCounts,
   selfPhoto,
+  selfPhotoFrame,
   onNodeSelect,
   onEditNode,
   onPlaceMembers,
-  selectedNodeId,
 }: {
   userName: string
   lang: string
@@ -190,10 +228,10 @@ export function FamilyTreePanel({
   pregnancyActive: boolean
   memoryCounts?: Record<string, number>
   selfPhoto?: string
+  selfPhotoFrame?: FamilyPhotoFrame
   onNodeSelect?: (ref?: string) => void
   onEditNode?: (node: LaidOutNode) => void
   onPlaceMembers?: (nextMembers: FamilyMemberRecord[]) => void
-  selectedNodeId?: string | null
 }) {
   const el = lang === 'el'
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -243,8 +281,9 @@ export function FamilyTreePanel({
         members,
         memoryCounts,
         selfPhoto,
+        selfPhotoFrame,
       }),
-    [userName, copy, pregnancyActive, familyChildren, members, memoryCounts, selfPhoto],
+    [userName, copy, pregnancyActive, familyChildren, members, memoryCounts, selfPhoto, selfPhotoFrame],
   )
 
   const layout = useMemo(() => layoutFamilyTree(people, lang), [people, lang])
@@ -544,7 +583,6 @@ export function FamilyTreePanel({
                 node={n}
                 lang={lang}
                 dragging={!!drag && drag.memberIndex === n.memberIndex && (drag.moved || drag.armed)}
-                highlight={selectedNodeId === n.id}
                 onPointerDown={onPointerDown}
               />
             ))}
@@ -552,26 +590,51 @@ export function FamilyTreePanel({
 
           {drag && (drag.moved || drag.armed) && ghost && (
             <g transform={`translate(${drag.x}, ${drag.y})`} style={{ pointerEvents: 'none' }}>
-              <rect
-                x={-(isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_W : TREE_NODE_W) / 2}
-                y={-(isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_H : TREE_NODE_H) / 2}
-                width={isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_W : TREE_NODE_W}
-                height={isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_H : TREE_NODE_H}
-                rx={18}
-                fill="#fff"
-                fillOpacity={1}
-                stroke={ACCENT}
-                strokeWidth={2.5}
-                opacity={0.95}
-                filter="url(#hm-ft-shadow)"
-              />
-              <circle cx={0} cy={-16} r={15} fill={ghost.color} />
-              <text textAnchor="middle" dominantBaseline="central" y={-16} fontSize={13} fontWeight={700} fill="#fff">
-                {avatarInitial(ghost.name)}
-              </text>
-              <text textAnchor="middle" y={14} fontSize={11} fontWeight={700} fill={NAVY}>
-                {ghost.name.length > 9 ? `${ghost.name.slice(0, 8)}…` : ghost.name}
-              </text>
+              {(() => {
+                const gw = isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_W : TREE_NODE_W
+                const gh = isFocusKind(ghost.kind) ? TREE_FOCUS_NODE_H : TREE_NODE_H
+                const gx = -gw / 2
+                const gy = -gh / 2
+                return (
+                  <>
+                    {ghost.photo ? (
+                      <defs>
+                        <clipPath id="hm-ft-ghost-clip">
+                          <rect x={gx} y={gy} width={gw} height={gh} rx={18} />
+                        </clipPath>
+                      </defs>
+                    ) : null}
+                    <rect
+                      x={gx}
+                      y={gy}
+                      width={gw}
+                      height={gh}
+                      rx={18}
+                      fill={ghost.color}
+                      opacity={0.95}
+                      filter="url(#hm-ft-shadow)"
+                    />
+                    {ghost.photo ? (
+                      <TreeFramedPhoto
+                        href={ghost.photo}
+                        frame={ghost.photoFrame}
+                        x={gx}
+                        y={gy}
+                        w={gw}
+                        h={gh}
+                        clipId="hm-ft-ghost-clip"
+                      />
+                    ) : (
+                      <text textAnchor="middle" dominantBaseline="central" y={-10} fontSize={18} fontWeight={700} fill="#fff">
+                        {avatarInitial(ghost.name)}
+                      </text>
+                    )}
+                    <text textAnchor="middle" y={14} fontSize={11} fontWeight={700} fill="#fff">
+                      {ghost.name.length > 9 ? `${ghost.name.slice(0, 8)}…` : ghost.name}
+                    </text>
+                  </>
+                )
+              })()}
             </g>
           )}
         </svg>

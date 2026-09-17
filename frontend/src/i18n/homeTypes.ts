@@ -39,6 +39,19 @@ export interface HomeSafetyItem {
   text: string;
 }
 
+export interface HomeInsideItem {
+  id: string;
+  title: string;
+  body: string;
+  imageAlt: string;
+}
+
+export interface HomeInsideExtra {
+  icon: string;
+  title: string;
+  body: string;
+}
+
 export interface FaqAnswerSection {
   title?: string;
   intro?: string;
