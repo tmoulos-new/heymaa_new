@@ -48,6 +48,7 @@ import {
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import "./appResponsive.css";
+
 import { useTranslation } from "react-i18next";
 import type { HomeFaqItem } from "./i18n/homeTypes";
 import { homeDisplayLocale } from "./i18n";
@@ -4130,6 +4131,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         onClose={() => setShowFaqDialog(false)}
         size="lg"
         ariaLabel={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
+        panelClassName="hm-faq-dialog"
       >
         <DialogPanel variant="cream" padding="md">
           <SheetHeader
@@ -4222,8 +4224,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         size="md"
         ariaLabel={lang === "el" ? "Επεξεργασία προφίλ" : "Edit profile"}
         closeOnBackdrop={!editSaving}
+        panelClassName="hm-profile-edit-dialog"
       >
-        <DialogPanel variant="cream" padding="lg">
+        <DialogPanel variant="cream" padding="lg" className="hm-profile-edit-panel">
             <input
               ref={profilePhotoRef}
               type="file"
@@ -4280,6 +4283,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>
             </div>
 
+            <div className="hm-profile-edit-fields">
             {([
               {
                 key: "name",
@@ -4360,6 +4364,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 ) : null}
               </div>
             ))}
+            </div>
 
             <button
               type="button"
@@ -4376,8 +4381,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {/* ADD CHILD — in-app screen */}
       {showAddChild&&(
         <div className="hm-sheet-overlay">
-          <div className="hm-sheet-panel" style={{background:cream}}>
-            <div style={{flex:1,overflowY:"auto",padding:"16px 20px 12px",boxSizing:"border-box"}}>
+          <div className="hm-sheet-panel hm-add-child-sheet" style={{background:cream}}>
+            <div className="hm-add-child-sheet__body">
               <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:22}}>
                 <button
                   type="button"

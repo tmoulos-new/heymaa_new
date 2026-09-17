@@ -14,3 +14,25 @@ export function IconTrash({ size = 15 }: { size?: number }) {
     </svg>
   );
 }
+
+export function IconPlay({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 6.2v11.6L19 12 8 6.2z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function IconCamera({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 9h3.1l1.3-2.2h7.2L16.9 9H20v10H4V9z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="14" r="3.1" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}

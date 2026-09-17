@@ -101,8 +101,9 @@ export function AccountPrivacySheet({
         size="md"
         ariaLabel={isEl ? 'Απόρρητο & δεδομένα' : 'Privacy & data'}
         closeOnBackdrop={!deleting}
+        panelClassName="hm-privacy-dialog"
       >
-        <DialogPanel variant="cream" padding="md">
+        <DialogPanel variant="cream" padding="md" className="hm-privacy-panel">
           <SheetHeader
             title={isEl ? 'Απόρρητο & δεδομένα' : 'Privacy & data'}
             subtitle={isEl ? 'Διαχείριση συγκαταθέσεων και λογαριασμού' : 'Manage consents and your account'}
@@ -110,6 +111,7 @@ export function AccountPrivacySheet({
             backLabel={isEl ? 'Πίσω' : 'Back'}
           />
 
+          <div className="hm-privacy-grid">
           <section className="hm-panel-section">
             <div className="hm-section-label">
               {isEl ? 'ΕΠΙΚΟΙΝΩΝΙΑ MARKETING' : 'MARKETING'}
@@ -205,6 +207,7 @@ export function AccountPrivacySheet({
               {isEl ? 'Διαγραφή λογαριασμού' : 'Delete my account'}
             </button>
           </section>
+          </div>
         </DialogPanel>
       </AppDialog>
 

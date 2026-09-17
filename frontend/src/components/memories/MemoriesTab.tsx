@@ -9,6 +9,7 @@ import { useSavedMemoryAlbums, type SavedMemoryAlbum } from '../../lib/memoryAlb
 import { AppTabPageShell } from '../AppTabPageShell'
 import { MemoryCard } from './MemoryCard'
 import { AddMemoryModal, type MemoryFormValues } from './AddMemoryModal'
+import { MemoryViewModal } from './MemoryViewModal'
 import { MemoriesAlbumModal } from './MemoriesAlbumModal'
 import { MemoriesAlbumSection } from './MemoriesAlbumSection'
 import { MemoryEmojiIcon } from './MemoryEmojiIcon'
@@ -46,7 +47,7 @@ export type MemoriesTabProps = {
   title: string
 }
 
-type FeedFilter = 'all' | 'photos' | 'milestones'
+type FeedFilter = 'all' | 'photos' | 'videos' | 'milestones'
 type MemoriesView = 'journal' | 'albums'
 
 function memoryMatchesJournal(
@@ -99,6 +100,7 @@ export function MemoriesTab({
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [viewingMemory, setViewingMemory] = useState<AppMemory | null>(null)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
   const [editingAlbum, setEditingAlbum] = useState<SavedMemoryAlbum | null>(null)
   const [editIndex, setEditIndex] = useState<number | null>(null)
@@ -136,7 +138,8 @@ export function MemoriesTab({
   const filteredMemories = useMemo(() => {
     let list = journalMemories
     if (feedFilter === 'milestones') list = list.filter(isMemoryMilestone)
-    if (feedFilter === 'photos') list = list.filter((m) => Boolean(m.img || m.video))
+    if (feedFilter === 'photos') list = list.filter((m) => Boolean(m.img) && !m.video)
+    if (feedFilter === 'videos') list = list.filter((m) => Boolean(m.video))
     if (fromDate || toDate) {
       list = memoriesInDateRange(list, fromDate || '1970-01-01', toDate || toIsoDate(new Date()), lang)
     }
@@ -336,6 +339,13 @@ export function MemoriesTab({
                 </button>
                 <button
                   type="button"
+                  className={`hm-memories-filter${feedFilter === 'videos' ? ' hm-memories-filter--active' : ''}`}
+                  onClick={() => setFeedFilter('videos')}
+                >
+                  {el ? 'Βίντεο' : 'Videos'}
+                </button>
+                <button
+                  type="button"
                   className={`hm-memories-filter hm-memories-filter--icon${feedFilter === 'milestones' ? ' hm-memories-filter--active' : ''}`}
                   onClick={() => setFeedFilter('milestones')}
                 >
@@ -406,7 +416,7 @@ export function MemoriesTab({
             {filteredMemories.length === 0 ? (
               <div className="hm-memories-empty">
                 <div className="hm-memories-empty__icon" aria-hidden="true">
-                  <MemoryEmojiIcon emoji={feedFilter === 'milestones' ? '🚩' : '🧸'} size={52} />
+                  <MemoryEmojiIcon emoji={feedFilter === 'milestones' ? '🚩' : feedFilter === 'videos' ? '🎬' : '🧸'} size={52} />
                 </div>
                 <h3 className="hm-memories-empty__title">
                   {filtersActive
@@ -415,7 +425,9 @@ export function MemoriesTab({
                       ? (el ? 'Δεν υπάρχουν ορόσημα ακόμα' : 'No milestones yet')
                       : feedFilter === 'photos'
                         ? (el ? 'Δεν υπάρχουν φωτογραφίες ακόμα' : 'No photos yet')
-                        : (el ? 'Η πρώτη σου ανάμνηση ξεκινάει εδώ' : 'Your first memory starts here')}
+                        : feedFilter === 'videos'
+                          ? (el ? 'Δεν υπάρχουν βίντεο ακόμα' : 'No videos yet')
+                          : (el ? 'Η πρώτη σου ανάμνηση ξεκινάει εδώ' : 'Your first memory starts here')}
                 </h3>
                 <p className="hm-memories-empty__sub">
                   {filtersActive
@@ -424,7 +436,9 @@ export function MemoriesTab({
                       ? (el ? 'Τα ορόσημα από το chat ή χειροκίνητες καταχωρήσεις θα εμφανίζονται εδώ.' : 'Milestones from chat or manual entries will appear here.')
                       : feedFilter === 'photos'
                         ? (el ? 'Οι αναμνήσεις με φωτογραφία θα φαίνονται εδώ.' : 'Memories with a photo will show up here.')
-                        : (el ? 'Κράτα τις γλυκές στιγμές του μωρού σου.' : 'Keep the sweet moments of your baby.')}
+                        : feedFilter === 'videos'
+                          ? (el ? 'Οι αναμνήσεις με βίντεο θα φαίνονται εδώ.' : 'Memories with a video will show up here.')
+                          : (el ? 'Κράτα τις γλυκές στιγμές του μωρού σου.' : 'Keep the sweet moments of your baby.')}
                 </p>
                 {filtersActive ? (
                   <button type="button" className="hm-memories-empty__cta" onClick={clearFilters}>
@@ -445,6 +459,7 @@ export function MemoriesTab({
                       key={m.createdAt || `${m.text}-${globalIndex}`}
                       memory={m}
                       lang={lang}
+                      onOpen={() => setViewingMemory(m)}
                       onEdit={isMemoryMilestone(m) ? undefined : () => openEdit(globalIndex)}
                       onDelete={() => onDeleteMemory(globalIndex)}
                     />
@@ -455,6 +470,13 @@ export function MemoriesTab({
           </>
         )}
       </AppTabPageShell>
+
+      <MemoryViewModal
+        open={Boolean(viewingMemory)}
+        memory={viewingMemory}
+        lang={lang}
+        onClose={() => setViewingMemory(null)}
+      />
 
       <AddMemoryModal
         open={showAddModal}

@@ -558,94 +558,96 @@ export function MemoriesAlbumSection({
         </div>
       )}
 
-      <p className="hm-memories-album-section__period-label">
-        {displayUppercase(labels.pickPeriod, lang)}
-      </p>
-      <p className="hm-memories-album-section__step-hint">{labels.pickPeriodHint}</p>
-      <div className="hm-memories-date-presets">
-        {dateChips.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            className={`hm-memories-filter hm-memories-filter--date${datePreset === chip.id ? ' hm-memories-filter--active' : ''}`}
-            onClick={() => applyPreset(chip.id)}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-      {datePreset === 'custom' && (
-      <div className="hm-memories-album-section__dates">
-        <label className="hm-memories-album-section__date-field">
-          <span>{labels.dateFrom}</span>
-          <HmDateField
-            lang={lang}
-            value={fromDate}
-            max={toDate || undefined}
-            onChange={(iso) => {
-              setDatePreset('custom')
-              setFromDate(iso)
-            }}
-            variant="input"
-            size="sm"
-            ariaLabel={labels.dateFrom}
-          />
-        </label>
-        <label className="hm-memories-album-section__date-field">
-          <span>{labels.dateTo}</span>
-          <HmDateField
-            lang={lang}
-            value={toDate}
-            min={fromDate || undefined}
-            onChange={(iso) => {
-              setDatePreset('custom')
-              setToDate(iso)
-            }}
-            variant="input"
-            size="sm"
-            ariaLabel={labels.dateTo}
-          />
-        </label>
-      </div>
-      )}
-
-      {rangeOk && (
-        <p className="hm-memories-album-section__period-summary">
-          <strong>{periodText}</strong>
-          {' · '}
-          {countInPeriod} {el ? 'στιγμές' : 'moments'}
+      <div className="hm-memories-album-section__setup">
+        <p className="hm-memories-album-section__period-label">
+          {displayUppercase(labels.pickPeriod, lang)}
         </p>
-      )}
+        <p className="hm-memories-album-section__step-hint">{labels.pickPeriodHint}</p>
+        <div className="hm-memories-date-presets">
+          {dateChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              className={`hm-memories-filter hm-memories-filter--date${datePreset === chip.id ? ' hm-memories-filter--active' : ''}`}
+              onClick={() => applyPreset(chip.id)}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        {datePreset === 'custom' ? (
+          <div className="hm-memories-album-section__dates">
+            <label className="hm-memories-album-section__date-field">
+              <span>{labels.dateFrom}</span>
+              <HmDateField
+                lang={lang}
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(iso) => {
+                  setDatePreset('custom')
+                  setFromDate(iso)
+                }}
+                variant="input"
+                size="sm"
+                ariaLabel={labels.dateFrom}
+              />
+            </label>
+            <label className="hm-memories-album-section__date-field">
+              <span>{labels.dateTo}</span>
+              <HmDateField
+                lang={lang}
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(iso) => {
+                  setDatePreset('custom')
+                  setToDate(iso)
+                }}
+                variant="input"
+                size="sm"
+                ariaLabel={labels.dateTo}
+              />
+            </label>
+          </div>
+        ) : null}
 
-      <label className="hm-memories-album-section__title-field">
-        <span className="hm-memories-album-section__period-label">{displayUppercase(labels.albumTitleField, lang)}</span>
-        <span className="hm-memories-album-section__step-hint">{labels.albumTitleHint}</span>
-        <input
-          type="text"
-          className="hm-memories-album-section__title-input"
-          value={albumTitle}
-          onChange={(e) => setAlbumTitle(e.target.value)}
-          placeholder={titlePlaceholder}
-          maxLength={80}
-          autoComplete="off"
-          aria-label={labels.albumTitleField}
-        />
-      </label>
+        {rangeOk ? (
+          <p className="hm-memories-album-section__period-summary">
+            <strong>{periodText}</strong>
+            {' · '}
+            {countInPeriod} {el ? 'στιγμές' : 'moments'}
+          </p>
+        ) : null}
 
-      <label className="hm-memories-album-section__title-field">
-        <span className="hm-memories-album-section__period-label">{displayUppercase(labels.albumSubtitleField, lang)}</span>
-        <span className="hm-memories-album-section__step-hint">{labels.albumSubtitleHint}</span>
-        <input
-          type="text"
-          className="hm-memories-album-section__title-input"
-          value={albumSubtitle}
-          onChange={(e) => setAlbumSubtitle(e.target.value)}
-          placeholder={subtitlePlaceholder}
-          maxLength={140}
-          autoComplete="off"
-          aria-label={labels.albumSubtitleField}
-        />
-      </label>
+        <label className="hm-memories-album-section__title-field">
+          <span className="hm-memories-album-section__period-label">{displayUppercase(labels.albumTitleField, lang)}</span>
+          <span className="hm-memories-album-section__step-hint">{labels.albumTitleHint}</span>
+          <input
+            type="text"
+            className="hm-memories-album-section__title-input"
+            value={albumTitle}
+            onChange={(e) => setAlbumTitle(e.target.value)}
+            placeholder={titlePlaceholder}
+            maxLength={80}
+            autoComplete="off"
+            aria-label={labels.albumTitleField}
+          />
+        </label>
+
+        <label className="hm-memories-album-section__title-field">
+          <span className="hm-memories-album-section__period-label">{displayUppercase(labels.albumSubtitleField, lang)}</span>
+          <span className="hm-memories-album-section__step-hint">{labels.albumSubtitleHint}</span>
+          <input
+            type="text"
+            className="hm-memories-album-section__title-input"
+            value={albumSubtitle}
+            onChange={(e) => setAlbumSubtitle(e.target.value)}
+            placeholder={subtitlePlaceholder}
+            maxLength={140}
+            autoComplete="off"
+            aria-label={labels.albumSubtitleField}
+          />
+        </label>
+      </div>
 
       <div className="hm-memory-album-preview">
         <div className="hm-memory-album-preview__header">

@@ -401,6 +401,204 @@ body.hm-app-active #root {
   }
 }
 
+.hm-add-child-sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.hm-add-child-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 12px;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Desktop: grow/reflow popups so typical content fits without a scrollbar */
+@media (min-width: 1024px) {
+  .hm-overlay--bottom {
+    align-items: center;
+    padding: 28px 40px;
+  }
+
+  .hm-dialog {
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-dialog--lg {
+    max-width: min(720px, calc(100% - 64px));
+  }
+
+  .hm-faq-dialog.hm-dialog--lg {
+    max-width: min(760px, calc(100% - 64px));
+  }
+
+  .hm-privacy-dialog.hm-dialog,
+  .hm-profile-edit-dialog.hm-dialog {
+    max-width: min(720px, calc(100% - 64px));
+  }
+
+  .hm-privacy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .hm-privacy-grid .hm-panel-section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .hm-profile-edit-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+  }
+
+  .hm-profile-edit-fields .hm-form-field:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .hm-sheet-panel {
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-sheet-panel--dialog {
+    max-width: min(480px, calc(100% - 64px));
+  }
+
+  .hm-add-child-sheet {
+    height: auto;
+    max-width: min(760px, calc(100% - 64px));
+  }
+
+  .hm-add-child-sheet__body {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 28px;
+    align-items: start;
+  }
+
+  .hm-add-child-sheet__body > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .hm-add-child-sheet__body > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .hm-memory-modal.hm-dialog {
+    max-width: min(760px, calc(100% - 64px));
+    overflow-y: auto;
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-memory-modal__panel {
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 22px;
+  }
+
+  .hm-memory-modal__layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.1fr);
+    gap: 8px 24px;
+    align-items: start;
+  }
+
+  .hm-memory-modal__emoji-grid {
+    gap: 6px;
+  }
+
+  .hm-dialog.hm-memory-album-modal {
+    max-width: min(1080px, calc(100% - 64px));
+    overflow-y: auto;
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-memory-album-modal__panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-memories-album-section--modal {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+    grid-template-areas:
+      'head head'
+      'setup preview'
+      'cover preview'
+      'actions preview';
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .hm-memories-album-section--modal .hm-memories-album-section__head {
+    grid-area: head;
+  }
+
+  .hm-memories-album-section--modal .hm-memories-album-section__setup {
+    grid-area: setup;
+  }
+
+  .hm-memories-album-section--modal .hm-memory-album-preview {
+    grid-area: preview;
+  }
+
+  .hm-memories-album-section--modal .hm-memories-album-section__cover {
+    grid-area: cover;
+  }
+
+  .hm-memories-album-section--modal .hm-memories-album-section__composer-actions {
+    grid-area: actions;
+    margin-top: 8px;
+  }
+
+  .hm-tree-edit-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-threads-sheet,
+  .hm-chat-search-list,
+  .hm-chat-library {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-dialog--library {
+    max-width: min(920px, calc(100% - 64px));
+  }
+
+  .hm-chat-library-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .hm-family-docs__sheet {
+    max-height: min(96vh, 96dvh);
+  }
+
+  .in-app-subscription-sheet .hm-subscription-sheet-inner {
+    padding: 18px 24px 24px;
+  }
+
+  .in-app-subscription-sheet .plan-stack .plan-feats {
+    gap: 4px;
+    margin: 8px 0 10px;
+  }
+
+  .in-app-subscription-sheet .plan-stack .plan-feats li {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .in-app-subscription-sheet .plan-meta {
+    min-height: 0;
+  }
+}
+
 /* Threads bottom sheet: full width of shell */
 .hm-threads-sheet {
   width: 100%;
@@ -4178,7 +4376,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-tab-icon--active {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(222, 90, 158, 0.32);
   color: #fff;
 }
 
@@ -5193,6 +5391,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-card {
+  position: relative;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
@@ -5200,6 +5399,27 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.hm-memory-card__open {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.hm-memory-card__open:focus-visible {
+  outline: 2px solid var(--hm-navy);
+  outline-offset: -2px;
 }
 
 .hm-memory-card__media {
@@ -5290,6 +5510,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-card__title {
+  display: block;
   margin: 0;
   font-family: 'DM Sans', sans-serif;
   font-size: 15px;
@@ -5332,6 +5553,95 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memory-card__action--delete {
   color: #de5a9e;
+}
+
+.hm-memory-card__kind {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(43, 58, 103, 0.86);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(43, 58, 103, 0.28);
+}
+
+.hm-memory-card__kind--video {
+  background: rgba(222, 90, 158, 0.94);
+  padding-left: 2px;
+}
+
+.hm-memory-view-modal.hm-dialog {
+  max-width: min(560px, 100%);
+}
+
+.hm-memory-view-modal__panel {
+  padding-bottom: 22px;
+}
+
+.hm-memory-view-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.hm-memory-view-modal__title {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hm-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hm-memory-view-modal__media {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #141820;
+  margin-bottom: 12px;
+}
+
+.hm-memory-view-modal__media--emoji {
+  background: transparent;
+}
+
+.hm-memory-view-modal__player {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 640px);
+  object-fit: contain;
+  background: #141820;
+}
+
+.hm-memory-view-modal__emoji {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+}
+
+.hm-memory-view-modal__meta {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-memory-view-modal__desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hm-navy);
 }
 
 .hm-memories-empty {
@@ -5588,7 +5898,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 /* Album modal (secondary add-on) — merged booklet + grid preview */
-.hm-memory-album-modal .hm-dialog {
+.hm-dialog.hm-memory-album-modal {
   max-width: 480px;
 }
 
@@ -6563,3 +6873,64 @@ body.hm-app-active .hm-sheet-overlay {
   line-height: 1.5;
   color: rgba(43, 58, 103, 0.72);
 }
+
+@media (min-width: 1024px) {
+  .hm-memory-modal.hm-dialog {
+    max-width: min(760px, calc(100% - 64px));
+    overflow-y: auto;
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-memory-modal__panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-dialog.hm-memory-album-modal {
+    max-width: min(1080px, calc(100% - 64px));
+    overflow-y: auto;
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-memory-album-modal__panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-tree-edit-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-threads-sheet,
+  .hm-chat-search-list,
+  .hm-chat-library {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hm-dialog--library {
+    max-width: min(920px, calc(100% - 64px));
+  }
+
+  .hm-family-docs__sheet {
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-dialog.hm-memory-view-modal {
+    max-width: min(860px, calc(100% - 64px));
+    overflow-y: auto;
+    max-height: min(96vh, 96dvh);
+  }
+
+  .hm-memory-view-modal__panel {
+    overflow: visible;
+  }
+
+  .hm-memory-view-modal__player {
+    max-height: min(72vh, 720px);
+  }
+}
+
+/* desktop popups: prefer wider/taller layout over inner scrollbars */
+
