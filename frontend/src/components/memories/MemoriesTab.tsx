@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FamilyChild, FamilyMemberRecord } from '../../lib/familyData'
 import { memberMemoryRef, memoryBelongsToMember } from '../../lib/familyData'
 import type { AppMemory } from '../../lib/memoryTypes'
@@ -14,6 +14,7 @@ import { MemoriesAlbumModal } from './MemoriesAlbumModal'
 import { MemoriesAlbumSection } from './MemoriesAlbumSection'
 import { MemoryEmojiIcon } from './MemoryEmojiIcon'
 import { HmDateField } from '../HmDateField'
+import { IconSearch } from '../ui/LineIcons'
 
 export type MemoriesTabProps = {
   lang: string
@@ -96,6 +97,8 @@ export function MemoriesTab({
   const [view, setView] = useState<MemoriesView>('journal')
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all')
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -156,6 +159,12 @@ export function MemoriesTab({
   }, [journalMemories, feedFilter, fromDate, toDate, query, lang])
 
   const filtersActive = datePreset !== 'all' || Boolean(query.trim()) || Boolean(fromDate || toDate)
+  const searchActive = filtersActive || feedFilter !== 'all'
+
+  useEffect(() => {
+    if (!searchOpen) return
+    searchInputRef.current?.focus()
+  }, [searchOpen])
 
   const applyPreset = (preset: DatePreset) => {
     setDatePreset(preset)
@@ -274,19 +283,36 @@ export function MemoriesTab({
           </button>
         </div>
 
-        {journalOptions.length > 1 && (
-          <div className="hm-memories-journal-tabs">
-            {journalOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`hm-memories-journal-tab${journalRef === opt.value ? ' hm-memories-journal-tab--active' : ''}`}
-                onClick={() => setActiveMemRef(opt.value)}
-              >
-                👶 {opt.label}
-              </button>
-            ))}
-          </div>
+        {(journalOptions.length > 1 || view === 'journal') && (
+        <div className="hm-memories-tools">
+          {journalOptions.length > 1 && (
+            <div className="hm-memories-journal-tabs">
+              {journalOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`hm-memories-journal-tab${journalRef === opt.value ? ' hm-memories-journal-tab--active' : ''}`}
+                  onClick={() => setActiveMemRef(opt.value)}
+                >
+                  👶 {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {view === 'journal' && (
+            <button
+              type="button"
+              className={`hm-memories-search-toggle${searchOpen ? ' is-open' : ''}${searchActive ? ' is-active' : ''}`}
+              aria-expanded={searchOpen}
+              aria-controls="hm-memories-search-panel"
+              onClick={() => setSearchOpen((open) => !open)}
+            >
+              <IconSearch size={15} />
+              {el ? 'Αναζήτηση' : 'Search'}
+              {searchActive ? <span className="hm-memories-search-toggle__dot" aria-hidden="true" /> : null}
+            </button>
+          )}
+        </div>
         )}
 
         {view === 'albums' ? (
@@ -310,9 +336,11 @@ export function MemoriesTab({
           />
         ) : (
           <>
-            <div className="hm-memories-toolbar">
+            {searchOpen && (
+            <div className="hm-memories-toolbar" id="hm-memories-search-panel">
               <label className="hm-memories-search">
                 <input
+                  ref={searchInputRef}
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -407,6 +435,7 @@ export function MemoriesTab({
               </div>
               )}
             </div>
+            )}
 
             <button type="button" className="hm-memories-album-cta" onClick={openCreate}>
               <span className="hm-memories-album-cta__plus" aria-hidden="true">+</span>

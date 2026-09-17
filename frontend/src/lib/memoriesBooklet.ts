@@ -12,6 +12,7 @@ export interface BookletMemory {
   text: string
   date: string
   img?: string
+  video?: string
   ref?: string
   createdAt?: string
   description?: string
@@ -335,6 +336,15 @@ export function memoriesInDateRange(
     const ts = memoryTimestamp(m, i, memories.length, lang)
     return ts >= start && ts <= end
   })
+}
+
+/** Print albums are photo pages only — skip videos even if they have a thumbnail. */
+export function isAlbumPhotoMemory(m: Pick<BookletMemory, 'img' | 'video'>): boolean {
+  return Boolean(m.img) && !m.video
+}
+
+export function albumPhotoMemories(memories: BookletMemory[]): BookletMemory[] {
+  return memories.filter(isAlbumPhotoMemory)
 }
 
 export function formatBookletDateRangeLabel(fromIso: string, toIso: string, lang: string): string {
@@ -843,7 +853,7 @@ export function prepareBookletContent(opts: {
   pages: BookletFlipPage[]
 } {
   const { memories, fromDate, toDate, lang, children, members, labels, userName } = opts
-  const filtered = memoriesInDateRange(memories, fromDate, toDate, lang)
+  const filtered = albumPhotoMemories(memoriesInDateRange(memories, fromDate, toDate, lang))
   let groups = groupMemoriesForBooklet(filtered, lang, children, members, labels)
   if (groups.length === 0) {
     groups = [{ key: 'general', label: labels.general, icon: '🌸', memories: [] }]

@@ -7,6 +7,7 @@ import {
   downloadMemoriesBooklet,
   formatBookletDateRangeLabel,
   memoriesInDateRange,
+  albumPhotoMemories,
   prepareBookletContent,
   type AlbumPhotoFrame,
   type BookletMemory,
@@ -162,9 +163,10 @@ export function MemoriesAlbumSection({
   const rangeOk = allDates || Boolean(fromDate && toDate)
   const normalizedFrom = !allDates && rangeOk && fromDate > toDate ? toDate : fromDate
   const normalizedTo = !allDates && rangeOk && fromDate > toDate ? fromDate : toDate
+  const photoMemories = useMemo(() => albumPhotoMemories(memories), [memories])
   const inRange = useMemo(
-    () => (allDates ? memories : rangeOk ? memoriesInDateRange(memories, normalizedFrom, normalizedTo, lang) : []),
-    [allDates, memories, rangeOk, normalizedFrom, normalizedTo, lang],
+    () => (allDates ? photoMemories : rangeOk ? memoriesInDateRange(photoMemories, normalizedFrom, normalizedTo, lang) : []),
+    [allDates, photoMemories, rangeOk, normalizedFrom, normalizedTo, lang],
   )
   const rangeKeys = useMemo(() => inRange.map((m) => bookletMemoryKey(m)), [inRange])
   const effectiveKeys = useMemo(() => {
@@ -210,9 +212,9 @@ export function MemoriesAlbumSection({
   }
 
   const persistRange = useMemo(() => {
-    if (allDates) return memoriesDateSpan(selectedMemories.length ? selectedMemories : memories, lang)
+    if (allDates) return memoriesDateSpan(selectedMemories.length ? selectedMemories : photoMemories, lang)
     return { from: normalizedFrom, to: normalizedTo }
-  }, [allDates, selectedMemories, memories, lang, normalizedFrom, normalizedTo])
+  }, [allDates, selectedMemories, photoMemories, lang, normalizedFrom, normalizedTo])
 
   const bookletOpts = useMemo(
     () => ({
@@ -251,7 +253,7 @@ export function MemoriesAlbumSection({
 
   const optsForAlbum = useCallback(
     (album: SavedMemoryAlbum) => {
-      const inAlbumRange = memoriesInDateRange(memories, album.fromDate, album.toDate, lang)
+      const inAlbumRange = memoriesInDateRange(photoMemories, album.fromDate, album.toDate, lang)
       const picked =
         album.memoryKeys?.length
           ? inAlbumRange.filter((m) => album.memoryKeys!.includes(bookletMemoryKey(m)))
@@ -271,7 +273,7 @@ export function MemoriesAlbumSection({
         photoFrames: album.photoFrames,
       }
     },
-    [userName, memories, lang, familyChildren, members, labels],
+    [userName, photoMemories, lang, familyChildren, members, labels],
   )
 
   const previewingAlbum = previewAlbumId
@@ -300,11 +302,7 @@ export function MemoriesAlbumSection({
       return
     }
     const range = formatBookletDateRangeLabel(album.fromDate, album.toDate, lang)
-    const count = album.memoryKeys?.length
-      ? memoriesInDateRange(memories, album.fromDate, album.toDate, lang).filter((m) =>
-          album.memoryKeys!.includes(bookletMemoryKey(m)),
-        ).length
-      : memoriesInDateRange(memories, album.fromDate, album.toDate, lang).length
+    const count = optsForAlbum(album).memories.length
     const text = el
       ? `${album.title} · ${journalName} — ${count} στιγμές (${range})`
       : `${album.title} · ${journalName} — ${count} moments (${range})`
@@ -358,17 +356,13 @@ export function MemoriesAlbumSection({
   }
 
   const coverForAlbum = (album: SavedMemoryAlbum) =>
-    memories.find((m) => m.img && bookletMemoryKey(m) === album.coverMemoryKey)?.img
-    || memoriesInDateRange(memories, album.fromDate, album.toDate, lang).find((m) => m.img)?.img
+    photoMemories.find((m) => bookletMemoryKey(m) === album.coverMemoryKey)?.img
+    || optsForAlbum(album).memories.find((m) => m.img)?.img
 
   const albumCards = journalAlbums.map((album) => {
     const cover = coverForAlbum(album)
     const range = formatBookletDateRangeLabel(album.fromDate, album.toDate, lang)
-    const count = album.memoryKeys?.length
-      ? memoriesInDateRange(memories, album.fromDate, album.toDate, lang).filter((m) =>
-          album.memoryKeys!.includes(bookletMemoryKey(m)),
-        ).length
-      : memoriesInDateRange(memories, album.fromDate, album.toDate, lang).length
+    const count = optsForAlbum(album).memories.length
     return (
       <div key={album.id} className="hm-memories-album-saved">
         <div className="hm-memories-album-saved__main">
@@ -686,7 +680,7 @@ export function MemoriesAlbumSection({
         <div className="hm-memory-album-preview__grid">
           {inRange.length === 0 ? (
             <p className="hm-memory-album-preview__empty">
-              {el ? 'Δεν υπάρχουν αναμνήσεις σε αυτή την περίοδο.' : 'No memories in this period.'}
+              {el ? 'Δεν υπάρχουν φωτογραφίες σε αυτή την περίοδο.' : 'No photos in this period.'}
             </p>
           ) : (
             inRange.map((m, i) => {

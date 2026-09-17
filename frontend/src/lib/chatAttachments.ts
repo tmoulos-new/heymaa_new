@@ -10,6 +10,7 @@ export type ChatAttachment = {
 };
 
 export const MAX_CHAT_FILE_BYTES = 6 * 1024 * 1024;
+export const MAX_MEMORY_VIDEO_BYTES = 15 * 1024 * 1024;
 
 function readAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

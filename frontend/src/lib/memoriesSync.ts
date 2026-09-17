@@ -21,7 +21,8 @@ const META_IMG_MAX = 8_000; // keep tiny thumbs in localStorage meta only if sma
 function memoryRichness(m: SyncMemory): number {
   let score = 1;
   if (m.img) score += 10 + Math.min(4, Math.floor((m.img.length || 0) / 50_000));
-  if (m.text && m.text !== "📷") score += 2;
+  if (m.video) score += 12 + Math.min(4, Math.floor((m.video.length || 0) / 50_000));
+  if (m.text && m.text !== "📷" && m.text !== "🎬") score += 2;
   if (m.createdAt) score += 1;
   if (m.ref) score += 1;
   return score;
@@ -71,12 +72,15 @@ export function mergeMemories(...sources: Array<SyncMemory[] | null | undefined>
           ...prev,
           ...m,
           img: m.img || prev?.img,
-          text: (m.text && m.text !== "📷") || !prev?.text ? m.text : prev!.text,
+          video: m.video || prev?.video,
+          text: (m.text && m.text !== "📷" && m.text !== "🎬") || !prev?.text ? m.text : prev!.text,
           ref: m.ref || prev?.ref,
           createdAt: m.createdAt || prev?.createdAt,
         });
       } else if (prev && !prev.img && m.img) {
         map.set(k, { ...prev, img: m.img });
+      } else if (prev && !prev.video && m.video) {
+        map.set(k, { ...prev, video: m.video });
       }
     }
   }
@@ -92,7 +96,7 @@ export function memoriesScore(list: SyncMemory[]): number {
 }
 
 export function memoriesHavePhotos(list: SyncMemory[]): boolean {
-  return list.some((m) => !!m.img && m.img.length > 100);
+  return list.some((m) => (!!m.img && m.img.length > 100) || (!!m.video && m.video.length > 100));
 }
 
 /** True when local has photo bytes that remote is missing. */
@@ -121,12 +125,19 @@ function idbMemoriesKey(scope: string) {
   return `memories:${scope}`;
 }
 
-/** Strip large base64 images for localStorage meta (photos live in IndexedDB). */
+/** Strip large base64 images/videos for localStorage meta (media lives in IndexedDB). */
 export function memoriesWithoutHeavyImages(memories: SyncMemory[]): SyncMemory[] {
   return memories.map((m) => {
-    if (!m.img || m.img.length <= META_IMG_MAX) return m;
-    const { img: _drop, ...rest } = m;
-    return { ...rest, img: undefined, text: rest.text || "📷" };
+    let next: SyncMemory = m;
+    if (next.img && next.img.length > META_IMG_MAX) {
+      const { img: _drop, ...rest } = next;
+      next = { ...rest, img: undefined, text: rest.text || "📷" };
+    }
+    if (next.video && next.video.length > META_IMG_MAX) {
+      const { video: _drop, ...rest } = next;
+      next = { ...rest, video: undefined, text: rest.text || "🎬" };
+    }
+    return next;
   });
 }
 
@@ -136,22 +147,28 @@ const CLOUD_IMG_MAX = 350_000;
 export async function memoriesForCloud(memories: SyncMemory[]): Promise<SyncMemory[]> {
   const out: SyncMemory[] = [];
   for (const m of memories) {
-    if (!m.img) {
-      out.push(m);
+    let next: SyncMemory = m;
+    // Video data-URLs blow past userdata limits; keep them in IndexedDB only.
+    if (next.video && next.video.length > META_IMG_MAX) {
+      const { video: _drop, ...rest } = next;
+      next = { ...rest, video: undefined, text: rest.text || "🎬" };
+    }
+    if (!next.img) {
+      out.push(next);
       continue;
     }
-    if (m.img.length <= CLOUD_IMG_MAX) {
-      out.push(m);
+    if (next.img.length <= CLOUD_IMG_MAX) {
+      out.push(next);
       continue;
     }
-    let img = await compressImageDataUrl(m.img, 960, 0.65);
+    let img = await compressImageDataUrl(next.img, 960, 0.65);
     if (img.length > CLOUD_IMG_MAX) {
-      img = await compressImageDataUrl(m.img, 640, 0.55);
+      img = await compressImageDataUrl(next.img, 640, 0.55);
     }
     if (img.length <= CLOUD_IMG_MAX) {
-      out.push({ ...m, img });
+      out.push({ ...next, img });
     } else {
-      const { img: _drop, ...rest } = m;
+      const { img: _drop, ...rest } = next;
       out.push({ ...rest, img: undefined, text: rest.text || "📷" });
     }
   }

@@ -79,6 +79,7 @@ import {
   chatMessagesForStorage,
   fileToChatAttachment,
   MAX_CHAT_FILE_BYTES,
+  MAX_MEMORY_VIDEO_BYTES,
   type ChatAttachment,
 } from "./lib/chatAttachments";
 import { useKeyboardInset } from "./lib/useKeyboardInset";
@@ -4149,7 +4150,6 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <button
             type="button"
             className="hm-btn hm-btn--outline hm-btn--block"
-            style={{ marginTop: 12 }}
             onClick={openHelpContact}
           >
             {lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
@@ -5045,19 +5045,35 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          if (f.size > MAX_CHAT_FILE_BYTES) {
-            showToast(lang === "el" ? "Το αρχείο είναι πολύ μεγάλο (μέγ. 6MB)." : "File is too large (max 6MB).", "err");
+          const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
+          const maxBytes = isVideo ? MAX_MEMORY_VIDEO_BYTES : MAX_CHAT_FILE_BYTES;
+          if (f.size > maxBytes) {
+            showToast(
+              isVideo
+                ? (lang === "el" ? "Το βίντεο είναι πολύ μεγάλο (μέγ. 15MB)." : "Video is too large (max 15MB).")
+                : (lang === "el" ? "Το αρχείο είναι πολύ μεγάλο (μέγ. 6MB)." : "File is too large (max 6MB)."),
+              "err",
+            );
             e.target.value = "";
             return;
           }
           const r = new FileReader();
+          r.onerror = () => {
+            showToast(lang === "el" ? "Δεν μπόρεσε να φορτωθεί το αρχείο." : "Could not load the file.", "err");
+            e.target.value = "";
+          };
           r.onload = (ev) => {
             const dataUrl = ev.target?.result as string;
-            const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
             if (awaitingMemoryPhotoRef.current) {
               awaitingMemoryPhotoRef.current = false;
               if (isVideo) {
                 if (!featureAllowed("memory_video", planEntitlements, subSnapshot)) {
+                  showToast(
+                    lang === "el"
+                      ? "Τα βίντεο αναμνήσεων είναι διαθέσιμα από το πλάνο Starter."
+                      : "Memory videos need the Starter plan.",
+                    "err",
+                  );
                   openSubscriptionUpgrade();
                   e.target.value = "";
                   return;
