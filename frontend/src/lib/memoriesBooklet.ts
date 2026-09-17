@@ -2,7 +2,8 @@
 
 import type { FamilyChild, FamilyMemberRecord } from './familyData'
 import { relationshipLabel } from './familyTree'
-import { displayUppercase } from './greekText'
+import { displayUppercase, greekGenitiveArticle, nameInGenitive, type GreekNameGender } from './greekText'
+import { AUTH_LOGO_SRC } from '../auth/authLogo'
 
 export const MIN_MEMORIES_FOR_BOOKLET = 0
 
@@ -13,6 +14,90 @@ export interface BookletMemory {
   img?: string
   ref?: string
   createdAt?: string
+  description?: string
+  /** Album crop: 0–100 object-position X */
+  focusX?: number
+  /** Album crop: 0–100 object-position Y */
+  focusY?: number
+  /** Album crop scale, 1–3 */
+  zoom?: number
+}
+
+export type AlbumPhotoFrame = {
+  x: number
+  y: number
+  zoom: number
+}
+
+export const DEFAULT_ALBUM_PHOTO_FRAME: AlbumPhotoFrame = { x: 50, y: 50, zoom: 1 }
+
+function clampNum(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n))
+}
+
+export function clampAlbumPhotoFrame(f?: Partial<AlbumPhotoFrame> | null): AlbumPhotoFrame {
+  return {
+    x: clampNum(typeof f?.x === 'number' && Number.isFinite(f.x) ? f.x : 50, 0, 100),
+    y: clampNum(typeof f?.y === 'number' && Number.isFinite(f.y) ? f.y : 50, 0, 100),
+    zoom: clampNum(typeof f?.zoom === 'number' && Number.isFinite(f.zoom) ? f.zoom : 1, 1, 3),
+  }
+}
+
+export function isCustomAlbumPhotoFrame(f?: AlbumPhotoFrame | null): boolean {
+  if (!f) return false
+  return f.x !== 50 || f.y !== 50 || f.zoom !== 1
+}
+
+export function frameFromMemory(m: BookletMemory): AlbumPhotoFrame {
+  return clampAlbumPhotoFrame({ x: m.focusX, y: m.focusY, zoom: m.zoom })
+}
+
+export function withAlbumPhotoFrame(m: BookletMemory, frames?: Record<string, AlbumPhotoFrame>): BookletMemory {
+  const f = frames?.[bookletMemoryKey(m)]
+  if (!f) return m
+  const c = clampAlbumPhotoFrame(f)
+  return { ...m, focusX: c.x, focusY: c.y, zoom: c.zoom }
+}
+
+/** Inline CSS for booklet HTML export. */
+export function albumPhotoImgCss(frame?: AlbumPhotoFrame | null): string {
+  const f = clampAlbumPhotoFrame(frame)
+  if (!isCustomAlbumPhotoFrame(f)) return ''
+  return `object-fit:cover;object-position:${f.x}% ${f.y}%;transform:scale(${f.zoom});transform-origin:${f.x}% ${f.y}%;`
+}
+
+export function albumPhotoFrameStyle(
+  frame?: AlbumPhotoFrame | null,
+  forceCover = false,
+): {
+  width: string
+  height: string
+  objectFit: 'contain' | 'cover'
+  objectPosition: string
+  transform?: string
+  transformOrigin?: string
+  display: 'block'
+} {
+  const f = clampAlbumPhotoFrame(frame)
+  const custom = forceCover || isCustomAlbumPhotoFrame(f)
+  if (!custom) {
+    return {
+      width: '100%',
+      height: '100%',
+      objectFit: 'contain',
+      objectPosition: 'center',
+      display: 'block',
+    }
+  }
+  return {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    objectPosition: `${f.x}% ${f.y}%`,
+    transform: `scale(${f.zoom})`,
+    transformOrigin: `${f.x}% ${f.y}%`,
+    display: 'block',
+  }
 }
 
 export interface BookletPersonGroup {
@@ -35,6 +120,7 @@ export interface BookletLabels {
   bookletSubtitle: string
   download: string
   downloadHint: string
+  saveAlbum: string
   preview: string
   closePreview: string
   nextPage: string
@@ -42,6 +128,12 @@ export interface BookletLabels {
   pageOf: string
   editAlbum: string
   doneEditing: string
+  backToAlbum: string
+  editPhoto: string
+  zoomIn: string
+  zoomOut: string
+  focalHint: string
+  savePhotoFrame: string
   removePhoto: string
   deleteMemory: string
   editHint: string
@@ -60,8 +152,28 @@ export interface BookletLabels {
   madeWith: string
   dedication: string
   pickPeriod: string
+  pickPeriodHint: string
   dateFrom: string
   dateTo: string
+  albumTitleField: string
+  albumTitleHint: string
+  albumSubtitleField: string
+  albumSubtitleHint: string
+  pickMemories: string
+  pickMemoriesHint: string
+  coverPhoto: string
+  coverPhotoHint: string
+  coverNone: string
+  untitledPhoto: string
+}
+
+/** Display title for a memory in the album TOC / cover picker. */
+export function bookletMemoryTitle(m: BookletMemory, untitled: string): string {
+  const t = (m.text || '').trim()
+  if (t && t !== '📷' && t !== '🎬' && t !== '📝') return t
+  const d = (m.description || '').trim()
+  if (d) return d
+  return untitled
 }
 
 /** Stable-ish identity for matching booklet entries back to the live memories array. */
@@ -87,6 +199,23 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function bookletLogoSrc(): string {
+  const src = String(AUTH_LOGO_SRC || '')
+  if (!src) return ''
+  if (/^(data:|https?:|blob:)/i.test(src)) return src
+  if (typeof window === 'undefined') return src
+  const path = src.startsWith('/') ? src : `/${src}`
+  return `${window.location.origin}${path}`
+}
+
+function coverBrandHtml(): string {
+  const src = bookletLogoSrc()
+  const mark = src
+    ? `<img class="cover-brand-mark" src="${escapeHtml(src)}" alt="HeyMaa" />`
+    : ''
+  return `<div class="cover-brand">${mark}<div class="cover-brand-name">Hey<span>Maa</span></div></div>`
 }
 
 /** Resolve sortable timestamp — prefers ISO createdAt, else parses display date. */
@@ -373,22 +502,13 @@ function bookletStyles(): string {
       max-width: 720px;
       margin: 24px auto;
       padding: 44px 40px 48px;
-      background:
-        radial-gradient(ellipse at 20% 0%, rgba(232,180,184,.22), transparent 48%),
-        radial-gradient(ellipse at 90% 100%, rgba(168,137,106,.12), transparent 42%),
-        var(--paper);
+      background: var(--paper);
       min-height: 88vh;
       page-break-after: always;
       box-shadow: 0 18px 48px rgba(44,36,33,.10);
       position: relative;
-      border: 1px solid rgba(168,137,106,.18);
-    }
-    .page::before {
-      content: '';
-      position: absolute;
-      inset: 12px;
-      border: 1px solid rgba(201,123,132,.18);
-      pointer-events: none;
+      border: 1px solid rgba(43,58,103,.10);
+      border-radius: 0;
     }
     .cover {
       display: flex;
@@ -403,25 +523,70 @@ function bookletStyles(): string {
         linear-gradient(165deg, #3A2F2C 0%, #5A3F42 42%, #C97B84 78%, #E8B4B8 100%);
       color: #FFFBF7;
       border: none;
-      padding: 64px 44px;
+      padding: 0;
       box-shadow: none;
+      overflow: hidden;
     }
-    .cover::before { border-color: rgba(255,251,247,.22); }
+    .cover.has-photo {
+      background: #2B3A67;
+      padding: 0;
+    }
+    .cover-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+    .cover-veil {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(43,58,103,.28) 0%, rgba(43,58,103,.62) 42%, rgba(43,58,103,.88) 100%);
+    }
+    .cover-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+      min-height: 90vh;
+      padding: 64px 44px;
+      box-sizing: border-box;
+    }
     .cover-ornament {
       width: 56px;
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(255,251,247,.7), transparent);
       margin: 0 auto 22px;
     }
-    .cover-logo {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 42px;
-      font-style: italic;
-      font-weight: 500;
-      margin-bottom: 18px;
-      letter-spacing: 0.04em;
-      opacity: 0.92;
+    .cover-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin: 10px auto 18px;
     }
+    .cover-brand-mark {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      box-shadow: 0 8px 24px rgba(0,0,0,.28);
+      background: #fff;
+    }
+    .cover-brand-name {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #FFFBF7;
+    }
+    .cover-brand-name span { color: #F8E5D6; }
     .cover h1 {
       font-family: 'DM Sans', sans-serif;
       font-size: 38px;
@@ -462,13 +627,21 @@ function bookletStyles(): string {
       font-family: 'DM Sans', sans-serif;
       font-size: 24px;
       color: var(--ink);
-      margin: 0 0 22px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(201,123,132,.35);
+      margin: 0 0 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(43,58,103,.10);
       display: flex;
       align-items: center;
       gap: 10px;
       font-weight: 600;
+    }
+    .section-album-title {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-style: italic;
+      color: var(--ink-soft);
+      margin: 0 0 20px;
+      font-weight: 500;
     }
     .toc { list-style: none; padding: 0; }
     .toc li {
@@ -476,14 +649,14 @@ function bookletStyles(): string {
       justify-content: space-between;
       align-items: baseline;
       padding: 14px 0;
-      border-bottom: 1px dashed rgba(168,137,106,.35);
+      border-bottom: 1px solid rgba(43,58,103,.10);
       font-size: 16px;
       color: var(--ink);
       font-weight: 500;
       font-family: 'DM Sans', sans-serif;
     }
     .toc li span:last-child {
-      color: var(--rose);
+      color: var(--ink-soft);
       font-family: 'DM Sans', sans-serif;
       font-size: 13px;
       font-weight: 600;
@@ -505,10 +678,9 @@ function bookletStyles(): string {
       aspect-ratio: 4 / 3;
       max-height: min(320px, 42vh);
       background: var(--linen);
-      padding: 10px 10px 22px;
-      box-shadow: 0 8px 24px rgba(44,36,33,.08);
-      border: 1px solid rgba(168,137,106,.2);
-      transform: rotate(-0.35deg);
+      padding: 0;
+      box-shadow: none;
+      border: 1px solid rgba(43,58,103,.10);
       box-sizing: border-box;
       display: flex;
       align-items: center;
@@ -565,7 +737,7 @@ function bookletStyles(): string {
     }
     .memory-date {
       font-size: 11px;
-      color: var(--gold);
+      color: var(--ink-soft);
       font-weight: 600;
       letter-spacing: 0.08em;
     }
@@ -587,7 +759,7 @@ function bookletStyles(): string {
       margin-left: auto;
       font-family: 'DM Sans', sans-serif;
       font-size: 11px;
-      color: var(--gold);
+      color: var(--ink-soft);
       font-weight: 600;
       letter-spacing: 0.06em;
     }
@@ -595,6 +767,8 @@ function bookletStyles(): string {
       body { background: #fff; }
       .page { margin: 0; padding: 28px 24px; box-shadow: none; min-height: auto; }
       .cover { min-height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .cover.has-photo { padding: 0; }
+      .cover-inner { min-height: 100vh; }
     }
   `
 }
@@ -603,42 +777,47 @@ export type BookletFlipPage =
   | {
       type: 'cover'
       title: string
+      subtitle: string
       periodLabel: string
       memoryCount: number
       madeWith: string
+      coverImg?: string
     }
   | {
       type: 'toc'
       title: string
       periodLabel: string
-      items: { icon: string; label: string; count: number }[]
+      items: { icon: string; label: string; meta: string }[]
     }
   | {
       type: 'section'
       icon: string
       label: string
+      albumTitle?: string
       partLabel?: string
       memories: BookletMemory[]
     }
 
-/** Photos weigh more so album pages don't overflow. */
-function chunkMemoriesForPages(memories: BookletMemory[]): BookletMemory[][] {
-  const chunks: BookletMemory[][] = []
-  let current: BookletMemory[] = []
-  let weight = 0
-  const limit = 3
-  memories.forEach((m) => {
-    const w = m.img ? 2 : 1
-    if (current.length && weight + w > limit) {
-      chunks.push(current)
-      current = []
-      weight = 0
-    }
-    current.push(m)
-    weight += w
-  })
-  if (current.length) chunks.push(current)
+function chunkTocItems<T>(items: T[], size = 12): T[][] {
+  if (items.length === 0) return [[]]
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size))
   return chunks
+}
+
+export function defaultAlbumTitle(
+  userName: string,
+  labels: BookletLabels,
+  lang = 'en',
+  gender?: GreekNameGender,
+): string {
+  const raw = (userName || '').trim() || 'HeyMaa'
+  if (!lang.startsWith('el')) {
+    return labels.bookletTitle.replace('{name}', raw)
+  }
+  const inflected = nameInGenitive(raw, lang, gender)
+  const article = greekGenitiveArticle(raw, gender)
+  return article ? `Αναμνήσεις ${article} ${inflected}` : `Αναμνήσεις ${inflected}`
 }
 
 export function prepareBookletContent(opts: {
@@ -650,6 +829,10 @@ export function prepareBookletContent(opts: {
   children: FamilyChild[]
   members: FamilyMemberRecord[]
   labels: BookletLabels
+  albumTitle?: string
+  albumSubtitle?: string
+  coverMemoryKey?: string
+  photoFrames?: Record<string, AlbumPhotoFrame>
   /** @deprecated Prefer fromDate/toDate */
   months?: number
 }): {
@@ -666,38 +849,48 @@ export function prepareBookletContent(opts: {
     groups = [{ key: 'general', label: labels.general, icon: '🌸', memories: [] }]
   }
   const period = formatBookletDateRangeLabel(fromDate, toDate, lang)
-  const title = labels.bookletTitle.replace('{name}', userName || 'HeyMaa')
+  const title = (opts.albumTitle || '').trim() || defaultAlbumTitle(userName, labels, lang)
+  const subtitle = (opts.albumSubtitle || '').trim() || labels.dedication
+  const coverMem =
+    (opts.coverMemoryKey
+      ? filtered.find((m) => m.img && bookletMemoryKey(m) === opts.coverMemoryKey)
+      : undefined) || filtered.find((m) => Boolean(m.img))
+
+  const dated = filtered.map((m, i) => ({ m, ts: memoryTimestamp(m, i, filtered.length, lang) }))
+  dated.sort((a, b) => a.ts - b.ts)
+  const tocItems = dated.map(({ m }) => ({
+    icon: m.img ? '📷' : m.emoji === '🏆' ? '🚩' : m.emoji || '✦',
+    label: bookletMemoryTitle(m, labels.untitledPhoto),
+    meta: m.date,
+  }))
 
   const pages: BookletFlipPage[] = [
     {
       type: 'cover',
       title,
+      subtitle,
       periodLabel: period,
       memoryCount: filtered.length,
       madeWith: labels.madeWith,
-    },
-    {
-      type: 'toc',
-      title: labels.tableOfContents,
-      periodLabel: period,
-      items: groups.map((g) => ({ icon: g.icon, label: g.label, count: g.memories.length })),
+      coverImg: coverMem?.img,
     },
   ]
+  chunkTocItems(tocItems).forEach((items, idx, all) => {
+    pages.push({
+      type: 'toc',
+      title: all.length > 1 ? `${labels.tableOfContents} ${idx + 1}/${all.length}` : labels.tableOfContents,
+      periodLabel: period,
+      items,
+    })
+  })
 
-  groups.forEach((g) => {
-    if (g.memories.length === 0) {
-      pages.push({ type: 'section', icon: g.icon, label: g.label, memories: [] })
-      return
-    }
-    const chunks = chunkMemoriesForPages(g.memories)
-    chunks.forEach((chunk, idx) => {
-      pages.push({
-        type: 'section',
-        icon: g.icon,
-        label: g.label,
-        partLabel: chunks.length > 1 ? `${idx + 1}/${chunks.length}` : undefined,
-        memories: chunk,
-      })
+  dated.forEach(({ m }) => {
+    pages.push({
+      type: 'section',
+      icon: m.img ? '📷' : m.emoji === '🏆' ? '🚩' : m.emoji || '✦',
+      label: bookletMemoryTitle(m, labels.untitledPhoto),
+      albumTitle: title,
+      memories: [withAlbumPhotoFrame(m, opts.photoFrames)],
     })
   })
 
@@ -714,17 +907,20 @@ export function buildBookletHtml(opts: {
   pages?: BookletFlipPage[]
 }): string {
   const { userName, periodLabel, memoryCount, labels, lang } = opts
-  const title = labels.bookletTitle.replace('{name}', escapeHtml(userName || 'HeyMaa'))
+  const coverPage = opts.pages?.find((p): p is Extract<BookletFlipPage, { type: 'cover' }> => p.type === 'cover')
+  const title = escapeHtml(coverPage?.title || defaultAlbumTitle(userName, labels, lang))
 
-  const memoryArticleHtml = (m: BookletMemory): string => {
-    const text = m.text && m.text !== '📷' ? escapeHtml(m.text) : ''
+  const memoryArticleHtml = (m: BookletMemory, heading?: string): string => {
+    const raw = m.text && m.text !== '📷' ? m.text : ''
+    const text = raw && raw !== heading ? escapeHtml(raw) : ''
     const date = escapeHtml(displayUppercase(m.date, lang))
     if (m.img) {
       const photoOnly = !text
+      const frameCss = albumPhotoImgCss(frameFromMemory(m))
       return `<article class="memory has-photo${photoOnly ? ' photo-only' : ''}">
       <div class="memory-photo-wrap">
         <div class="memory-photo-frame">
-          <img class="memory-img" src="${m.img}" alt="" />
+          <img class="memory-img" src="${m.img}" alt=""${frameCss ? ` style="${frameCss}"` : ''} />
         </div>
       </div>
       <div class="memory-body">${text ? `<div class="memory-text">${text}</div>` : ''}<div class="memory-date">${date}</div></div>
@@ -742,20 +938,29 @@ export function buildBookletHtml(opts: {
     const pageHtml = opts.pages
       .map((page) => {
         if (page.type === 'cover') {
-          return `<div class="page cover">
-            <div class="cover-ornament"></div>
-            <div class="cover-logo">for keeps</div>
-            <h1>${escapeHtml(page.title)}</h1>
-            <p class="dedication">${escapeHtml(labels.dedication)}</p>
-            <div class="cover-ornament"></div>
-            <p class="period">${escapeHtml(page.periodLabel)}</p>
-            <p class="count">${labels.memoriesCount.replace('{count}', String(page.memoryCount))}</p>
-            <p class="brand">${escapeHtml(displayUppercase(page.madeWith, lang))}</p>
+          const inner = `
+            <div class="cover-inner">
+              <div class="cover-ornament"></div>
+              ${coverBrandHtml()}
+              <h1>${escapeHtml(page.title)}</h1>
+              <p class="dedication">${escapeHtml(page.subtitle || labels.dedication)}</p>
+              <div class="cover-ornament"></div>
+              <p class="period">${escapeHtml(page.periodLabel)}</p>
+              <p class="count">${labels.memoriesCount.replace('{count}', String(page.memoryCount))}</p>
+              <p class="brand">${escapeHtml(displayUppercase(page.madeWith, lang))}</p>
+            </div>`
+          if (page.coverImg) {
+            return `<div class="page cover has-photo">
+            <img class="cover-photo" src="${page.coverImg}" alt="" />
+            <div class="cover-veil"></div>
+            ${inner}
           </div>`
+          }
+          return `<div class="page cover">${inner}</div>`
         }
         if (page.type === 'toc') {
           const tocItems = page.items
-            .map((g) => `<li><span>${escapeHtml(g.icon)} ${escapeHtml(g.label)}</span><span>${g.count}</span></li>`)
+            .map((g) => `<li><span>${escapeHtml(g.icon)} ${escapeHtml(g.label)}</span><span>${escapeHtml(g.meta)}</span></li>`)
             .join('')
           return `<div class="page">
             <h1 class="page-title">${escapeHtml(page.title)}</h1>
@@ -763,9 +968,10 @@ export function buildBookletHtml(opts: {
             <ul class="toc">${tocItems}</ul>
           </div>`
         }
-        const items = page.memories.map(memoryArticleHtml).join('')
+        const items = page.memories.map((m) => memoryArticleHtml(m, page.label)).join('')
         return `<div class="page">
-          <h2 class="section-title"><span>${escapeHtml(page.icon)}</span> ${escapeHtml(page.label)}${page.partLabel ? `<span class="part-label">${escapeHtml(page.partLabel)}</span>` : ''}</h2>
+          <h2 class="section-title">${escapeHtml(page.label)}${page.partLabel ? `<span class="part-label">${escapeHtml(page.partLabel)}</span>` : ''}</h2>
+          ${page.albumTitle ? `<p class="section-album-title">${escapeHtml(page.albumTitle)}</p>` : ''}
           ${items || '<p class="page-sub">—</p>'}
         </div>`
       })
@@ -786,13 +992,16 @@ export function buildBookletHtml(opts: {
   }
 
   const tocItems = opts.groups
-    .map((g) => `<li><span>${escapeHtml(g.icon)} ${escapeHtml(g.label)}</span><span>${g.memories.length}</span></li>`)
+    .flatMap((g) => g.memories)
+    .map((m) => `<li><span>${escapeHtml(m.img ? '📷' : m.emoji || '✦')} ${escapeHtml(bookletMemoryTitle(m, labels.untitledPhoto))}</span><span>${escapeHtml(m.date)}</span></li>`)
     .join('')
 
+  const fallbackTitle = coverPage?.title || defaultAlbumTitle(userName, labels, lang)
   const sections = opts.groups
-    .map((g) => {
-      const items = g.memories.map(memoryArticleHtml).join('')
-      return `<section><h2 class="section-title"><span>${escapeHtml(g.icon)}</span> ${escapeHtml(g.label)}</h2>${items}</section>`
+    .flatMap((g) => g.memories)
+    .map((m) => {
+      const heading = bookletMemoryTitle(m, labels.untitledPhoto)
+      return `<section><h2 class="section-title">${escapeHtml(heading)}</h2><p class="section-album-title">${escapeHtml(fallbackTitle)}</p>${memoryArticleHtml(m, heading)}</section>`
     })
     .join('')
 
@@ -806,14 +1015,16 @@ export function buildBookletHtml(opts: {
 </head>
 <body>
   <div class="page cover">
-    <div class="cover-ornament"></div>
-    <div class="cover-logo">for keeps</div>
-    <h1>${title}</h1>
-    <p class="dedication">${escapeHtml(labels.dedication)}</p>
-    <div class="cover-ornament"></div>
-    <p class="period">${escapeHtml(periodLabel)}</p>
-    <p class="count">${labels.memoriesCount.replace('{count}', String(memoryCount))}</p>
-    <p class="brand">${escapeHtml(displayUppercase(labels.madeWith, lang))}</p>
+    <div class="cover-inner">
+      <div class="cover-ornament"></div>
+      ${coverBrandHtml()}
+      <h1>${title}</h1>
+      <p class="dedication">${escapeHtml(coverPage?.subtitle || labels.dedication)}</p>
+      <div class="cover-ornament"></div>
+      <p class="period">${escapeHtml(periodLabel)}</p>
+      <p class="count">${labels.memoriesCount.replace('{count}', String(memoryCount))}</p>
+      <p class="brand">${escapeHtml(displayUppercase(labels.madeWith, lang))}</p>
+    </div>
   </div>
   <div class="page">
     <h1 class="page-title">${escapeHtml(labels.tableOfContents)}</h1>
@@ -836,6 +1047,10 @@ export function downloadMemoriesBooklet(opts: {
   children: FamilyChild[]
   members: FamilyMemberRecord[]
   labels: BookletLabels
+  albumTitle?: string
+  albumSubtitle?: string
+  coverMemoryKey?: string
+  photoFrames?: Record<string, AlbumPhotoFrame>
 }): boolean {
   const prepared = prepareBookletContent(opts)
   const html = buildBookletHtml({
@@ -850,8 +1065,8 @@ export function downloadMemoriesBooklet(opts: {
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
-  const safeName = (opts.userName || 'HeyMaa').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')
-  const filename = `HeyMaa-Memories-${safeName}-${opts.fromDate}_${opts.toDate}.html`
+  const safeName = (prepared.title || opts.userName || 'HeyMaa').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')
+  const filename = `HeyMaa-Memories-${safeName || 'album'}-${opts.fromDate}_${opts.toDate}.html`
 
   const win = window.open(url, '_blank')
   if (win) {
@@ -877,19 +1092,26 @@ export function downloadMemoriesBooklet(opts: {
 export function bookletLabelsForLang(lang: string): BookletLabels {
   const el = lang === 'el'
   return {
-    bookletTitle: el ? 'Αναμνήσεις της {name}' : 'Memories of {name}',
+    bookletTitle: el ? 'Αναμνήσεις {name}' : 'Memories of {name}',
     bookletSubtitle: el
       ? 'Ένα τρυφερό άλμπουμ για όσα αξίζει να κρατήσεις'
       : 'A tender album for the moments worth keeping',
     download: el ? 'Λήψη άλμπουμ' : 'Download album',
     downloadHint: el ? 'Αποθηκεύστε ως PDF από το μενού εκτύπωσης' : 'Save as PDF from the print dialog',
-    preview: el ? 'Φύλλο φύλλο' : 'Flip through',
+    saveAlbum: el ? 'Αποθήκευση' : 'Save',
+    preview: el ? 'Προεπισκόπηση' : 'Preview',
     closePreview: el ? 'Κλείσιμο' : 'Close',
     nextPage: el ? 'Επόμενη' : 'Next',
     prevPage: el ? 'Προηγούμενη' : 'Previous',
     pageOf: el ? 'Σελίδα {current} από {total}' : 'Page {current} of {total}',
     editAlbum: el ? 'Επεξεργασία' : 'Edit',
     doneEditing: el ? 'Τέλος' : 'Done',
+    backToAlbum: el ? 'Πίσω' : 'Back',
+    editPhoto: el ? 'Επεξεργασία φωτογραφίας' : 'Edit photo',
+    zoomIn: el ? 'Μεγέθυνση' : 'Zoom in',
+    zoomOut: el ? 'Σμίκρυνση' : 'Zoom out',
+    focalHint: el ? 'Σύρε για το σημείο εστίασης' : 'Drag to set the focal point',
+    savePhotoFrame: el ? 'Αποθήκευση' : 'Save',
     removePhoto: el ? 'Αφαίρεση φωτο' : 'Remove photo',
     deleteMemory: el ? 'Διαγραφή' : 'Delete',
     editHint: el
@@ -914,13 +1136,36 @@ export function bookletLabelsForLang(lang: string): BookletLabels {
       ? 'Για τις στιγμές που η καρδιά θυμάται πρώτα.'
       : 'For the moments the heart remembers first.',
     pickPeriod: el ? 'Χρονικό διάστημα' : 'Album period',
+    pickPeriodHint: el
+      ? 'Διάλεξε από πότε έως πότε θα μαζευτούν οι στιγμές στο άλμπουμ.'
+      : 'Choose the dates whose moments will go in the album.',
     dateFrom: el ? 'Από' : 'From',
     dateTo: el ? 'Έως' : 'To',
+    albumTitleField: el ? 'Τίτλος άλμπουμ' : 'Album title',
+    albumTitleHint: el
+      ? 'Γράψε πώς θα λέγεται το άλμπουμ στο εξώφυλλο.'
+      : 'Write the name that will appear on the cover.',
+    albumSubtitleField: el ? 'Υπότιτλος εξωφύλλου' : 'Cover subtitle',
+    albumSubtitleHint: el
+      ? 'Εμφανίζεται κάτω από τον τίτλο στο εξώφυλλο.'
+      : 'Shown under the title on the cover.',
+    pickMemories: el ? 'Επίλεξε αναμνήσεις' : 'Choose memories',
+    pickMemoriesHint: el
+      ? 'Τσέκαρε ποιες φωτογραφίες θα μπουν μέσα. Οι υπόλοιπες μένουν έξω.'
+      : 'Tick the photos to include. Unticked ones stay out.',
+    coverPhoto: el ? 'Εξώφυλλο' : 'Cover photo',
+    coverPhotoHint: el
+      ? 'Διάλεξε ποια από τις επιλεγμένες φωτογραφίες θα φαίνεται στο εξώφυλλο.'
+      : 'Pick which of the selected photos will show on the cover.',
+    coverNone: el
+      ? 'Πρόσθεσε φωτογραφίες στην περίοδο για να επιλέξεις εξώφυλλο.'
+      : 'Add photos in this period to choose a cover.',
+    untitledPhoto: el ? 'Χωρίς τίτλο' : 'Untitled',
   }
 }
 
 const BOOKLET_MEMORY_PATTERN =
-  /<h2 class="section-title"><span>[^<]*<\/span>\s*([^<]+)<\/h2>\s*<article class="memory[^"]*">[\s\S]*?<img class="memory-img" src="(data:image\/[^"]+)"[^>]*>[\s\S]*?<div class="memory-date">([^<]+)<\/div>/g
+  /<h2 class="section-title">(?:<span>[^<]*<\/span>\s*)?([^<]+)<\/h2>\s*(?:<p class="(?:page-sub|section-album-title)">[\s\S]*?<\/p>\s*)?<article class="memory[^"]*">[\s\S]*?<img class="memory-img" src="(data:image\/[^"]+)"[^>]*>[\s\S]*?<div class="memory-date">([^<]+)<\/div>/g
 
 /** Parse memories back from a downloaded HeyMaa booklet HTML export. */
 export function parseMemoriesBookletHtml(html: string): BookletMemory[] {

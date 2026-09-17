@@ -4,6 +4,7 @@ import { MemoriesAlbumSection } from './MemoriesAlbumSection'
 import type { FamilyChild, FamilyMemberRecord } from '../../lib/familyData'
 import type { AppMemory } from '../../lib/memoryTypes'
 import type { BookletMemory } from '../../lib/memoriesBooklet'
+import type { SavedMemoryAlbum } from '../../lib/memoryAlbums'
 
 type Props = {
   open: boolean
@@ -22,6 +23,9 @@ type Props = {
   saving?: boolean
   onRemovePhoto?: (m: BookletMemory) => void
   onDeleteMemory?: (m: BookletMemory) => void
+  savedAlbums?: SavedMemoryAlbum[]
+  onAlbumsChange?: (next: SavedMemoryAlbum[]) => void
+  onAlbumSaved?: () => void
 }
 
 export function MemoriesAlbumModal({
@@ -41,6 +45,9 @@ export function MemoriesAlbumModal({
   saving,
   onRemovePhoto,
   onDeleteMemory,
+  savedAlbums,
+  onAlbumsChange,
+  onAlbumSaved,
 }: Props) {
   return (
     <AppDialog
@@ -68,6 +75,9 @@ export function MemoriesAlbumModal({
           saving={saving}
           onRemovePhoto={onRemovePhoto}
           onDeleteMemory={onDeleteMemory}
+          savedAlbums={savedAlbums}
+          onAlbumsChange={onAlbumsChange}
+          onAlbumSaved={onAlbumSaved}
           onClose={onClose}
         />
       </DialogPanel>
