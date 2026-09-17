@@ -64,6 +64,12 @@ const INSIDE_IMAGES: Record<string, string> = {
   milestones: phoneMilestones,
 };
 
+const HOW_PHOTOS = [
+  { src: momentsExpecting, altKey: "moments.altExpecting" },
+  { src: momentsNight, altKey: "moments.altNight" },
+  { src: momentsPlay, altKey: "moments.altPlay" },
+] as const;
+
 const TABLER_ICONS =
   "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css";
 
@@ -384,22 +390,32 @@ export default function Home() {
           <div className="sec-title">{t("how.title")}</div>
           <div className="sec-sub">{t("how.subtitle")}</div>
           <div className="how-grid">
-            {howItems.map((item) => (
+            {howItems.map((item, index) => {
+              const photo = HOW_PHOTOS[index];
+              return (
               <div className="how-card" key={item.title}>
-                <div
-                  className="how-icon"
-                  style={{ background: item.bg, color: item.color }}
-                  aria-hidden="true"
-                >
-                  <i className={`ti ${item.icon}`} />
-                </div>
-                <div className="how-copy">
-                  <div className="how-title">{item.title}</div>
-                  <div className="how-lead">{item.lead}</div>
-                  <div className="how-body">{item.body}</div>
+                {photo ? (
+                  <div className="how-photo">
+                    <img src={photo.src} alt={t(photo.altKey)} />
+                  </div>
+                ) : null}
+                <div className="how-card-body">
+                  <div
+                    className="how-icon"
+                    style={{ background: item.bg, color: item.color }}
+                    aria-hidden="true"
+                  >
+                    <i className={`ti ${item.icon}`} />
+                  </div>
+                  <div className="how-copy">
+                    <div className="how-title">{item.title}</div>
+                    <div className="how-lead">{item.lead}</div>
+                    <div className="how-body">{item.body}</div>
+                  </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -414,22 +430,6 @@ export default function Home() {
               <div className="inside-featured-copy">
                 <h3 className="inside-card-title">{featuredInside.title}</h3>
                 <p className="inside-card-body">{featuredInside.body}</p>
-                {howItems.length > 0 ? (
-                  <ul className="inside-featured-modes">
-                    {howItems.map((item) => (
-                      <li className="inside-featured-mode" key={item.title}>
-                        <span
-                          className="inside-featured-mode-icon"
-                          style={{ background: item.bg, color: item.color }}
-                          aria-hidden="true"
-                        >
-                          <i className={`ti ${item.icon}`} />
-                        </span>
-                        {item.title}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </div>
               <div className="inside-phone">
                 <img
@@ -468,12 +468,6 @@ export default function Home() {
         </section>
 
         <div className="section story-section">
-          <div className="moments-visual">
-            <img src={momentsExpecting} alt={t("moments.altExpecting")} />
-            <img src={momentsNight} alt={t("moments.altNight")} />
-            <img src={momentsHolding} alt={t("moments.altHolding")} />
-            <img src={momentsPlay} alt={t("moments.altPlay")} />
-          </div>
           <div className="testimonial-carousel">
             <button
               type="button"
@@ -491,6 +485,12 @@ export default function Home() {
             </button>
             {activeTestimonial ? (
               <blockquote className="testimonial-card">
+                <img
+                  className="testimonial-photo"
+                  src={momentsHolding}
+                  alt={t("moments.altHolding")}
+                />
+                <div className="testimonial-copy">
                 <div
                   className="testimonial-stars"
                   aria-label={t("testimonial.ratingLabel")}
@@ -511,6 +511,7 @@ export default function Home() {
                     </span>
                   </span>
                 </footer>
+                </div>
               </blockquote>
             ) : null}
             <button
