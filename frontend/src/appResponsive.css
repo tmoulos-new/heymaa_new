@@ -5,6 +5,12 @@
 :root {
   --hm-cream: #f5f0eb;
   --hm-navy: #2b3a67;
+  --hm-navy-blend:
+    radial-gradient(120% 90% at 100% 0%, rgba(222, 90, 158, 0.55) 0%, transparent 52%),
+    linear-gradient(145deg, #243056 0%, #2b3a67 48%, #3a2b58 100%);
+  --hm-navy-blend-bar:
+    radial-gradient(52% 180% at 100% 50%, rgba(222, 90, 158, 0.52) 0%, transparent 64%),
+    linear-gradient(145deg, #243056 0%, #2b3a67 48%, #3a2b58 100%);
   --hm-beige: #f8e5d6;
   --hm-logo-purple: #beb4cd;
   --hm-shell-max: 100%;
@@ -167,7 +173,8 @@ body.hm-app-active #root {
   padding: var(--hm-tab-pad);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
-  background: var(--hm-navy);
+  background-color: var(--hm-navy);
+  background-image: var(--hm-navy-blend-bar);
   box-sizing: border-box;
   width: auto;
   max-width: 100%;
@@ -2633,6 +2640,8 @@ body.hm-app-active #root {
   position: relative;
   z-index: var(--hm-z-header);
   padding: 14px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  background-color: var(--hm-navy);
+  background-image: var(--hm-navy-blend-bar);
 }
 
 .hm-header-popover-backdrop {
@@ -4214,9 +4223,8 @@ button.hm-ms-ref-chip {
   position: relative;
   overflow: hidden;
   padding: 20px 18px 16px;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(222, 90, 158, 0.55) 0%, transparent 52%),
-    linear-gradient(145deg, #243056 0%, #2b3a67 48%, #3a2b58 100%);
+  background-color: var(--hm-navy);
+  background-image: var(--hm-navy-blend);
   color: #fff;
 }
 

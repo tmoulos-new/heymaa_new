@@ -5185,7 +5185,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {showAccountMenu&&<div className="hm-header-popover-backdrop" onClick={()=>setShowAccountMenu(false)} />}
       {showNotifications&&<div className="hm-header-popover-backdrop" onClick={()=>setShowNotifications(false)} />}
       {/* HEADER */}
-      <div className="hm-app-header" style={{background:navy,flexShrink:0}}>
+      <div className="hm-app-header">
         <div className="hm-app-bar-inner hm-app-header-inner">
         <div className="hm-header-brand">
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
