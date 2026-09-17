@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayUppercase } from '../lib/greekText'
 import type { FamilyChild, FamilyMemberRecord, FamilyPhotoFrame } from '../lib/familyData'
-import { albumPhotoFrameStyle } from '../lib/memoriesBooklet'
+import { clampAlbumPhotoFrame } from '../lib/memoriesBooklet'
 import {
   TREE_FOCUS_NODE_H,
   TREE_FOCUS_NODE_W,
@@ -42,13 +42,24 @@ function TreeFramedPhoto({
   h: number
   clipId: string
 }) {
-  const imgStyle = albumPhotoFrameStyle(frame, true) as CSSProperties
+  const f = clampAlbumPhotoFrame(frame)
+  const ox = x + (w * f.x) / 100
+  const oy = y + (h * f.y) / 100
+  const zoom = f.zoom !== 1
+    ? `translate(${ox} ${oy}) scale(${f.zoom}) translate(${-ox} ${-oy})`
+    : undefined
   return (
-    <foreignObject x={x} y={y} width={w} height={h} clipPath={`url(#${clipId})`} pointerEvents="none">
-      <div style={{ width: `${w}px`, height: `${h}px`, overflow: 'hidden', pointerEvents: 'none' }}>
-        <img src={href} alt="" draggable={false} style={imgStyle} />
-      </div>
-    </foreignObject>
+    <g clipPath={`url(#${clipId})`} pointerEvents="none">
+      <image
+        href={href}
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        preserveAspectRatio="xMidYMid slice"
+        transform={zoom}
+      />
+    </g>
   )
 }
 
@@ -503,6 +514,7 @@ export function FamilyTreePanel({
           className={`hm-family-tree-panel__svg${drag?.armed || drag?.moved ? ' hm-family-tree-panel__svg--dragging' : ''}`}
           viewBox={`0 0 ${layout.width} ${layout.height}`}
           preserveAspectRatio="xMidYMin meet"
+          overflow="hidden"
           onPointerMove={onPointerMove}
           onPointerUp={(e) => finishDrag(e, false)}
           onPointerCancel={(e) => finishDrag(e, true)}

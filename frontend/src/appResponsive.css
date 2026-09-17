@@ -2946,7 +2946,7 @@ button.hm-ms-ref-chip {
 }
 
 .hm-family-tree-panel__canvas {
-  overflow: visible;
+  overflow: hidden;
   touch-action: pan-y;
   background: #fff;
   padding: 4px 8px 8px;
@@ -2960,6 +2960,7 @@ button.hm-ms-ref-chip {
   margin: 0 auto;
   height: auto;
   min-height: 0;
+  overflow: hidden;
   touch-action: pan-y;
 }
 
