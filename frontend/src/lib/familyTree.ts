@@ -358,7 +358,7 @@ export const AVATAR_COLOR = {
   childGirl: '#8A3D82',
   childSurprise: '#5548A8',
   pregnancy: '#9B6BC4',
-  pet: '#E07B54',
+  pet: '#de5a9e',
   partner: '#2B6B8A',
   parent: '#3D5A8C',
   parent_in_law: '#B87A42',

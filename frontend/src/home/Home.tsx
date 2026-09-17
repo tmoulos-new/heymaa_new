@@ -30,7 +30,7 @@ import { useFaqAccordion } from "../lib/useFaqAccordion";
 import { SiteFooter } from "../components/SiteFooter";
 import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
-import whatIsImage from "../assets/heymaa-what-is.png";
+import whatIsImage from "../assets/heymaa-what-is.jpg";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
 import momentsImage from "../assets/heymaa-moments-collage.png";
 import { displayUppercase } from "../lib/greekText";

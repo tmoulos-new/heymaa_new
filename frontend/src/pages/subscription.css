@@ -84,8 +84,6 @@
 
 .subscription-page .site-footer {
   margin-top: auto;
-  background: #efeaf3;
-  border-top: 1px solid rgba(43, 58, 103, 0.1);
   padding: 36px var(--landing-pad-x) calc(28px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -96,8 +94,6 @@
 
 .subscription-page .footer-about {
   max-width: none;
-  align-items: flex-start;
-  text-align: left;
 }
 
 .subscription-page .footer-about-text {
@@ -172,12 +168,12 @@
 }
 
 .hero-badge-dot.expired {
-  background: var(--coral, #e07b54);
+  background: var(--hm-magenta, #de5a9e);
   animation: none;
 }
 
 .plan.expired {
-  border-color: rgba(224, 123, 84, 0.35);
+  border-color: rgba(222, 90, 158, 0.35);
   opacity: 0.92;
 }
 
@@ -203,6 +199,11 @@
   .subscription-page .footer-grid {
     grid-template-columns: minmax(200px, 1.2fr) minmax(220px, 1fr) minmax(180px, 0.9fr);
     align-items: start;
+  }
+
+  .subscription-page .footer-about {
+    align-items: flex-start;
+    text-align: left;
   }
 }
 

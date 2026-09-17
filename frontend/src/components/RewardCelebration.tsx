@@ -5,7 +5,7 @@ type Props = {
   onDone?: () => void
 }
 
-const COLORS = ['#E07B54', '#4ABEAA', '#2B3A67', '#BEB4CD', '#F5D0C8']
+const COLORS = ['#de5a9e', '#4ABEAA', '#2B3A67', '#BEB4CD', '#F5D0C8']
 
 /** Lightweight CSS confetti burst — no extra dependencies. */
 export function RewardCelebration({ active, onDone }: Props) {

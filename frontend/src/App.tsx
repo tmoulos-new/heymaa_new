@@ -1732,7 +1732,7 @@ function ResetScreen({ token, lang, onDone }: { token: string; lang: string; onD
           <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>{isEl ? "Βάλε τον νέο σου κωδικό παρακάτω." : "Enter your new password below."}</div>
           <input style={inp} type="password" placeholder={isEl ? "Νέος κωδικός (τουλάχιστον 6)" : "New password (min 6 chars)"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
           <input style={inp} type="password" placeholder={isEl ? "Επιβεβαίωση κωδικού" : "Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleReset()} disabled={loading}/>
-          {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
+          {error&&<div style={{color:"#de5a9e",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
           <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleReset} disabled={loading||!password||!confirm}>{loading ? (isEl ? "Ενημέρωση..." : "Updating...") : (isEl ? "Ενημέρωση κωδικού →" : "Update password →")}</button>
         </>)}
       </div>
@@ -1778,7 +1778,7 @@ function ChangePasswordScreen({
         <div style={{fontSize:13,color:"rgba(43,58,103,.5)",marginBottom:20}}>{lang==="el"?"Για λόγους ασφαλείας, όρισε δικό σου κωδικό πριν συνεχίσεις.":"For security, set your own password before continuing."}</div>
         <input style={inp} type="password" placeholder={lang==="el"?"Νέος κωδικός":"New password"} value={password} onChange={e=>setPassword(e.target.value)} disabled={loading} autoFocus/>
         <input style={inp} type="password" placeholder={lang==="el"?"Επιβεβαίωση":"Confirm password"} value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleChange()} disabled={loading}/>
-        {error&&<div style={{color:"#E07B54",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
+        {error&&<div style={{color:"#de5a9e",fontSize:13,marginBottom:8,textAlign:"left"}}>{error}</div>}
         <button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:6}} onClick={handleChange} disabled={loading||!password||!confirm}>{loading?(lang==="el"?"Αποθήκευση...":"Saving..."):(lang==="el"?"Συνέχεια →":"Continue →")}</button>
         <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:14}} onClick={() => setShowLogoutConfirm(true)}>{lang==="el"?"Αποσύνδεση":"Log out"}</button>
       </div>
@@ -1935,7 +1935,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#E07B54",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
+  const navy="#2B3A67",coral="#de5a9e",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [pointRulesVersion, setPointRulesVersion] = useState(0);
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -5499,7 +5499,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 <span>{ttsUsedSafe}/{ttsQuotaTotal}</span>
               </div>
               <div style={{height:6,borderRadius:99,background:gl,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${Math.min(100, Math.round((ttsUsedSafe/ttsQuotaTotal)*100))}%`,background:ttsRemaining>0?teal:"#E07B54",borderRadius:99,transition:"width .3s"}}/>
+                <div style={{height:"100%",width:`${Math.min(100, Math.round((ttsUsedSafe/ttsQuotaTotal)*100))}%`,background:ttsRemaining>0?teal:"#de5a9e",borderRadius:99,transition:"width .3s"}}/>
               </div>
               {ttsRemaining <= 0 && (
                 <FeatureUpgradeGate
@@ -5607,13 +5607,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   )}
                 </div>
               )}
-              {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 36px",background:"#FFF8F3",border:"1.5px solid #E07B54",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
+              {msg.role==="assistant"&&msg.promo&&(<div style={{margin:"4px 0 8px 36px",background:"#FFF8F3",border:"1.5px solid #de5a9e",borderRadius:12,padding:"11px 13px",maxWidth:"85%"}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
-                  {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#E07B54",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{displayUppercase(msg.promo.badge, lang)}</span>}
+                  {msg.promo.badge&&<span style={{fontSize:9,fontWeight:700,background:"#de5a9e",color:"#fff",borderRadius:999,padding:"2px 8px",letterSpacing:.5}}>{displayUppercase(msg.promo.badge, lang)}</span>}
                   <span style={{fontWeight:700,fontSize:12.5,color:"#2B3A67"}}>{msg.promo.title}</span>
                 </div>
                 <div style={{fontSize:11.5,color:"#4A3F35",lineHeight:1.55,marginBottom:msg.promo.link?8:0}}>{msg.promo.body}</div>
-                {msg.promo.link&&<a href={msg.promo.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:2,fontSize:11,fontWeight:700,color:"#E07B54",textDecoration:"none",border:"1px solid #E07B54",borderRadius:7,padding:"4px 10px"}}>{msg.promo.cta||"Μάθε περισσότερα →"}</a>}
+                {msg.promo.link&&<a href={msg.promo.link} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:2,fontSize:11,fontWeight:700,color:"#de5a9e",textDecoration:"none",border:"1px solid #de5a9e",borderRadius:7,padding:"4px 10px"}}>{msg.promo.cta||"Μάθε περισσότερα →"}</a>}
               </div>)}
               </div>
             ))}
@@ -6022,7 +6022,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {!offersLoading&&offers.length===0&&<div style={{textAlign:"center",fontSize:12,color:"rgba(43,58,103,.55)"}}>{t("offers_empty",lang)}</div>}
             {offers.map((o:any)=>(
               <div key={o.id} style={{background:gl,borderRadius:12,padding:12,marginBottom:10}}>
-                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#E07B54":o.badge==="sponsored"?"#2B3A67":"#BEB4CD",color:o.badge==="promo"||o.badge==="sponsored"?"#fff":"#2B3A67",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
+                {o.badge&&<div style={{display:"inline-block",fontSize:10,fontWeight:700,padding:"2px 9px",borderRadius:999,background:o.badge==="promo"?"#de5a9e":o.badge==="sponsored"?"#2B3A67":"#BEB4CD",color:o.badge==="promo"||o.badge==="sponsored"?"#fff":"#2B3A67",marginBottom:6}}>{displayUppercase(o.badge, lang)}</div>}
                 {o.image_url&&<img src={o.image_url} alt="" style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:10,marginBottom:8,display:"block"}}/>}
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:navy,marginBottom:4,fontWeight:600}}>{o.title}</div>
                 <div style={{fontSize:12.5,color:"rgba(43,58,103,.55)",lineHeight:1.55,marginBottom:8}}>{o.body}</div>
@@ -6041,7 +6041,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       </div>{/* end chat workspace stage */}
 
       {/* LANG MISMATCH HINT */}
-      {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(224,123,84,.1)",borderTop:"1px solid rgba(224,123,84,.2)",fontSize:11,color:"#B5562F",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
+      {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(222,90,158,.1)",borderTop:"1px solid rgba(222,90,158,.2)",fontSize:11,color:"#c4488a",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
       {tab==="chat"&&<div className="hm-app-composer" data-tour="chat-composer">
         {chatPendingAttachments.length > 0 && (

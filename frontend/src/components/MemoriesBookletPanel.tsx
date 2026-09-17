@@ -372,7 +372,7 @@ function FlipPageContent({
                           borderRadius: 999,
                           width: 32,
                           height: 32,
-                          background: 'rgba(224,123,84,.95)',
+                          background: 'rgba(222,90,158,.95)',
                           color: '#fff',
                           fontSize: 16,
                           fontWeight: 700,

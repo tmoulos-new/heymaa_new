@@ -263,7 +263,7 @@ export function InAppSubscriptionSheet({
               {cancelPending ? tSub('cancel.pendingBody') : tSub('cancel.body')}
             </p>
             {cancelError ? (
-              <p className="hm-subscription-cancel-card__body" style={{ color: 'var(--hm-coral, #e85d4c)' }}>
+              <p className="hm-subscription-cancel-card__body" style={{ color: 'var(--hm-magenta, #de5a9e)' }}>
                 {cancelError}
               </p>
             ) : null}

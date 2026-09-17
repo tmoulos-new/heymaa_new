@@ -6,7 +6,7 @@ import type { HomeFaqItem, HomeHowItem, HomePlan } from "./homeTypes";
 const PLAN_VARIANTS = ["trial", "starter", "premium", "annual"] as const;
 
 const HOW_STYLES: Array<{ icon: string; bg: string; color: string }> = [
-  { icon: "ti-pencil", bg: "rgba(248,229,214,0.45)", color: "#D4764E" },
+  { icon: "ti-pencil", bg: "rgba(248,229,214,0.45)", color: "#de5a9e" },
   { icon: "ti-microphone", bg: "rgba(124,92,191,0.14)", color: "#7C5CBF" },
   { icon: "ti-camera", bg: "rgba(74,190,170,0.16)", color: "#2D9E6B" },
 ];

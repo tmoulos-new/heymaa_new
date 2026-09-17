@@ -1,6 +1,6 @@
 export const BADGE_COLORS: Record<string, string> = {
   news: '#4ABEAA',
-  promo: '#E07B54',
+  promo: '#de5a9e',
   sponsored: '#7C5CBF',
 }
 

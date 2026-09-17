@@ -176,7 +176,7 @@ export function applySubscriptionPlanState(
         variant: '',
         featured: false,
         badge: labels.expiredBadge,
-        badgeColor: '#E07B54',
+        badgeColor: '#de5a9e',
         button: labels.expiredButton,
         buttonClass: 'btn-plan-outline',
       }
