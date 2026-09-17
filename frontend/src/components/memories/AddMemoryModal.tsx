@@ -30,6 +30,7 @@ type Props = {
   onSave: (values: MemoryFormValues) => void
   onPickPhoto: () => void
   pendingPhoto?: string | null
+  pendingVideo?: string | null
   onClearPhoto?: () => void
 }
 
@@ -61,6 +62,7 @@ export function AddMemoryModal({
   onSave,
   onPickPhoto,
   pendingPhoto,
+  pendingVideo,
   onClearPhoto,
 }: Props) {
   const el = lang === 'el'
@@ -68,6 +70,7 @@ export function AddMemoryModal({
   const [text, setText] = useState('')
   const [description, setDescription] = useState('')
   const [dateIso, setDateIso] = useState(todayIso())
+  const [mediaCleared, setMediaCleared] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
   // Stable while the same memory is open — avoid reset/refocus if parent re-renders
   // with a new `initial` object identity (would interrupt typing).
@@ -79,29 +82,32 @@ export function AddMemoryModal({
     setText(initial?.text && initial.text !== '📷' && initial.text !== '🎬' ? initial.text : '')
     setDescription(initial?.description || '')
     setDateIso(isoFromMemory(initial))
+    setMediaCleared(false)
     const t = window.setTimeout(() => titleRef.current?.focus(), 120)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only when dialog opens / edit target changes
   }, [open, editKey])
 
-  const canSave = text.trim().length > 0 || !!pendingPhoto || !!initial?.img
+  const previewImg = pendingVideo ? undefined : (pendingPhoto || (!mediaCleared ? initial?.img : undefined))
+  const previewVideo = pendingPhoto ? undefined : (pendingVideo || (!mediaCleared ? initial?.video : undefined))
+  const hasMedia = Boolean(previewImg || previewVideo)
+  const canSave = text.trim().length > 0 || hasMedia
 
   const handleSave = () => {
     if (!canSave) return
     onSave({
       emoji,
-      text: text.trim() || (pendingPhoto || initial?.img ? '📷' : '📝'),
+      text: text.trim() || (previewImg ? '📷' : previewVideo ? '🎬' : '📝'),
       description: description.trim(),
       dateIso,
-      img: pendingPhoto || initial?.img,
-      video: initial?.video,
+      img: previewImg,
+      video: previewVideo,
     })
     onClose()
   }
 
-  const previewImg = pendingPhoto || initial?.img
   const mediaAllowed = photoAllowed || videoAllowed
-  const showMediaGate = !mediaAllowed && !previewImg && onUpgrade && upgradeFeatureLabel && upgradeRequiredPlanLabel
+  const showMediaGate = !mediaAllowed && !hasMedia && onUpgrade && upgradeFeatureLabel && upgradeRequiredPlanLabel
 
   const handlePickPhoto = () => {
     if (!mediaAllowed) {
@@ -109,6 +115,11 @@ export function AddMemoryModal({
       return
     }
     onPickPhoto()
+  }
+
+  const handleClearMedia = () => {
+    setMediaCleared(true)
+    onClearPhoto?.()
   }
 
   return (
@@ -143,14 +154,16 @@ export function AddMemoryModal({
             />
           ) : (
           <div className="hm-memory-modal__media-row">
-            {previewImg ? (
+            {previewImg || previewVideo ? (
               <div className="hm-memory-modal__thumb-wrap">
-                <img src={previewImg} alt="" className="hm-memory-modal__thumb" />
-                {onClearPhoto && (
-                  <button type="button" className="hm-memory-modal__thumb-remove" onClick={onClearPhoto} aria-label={el ? 'Αφαίρεση' : 'Remove'}>
-                    ×
-                  </button>
+                {previewVideo ? (
+                  <video src={previewVideo} className="hm-memory-modal__thumb" muted playsInline />
+                ) : (
+                  <img src={previewImg} alt="" className="hm-memory-modal__thumb" />
                 )}
+                <button type="button" className="hm-memory-modal__thumb-remove" onClick={handleClearMedia} aria-label={el ? 'Αφαίρεση' : 'Remove'}>
+                  ×
+                </button>
               </div>
             ) : (
               <button

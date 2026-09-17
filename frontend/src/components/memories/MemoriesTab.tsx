@@ -32,6 +32,7 @@ export type MemoriesTabProps = {
   onDeleteMemory: (index: number) => void
   onPickPhoto: () => void
   pendingPhoto: string | null
+  pendingVideo?: string | null
   onClearPendingPhoto: () => void
   onAlbumDownload?: () => void
   exportAllowed?: boolean
@@ -90,6 +91,7 @@ export function MemoriesTab({
   onDeleteMemory,
   onPickPhoto,
   pendingPhoto,
+  pendingVideo,
   onClearPendingPhoto,
   onAlbumDownload,
   exportAllowed = true,
@@ -225,8 +227,17 @@ export function MemoriesTab({
       <button
         type="button"
         className="hm-memories-head-btn hm-memories-head-btn--add"
-        onClick={openCreate}
-        aria-label={el ? 'Νέα ανάμνηση' : 'New memory'}
+        onClick={view === 'albums' ? openComposer : openCreate}
+        aria-label={
+          view === 'albums'
+            ? (el ? 'Νέο άλμπουμ' : 'New album')
+            : (el ? 'Νέα ανάμνηση' : 'New memory')
+        }
+        title={
+          view === 'albums'
+            ? (el ? 'Νέο άλμπουμ' : 'New album')
+            : (el ? 'Νέα ανάμνηση' : 'New memory')
+        }
       >
         +
       </button>
@@ -238,6 +249,7 @@ export function MemoriesTab({
     { id: 'month', label: el ? 'Αυτόν τον μήνα' : 'This month' },
     { id: 'months3', label: el ? '3 μήνες' : '3 months' },
     { id: 'year', label: el ? 'Φέτος' : 'This year' },
+    { id: 'custom', label: el ? 'Προσαρμογή' : 'Custom' },
   ]
 
   return (
@@ -352,8 +364,14 @@ export function MemoriesTab({
                     {chip.label}
                   </button>
                 ))}
+                {filtersActive && (
+                  <button type="button" className="hm-memories-clear" onClick={clearFilters}>
+                    {el ? 'Καθαρισμός' : 'Clear'}
+                  </button>
+                )}
               </div>
 
+              {datePreset === 'custom' && (
               <div className="hm-memories-date-row">
                 <label className="hm-memories-date-field">
                   <span>{el ? 'Από' : 'From'}</span>
@@ -385,17 +403,13 @@ export function MemoriesTab({
                     ariaLabel={el ? 'Έως' : 'To'}
                   />
                 </label>
-                {filtersActive && (
-                  <button type="button" className="hm-memories-clear" onClick={clearFilters}>
-                    {el ? 'Καθαρισμός' : 'Clear'}
-                  </button>
-                )}
               </div>
+              )}
             </div>
 
-            <button type="button" className="hm-memories-album-cta" onClick={openComposer}>
-              <MemoryEmojiIcon emoji="✨" size={14} />
-              {el ? 'Δημιούργησε ένα άλμπουμ αναμνήσεων' : 'Create a memories album'}
+            <button type="button" className="hm-memories-album-cta" onClick={openCreate}>
+              <span className="hm-memories-album-cta__plus" aria-hidden="true">+</span>
+              {el ? 'Πρόσθεσε μία καινούρια ανάμνηση' : 'Add a new memory'}
             </button>
 
             {filteredMemories.length === 0 ? (
@@ -468,6 +482,7 @@ export function MemoriesTab({
         onSave={handleSave}
         onPickPhoto={onPickPhoto}
         pendingPhoto={pendingPhoto}
+        pendingVideo={pendingVideo}
         onClearPhoto={onClearPendingPhoto}
       />
 

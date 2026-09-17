@@ -2186,6 +2186,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
   const [memPendingPhoto, setMemPendingPhoto] = useState<string | null>(null);
+  const [memPendingVideo, setMemPendingVideo] = useState<string | null>(null);
   const awaitingMemoryPhotoRef = useRef(false);
   const [familyData, setFamilyData] = useState<FamilyData>(() => {
     const recovered = loadFamilyForToken(token);
@@ -3421,12 +3422,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
 
   const pickMemoryPhoto = () => {
-    if (!featureAllowed("full_memory", planEntitlements, subSnapshot)) {
+    if (
+      !featureAllowed("full_memory", planEntitlements, subSnapshot) &&
+      !featureAllowed("memory_video", planEntitlements, subSnapshot)
+    ) {
       openSubscriptionUpgrade();
       return;
     }
     awaitingMemoryPhotoRef.current = true;
     fileRef.current?.click();
+  };
+
+  const clearPendingMemoryMedia = () => {
+    setMemPendingPhoto(null);
+    setMemPendingVideo(null);
   };
 
   const findMemoryIndex = (m: Memory) =>
@@ -5042,16 +5051,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             const isVideo = f.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name);
             if (awaitingMemoryPhotoRef.current) {
               awaitingMemoryPhotoRef.current = false;
+              if (isVideo) {
+                if (!featureAllowed("memory_video", planEntitlements, subSnapshot)) {
+                  openSubscriptionUpgrade();
+                  e.target.value = "";
+                  return;
+                }
+                setMemPendingPhoto(null);
+                setMemPendingVideo(dataUrl);
+                e.target.value = "";
+                return;
+              }
               if (!featureAllowed("full_memory", planEntitlements, subSnapshot)) {
                 openSubscriptionUpgrade();
                 e.target.value = "";
                 return;
               }
-              if (isVideo) {
-                showToast(lang === "el" ? "Μόνο φωτογραφίες στο άλμπουμ." : "Photos only for memories.", "err");
-                e.target.value = "";
-                return;
-              }
+              setMemPendingVideo(null);
               void compressImageDataUrl(dataUrl).then((img) => setMemPendingPhoto(img));
               e.target.value = "";
               return;
@@ -5886,7 +5902,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onDeleteMemory={deleteMemory}
             onPickPhoto={pickMemoryPhoto}
             pendingPhoto={memPendingPhoto}
-            onClearPendingPhoto={() => setMemPendingPhoto(null)}
+            pendingVideo={memPendingVideo}
+            onClearPendingPhoto={clearPendingMemoryMedia}
             onAlbumDownload={() => track("click", appPath("memories", "export-booklet"), "Download memories album")}
             onSaveMemories={saveMemoriesNow}
             memoriesSaving={memoriesSaving}

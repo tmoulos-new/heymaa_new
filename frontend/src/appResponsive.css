@@ -5089,6 +5089,7 @@ body.hm-app-active .hm-sheet-overlay {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .hm-memories-date-row {
@@ -5146,6 +5147,12 @@ body.hm-app-active .hm-sheet-overlay {
   font-weight: 700;
   box-shadow: 0 2px 12px rgba(43, 58, 103, 0.08);
   cursor: pointer;
+}
+
+.hm-memories-album-cta__plus {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .hm-memories-album-library {
@@ -5219,7 +5226,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-card__emoji {
-  font-size: 64px;
+  font-size: 80px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -5273,18 +5280,8 @@ body.hm-app-active .hm-sheet-overlay {
   position: relative;
   padding: 14px 16px 16px;
   display: flex;
-  gap: 8px;
   align-items: flex-start;
   flex: 1;
-}
-
-.hm-memory-card__quote-mark {
-  font-size: 32px;
-  line-height: 1;
-  color: rgba(43, 58, 103, 0.12);
-  font-family: Georgia, serif;
-  flex-shrink: 0;
-  margin-top: -4px;
 }
 
 .hm-memory-card__content {
@@ -5298,16 +5295,7 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 15px;
   font-weight: 700;
   color: var(--hm-navy);
-  line-height: 1.45;
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-}
-
-.hm-memory-card__title-icon {
-  display: inline-flex;
-  margin-top: 2px;
-  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .hm-memory-card__desc {
@@ -5319,17 +5307,22 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-card__actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
   display: flex;
-  gap: 4px;
-  flex-shrink: 0;
+  gap: 6px;
 }
 
 .hm-memory-card__action {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: none;
-  border-radius: 8px;
-  background: #f0ebe6;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--hm-navy);
+  box-shadow: 0 2px 8px rgba(43, 58, 103, 0.16);
   cursor: pointer;
   font-size: 14px;
   display: inline-flex;
@@ -5339,7 +5332,6 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memory-card__action--delete {
   color: #de5a9e;
-  background: rgba(222, 90, 158), 0.1);
 }
 
 .hm-memories-empty {
@@ -6232,7 +6224,7 @@ body.hm-app-active .hm-sheet-overlay {
   }
 
   .hm-memory-card__emoji {
-    font-size: 48px;
+    font-size: 88px;
   }
 
   .hm-memory-card__desc {

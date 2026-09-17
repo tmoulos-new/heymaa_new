@@ -45,7 +45,7 @@ export function MemoryCard({ memory, lang, onEdit, onDelete }: Props) {
         ) : (
           <div className="hm-memory-card__emoji-bg" style={{ background: tone.bg }} aria-hidden="true">
             <span className="hm-memory-card__emoji">
-              <MemoryEmojiIcon emoji={displayEmoji} size={52} />
+              <MemoryEmojiIcon emoji={displayEmoji} size={80} />
             </span>
           </div>
         )}
@@ -60,22 +60,6 @@ export function MemoryCard({ memory, lang, onEdit, onDelete }: Props) {
           </svg>
           {displayDate}
         </span>
-      </div>
-      <div className="hm-memory-card__body">
-        <div className="hm-memory-card__quote-mark" aria-hidden="true">"</div>
-        <div className="hm-memory-card__content">
-          {title ? (
-            <h3 className="hm-memory-card__title">
-              <span className="hm-memory-card__title-icon">
-                <MemoryEmojiIcon emoji={displayEmoji} size={16} />
-              </span>
-              <span>{cleanTitle}</span>
-            </h3>
-          ) : null}
-          {memory.description ? (
-            <p className="hm-memory-card__desc">{memory.description}</p>
-          ) : null}
-        </div>
         {(onEdit || onDelete) && (
           <div className="hm-memory-card__actions">
             {onEdit && !isMs && (
@@ -103,6 +87,18 @@ export function MemoryCard({ memory, lang, onEdit, onDelete }: Props) {
           </div>
         )}
       </div>
+      {(title || memory.description) ? (
+      <div className="hm-memory-card__body">
+        <div className="hm-memory-card__content">
+          {title ? (
+            <h3 className="hm-memory-card__title">{cleanTitle}</h3>
+          ) : null}
+          {memory.description ? (
+            <p className="hm-memory-card__desc">{memory.description}</p>
+          ) : null}
+        </div>
+      </div>
+      ) : null}
       {onDelete && (
         <ConfirmDialog
           open={confirmDelete}
