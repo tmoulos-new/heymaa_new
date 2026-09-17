@@ -9,6 +9,9 @@
   --bp-lg: 1024px;
   --bp-xl: 1400px;
   --hm-touch-min: 44px;
+  --hm-control-chip: 32px;
+  --hm-control-field: 40px;
+  --hm-control-btn: var(--hm-touch-min);
 }
 
 html {

@@ -59,6 +59,10 @@
   --hm-text-body: 14px;
   --hm-text-caption: 12px;
   --hm-tracking-label: 0.5px;
+  /* Control heights: chips (filters) < fields (search/tabs/inputs) < buttons (actions) */
+  --hm-control-chip: 32px;
+  --hm-control-field: 40px;
+  --hm-control-btn: 44px;
 }
 
 /* pill-btn-navy + app-auth-primary: see shared/design-system/buttons.css */
@@ -993,8 +997,8 @@ body.hm-app-active #root {
 }
 
 .hm-icon-btn-back {
-  width: 44px;
-  height: 44px;
+  width: var(--hm-control-btn);
+  height: var(--hm-control-btn);
   border-radius: 50%;
   border: 1px solid var(--hm-border);
   background: #fff;
@@ -2718,16 +2722,35 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 /* Shared tab UI — family, memories, milestones */
-.hm-pill {
-  padding: 5px 11px;
+.hm-pill,
+button.hm-pill,
+.hm-memories-filter,
+button.hm-memories-filter,
+.hm-memories-journal-tab,
+button.hm-memories-journal-tab,
+.hm-family-docs__chip,
+button.hm-family-docs__chip,
+.hm-ms-ref-chip,
+button.hm-ms-ref-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--hm-control-chip);
+  min-height: var(--hm-control-chip);
+  padding: 0 14px;
+  line-height: 1;
   border-radius: 999px;
   border: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+}
+
+.hm-pill {
   background: var(--hm-surface-muted);
   color: var(--hm-muted);
-  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
   transition: all 0.15s;
 }
 
@@ -3056,15 +3079,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-family-docs__chip {
-  padding: 5px 11px;
-  border-radius: 999px;
-  border: none;
   background: rgba(43, 58, 103, 0.06);
   color: rgba(43, 58, 103, 0.55);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11.5px;
-  font-weight: 600;
-  cursor: pointer;
+  font-size: 12px;
 }
 
 .hm-family-docs__chip--active {
@@ -3518,15 +3535,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-ms-ref-chip {
-  padding: 5px 11px;
-  border-radius: 999px;
-  border: none;
   background: rgba(43, 58, 103, 0.06);
   color: rgba(43, 58, 103, 0.55);
-  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .hm-ms-ref-chip--active {
@@ -4255,26 +4266,71 @@ body.hm-app-active .hm-sheet-overlay {
   text-align: center;
 }
 
-.hm-profile-gamification-card__referral-code {
-  margin: 0;
+.hm-profile-gamification-card__referral-label {
+  margin: 0 0 8px;
   font-size: 12px;
-  font-weight: 500;
-  color: rgba(43, 58, 103, 0.72);
-  line-height: 1.4;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.62);
+  line-height: 1.3;
 }
 
-.hm-profile-gamification-card__referral-code strong {
+.hm-profile-gamification-card__referral-code-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--hm-control-chip);
+  min-height: var(--hm-control-chip);
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--hm-navy);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hm-profile-gamification-card__referral-code-btn strong {
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--hm-navy);
+  line-height: 1;
 }
 
 .hm-profile-gamification-card__referral-bonus {
-  margin: 6px 0 0;
+  margin: 8px 0 12px;
   font-size: 11px;
   font-weight: 600;
   color: #8b6bb8;
   line-height: 1.4;
+}
+
+.hm-profile-gamification-card__referral-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--hm-navy);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hm-profile-gamification-card__referral-feedback {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hm-navy);
+  line-height: 1.35;
 }
 
 @media (max-width: 420px) {
@@ -5124,8 +5180,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-head-btn {
-  width: 40px;
-  height: 40px;
+  width: var(--hm-control-btn);
+  height: var(--hm-control-btn);
   border-radius: 50%;
   border: none;
   display: inline-flex;
@@ -5183,15 +5239,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-journal-tab {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: none;
   background: #f0ebe6;
   color: rgba(43, 58, 103, 0.65);
-  font-family: 'DM Sans', sans-serif;
   font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .hm-memories-journal-tab--active {
@@ -5203,7 +5253,9 @@ body.hm-app-active .hm-sheet-overlay {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  padding: 4px;
+  height: var(--hm-control-field);
+  padding: 3px;
+  box-sizing: border-box;
   border-radius: 14px;
   background: #f0ebe6;
 }
@@ -5211,12 +5263,18 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-view-tab {
   border: none;
   border-radius: 11px;
-  padding: 10px 12px;
+  height: 100%;
+  min-height: 0;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: rgba(43, 58, 103, 0.6);
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -5236,11 +5294,14 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-search input {
   width: 100%;
   box-sizing: border-box;
+  height: var(--hm-control-field);
+  min-height: var(--hm-control-field);
   border: 1.5px solid rgba(43, 58, 103, 0.12);
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 0 12px;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
+  line-height: 1;
   color: var(--hm-navy);
   background: #fff;
 }
@@ -5259,17 +5320,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-filter {
-  padding: 8px 18px;
-  border-radius: 999px;
-  border: none;
   background: #f0ebe6;
   color: rgba(43, 58, 103, 0.55);
-  font-family: 'DM Sans', sans-serif;
   font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
 }
 
@@ -5279,8 +5332,7 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-filter--date {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 0 14px;
 }
 
 .hm-memories-date-presets {
@@ -5314,7 +5366,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-date-field .hm-date-field--input .hm-date-field__trigger {
-  min-height: 40px;
+  height: var(--hm-control-field);
+  min-height: var(--hm-control-field);
 }
 
 .hm-memories-clear {
@@ -5325,7 +5378,12 @@ body.hm-app-active .hm-sheet-overlay {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  padding: 8px 4px;
+  height: var(--hm-control-chip);
+  min-height: var(--hm-control-chip);
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -5335,14 +5393,17 @@ body.hm-app-active .hm-sheet-overlay {
   justify-content: center;
   gap: 8px;
   width: 100%;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
   border: none;
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 0 14px;
   background: #fff;
   color: var(--hm-navy);
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   box-shadow: 0 2px 12px rgba(43, 58, 103, 0.08);
   cursor: pointer;
 }
@@ -5362,12 +5423,15 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-album-library__create {
   border: none;
   border-radius: 14px;
-  padding: 12px 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
   background: var(--hm-navy);
   color: #fff;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -5537,8 +5601,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-card__action {
-  width: 34px;
-  height: 34px;
+  width: var(--hm-control-chip);
+  height: var(--hm-control-chip);
   border: none;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.94);
@@ -5679,7 +5743,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-empty__cta {
-  padding: 14px 24px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 24px;
   border: none;
   border-radius: 999px;
   background: var(--hm-navy);
@@ -5687,6 +5753,7 @@ body.hm-app-active .hm-sheet-overlay {
   font-family: 'DM Sans', sans-serif;
   font-size: 15px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(43, 58, 103, 0.2);
 }
@@ -5811,8 +5878,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memory-modal__emoji {
-  width: 44px;
-  height: 44px;
+  width: var(--hm-control-btn);
+  height: var(--hm-control-btn);
   border-radius: 12px;
   border: 1.5px solid rgba(43, 58, 103, 0.08);
   background: #faf8f5;
@@ -5835,7 +5902,9 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memory-modal .hm-date-field--cream .hm-date-field__trigger {
   background: #f0ebe6;
-  padding: 12px 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
   border-radius: 12px;
   font-size: 15px;
 }
@@ -5860,6 +5929,13 @@ body.hm-app-active .hm-sheet-overlay {
   outline: none;
 }
 
+.hm-memory-modal__input {
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
+  line-height: 1;
+}
+
 .hm-memory-modal__textarea {
   display: block;
   resize: vertical;
@@ -5874,7 +5950,9 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memory-modal__save {
   width: 100%;
-  padding: 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
   border: none;
   border-radius: 999px;
   background: var(--hm-navy);
@@ -5882,6 +5960,7 @@ body.hm-app-active .hm-sheet-overlay {
   font-family: 'DM Sans', sans-serif;
   font-size: 15px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   margin-top: 4px;
 }
@@ -5948,13 +6027,18 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-album-section__save {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
   background: var(--hm-navy);
   border: none;
   border-radius: 999px;
-  padding: 5px 12px;
+  height: var(--hm-control-chip);
+  min-height: var(--hm-control-chip);
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
 }
@@ -5972,7 +6056,9 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memories-album-section--inline .hm-memories-album-section__save {
   font-size: 13px;
-  padding: 8px 16px;
+  height: var(--hm-control-chip);
+  min-height: var(--hm-control-chip);
+  padding: 0 16px;
 }
 
 .hm-memories-album-section__period-label {
@@ -6017,7 +6103,9 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-family-docs__col .hm-date-field--cream .hm-date-field__trigger {
   border-radius: 999px;
   background: #fdf2e9;
-  padding: 11px 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
 }
 
 .hm-memories-album-section__date-field .hm-date-field--input .hm-date-field__trigger {
@@ -6046,12 +6134,15 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-memories-album-section__title-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
   border: 1.5px solid #e8dfd2;
   border-radius: 12px;
   background: #fffbf7;
   font-family: 'DM Sans', sans-serif;
   font-size: 16px;
+  line-height: 1;
   color: var(--hm-navy);
   outline: none;
 }
@@ -6138,11 +6229,14 @@ body.hm-app-active .hm-sheet-overlay {
 
 .hm-memories-album-section__btn {
   width: 100%;
-  padding: 12px 14px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 14px;
   border-radius: 12px;
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -6234,8 +6328,8 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-memories-album-saved__action {
-  width: 34px;
-  height: 34px;
+  width: var(--hm-control-chip);
+  height: var(--hm-control-chip);
   border: none;
   border-radius: 10px;
   background: #fff;
@@ -6616,7 +6710,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-date-field--cream .hm-date-field__trigger {
-  padding: 14px 16px;
+  height: var(--hm-control-btn);
+  min-height: var(--hm-control-btn);
+  padding: 0 16px;
   border: none;
   border-radius: 14px;
   background: #f2e6dc;
@@ -6624,7 +6720,9 @@ body.hm-app-active .hm-sheet-overlay {
 }
 
 .hm-date-field--input .hm-date-field__trigger {
-  padding: 9px 11px;
+  height: var(--hm-control-field);
+  min-height: var(--hm-control-field);
+  padding: 0 11px;
   border: 1.5px solid #ddd7d0;
   border-radius: 9px;
   background: #fff;

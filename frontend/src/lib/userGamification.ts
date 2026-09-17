@@ -1,4 +1,5 @@
 import { GAMIFICATION_LEVELS } from "./gamificationCard";
+import { APP_ROUTE } from "../publicRoutes";
 import { storageScope } from "./memoriesSync";
 import { stableSk } from "./userDataRecovery";
 
@@ -14,6 +15,68 @@ export function personalReferralCode(token: string): string {
   }
   const suffix = (hash >>> 0).toString(16).toUpperCase().padStart(6, "0").slice(-6);
   return `HEYMAA-${suffix}`;
+}
+
+export function referralInviteUrl(code: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}${APP_ROUTE}/auth?invite=${encodeURIComponent(code.trim())}`;
+}
+
+export function referralInviteSharePayload(code: string, lang: string): ShareData {
+  const url = referralInviteUrl(code);
+  const isEl = lang === "el";
+  return {
+    title: "HeyMaa",
+    text: isEl
+      ? `Έλα στην HeyMaa με τον κωδικό μου ${code}.`
+      : `Join me on HeyMaa with my invite code ${code}.`,
+    url,
+  };
+}
+
+export async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await Promise.race([
+        navigator.clipboard.writeText(value),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error("clipboard-timeout")), 1200)
+        }),
+      ])
+      return true
+    }
+  } catch {
+    /* fall through to execCommand */
+  }
+  try {
+    const el = document.createElement("textarea")
+    el.value = value
+    el.setAttribute("readonly", "")
+    el.style.position = "fixed"
+    el.style.left = "-9999px"
+    document.body.appendChild(el)
+    el.select()
+    const ok = document.execCommand("copy")
+    document.body.removeChild(el)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+export async function sendReferralInvite(code: string, lang: string): Promise<"shared" | "copied" | "cancelled" | "failed"> {
+  const payload = referralInviteSharePayload(code, lang);
+  const packed = `${payload.text}\n${payload.url}`;
+  try {
+    if (typeof navigator.share === "function") {
+      await navigator.share(payload);
+      return "shared";
+    }
+  } catch (err) {
+    if ((err as DOMException)?.name === "AbortError") return "cancelled";
+  }
+  const ok = await copyText(packed);
+  return ok ? "copied" : "failed";
 }
 
 export function readHeaderPointsChipVisible(token: string): boolean {

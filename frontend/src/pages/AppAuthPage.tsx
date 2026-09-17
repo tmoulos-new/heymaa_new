@@ -25,7 +25,8 @@ export function AppAuthPage() {
   const [search] = useSearchParams()
   const [existing, setExisting] = useState<string | null>(() => realAuthToken())
   const [sessionReady, setSessionReady] = useState(() => !!realAuthToken())
-  const mode = search.get('mode') === 'login' ? 'login' : 'signup'
+  const inviteFromUrl = (search.get('invite') || search.get('code') || '').trim()
+  const mode = inviteFromUrl || search.get('mode') !== 'login' ? 'signup' : 'login'
   const wantsAuthForm = search.get('mode') === 'login' || search.get('mode') === 'signup'
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export function AppAuthPage() {
   return (
     <AppAuthScreen
       initialMode={mode}
+      initialInvite={inviteFromUrl}
       onSuccess={() => resumePlanAfterAuth(navigate)}
     />
   )

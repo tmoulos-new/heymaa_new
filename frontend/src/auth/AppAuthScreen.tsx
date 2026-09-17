@@ -26,9 +26,11 @@ type Mode = 'signup' | 'login'
 export function AppAuthScreen({
   onSuccess,
   initialMode = 'signup',
+  initialInvite = '',
 }: {
   onSuccess: (token: string) => void
   initialMode?: Mode
+  initialInvite?: string
 }) {
   const [lang, setLang] = useState<AuthLang>(() => authUiLangFromStored())
   const s = authStrings(lang)
@@ -39,7 +41,7 @@ export function AppAuthScreen({
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [inviteCode, setInviteCode] = useState('')
+  const [inviteCode, setInviteCode] = useState(() => initialInvite.trim())
   const [newsletter, setNewsletter] = useState(false)
   const [privacy, setPrivacy] = useState(false)
   const [terms, setTerms] = useState(false)
@@ -51,6 +53,11 @@ export function AppAuthScreen({
   useEffect(() => {
     document.title = 'HeyMaa'
   }, [])
+
+  useEffect(() => {
+    const next = initialInvite.trim()
+    if (next) setInviteCode(next)
+  }, [initialInvite])
 
   const persistLang = (next: AuthLang) => {
     setLang(next)

@@ -69,6 +69,14 @@
   box-shadow: none !important;
 }
 
+.hm-btn,
+.pill-btn-navy,
+.app-auth-primary,
+button.btn-primary,
+button.cta-btn-primary {
+  min-height: var(--hm-control-btn, 44px);
+}
+
 /* ── 1. PRIMARY — main actions ── */
 .hm-btn--primary,
 .pill-btn-navy,
@@ -287,6 +295,7 @@ button.cta-btn-primary {
 .hm-btn--sm,
 button.sm {
   padding: 8px 14px;
+  min-height: var(--hm-control-field, 40px);
   font-size: 13px;
   border-radius: var(--hm-radius-sm, 10px);
 }

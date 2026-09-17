@@ -36,3 +36,23 @@ export function IconCamera({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
+export function IconCopy({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="8" y="8" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M5 16V5.8A1.8 1.8 0 0 1 6.8 4H15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconShare({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="18" cy="5" r="2.4" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
