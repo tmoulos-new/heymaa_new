@@ -414,6 +414,22 @@ export default function Home() {
               <div className="inside-featured-copy">
                 <h3 className="inside-card-title">{featuredInside.title}</h3>
                 <p className="inside-card-body">{featuredInside.body}</p>
+                {howItems.length > 0 ? (
+                  <ul className="inside-featured-modes">
+                    {howItems.map((item) => (
+                      <li className="inside-featured-mode" key={item.title}>
+                        <span
+                          className="inside-featured-mode-icon"
+                          style={{ background: item.bg, color: item.color }}
+                          aria-hidden="true"
+                        >
+                          <i className={`ti ${item.icon}`} />
+                        </span>
+                        {item.title}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <div className="inside-phone">
                 <img
