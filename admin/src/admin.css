@@ -44,8 +44,9 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
   box-sizing:border-box;
 }
 .gate{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;min-width:0;box-shadow:var(--shadow);border:.5px solid var(--border);text-align:center;display:flex;flex-direction:column}
-.gate .logo{margin:0}
-.gate .logo span{color:var(--teal)}
+.gate-brand{justify-content:center;margin:0 auto}
+.gate-brand .admin-brand-mark{width:56px;height:56px}
+.gate-brand .admin-brand-text{font-size:28px}
 .gate .sub{margin:12px 0 26px}
 .gate input{margin:0;text-align:center;max-width:100%;min-width:0;font-size:16px}
 .gate input + input{margin-top:12px}
@@ -68,18 +69,26 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
   padding:2px 4px 16px;margin-bottom:4px;
 }
 .sidebar-brand{
-  font-family:'Fraunces',Georgia,serif;font-size:17px;font-weight:700;
-  letter-spacing:-.02em;overflow:hidden;white-space:nowrap;min-width:0;
+  overflow:hidden;white-space:nowrap;min-width:0;
 }
-.sidebar-brand span{color:var(--teal)}
-.brand-mark{
-  display:none;width:36px;height:36px;border-radius:10px;background:var(--navy);color:#fff;
-  align-items:center;justify-content:center;font-family:'Fraunces',Georgia,serif;
-  font-size:16px;font-weight:700;flex-shrink:0;
+.admin-brand{
+  display:flex;align-items:center;gap:10px;min-width:0;
 }
+.admin-brand-mark{
+  width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;
+  box-shadow:0 4px 12px rgba(43,58,103,0.14);
+}
+.admin-brand-mark img{
+  display:block;width:100%;height:100%;object-fit:cover;transform:scale(1.05);
+}
+.admin-brand-text{
+  font-family:'DM Sans',system-ui,sans-serif;font-size:20px;font-weight:600;
+  color:var(--navy);letter-spacing:-.02em;white-space:nowrap;
+}
+.admin-brand-text span{color:var(--coral)}
 .sidebar.collapsed .sidebar-head{flex-direction:column;align-items:center;gap:6px;padding-bottom:10px}
-.sidebar.collapsed .brand-text{display:none}
-.sidebar.collapsed .brand-mark{display:flex}
+.sidebar.collapsed .admin-brand-text{display:none}
+.sidebar.collapsed .admin-brand{justify-content:center}
 .sidebar-action{position:relative}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;

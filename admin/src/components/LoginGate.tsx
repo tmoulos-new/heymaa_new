@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react'
 import { useAdmin } from '../context/AdminContext'
 import { useStableMobileViewport } from '../lib/useStableMobileViewport'
+import { AdminBrandLogo } from './AdminBrandLogo'
 
 export function LoginGate({
   onSuccess,
@@ -40,9 +41,7 @@ export function LoginGate({
   return (
     <div className="gate-wrap">
       <div className="gate">
-        <h1 className="logo">
-          Hey<span>Maa</span> Admin
-        </h1>
+        <AdminBrandLogo className="gate-brand" />
         <p className="sub">Sign in with your HeyMaa account</p>
         <input
           type="email"

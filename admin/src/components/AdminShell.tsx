@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
+import { AdminBrandLogo } from './AdminBrandLogo'
 import { pathForTab, TAB_TITLES, tabIdFromLocation, type TabId } from '../lib/constants'
 import { OverviewTab } from '../tabs/OverviewTab'
 import { TestersTab } from '../tabs/TestersTab'
@@ -110,10 +111,7 @@ export function AdminShell() {
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-head">
           <div className="sidebar-brand">
-            <span className="brand-mark">H</span>
-            <span className="brand-text">
-              Hey<span>Maa</span>
-            </span>
+            <AdminBrandLogo />
           </div>
           <button
             type="button"
