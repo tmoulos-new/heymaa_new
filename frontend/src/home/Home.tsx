@@ -34,10 +34,10 @@ import { SiteFooter } from "../components/SiteFooter";
 import { SiteNavbarLogo } from "../components/SiteNavbarLogo";
 import { AUTH_LOGO_SRC } from "../auth/authLogo";
 import whatIsImage from "../assets/heymaa-what-is.jpg";
+import heroPosterImage from "../assets/heymaa-hero-poster.jpg";
 import ctaMomImage from "../assets/heymaa-cta-mom.png";
 import momentsExpecting from "../assets/heymaa-moment-expecting.jpg";
 import momentsNight from "../assets/heymaa-moment-night.jpg";
-import momentsHolding from "../assets/heymaa-moment-holding.jpg";
 import momentsPlay from "../assets/heymaa-moment-play.jpg";
 import phoneChat from "../assets/heymaa-phone-chat.png";
 import phoneMemories from "../assets/heymaa-phone-memories.png";
@@ -76,6 +76,23 @@ const TABLER_ICONS =
 const HERO_VIDEO_SRC =
   "https://experience.babyspace.gr/wp-content/uploads/2024/05/homepage-hero-video.mp4";
 
+/** iPhone/iPad (incl. in-app browsers) — muted autoplay is unreliable; use a still frame. */
+function prefersStaticHeroMedia(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPod|iPad/i.test(ua)) return true;
+  // iPadOS 13+ can report as MacIntel with touch
+  if (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1) {
+    return true;
+  }
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 function asObjectArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -94,6 +111,7 @@ export default function Home() {
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const navbarRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const [staticHero] = useState(() => prefersStaticHeroMedia());
   const token = getAuthToken();
 
   const goToApp = useCallback(() => {
@@ -223,13 +241,9 @@ export default function Home() {
   }, []);
 
   useLayoutEffect(() => {
+    if (staticHero) return;
     const video = heroVideoRef.current;
     if (!video) return;
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      video.pause();
-      return;
-    }
 
     const arm = () => {
       video.muted = true;
@@ -257,7 +271,7 @@ export default function Home() {
     };
 
     arm();
-    // Defer first play to next frame — more reliable on iOS Safari cold start
+    // Defer first play to next frame — more reliable on cold start
     const raf = window.requestAnimationFrame(() => tryPlay());
 
     const mediaEvents = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough", "suspend"] as const;
@@ -286,7 +300,7 @@ export default function Home() {
         window.removeEventListener(eventName, onGesture, true),
       );
     };
-  }, []);
+  }, [staticHero]);
 
   const langMeta = useMemo(
     () => LANGS.find((l) => l.code === contentLang) || LANGS[0],
@@ -340,20 +354,32 @@ export default function Home() {
 
         <section className="hero-section" aria-label="Hero">
           <div className="hero-video-wrap">
-            <video
-              ref={heroVideoRef}
-              className="hero-video"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              disablePictureInPicture
-              disableRemotePlayback
-              aria-hidden="true"
-            >
-              <source src={HERO_VIDEO_SRC} type="video/mp4" />
-            </video>
+            {staticHero ? (
+              <img
+                src={heroPosterImage}
+                alt=""
+                className="hero-video hero-video--static"
+                decoding="async"
+                fetchPriority="high"
+                aria-hidden="true"
+              />
+            ) : (
+              <video
+                ref={heroVideoRef}
+                className="hero-video"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                poster={heroPosterImage}
+                disablePictureInPicture
+                disableRemotePlayback
+                aria-hidden="true"
+              >
+                <source src={HERO_VIDEO_SRC} type="video/mp4" />
+              </video>
+            )}
           </div>
           <div className="hero-overlay" aria-hidden="true" />
           <div className="hero">
@@ -501,11 +527,6 @@ export default function Home() {
             </button>
             {activeTestimonial ? (
               <blockquote className="testimonial-card">
-                <img
-                  className="testimonial-photo"
-                  src={momentsHolding}
-                  alt={t("moments.altHolding")}
-                />
                 <div className="testimonial-copy">
                 <div
                   className="testimonial-stars"

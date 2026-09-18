@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, invalidateAuthCaches, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, invalidateAuthCaches, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, blockAuthSessionPersist, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -1790,7 +1790,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     void syncProfileToSupabase(token,p);
     onDone(p);
   };
-  const s: React.CSSProperties = {minHeight:"100dvh",background:"#F5F0EB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
+  const s: React.CSSProperties = {minHeight:"100dvh",background:"#D4DCE8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   return (
     <div style={s}>
@@ -1893,7 +1893,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#de5a9e",teal="#4ABEAA",cream="#F5F0EB",gl="#F0EBE6",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
+  const navy="#2B3A67",coral="#de5a9e",teal="#4ABEAA",cream="#D4DCE8",gl="#E8EEF5",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [pointRulesVersion, setPointRulesVersion] = useState(0);
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -2347,8 +2347,42 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setNewChildGender("");
     setShowAddChild(true);
   };
+
+  const scrollToFamilySection = () => {
+    window.setTimeout(() => {
+      familySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const openTreeAddChooser = () => {
+    setShowTreeAddChooser(true);
+  };
+
+  const chooseTreeAddChild = () => {
+    setShowTreeAddChooser(false);
+    openAddChildForm();
+  };
+
+  const chooseTreeAddMember = () => {
+    setShowTreeAddChooser(false);
+    setShowMyFamily(true);
+    setShowAddPet(false);
+    setNewMemberRole("Partner");
+    setShowAddMember(true);
+    scrollToFamilySection();
+  };
+
+  const chooseTreeAddPet = () => {
+    setShowTreeAddChooser(false);
+    setShowMyFamily(true);
+    setShowAddMember(false);
+    setShowAddPet(true);
+    scrollToFamilySection();
+  };
   const [showAddPet, setShowAddPet] = useState(false); const [newPetName, setNewPetName] = useState(""); const [newPetNote, setNewPetNote] = useState("");
   const [showMyFamily, setShowMyFamily] = useState(true);
+  const [showTreeAddChooser, setShowTreeAddChooser] = useState(false);
+  const familySectionRef = useRef<HTMLDivElement>(null);
   const [familyDeleteConfirm, setFamilyDeleteConfirm] = useState<{ kind: "child" | "member"; index: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [treeEdit, setTreeEdit] = useState<LaidOutNode | null>(null);
@@ -3829,7 +3863,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const requestLogout = () => {
     setShowAccountMenu(false);
-    setShowLogoutConfirm(true);
+    setShowProfileSettings(false);
+    // Defer confirm so the same tap that closed the menu doesn't dismiss the dialog.
+    window.setTimeout(() => setShowLogoutConfirm(true), 50);
   };
 
   const openAccountPrivacy = () => {
@@ -4864,6 +4900,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         />
       )}
 
+      <AppDialog
+        open={showTreeAddChooser}
+        onClose={() => setShowTreeAddChooser(false)}
+        size="sm"
+        ariaLabel={lang === "el" ? "Πρόσθεσε στην οικογένεια" : "Add to family"}
+      >
+        <DialogPanel variant="white" padding="md">
+          <h2 className="hm-dialog-title" style={{ marginBottom: 6 }}>
+            {lang === "el" ? "Πρόσθεσε στην οικογένεια" : "Add to family"}
+          </h2>
+          <p className="hm-dialog-subtitle" style={{ marginBottom: 16 }}>
+            {lang === "el" ? "Τι θέλεις να προσθέσεις;" : "What would you like to add?"}
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button type="button" className="hm-btn hm-btn--secondary hm-btn--block" onClick={chooseTreeAddChild}>
+              {t("addchild", lang)}
+            </button>
+            <button type="button" className="hm-btn hm-btn--secondary hm-btn--block" onClick={chooseTreeAddMember}>
+              {t("addmember", lang)}
+            </button>
+            <button type="button" className="hm-btn hm-btn--secondary hm-btn--block" onClick={chooseTreeAddPet}>
+              {t("addpet", lang)}
+            </button>
+            <button type="button" className="hm-btn hm-btn--ghost hm-btn--block" onClick={() => setShowTreeAddChooser(false)}>
+              {t("cancel", lang)}
+            </button>
+          </div>
+        </DialogPanel>
+      </AppDialog>
+
       {showLogoutConfirm && (
         <ConfirmDialog
           open
@@ -5189,6 +5255,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         <div className="hm-app-bar-inner hm-app-header-inner">
         <div className="hm-header-brand">
           <img src={AUTH_LOGO_SRC} alt="HeyMaa" className="hm-header-logo" />
+          <span className="hm-header-brand-text" aria-hidden="true">
+            Hey<span>Maa</span>
+          </span>
         </div>
         <div className="hm-header-actions">
           {headerPointsVisible ? (
@@ -5733,6 +5802,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onEditNode={openTreeEdit}
             onNodeSelect={(ref) => { setActiveMemRef(ref ?? "__general__"); setTab("memories"); }}
             onPlaceMembers={placeMembersOnTree}
+            onAddClick={openTreeAddChooser}
           />
           <div className="hm-tab-card">
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
@@ -5756,7 +5826,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </button>
             )}
           >
-          <div className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
+          <div ref={familySectionRef} className="hm-tab-card" style={{overflow:"hidden",maxWidth:"100%",boxSizing:"border-box" as any}}>
             {showMyFamily && (<>
             {profile.dueDate&&<div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 11px",borderRadius:9,background:gl,marginBottom:6}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:avatarColorForKind("pregnancy"),color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>🤰</div>
@@ -5829,7 +5899,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </div>
               </div>
             );})}
-            {showAddPet&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
+            {showAddPet&&<div style={{background:"#E8EEF5",borderRadius:10,padding:12,marginBottom:8}}>
               <input value={newPetName} onChange={e=>setNewPetName(e.target.value)} placeholder={lang==="el"?"Όνομα κατοικιδίου":"Pet name"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <input value={newPetNote} onChange={e=>setNewPetNote(e.target.value)} placeholder={lang==="el"?"Σημείωση (προαιρετικό)":"Note (optional)"} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <div style={{display:"flex",gap:8}}>
@@ -5903,7 +5973,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 </select>
               </div>
             );})}
-            {showAddMember&&<div style={{background:"#F8F5F2",borderRadius:10,padding:12,marginBottom:8}}>
+            {showAddMember&&<div style={{background:"#E8EEF5",borderRadius:10,padding:12,marginBottom:8}}>
               <input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder={t("membername",lang)} style={{width:"100%",padding:"9px 11px",border:`1.5px solid #DDD7D0`,borderRadius:9,fontFamily:"'DM Sans',sans-serif",fontSize:13,outline:"none",marginBottom:8,boxSizing:"border-box" as any}}/>
               <select value={newMemberRole} onChange={e=>{
                 const role = e.target.value;
@@ -6441,7 +6511,20 @@ export default function App() {
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [sessionReady, setSessionReady] = useState(() => !!resolveAppAuthToken() || !!new URLSearchParams(window.location.search).get("reset"));
-  const handleLogout=()=>{void logoutUser(token).catch(()=>{});clearAuthToken();setToken(null);setProfile(null);setSubActive(null);setSubStatus(null);setMustChangePassword(false);};
+  const handleLogout = () => {
+    const tk = token;
+    // Block cookie/refresh restore first, then clear local session immediately so the
+    // first Log out confirm actually leaves the app (no wait for /auth/logout).
+    blockAuthSessionPersist();
+    clearAuthToken();
+    invalidateAuthCaches(tk);
+    setToken(null);
+    setProfile(null);
+    setSubActive(null);
+    setSubStatus(null);
+    setMustChangePassword(false);
+    void logoutUser(tk).catch(() => {});
+  };
   const handleLogoutRef = useRef(handleLogout);
   handleLogoutRef.current = handleLogout;
 
@@ -6564,7 +6647,7 @@ export default function App() {
   if(!sessionReady) {
     const isEl = (localStorage.getItem("hm_pre_lang") || "el").toLowerCase().startsWith("el");
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F5F0EB", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#D4DCE8", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>{isEl ? "Φόρτωση…" : "Loading…"}</div>
       </div>
     );

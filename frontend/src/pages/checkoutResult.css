@@ -3,7 +3,7 @@
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(74, 190, 170, 0.18), transparent 55%),
     radial-gradient(ellipse 60% 40% at 100% 100%, rgba(222, 90, 158, 0.1), transparent 50%),
-    #f5f0eb;
+    #d4dce8;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18,7 +18,7 @@
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(222, 90, 158, 0.16), transparent 55%),
     radial-gradient(ellipse 60% 40% at 0% 100%, rgba(43, 58, 103, 0.06), transparent 50%),
-    #f5f0eb;
+    #d4dce8;
 }
 
 .checkout-result-logo {

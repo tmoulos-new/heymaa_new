@@ -3,7 +3,7 @@
 @import url('./styles/buttons.css');
 
 :root {
-  --hm-cream: #f5f0eb;
+  --hm-cream: #d4dce8;
   --hm-navy: #2b3a67;
   --hm-navy-blend:
     radial-gradient(120% 90% at 100% 0%, rgba(222, 90, 158, 0.55) 0%, transparent 52%),
@@ -36,7 +36,7 @@
   --hm-muted: rgba(43, 58, 103, 0.55);
   --hm-muted-light: rgba(43, 58, 103, 0.38);
   --hm-surface-soft: #fff3e8;
-  --hm-surface-muted: #f0ebe6;
+  --hm-surface-muted: #e8eef5;
   --hm-border: rgba(43, 58, 103, 0.12);
   --hm-success: #2d9e6b;
   --hm-destructive: #de5a9e;
@@ -2688,6 +2688,7 @@ body.hm-app-active .hm-sheet-overlay {
 .hm-header-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-width: 0;
   flex-shrink: 0;
 }
@@ -2699,6 +2700,26 @@ body.hm-app-active .hm-sheet-overlay {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.hm-header-brand-text {
+  display: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.hm-header-brand-text span {
+  color: #F8E5D6;
+}
+
+@media (min-width: 700px) {
+  .hm-header-brand-text {
+    display: inline;
+  }
 }
 
 /* ── Unified in-app tab pages (profile, family, memories, milestones) ── */
@@ -2946,11 +2967,41 @@ button.hm-ms-ref-chip {
 }
 
 .hm-family-tree-panel__canvas {
+  position: relative;
   overflow: hidden;
   touch-action: pan-y;
   background: #fff;
   padding: 4px 8px 8px;
   max-width: 100%;
+}
+
+.hm-family-tree-panel__add-btn {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 12px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--hm-magenta, #de5a9e);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(222, 90, 158, 0.35);
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.hm-family-tree-panel__add-btn:hover {
+  background: #d14d91;
+  box-shadow: 0 6px 18px rgba(222, 90, 158, 0.42);
+}
+
+.hm-family-tree-panel__add-btn:active {
+  transform: scale(0.96);
 }
 
 .hm-family-tree-panel__svg {
@@ -3072,13 +3123,6 @@ button.hm-ms-ref-chip {
   color: #2b3a67;
   font-weight: 500;
   line-height: 1.35;
-}
-
-.hm-family-tree-panel__hint {
-  font-size: 10.5px;
-  color: #a89f98;
-  text-align: center;
-  margin-top: 10px;
 }
 
 @media (max-width: 480px) {
@@ -4826,7 +4870,7 @@ button.hm-ms-ref-chip {
 
 .hm-composer-plus--open {
   transform: rotate(45deg);
-  background: #f0ebe6;
+  background: #e8eef5;
 }
 
 .hm-composer-plus:disabled {
@@ -4871,14 +4915,14 @@ button.hm-ms-ref-chip {
 }
 
 .hm-chat-attach-popover__item:hover {
-  background: #f0ebe6;
+  background: #e8eef5;
 }
 
 .hm-chat-attach-popover__icon {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #f0ebe6;
+  background: #e8eef5;
   color: var(--hm-navy);
   display: inline-flex;
   align-items: center;
@@ -4900,7 +4944,7 @@ button.hm-ms-ref-chip {
   max-width: 160px;
   padding: 4px 6px 4px 4px;
   border-radius: 10px;
-  background: #f0ebe6;
+  background: #e8eef5;
   border: 1px solid rgba(43, 58, 103, 0.1);
 }
 
@@ -4988,7 +5032,7 @@ button.hm-ms-ref-chip {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: #f0ebe6;
+  background: #e8eef5;
   color: var(--hm-navy);
   display: flex;
   align-items: center;
@@ -5472,7 +5516,7 @@ button.hm-ms-ref-chip {
 }
 
 .hm-memories-head-btn--album {
-  background: #f0ebe6;
+  background: #e8eef5;
   color: var(--hm-navy);
   position: relative;
 }
@@ -5519,7 +5563,7 @@ button.hm-ms-ref-chip {
 }
 
 .hm-memories-journal-tab {
-  background: #f0ebe6;
+  background: #e8eef5;
   color: rgba(43, 58, 103, 0.65);
   font-size: 12px;
   display: inline-flex;
@@ -5593,7 +5637,7 @@ button.hm-ms-ref-chip {
   padding: 3px;
   box-sizing: border-box;
   border-radius: 14px;
-  background: #f0ebe6;
+  background: #e8eef5;
 }
 
 .hm-memories-view-tab {
@@ -5656,7 +5700,7 @@ button.hm-ms-ref-chip {
 }
 
 .hm-memories-filter {
-  background: #f0ebe6;
+  background: #e8eef5;
   color: rgba(43, 58, 103, 0.55);
   font-size: 13px;
   gap: 6px;
@@ -6134,7 +6178,7 @@ button.hm-ms-ref-chip {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #f0ebe6;
+  background: #e8eef5;
   color: var(--hm-navy);
   font-size: 22px;
   line-height: 1;
@@ -6237,7 +6281,7 @@ button.hm-ms-ref-chip {
 }
 
 .hm-memory-modal .hm-date-field--cream .hm-date-field__trigger {
-  background: #f0ebe6;
+  background: #e8eef5;
   height: var(--hm-control-btn);
   min-height: var(--hm-control-btn);
   padding: 0 14px;
@@ -6258,7 +6302,7 @@ button.hm-ms-ref-chip {
   padding: 12px 14px;
   border: none;
   border-radius: 12px;
-  background: #f0ebe6;
+  background: #e8eef5;
   font-family: 'DM Sans', sans-serif;
   font-size: 16px;
   color: var(--hm-navy);
@@ -6775,7 +6819,7 @@ button.hm-ms-ref-chip {
 
 .hm-memory-album-preview {
   border-radius: 16px;
-  background: linear-gradient(165deg, #faf6f0 0%, #f0ebe6 100%);
+  background: linear-gradient(165deg, #eef2f7 0%, #e8eef5 100%);
   padding: 14px;
   margin-bottom: 4px;
 }

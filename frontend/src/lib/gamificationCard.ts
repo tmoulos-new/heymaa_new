@@ -155,10 +155,21 @@ export const LEVEL_REWARDS: Record<number, { el: string; en: string }> = {
 };
 
 function giftCopy(slot: string, days: number): { el: string; en: string } {
-  const plan = slot.charAt(0).toUpperCase() + slot.slice(1)
+  const plan =
+    slot === 'admin'
+      ? 'Admin'
+      : slot === 'annual'
+        ? { el: 'Ετήσιο', en: 'Annual' }
+        : slot === 'premium'
+          ? 'Premium'
+          : slot === 'starter'
+            ? 'Starter'
+            : slot.charAt(0).toUpperCase() + slot.slice(1)
+  const planEl = typeof plan === 'string' ? plan : plan.el
+  const planEn = typeof plan === 'string' ? plan : plan.en
   return {
-    el: `${days} μέρες δωρεάν ${plan}`,
-    en: `${days} days free ${plan}`,
+    el: `${days} μέρες δωρεάν πλάνο ${planEl}`,
+    en: `${days} days free ${planEn} plan`,
   }
 }
 

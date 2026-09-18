@@ -37,7 +37,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f5f0eb;
+  background: #d4dce8;
   overflow-x: hidden;
   overflow-x: clip;
   overscroll-behavior-x: none;

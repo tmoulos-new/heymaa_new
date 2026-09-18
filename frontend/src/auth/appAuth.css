@@ -11,7 +11,7 @@
   overscroll-behavior-x: none;
   touch-action: pan-y;
   position: relative;
-  background: #f5f0eb;
+  background: #d4dce8;
   display: flex;
   flex-direction: column;
   align-items: center;

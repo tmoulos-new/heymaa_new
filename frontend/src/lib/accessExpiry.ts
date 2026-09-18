@@ -1,6 +1,7 @@
 import type { SubscriptionSnapshot } from './authApi'
 import { formatTrialEnd } from './subscriptionPlans'
 import { daysUntilTrialEnd } from './appNotifications'
+import { planLabel } from './levelRewards'
 
 export type AccessExpiryKind = 'trial' | 'grant' | 'mixed' | 'subscription'
 
@@ -34,7 +35,7 @@ function activeGrantPlan(sub: SubscriptionSnapshot | null): string | null {
   const now = Date.now()
   let best: string | null = null
   let bestRank = -1
-  const rank: Record<string, number> = { trial: 0, starter: 1, premium: 2, annual: 3 }
+  const rank: Record<string, number> = { trial: 0, starter: 1, premium: 2, annual: 3, admin: 4 }
   for (const g of grants) {
     const end = g.ends_at ? new Date(g.ends_at).getTime() : 0
     if (end <= now) continue
@@ -137,12 +138,7 @@ export function expiryPopupCopy(info: AccessExpiryInfo, lang: string): {
   cta: string
 } {
   const isEl = lang === 'el'
-  const plan =
-    info.grantPlanSlot === 'premium'
-      ? 'Premium'
-      : info.grantPlanSlot === 'starter'
-        ? 'Starter'
-        : null
+  const plan = info.grantPlanSlot ? planLabel(info.grantPlanSlot, lang) : null
 
   if (info.endsToday) {
     return {
@@ -157,11 +153,11 @@ export function expiryPopupCopy(info: AccessExpiryInfo, lang: string): {
   if (info.kind === 'grant' && plan) {
     return {
       title: isEl
-        ? `Το δωρεάν ${plan} λήγει σε ${info.daysLeft} ${info.daysLeft === 1 ? 'ημέρα' : 'ημέρες'}`
-        : `Free ${plan} ends in ${info.daysLeft} day${info.daysLeft === 1 ? '' : 's'}`,
+        ? `Το δώρο πλάνου ${plan} λήγει σε ${info.daysLeft} ${info.daysLeft === 1 ? 'ημέρα' : 'ημέρες'}`
+        : `Your free ${plan} gift ends in ${info.daysLeft} day${info.daysLeft === 1 ? '' : 's'}`,
       body: isEl
-        ? `Το δωρεάν πλάνο ${plan} από την ανταμοιβή επίπεδου λήγει ${info.endLabel}. Ανανέωσε ή αναβάθμισε για απρόσκοπτη πρόσβαση.`
-        : `Your free ${plan} level reward ends ${info.endLabel}. Renew or upgrade for uninterrupted access.`,
+        ? `Το ενεργό δώρο επιπέδου (δωρεάν πλάνο ${plan}) λήγει ${info.endLabel}. Ανανέωσε ή αναβάθμισε για απρόσκοπτη πρόσβαση.`
+        : `Your active level gift (free ${plan} plan) ends ${info.endLabel}. Renew or upgrade for uninterrupted access.`,
       cta: isEl ? 'Δες πλάνα' : 'View plans',
     }
   }

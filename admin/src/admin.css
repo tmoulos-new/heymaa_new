@@ -1,7 +1,7 @@
 @import url('../../frontend/src/styles/buttons.css');
 
 :root{
-  --navy:#2B3A67;--coral:#de5a9e;--teal:#4ABEAA;--cream:#F5F0EB;--gl:#F0EBE6;
+  --navy:#2B3A67;--coral:#de5a9e;--teal:#4ABEAA;--cream:#D4DCE8;--gl:#E8EEF5;
   --muted:#7A7068;--border:rgba(43,58,103,.1);--shadow:0 4px 24px rgba(43,58,103,.08);
   --green:#2D9E6B;--purple:#7C5CBF;--radius:14px;
   --sidebar-w:240px;--sidebar-w-collapsed:68px;
@@ -163,7 +163,7 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 .sidebar.collapsed ~ .content-wrap{margin-left:var(--sidebar-w-collapsed)}
 .content-header{
   position:sticky;top:0;z-index:50;
-  background:rgba(245,240,235,.92);backdrop-filter:blur(12px);
+  background:rgba(212,220,232,.92);backdrop-filter:blur(12px);
   border-bottom:.5px solid var(--border);
   padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;
 }

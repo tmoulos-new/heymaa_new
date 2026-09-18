@@ -170,7 +170,7 @@ button.teal:disabled {
 /* ── 2. SECONDARY — cancel, alternate ── */
 .hm-btn--secondary,
 button.sec {
-  background: var(--hm-surface-muted, #f0ebe6);
+  background: var(--hm-surface-muted, #e8eef5);
   color: var(--hm-navy, #2b3a67);
   border-color: transparent;
   font-weight: 500;

@@ -42,7 +42,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '24px',
-          background: '#F5F0EB',
+          background: '#D4DCE8',
           fontFamily: "'DM Sans', sans-serif",
           boxSizing: 'border-box',
         }}

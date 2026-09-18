@@ -47,10 +47,28 @@ export type RewardsSnapshot = {
 }
 
 export function planLabel(slot: string, lang: string): string {
-  const p = slot.toLowerCase()
-  if (p === 'premium') return lang === 'el' ? 'Premium' : 'Premium'
+  const p = (slot || '').toLowerCase().trim()
+  if (p === 'premium') return 'Premium'
   if (p === 'starter') return 'Starter'
-  return slot
+  if (p === 'annual') return lang === 'el' ? 'Ετήσιο' : 'Annual'
+  if (p === 'admin') return 'Admin'
+  if (p === 'trial' || p === 'free') return lang === 'el' ? 'Δοκιμή' : 'Trial'
+  if (!p) return lang === 'el' ? 'πλάνο' : 'plan'
+  return p.charAt(0).toUpperCase() + p.slice(1)
+}
+
+/** Active temporary plan gift (level reward) — not staff admin role. */
+export function activeGrantMessage(
+  planSlot: string,
+  endsAt: string,
+  lang: string,
+): string {
+  const plan = planLabel(planSlot, lang)
+  const date = new Date(endsAt).toLocaleDateString(lang === 'el' ? 'el-GR' : 'en-GB')
+  if (lang === 'el') {
+    return `Ενεργό δώρο επιπέδου: δωρεάν πλάνο ${plan} μέχρι ${date}.`
+  }
+  return `Active level gift: free ${plan} plan until ${date}.`
 }
 
 /** Keep in sync with backend/plan_grants.py PLAN_SLOT_RANK */
@@ -94,9 +112,9 @@ export function effectiveRewardDescription(
   const slot = effectiveRewardPlanSlot(reward, currentPlanSlot)
   const plan = planLabel(slot, lang)
   if (lang === 'el') {
-    return `${reward.days} μέρες δωρεάν ${plan}`
+    return `${reward.days} μέρες δωρεάν πλάνο ${plan}`
   }
-  return `${reward.days} days free ${plan}`
+  return `${reward.days} days free ${plan} plan`
 }
 
 export function rewardClaimBody(
@@ -127,9 +145,9 @@ export function rewardClaimBody(
 export function rewardDescription(reward: PendingLevelReward, lang: string): string {
   const plan = planLabel(reward.plan_slot, lang)
   if (lang === 'el') {
-    return `${reward.days} μέρες δωρεάν ${plan}`
+    return `${reward.days} μέρες δωρεάν πλάνο ${plan}`
   }
-  return `${reward.days} days free ${plan}`
+  return `${reward.days} days free ${plan} plan`
 }
 
 export function rewardTitle(levelId: number, lang: string): string {
@@ -157,8 +175,8 @@ export function claimSuccessMessage(
       : `+${days} ${plan} days added after your current access ends 🎁`
   }
   return lang === 'el'
-    ? `Κέρδισες ${days} μέρες δωρεάν ${plan} 🎁`
-    : `You earned ${days} days free ${plan} 🎁`
+    ? `Κέρδισες ${days} μέρες δωρεάν πλάνο ${plan} 🎁`
+    : `You earned ${days} days free ${plan} plan 🎁`
 }
 
 export function emptyRewardsSnapshot(): RewardsSnapshot {

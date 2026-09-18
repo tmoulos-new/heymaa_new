@@ -34,7 +34,7 @@ function AppChunkFallback() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#F5F0EB",
+        background: "#D4DCE8",
         fontFamily: "'DM Sans', sans-serif",
         boxSizing: "border-box",
       }}

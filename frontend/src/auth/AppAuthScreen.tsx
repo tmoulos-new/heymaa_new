@@ -7,6 +7,7 @@ import {
   checkEmail,
   applyAuthUserName,
   persistAuthSession,
+  allowAuthSessionPersist,
   loginUser,
   registerUser,
 } from '../lib/authApi'
@@ -117,6 +118,7 @@ export function AppAuthScreen({
         consent_terms: terms,
         lang,
       })
+      allowAuthSessionPersist()
       persistAuthSession(res.data.token, res.data.refresh_token)
       applyAuthUserName(res.data.token, trimmedName || res.data.name)
       onSuccess(res.data.token)
@@ -143,6 +145,7 @@ export function AppAuthScreen({
     setError('')
     try {
       const res = await loginUser(trimmedEmail, password)
+      allowAuthSessionPersist()
       persistAuthSession(res.data.token, res.data.refresh_token)
       applyAuthUserName(res.data.token, res.data.name)
       onSuccess(res.data.token)

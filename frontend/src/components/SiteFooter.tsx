@@ -28,8 +28,13 @@ export function SiteFooter({
       <div className="site-footer-inner">
         <div className="footer-grid">
           <div className="footer-about">
-            <div className="nb-logo-mark">
-              <img src={AUTH_LOGO_SRC} alt={t('footer.logoAlt')} />
+            <div className="footer-brand">
+              <div className="nb-logo-mark">
+                <img src={AUTH_LOGO_SRC} alt={t('footer.logoAlt')} />
+              </div>
+              <span className="footer-logo-text" aria-hidden="true">
+                Hey<span>Maa</span>
+              </span>
             </div>
             <p className="footer-about-text">{t('footer.about')}</p>
           </div>

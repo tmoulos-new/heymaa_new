@@ -28,7 +28,7 @@
         },
         {
           "title": "Who it's for",
-          "intro": "From pregnancy and the first year through later childhood. 17 languages supported — the app adapts to the language you choose."
+          "intro": "From pregnancy and the first year through later childhood. The app is available in Greek and English — choose your language in Settings."
         }
       ]
     },
@@ -42,7 +42,7 @@
             "Unlimited chat (text, voice, photos)",
             "Up to 50 voice playbacks (Listen) per month",
             "Daily memory: 20 recent messages + 10 saved memories + 10 ticked milestones in each reply",
-            "Document & album preview (no file download)",
+            "Document & album: upload and organize in-app (download from Premium)",
             "Up to 3 archived conversations",
             "Family tree, milestones, memory notes & photos"
           ]
@@ -62,7 +62,7 @@
           "bullets": [
             "50 voice replies / month",
             "Daily memory (20 messages + 10 memories + 10 milestones)",
-            "Document Archive & Album (view only)",
+            "Document Archive & Album (organize in-app; download from Premium)",
             "3 archived conversations",
             "No card required to sign up"
           ]
@@ -242,7 +242,7 @@
         {
           "title": "Family",
           "bullets": [
-            "Visual family tree — edit & rearrange by drag",
+            "Visual family tree — edit members and add with +",
             "Document archive: tests, vaccines, treatments, medicines",
             "Badge with memory count per member"
           ]
@@ -343,7 +343,7 @@
           "title": "Free trial",
           "bullets": [
             "50 voice replies, Daily memory",
-            "Docs/album: view only",
+            "Docs/album: organize in-app (download from Premium)",
             "3 archived"
           ]
         },
@@ -402,7 +402,7 @@
           "title": "Related features",
           "bullets": [
             "Memory videos: from Starter",
-            "Photos, albums, documents: from trial (view-only); Starter can edit; download Premium+",
+            "Photos, albums, documents: upload & organize from trial; download & share on Premium+",
             "Memory is not unlimited history — it's a smart window for better replies"
           ]
         }
@@ -446,8 +446,8 @@
         {
           "title": "By plan",
           "bullets": [
-            "Trial: document & album preview",
-            "Starter: full upload & edit. Download and share are on Premium",
+            "Trial: upload & organize documents and albums",
+            "Starter: same in-app organization. Download and share are on Premium",
             "Premium+: download & share files"
           ]
         }
@@ -455,14 +455,14 @@
     },
     {
       "question": "What is the family tree?",
-      "answer": "A visual map of your family on the Family tab.",
+      "answer": "A visual map of your family on the Family tab — edit and grow it as you like.",
       "sections": [
         {
           "title": "Members",
           "bullets": [
-            "You, partner, parents, siblings, children",
-            "Tap a card to edit",
-            "Drag members to rearrange"
+            "You, partner, children, relatives, and pets",
+            "Tap + on the tree to add a child, member, or pet",
+            "Tap a card to edit or delete"
           ]
         },
         {
@@ -487,19 +487,18 @@
     },
     {
       "question": "Which languages are supported?",
-      "answer": "17 languages for UI and content.",
+      "answer": "The app is available in Greek and English.",
       "sections": [
         {
           "title": "Available languages",
           "bullets": [
-            "Greek, English, Italian, German, French, Spanish",
-            "Romanian, Bulgarian, Polish, Serbian",
-            "Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, Dutch"
+            "Greek",
+            "English"
           ]
         },
         {
           "title": "How to change language",
-          "intro": "Settings → Language. Applies to chat, screens, and notifications."
+          "intro": "Settings → Language. Applies to screens, chat, and notifications."
         }
       ]
     },

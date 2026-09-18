@@ -8,7 +8,7 @@ import {
 } from '../lib/gamificationCard'
 
 import type { PendingLevelReward } from '../lib/levelRewards'
-import { effectiveRewardDescription, rewardTitle } from '../lib/levelRewards'
+import { activeGrantMessage, effectiveRewardDescription, rewardTitle } from '../lib/levelRewards'
 import { IconCopy, IconShare } from './ui/LineIcons'
 
 type Props = {
@@ -187,9 +187,7 @@ export function ProfileGamificationCard({
 
         {grantActive ? (
           <p className="hm-profile-gamification-card__grant">
-            {isEl
-              ? `Ενεργό δωρεάν ${activeGrantPlan} μέχρι ${new Date(activeGrantEndsAt as string).toLocaleDateString('el-GR')}.`
-              : `Active free ${activeGrantPlan} until ${new Date(activeGrantEndsAt as string).toLocaleDateString('en-GB')}.`}
+            {activeGrantMessage(activeGrantPlan as string, activeGrantEndsAt as string, lang)}
           </p>
         ) : null}
 

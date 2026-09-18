@@ -231,6 +231,7 @@ export function FamilyTreePanel({
   onNodeSelect,
   onEditNode,
   onPlaceMembers,
+  onAddClick,
 }: {
   userName: string
   lang: string
@@ -243,6 +244,7 @@ export function FamilyTreePanel({
   onNodeSelect?: (ref?: string) => void
   onEditNode?: (node: LaidOutNode) => void
   onPlaceMembers?: (nextMembers: FamilyMemberRecord[]) => void
+  onAddClick?: () => void
 }) {
   const el = lang === 'el'
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -258,24 +260,19 @@ export function FamilyTreePanel({
     () => ({
       title: el ? 'Οικογενειακό Δέντρο' : 'Family Tree',
       subtitle: el
-        ? 'Επίλεξε, μετακίνησε ή διέγραψε μέλη, κατοικίδια και συγγενείς'
-        : 'Choose, move, or delete members, pets, and relatives',
+        ? 'Επίλεξε, επεξεργάσου ή διέγραψε μέλη, κατοικίδια και συγγενείς'
+        : 'Choose, edit, or delete members, pets, and relatives',
       you: el ? 'Εσύ' : 'You',
       pregnancy: el ? 'Εγκυμοσύνη' : 'Pregnancy',
       child: el ? 'Παιδί' : 'Child',
       history: el ? 'Χρονολόγιο' : 'Timeline',
       hideHistory: el ? 'Απόκρυψη' : 'Hide',
       showHistory: el ? 'Εμφάνιση' : 'Show',
-      tapHint: el
-        ? 'Πάτα για επεξεργασία · κράτα και σύρε για μετακίνηση'
-        : 'Tap to edit · hold and drag to move',
-      empty: el
-        ? 'Πρόσθεσε σύντροφο, παιδιά ή μέλη για να γεμίσει το δέντρο'
-        : 'Add a partner, kids, or members to grow the tree',
       noHistory: el ? 'Πρόσθεσε ημερομηνίες γέννησης για να φανεί η ιστορία' : 'Add birth dates to reveal family history',
       dropHere: el ? 'Άφησε εδώ' : 'Drop here',
       hide: el ? 'Απόκρυψη' : 'Hide',
       show: el ? 'Εμφάνιση' : 'Show',
+      add: el ? 'Πρόσθεσε μέλος' : 'Add family member',
     }),
     [el],
   )
@@ -509,6 +506,19 @@ export function FamilyTreePanel({
       {showTree && (
       <>
       <div className="hm-family-tree-panel__canvas">
+        {onAddClick && (
+          <button
+            type="button"
+            className="hm-family-tree-panel__add-btn"
+            onClick={onAddClick}
+            aria-label={copy.add}
+            title={copy.add}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
         <svg
           ref={svgRef}
           className={`hm-family-tree-panel__svg${drag?.armed || drag?.moved ? ' hm-family-tree-panel__svg--dragging' : ''}`}
@@ -683,10 +693,6 @@ export function FamilyTreePanel({
               ))}
             </div>
           ))}
-
-        <div className="hm-family-tree-panel__hint">
-          {people.length <= 1 ? copy.empty : copy.tapHint}
-        </div>
       </div>
       </>
       )}

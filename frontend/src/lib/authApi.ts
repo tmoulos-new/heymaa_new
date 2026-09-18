@@ -296,7 +296,36 @@ export async function logoutUser(token?: string | null) {
 
 type AuthSessionPayload = { token?: string; refresh_token?: string }
 
+/** Prevents cookie/refresh restores from writing tokens back during/after logout. */
+let sessionPersistBlocked = false
+const LOGOUT_FLAG = 'hm_explicit_logout'
+
+export function allowAuthSessionPersist(): void {
+  sessionPersistBlocked = false
+  try {
+    sessionStorage.removeItem(LOGOUT_FLAG)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function blockAuthSessionPersist(): void {
+  sessionPersistBlocked = true
+  refreshInflight = null
+  try {
+    sessionStorage.setItem(LOGOUT_FLAG, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
 function applySessionPayload(data: AuthSessionPayload | undefined): string | null {
+  if (sessionPersistBlocked) return null
+  try {
+    if (sessionStorage.getItem(LOGOUT_FLAG) === '1') return null
+  } catch {
+    /* ignore */
+  }
   const token = typeof data?.token === 'string' ? data.token : ''
   if (!token) return null
   persistAuthSession(token, data?.refresh_token)
@@ -307,9 +336,11 @@ let refreshInflight: Promise<string | null> | null = null
 
 /** Exchange the saved refresh token / cookie for a new access token. */
 export function refreshAuthSession(): Promise<string | null> {
+  if (sessionPersistBlocked) return Promise.resolve(null)
   if (refreshInflight) return refreshInflight
   refreshInflight = (async () => {
     try {
+      if (sessionPersistBlocked) return null
       const refresh = getRefreshToken()
       const res = await axios.post<AuthSessionPayload>(
         `${API}/auth/refresh`,
@@ -327,6 +358,13 @@ export function refreshAuthSession(): Promise<string | null> {
 
 /** Reopen a saved login from localStorage or the HttpOnly session cookie. */
 export async function restoreAuthSession(): Promise<string | null> {
+  try {
+    if (sessionStorage.getItem(LOGOUT_FLAG) === '1' || sessionPersistBlocked) {
+      return null
+    }
+  } catch {
+    /* ignore */
+  }
   const existing = getAuthToken()
   if (existing) return existing
   try {
