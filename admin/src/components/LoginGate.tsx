@@ -41,7 +41,7 @@ export function LoginGate({
   return (
     <div className="gate-wrap">
       <div className="gate">
-        <AdminBrandLogo className="gate-brand" />
+        <AdminBrandLogo className="gate-brand" showText={false} />
         <p className="sub">Sign in with your HeyMaa account</p>
         <input
           type="email"
