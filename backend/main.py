@@ -5919,6 +5919,7 @@ async def admin_delete_user(user_id: str, x_token: Optional[str] = Header(None))
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
         before_snap = _user_log_snapshot(user_id)
+        _purge_user_account(user_id)
         sb.auth.admin.delete_user(user_id)
         _log_activity(admin_id, "delete", "user", user_id, value_before=before_snap)
         return {"ok": True}
@@ -5938,6 +5939,7 @@ async def admin_delete_all_users(x_token: Optional[str] = Header(None)):
         deleted = 0
         for row in user_rows:
             try:
+                _purge_user_account(row["id"])
                 sb.auth.admin.delete_user(row["id"])
                 deleted += 1
             except Exception:
@@ -7281,6 +7283,18 @@ def _auth_user_export_payload(user_id: str) -> dict:
 
 
 def _purge_user_account(user_id: str) -> None:
+    """Remove app rows that would block auth.users delete (RESTRICT FKs + owned data)."""
+    # invite_codes.user_id is ON DELETE RESTRICT (personal referral codes)
+    try:
+        sb.table("invite_codes").delete().eq("user_id", user_id).execute()
+        invalidate_invite_codes_cache()
+    except Exception:
+        pass
+    # activity_log.user_id is ON DELETE RESTRICT (admin audit rows)
+    try:
+        sb.table("activity_log").delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
     sb.table("user_data").delete().eq("user_id", user_id).execute()
     try:
         sb.table(USER_ACTIVITY_LOG_TABLE).delete().eq("user_id", user_id).execute()
