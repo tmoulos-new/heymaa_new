@@ -13,18 +13,19 @@ CREATE TABLE IF NOT EXISTS public.plans (
   active boolean NOT NULL DEFAULT true,
   voice_listen_quota integer,
   icon text,
+  product text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Seed / upsert from home page pricing (en/home.json)
 INSERT INTO public.plans (
-  id, name, price_label, period_label, badge, sort_order, featured, voice_listen_quota, icon
+  id, name, price_label, period_label, badge, sort_order, featured, voice_listen_quota, icon, product
 ) VALUES
-  ('trial',   'Free Trial',      'Free', '14 days', NULL,         10, false, 50,  '✨'),
-  ('starter', 'Starter',         '€19',  '/month',  NULL,         20, false, 150, '⚡'),
-  ('premium', 'Premium',         '€39',  '/month',  'Popular',    30, true,  400, '👑'),
-  ('annual',  'Annual Premium',  '€199', '/year',   'Save 57%',   40, false, 700, '💎')
+  ('trial',   'Free Trial',      'Free', '14 days', NULL,         10, false, 50,  '✨', NULL),
+  ('starter', 'Starter',         '€19',  '/month',  NULL,         20, false, 150, '⚡', 'HM-STARTER'),
+  ('premium', 'Premium',         '€39',  '/month',  'Popular',    30, true,  400, '👑', 'HM-PREMIUM'),
+  ('annual',  'Annual Premium',  '€199', '/year',   'Save 57%',   40, false, 700, '💎', 'HM-APREMIUM')
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price_label = EXCLUDED.price_label,
@@ -34,6 +35,7 @@ ON CONFLICT (id) DO UPDATE SET
   featured = EXCLUDED.featured,
   voice_listen_quota = EXCLUDED.voice_listen_quota,
   icon = EXCLUDED.icon,
+  product = COALESCE(EXCLUDED.product, public.plans.product),
   updated_at = now(),
   active = true;
 

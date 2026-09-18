@@ -6094,7 +6094,7 @@ async def admin_list_plans(x_token: Optional[str] = Header(None)):
             sb.table("plans")
             .select(
                 "id,name,price_label,period_label,badge,sort_order,featured,active,"
-                "voice_listen_quota,icon,tx_count,tx_cost_usd,tx_limit,tx_cost_limit_usd,"
+                "voice_listen_quota,icon,product,tx_count,tx_cost_usd,tx_limit,tx_cost_limit_usd,"
                 "created_at,updated_at"
             )
             .order("sort_order")

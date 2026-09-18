@@ -44,7 +44,7 @@ class CompletedOrdersTests(unittest.TestCase):
         self.assertIsNotNone(order)
         self.assertEqual(order["id"], "tx-1")
         self.assertEqual(order["plan"], "starter")
-        self.assertEqual(order["product"], "HeyMaa Starter")
+        self.assertEqual(order["product"], "HM-STARTER")
         self.assertEqual(order["amount"], 19.0)
         self.assertEqual(order["amountCents"], 1900)
         self.assertEqual(order["email"], "mom@example.com")
@@ -90,6 +90,7 @@ class CompletedOrdersTests(unittest.TestCase):
         back = co.row_to_order(co.order_to_row(order))
         self.assertEqual(back["transactionId"], "tx-2")
         self.assertEqual(back["plan"], "premium")
+        self.assertEqual(back["product"], "HM-PREMIUM")
         self.assertEqual(back["amountCents"], 3900)
         self.assertEqual(back["amount"], 39.0)
 

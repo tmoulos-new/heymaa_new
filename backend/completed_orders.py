@@ -50,10 +50,11 @@ DEFAULT_LIMIT = 60
 MAX_LIMIT = 200
 DEFAULT_VAT_RATE = 0.24
 CURRENCY_CODES = {978: "EUR", 840: "USD", 826: "GBP"}
+# ERP product SKUs (must match SoftOne / plans.product)
 PLAN_PRODUCTS = {
-    "starter": "HeyMaa Starter",
-    "premium": "HeyMaa Premium",
-    "annual": "HeyMaa Annual Premium",
+    "starter": "HM-STARTER",
+    "premium": "HM-PREMIUM",
+    "annual": "HM-APREMIUM",
 }
 
 
@@ -323,7 +324,12 @@ def row_to_order(row: dict) -> dict:
         "netAmount": _euros(net_cents),
         "vatAmount": _euros(vat_cents),
         "plan": row.get("plan"),
-        "product": row.get("product") or _plan_product(row.get("plan"), row.get("customer_trns")),
+        # Prefer ERP SKU from plan key so legacy "HeyMaa Starter" rows re-map on read
+        "product": (
+            PLAN_PRODUCTS[row["plan"]]
+            if row.get("plan") in PLAN_PRODUCTS
+            else (row.get("product") or _plan_product(row.get("plan"), row.get("customer_trns")))
+        ),
         "description": raw.get("description") or row.get("customer_trns") or row.get("product"),
         "customerTrns": row.get("customer_trns"),
         "merchantTrns": row.get("merchant_trns"),
