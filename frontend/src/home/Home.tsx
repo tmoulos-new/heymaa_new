@@ -66,8 +66,8 @@ const INSIDE_IMAGES: Record<string, string> = {
 
 const HOW_PHOTOS = [
   { src: momentsExpecting, altKey: "moments.altExpecting" },
-  { src: momentsNight, altKey: "moments.altNight" },
   { src: momentsPlay, altKey: "moments.altPlay" },
+  { src: momentsNight, altKey: "moments.altNight" },
 ] as const;
 
 const TABLER_ICONS =
@@ -234,23 +234,33 @@ export default function Home() {
     const arm = () => {
       video.muted = true;
       video.defaultMuted = true;
+      video.volume = 0;
       video.playsInline = true;
       video.setAttribute("muted", "");
-      video.setAttribute("playsinline", "true");
+      video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "true");
+      video.setAttribute("x5-playsinline", "true");
     };
 
+    let playQueued = false;
     const tryPlay = () => {
-      if (video.paused === false) return;
-      arm();
+      if (!video || video.paused === false) return;
+      video.muted = true;
+      video.playsInline = true;
       const playAttempt = video.play();
-      if (playAttempt) playAttempt.catch(() => {});
+      if (playAttempt) {
+        playAttempt.catch(() => {
+          if (playQueued) return;
+          playQueued = true;
+        });
+      }
     };
 
     arm();
-    tryPlay();
+    // Defer first play to next frame — more reliable on iOS Safari cold start
+    const raf = window.requestAnimationFrame(() => tryPlay());
 
-    const mediaEvents = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough"] as const;
+    const mediaEvents = ["loadedmetadata", "loadeddata", "canplay", "canplaythrough", "suspend"] as const;
     mediaEvents.forEach((eventName) => video.addEventListener(eventName, tryPlay));
 
     const onVisible = () => {
@@ -258,17 +268,20 @@ export default function Home() {
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", tryPlay);
+    window.addEventListener("focus", tryPlay);
 
-    const gestureEvents = ["touchstart", "pointerdown", "click"] as const;
+    const gestureEvents = ["touchstart", "touchend", "pointerdown", "click"] as const;
     const onGesture = () => tryPlay();
     gestureEvents.forEach((eventName) =>
       window.addEventListener(eventName, onGesture, { capture: true, passive: true }),
     );
 
     return () => {
+      window.cancelAnimationFrame(raf);
       mediaEvents.forEach((eventName) => video.removeEventListener(eventName, tryPlay));
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", tryPlay);
+      window.removeEventListener("focus", tryPlay);
       gestureEvents.forEach((eventName) =>
         window.removeEventListener(eventName, onGesture, true),
       );
@@ -326,19 +339,22 @@ export default function Home() {
         </nav>
 
         <section className="hero-section" aria-label="Hero">
-          <video
-            ref={heroVideoRef}
-            className="hero-video"
-            src={HERO_VIDEO_SRC}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            disablePictureInPicture
-            disableRemotePlayback
-            aria-hidden="true"
-          />
+          <div className="hero-video-wrap">
+            <video
+              ref={heroVideoRef}
+              className="hero-video"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              disablePictureInPicture
+              disableRemotePlayback
+              aria-hidden="true"
+            >
+              <source src={HERO_VIDEO_SRC} type="video/mp4" />
+            </video>
+          </div>
           <div className="hero-overlay" aria-hidden="true" />
           <div className="hero">
             <div className="app-auth-logo-wrap hero-logo">
@@ -587,29 +603,31 @@ export default function Home() {
           />
         </div>
 
-        <div className="cta-wrap">
-          <img
-            className="cta-photo"
-            src={ctaMomImage}
-            alt={t("cta.imageAlt")}
-          />
-          <div className="cta-copy">
-            <p className="cta-line">{t("cta.line1")}</p>
-            <p
-              className="cta-headline"
-              dangerouslySetInnerHTML={{ __html: t("cta.headline") }}
+        <section className="cta-section section" aria-label={t("cta.button")}>
+          <div className="cta-wrap">
+            <img
+              className="cta-photo"
+              src={ctaMomImage}
+              alt={t("cta.imageAlt")}
             />
-            <p
-              className="cta-line cta-line-end"
-              dangerouslySetInnerHTML={{ __html: t("cta.line3") }}
-            />
+            <div className="cta-copy">
+              <p className="cta-line">{t("cta.line1")}</p>
+              <p
+                className="cta-headline"
+                dangerouslySetInnerHTML={{ __html: t("cta.headline") }}
+              />
+              <p
+                className="cta-line cta-line-end"
+                dangerouslySetInnerHTML={{ __html: t("cta.line3") }}
+              />
+            </div>
+            <div className="cta-actions">
+              <button type="button" className="cta-btn-primary" onClick={goToApp}>
+                {t("cta.button")}
+              </button>
+            </div>
           </div>
-          <div className="cta-actions">
-            <button type="button" className="cta-btn-primary" onClick={goToApp}>
-              {t("cta.button")}
-            </button>
-          </div>
-        </div>
+        </section>
 
         <SiteFooter contentLang={contentLang} landingLng={landingLng} />
       </div>
