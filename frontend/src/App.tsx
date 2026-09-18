@@ -6656,7 +6656,8 @@ export default function App() {
     const resetLang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || profile?.lang || "el", "el");
     return <ResetScreen token={resetToken} lang={resetLang} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   }
-  if(!token)return <Navigate to={`${APP_ROUTE}/auth`} replace />;
+  // After logout (or visiting /app without a session), land on sign-in — not signup.
+  if(!token)return <Navigate to={`${APP_ROUTE}/auth?mode=login`} replace />;
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false) {
     const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");

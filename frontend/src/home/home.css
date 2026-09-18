@@ -127,12 +127,12 @@ body{font-family:var(--font-sans);background:var(--cream);}
 .hero-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;background:rgba(255,255,255,0.14);font-size:12px;color:#fff;font-weight:500;margin-bottom:18px;backdrop-filter:blur(6px);}
 .hero-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s infinite;}
 .hero h1{font-family:var(--font-sans);font-size:clamp(26px,4.5vw,42px);font-weight:500;color:#fff;line-height:1.15;margin-bottom:14px;text-shadow:0 2px 16px rgba(0,0,0,0.3);}
-.hero h1 .hero-emphasis{font-weight:700;}
-.hero h1 .hero-title-sub{display:inline-block;font-size:.78em;font-weight:400;margin-top:4px;}
+.hero h1 .hero-emphasis{font-weight:700;color:var(--beige);}
+.hero h1 .hero-title-sub{display:inline-block;font-size:.78em;font-weight:400;margin-top:4px;color:var(--beige);}
 .hero h1 em{font-style:normal;color:var(--beige);}
 .hero-sub{font-size:clamp(14px,2vw,16px);font-weight:400;color:rgba(255,255,255,0.9);line-height:1.7;max-width:580px;margin:0 auto 28px;text-shadow:0 1px 10px rgba(0,0,0,0.25);}
 .hero-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:0;}
-.hero .btn-primary,.hero .cta-btn-primary{box-shadow:0 8px 24px rgba(0,0,0,0.28);}
+.hero .btn-primary{box-shadow:none;}
 .btn-primary{padding:13px 28px;font-size:14px;font-weight:600;}
 .btn-ghost{padding:12px 26px;border-radius:999px;background:transparent;color:var(--navy);border:1.5px solid rgba(43,58,103,0.22);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
 .btn-ghost:hover{border-color:var(--navy);}
@@ -673,18 +673,19 @@ button.plan-radio:focus-visible{outline:2px solid rgba(42,42,90,0.45);outline-of
 }
 .cta-actions .cta-btn-outline,.cta-actions .cta-btn-primary{width:100%;}
 .cta-wrap .cta-btn-primary{
-  background:#de5a9e;
-  border-color:transparent;
-  box-shadow:0 10px 24px rgba(222,90,158,0.32);
+  background:var(--hm-magenta,#de5a9e);
+  border:none;
+  box-shadow:none;
 }
 .cta-wrap .cta-btn-primary:not(:disabled):hover{
-  background:#fff;
+  background:var(--beige);
   color:var(--navy);
-  border-color:#fff;
+  border:none;
+  box-shadow:none;
 }
 .cta-btn-outline{background:rgba(255,255,255,0.12);color:#fff;border:1.5px solid rgba(255,255,255,0.35);border-radius:999px;cursor:pointer;transition:background .2s,transform .2s ease;}
 .cta-btn-outline:hover{background:rgba(255,255,255,0.2);transform:translateY(-1px);}
-.cta-btn-primary{padding:14px 30px;box-shadow:0 10px 24px rgba(42,42,90,0.22);}
+.cta-btn-primary{padding:14px 30px;border:none;box-shadow:none;}
 @media (max-width:480px){
   .cta-wrap{gap:18px;}
   .cta-photo{width:108px;height:108px;}
