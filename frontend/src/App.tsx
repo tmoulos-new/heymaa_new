@@ -87,6 +87,7 @@ import {
 import { useKeyboardInset } from "./lib/useKeyboardInset";
 import {
   mergeCloudUserData,
+  mergeDocsLists,
   pruneOrphanJwtMemoryKeys,
   pruneOrphanJwtFamilyKeys,
   recoverAllLocalUserData,
@@ -1858,12 +1859,19 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onTokenUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; onTokenUpdate?: (t: string) => void; trialEndsAt?: string | null }) {
   const { t: tHome, i18n } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const showToast = (text: string, kind: ToastKind = "ok", undo?: () => void, undoLabel?: string) => {
+  const showToast = (
+    text: string,
+    kind: ToastKind = "ok",
+    undo?: () => void,
+    undoLabel?: string,
+    durationMs?: number,
+  ) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const id = ++toastSeq;
     setToasts(prev => [...prev, { id, text: trimmed, kind, undo, undoLabel }]);
-    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), undo ? 8000 : 5000);
+    const ms = durationMs ?? (undo ? 8000 : 5000);
+    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ms);
   };
   const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
   const calendarDay = useCalendarDay();
@@ -2067,12 +2075,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       result?.points_cap === "chat_daily_cap"
       && (path === appPath("chat", "send") || path === GAMIFICATION_CHAT_VIDEO_PATH)
     ) {
-      showToast(
-        lang === "el"
-          ? `Έφτασες το ημερήσιο όριο πόντων από chat (${getChatDailyPointsCap()}/ημέρα).`
-          : `Daily chat points cap reached (${getChatDailyPointsCap()}/day).`,
-        "ok",
-      );
+      // Soft gamification cap only — chat itself is unlimited. Show once per day so it
+      // is not mistaken for a message limit.
+      const dayKey = `hm_chat_pts_cap_toast_${new Date().toISOString().slice(0, 10)}`;
+      let alreadyShown = false;
+      try {
+        alreadyShown = sessionStorage.getItem(dayKey) === "1";
+        if (!alreadyShown) sessionStorage.setItem(dayKey, "1");
+      } catch {
+        /* ignore */
+      }
+      if (!alreadyShown) {
+        showToast(
+          lang === "el"
+            ? `Σήμερα συμπλήρωσες τους πόντους από chat (${getChatDailyPointsCap()}/ημέρα). Το chat συνεχίζει κανονικά — απλώς δεν προστίθενται άλλοι πόντοι.`
+            : `You've earned today's chat points (${getChatDailyPointsCap()}/day). Chat continues as usual — you just won't earn more points until tomorrow.`,
+          "ok",
+          undefined,
+          undefined,
+          10000,
+        );
+      }
     }
   }, [token, lang, openPendingReward, applyLivePointRulesFrom, ingestRewards]);
 
@@ -2161,6 +2184,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string, { stageId: string; idx: number } | null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
   const [docs, setDocs] = useState<DocEntry[]>(() => normalizeDocEntries(bootLocalScan().docs as unknown[]));
+  const docsDirtyRef = useRef(false);
+  const handleDocsChange = useCallback((next: DocEntry[] | ((prev: DocEntry[]) => DocEntry[])) => {
+    docsDirtyRef.current = true;
+    setDocs(next);
+  }, []);
   const [shopItems, setShopItems] = useState<string[]>(() => {
     const s = bootLocalScan().shopitems;
     return s?.length ? s : ["Silicone teether","Travel crib","High contrast books","Floor gym"];
@@ -2574,11 +2602,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const sbSave = useCallback(async (key: string, value: any) => {
     const payload = key === "chat" ? chatMessagesForStorage(value) : value;
+    const allowEmptyCloud = key === "docs" || key === "shopitems" || key === "superitems";
     // Memories use IndexedDB — never jam full photo payloads into localStorage
     if (key !== "memories") {
       const raw = JSON.stringify(payload);
       // Never overwrite a non-empty local blob with empty cloud-bound payload
-      if (raw === "[]" || raw === "{}") {
+      // (except docs/shop/super where empty is a valid intentional clear).
+      if ((raw === "[]" || raw === "{}") && !allowEmptyCloud) {
         const existing = localStorage.getItem(sk(token, key));
         if (existing && existing !== "[]" && existing !== "{}") {
           /* keep existing local */
@@ -2590,9 +2620,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       }
     }
     if (!cloudReady) return;
-    // Never push empty arrays/objects to cloud (would wipe recovered data)
+    // Never push empty arrays/objects to cloud (would wipe recovered data),
+    // except keys where clearing is a real user action (e.g. deleted all docs).
     if (value == null) return;
-    if (Array.isArray(payload) && payload.length === 0) return;
+    if (Array.isArray(payload) && payload.length === 0 && !allowEmptyCloud) return;
     if (typeof payload === "object" && !Array.isArray(payload)) {
       const keys = Object.keys(payload);
       if (
@@ -2614,6 +2645,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     let cancelled = false;
     setCloudReady(false);
     setMemoriesLocalReady(false);
+    docsDirtyRef.current = false;
     let idleId: number | undefined;
     let timeoutId: number | undefined;
 
@@ -2629,7 +2661,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
         if (local.chat.length) setMessages(local.chat as Message[]);
         if (local.threads.length) setThreads(local.threads as Thread[]);
-        if (local.docs.length) setDocs(normalizeDocEntries(local.docs as unknown[]));
+        if (local.docs.length && !docsDirtyRef.current) {
+          setDocs(normalizeDocEntries(local.docs as unknown[]));
+        }
         if (Object.keys(local.milestones_map).length) {
           setMilestoneChecksMap(local.milestones_map as unknown as MilestoneChecksMap);
         }
@@ -2654,7 +2688,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         setFamilyData(ensureFamilyMemberIds(merged.family));
         if (merged.chat.length) setMessages(merged.chat as Message[]);
         if (merged.threads.length) setThreads(merged.threads as Thread[]);
-        if (merged.docs.length) setDocs(normalizeDocEntries(merged.docs as unknown[]));
+        // Docs: never resurrect entries the user already deleted in this session.
+        setDocs((prev) => {
+          if (docsDirtyRef.current) {
+            if (prev.length === 0) return prev;
+            return normalizeDocEntries(
+              mergeDocsLists(prev as unknown[], merged.docs as unknown[]) as unknown[],
+            );
+          }
+          return normalizeDocEntries(merged.docs as unknown[]);
+        });
         if (Object.keys(merged.milestones_map).length) {
           setMilestoneChecksMap(merged.milestones_map as unknown as MilestoneChecksMap);
         }
@@ -2783,7 +2826,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (!cloudReady) return;
     const timer = window.setTimeout(() => {
       void sbSave("docs", docs);
-    }, 2000);
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [docs, cloudReady, sbSave]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("shopitems", shopItems); },[shopItems, sbSave, cloudReady]);
@@ -5669,7 +5712,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {messages.length===0&&(
               <div className="hm-tab-card" style={{textAlign:"center",padding:"20px 16px"}}>
                 <div style={{margin:"0 auto 12px",width:52,height:52}}><HeyMaaAvatar size={52} /></div>
-                <div className="hm-chat-greeting" style={{color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
+                <div className="hm-chat-greeting" style={{color:navy}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
               </div>
             )}
 
@@ -5808,7 +5851,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
               <HeyMaaAvatar size={32} />
               <div>
-                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {vocativeName}! {t("chatgreet2",lang)}</div>
+                <div style={{background:gl,borderRadius:"0 11px 11px 11px",padding:"10px 12px",fontSize:12.5,lineHeight:1.5,color:navy}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
                 <button onClick={()=>prefillChat(lang === "el" ? `Πες μου για την ανάπτυξη μωρού ηλικίας ${displayAge}` : `Tell me about baby development for ${displayAge}`)} style={{background:"none",border:`1px solid ${navy}`,borderRadius:8,color:navy,fontSize:11,cursor:"pointer",padding:"5px 10px",marginTop:6,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{t("askmaa",lang)}</button>
               </div>
             </div>
@@ -6015,7 +6058,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           <FamilyDocumentsPanel
             lang={lang}
             docs={docs}
-            onDocsChange={setDocs}
+            onDocsChange={handleDocsChange}
             familyChildren={familyChildren}
             members={familyData.members}
             pregnancyActive={pregnancyActive}

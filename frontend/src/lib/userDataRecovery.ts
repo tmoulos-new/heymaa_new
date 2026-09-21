@@ -91,6 +91,53 @@ function arrayRicher(a: unknown[], b: unknown[]): unknown[] {
   return b.length >= a.length ? b : a;
 }
 
+function docEntryId(d: unknown): string | null {
+  if (!d || typeof d !== "object") return null;
+  const id = (d as { id?: unknown }).id;
+  return id == null || id === "" ? null : String(id);
+}
+
+/**
+ * Merge document lists without resurrecting intentional deletes.
+ * Prefer local when it is a subset of remote (user removed entries) or equal.
+ * Only fall back to length-based union when the two sides diverge with unique ids.
+ */
+export function mergeDocsLists(local: unknown[], remote: unknown[]): unknown[] {
+  const a = Array.isArray(local) ? local : [];
+  const b = Array.isArray(remote) ? remote : [];
+  if (!a.length) return b;
+  if (!b.length) return a;
+
+  const aIds = a.map(docEntryId).filter((x): x is string => !!x);
+  const bIds = b.map(docEntryId).filter((x): x is string => !!x);
+  const aSet = new Set(aIds);
+  const bSet = new Set(bIds);
+
+  // Local is remote minus deletes (or identical) → keep local
+  if (aIds.length && aIds.every((id) => bSet.has(id)) && a.length <= b.length) {
+    return a;
+  }
+  // Remote is older subset → keep local (has newer adds)
+  if (bIds.length && bIds.every((id) => aSet.has(id)) && b.length <= a.length) {
+    return a;
+  }
+
+  // Divergent adds on both sides: union by id (local wins on conflict)
+  const byId = new Map<string, unknown>();
+  const noId: unknown[] = [];
+  for (const d of b) {
+    const id = docEntryId(d);
+    if (id) byId.set(id, d);
+    else noId.push(d);
+  }
+  for (const d of a) {
+    const id = docEntryId(d);
+    if (id) byId.set(id, d);
+    else noId.push(d);
+  }
+  return [...byId.values(), ...noId];
+}
+
 function familyScore(f: FamilyData): number {
   let s = f.children.length * 3 + f.members.length * 3;
   if (f.selfPhoto) s += 5;
@@ -390,7 +437,7 @@ export async function rehomeRecoveredData(token: string, data: RecoveredUserData
   }
   if (data.chat.length) safeLocalSet(sk("chat"), JSON.stringify(data.chat));
   if (data.threads.length) safeLocalSet(sk("threads"), JSON.stringify(data.threads));
-  if (data.docs.length) safeLocalSet(sk("docs"), JSON.stringify(data.docs));
+  if (Array.isArray(data.docs)) safeLocalSet(sk("docs"), JSON.stringify(data.docs));
   if (Object.keys(data.milestones_map).length) {
     safeLocalSet(sk("milestones_map"), JSON.stringify(data.milestones_map));
   }
@@ -482,6 +529,17 @@ export async function recoverAllLocalUserData(token: string): Promise<RecoveredU
     threads: bundled?.threads?.length
       ? arrayRicher(fromScan.threads, bundled.threads)
       : fromScan.threads,
+    // Honor the stable docs key even when it is intentionally empty ([]).
+    // Scanning skips [] and arrayRicher would otherwise resurrect legacy hm_docs_* keys.
+    docs: (() => {
+      try {
+        const raw = localStorage.getItem(stableSk(token, "docs"));
+        if (raw != null) return parseJsonArray(raw);
+      } catch {
+        /* ignore */
+      }
+      return fromScan.docs;
+    })(),
   };
   await rehomeRecoveredData(token, merged);
   return merged;
@@ -526,7 +584,7 @@ export function mergeCloudUserData(
   let docs = local.docs;
   if (cloud.docs != null) {
     const remote = asArray(cloud.docs);
-    if (remote) docs = arrayRicher(docs, remote);
+    if (remote) docs = mergeDocsLists(docs, remote);
   }
 
   let milestones_map = mergeMilestoneChecksMaps(

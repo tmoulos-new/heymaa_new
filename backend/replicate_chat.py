@@ -16,8 +16,9 @@ REPLICATE_CHAT_MODELS: tuple[dict[str, Any], ...] = (
     {"owner": "anthropic", "name": "claude-4.5-haiku", "kind": "claude", "vision": True},
 )
 
-# Gemini on Replicate can stop early; allow room for 2–3 full sentences in Greek.
-DEFAULT_CHAT_MAX_OUTPUT_TOKENS = 1024
+# Cap output to match “2–3 short sentences” — faster generation, fewer truncations.
+DEFAULT_CHAT_MAX_OUTPUT_TOKENS = 320
+DEFAULT_CHAT_MAX_OUTPUT_TOKENS_LONG = 768
 
 
 def looks_truncated_reply(text: str) -> bool:
@@ -202,7 +203,7 @@ def _poll_prediction(get_url: str, api_token: str, *, deadline: float) -> dict[s
         status = payload.get("status")
         if status in ("succeeded", "failed", "canceled"):
             return payload
-        time.sleep(0.75)
+        time.sleep(0.3)
     return payload
 
 
@@ -252,11 +253,17 @@ def run_replicate_prediction(
     return text, prediction_metrics(payload)
 
 
-def model_order(*, vision: bool = False, prefer_quality: bool = False) -> list[dict[str, Any]]:
-    """Same occasion order as the old Groq / Gemini / Claude cascade, on Replicate.
+def model_order(
+    *,
+    vision: bool = False,
+    prefer_quality: bool = False,
+    prefer_fast: bool = False,
+) -> list[dict[str, Any]]:
+    """Cascade order for Replicate chat models.
 
-    Everyday / complex: Llama (was Groq) → Gemini → Claude.
-    CJK/RTL languages: Gemini → Llama → Claude.
+    Everyday knowledge (RAG / complex): Llama → Gemini → Claude.
+    Fast chitchat / no-RAG: Gemini Flash → Claude Haiku → Llama (lower latency).
+    CJK/RTL: Gemini → Llama → Claude.
     Photos: Gemini → Claude → Llama.
     """
     by_kind = {m["kind"]: m for m in REPLICATE_CHAT_MODELS}
@@ -268,11 +275,21 @@ def model_order(*, vision: bool = False, prefer_quality: bool = False) -> list[d
         return _seq("gemini", "claude", "llama")
     if prefer_quality:
         return _seq("gemini", "llama", "claude")
+    if prefer_fast:
+        return _seq("gemini", "claude", "llama")
     return _seq("llama", "gemini", "claude")
 
 
-def _model_specs(image_parts: list[dict] | None, prefer_quality: bool = False) -> list[dict[str, Any]]:
-    return model_order(vision=bool(image_parts), prefer_quality=prefer_quality)
+def _model_specs(
+    image_parts: list[dict] | None,
+    prefer_quality: bool = False,
+    prefer_fast: bool = False,
+) -> list[dict[str, Any]]:
+    return model_order(
+        vision=bool(image_parts),
+        prefer_quality=prefer_quality,
+        prefer_fast=prefer_fast,
+    )
 
 
 def call_replicate_chat_sync(
@@ -285,12 +302,21 @@ def call_replicate_chat_sync(
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
     prefer_quality: bool = False,
+    prefer_fast: bool = False,
 ) -> tuple[str, str, dict[str, Any]]:
     """Returns (reply_text, model_slug, metrics)."""
     prompt = build_history_prompt(message, history, history_limit)
     last_err: Optional[Exception] = None
-    token_budgets = [max_tokens, min(max_tokens * 2, 2048)]
-    for spec in _model_specs(image_parts, prefer_quality=prefer_quality):
+    # One budget for short replies; one modest bump only for longer knowledge answers.
+    if max_tokens <= 384:
+        token_budgets = [max_tokens]
+    else:
+        token_budgets = [max_tokens, min(max(max_tokens + 256, max_tokens), DEFAULT_CHAT_MAX_OUTPUT_TOKENS_LONG)]
+    for spec in _model_specs(
+        image_parts,
+        prefer_quality=prefer_quality,
+        prefer_fast=prefer_fast,
+    ):
         slug = f"{spec['owner']}/{spec['name']}"
         for budget in token_budgets:
             try:
@@ -324,6 +350,7 @@ async def call_replicate_chat(
     history_limit: int = 6,
     max_tokens: int = DEFAULT_CHAT_MAX_OUTPUT_TOKENS,
     prefer_quality: bool = False,
+    prefer_fast: bool = False,
 ) -> tuple[str, str, dict[str, Any]]:
     return await asyncio.to_thread(
         call_replicate_chat_sync,
@@ -335,6 +362,7 @@ async def call_replicate_chat(
         history_limit=history_limit,
         max_tokens=max_tokens,
         prefer_quality=prefer_quality,
+        prefer_fast=prefer_fast,
     )
 
 

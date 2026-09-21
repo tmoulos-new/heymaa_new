@@ -57,6 +57,7 @@ class ReplicateChatTests(unittest.TestCase):
     def test_model_order_quality_and_vision_match_legacy_cascade(self):
         quality = [f"{m['owner']}/{m['name']}" for m in model_order(prefer_quality=True)]
         vision = [f"{m['owner']}/{m['name']}" for m in model_order(vision=True)]
+        fast = [f"{m['owner']}/{m['name']}" for m in model_order(prefer_fast=True)]
         self.assertEqual(
             quality,
             [
@@ -67,6 +68,14 @@ class ReplicateChatTests(unittest.TestCase):
         )
         self.assertEqual(
             vision,
+            [
+                "google/gemini-2.5-flash",
+                "anthropic/claude-4.5-haiku",
+                "meta/meta-llama-3-70b-instruct",
+            ],
+        )
+        self.assertEqual(
+            fast,
             [
                 "google/gemini-2.5-flash",
                 "anthropic/claude-4.5-haiku",

@@ -1780,21 +1780,12 @@ def build_profile_context(profile):
     lines = []
     user_name = (getattr(profile, "name", None) or "").strip()
     if user_name:
-        try:
-            from .greek_text import greek_vocative
-        except ImportError:
-            from greek_text import greek_vocative
-        user_lang = (getattr(profile, "lang", None) or "").strip()
-        vocative = greek_vocative(user_name) if user_lang.startswith("el") else user_name
         lines.append(
-            f"The user's name is {user_name}. Address them by this name (e.g. greet with their name). "
+            f"The user's name is «{user_name}». Always address them using exactly this spelling "
+            f"as written — do not transliterate, translate, Hellenize, decline, or invent a "
+            f"different form (e.g. do not turn «Nikol» into «Νίκο»). "
             f"Never call them Mama unless that is actually their name."
         )
-        if user_lang.startswith("el") and vocative != user_name:
-            lines.append(
-                f"When responding in Greek and addressing the user directly (greetings, vocative), "
-                f"use the vocative form «{vocative}», not the nominative «{user_name}»."
-            )
     children = []
     if profile.children:
         for c in profile.children:
@@ -1996,6 +1987,8 @@ _SHORT_DIALOGUE_RULE = (
     "\n\n--- Reply length (always follow) ---\n"
     "Write a complete answer in 2 short sentences (3 only if needed). "
     "Use full natural sentences the user can understand immediately. "
+    "Grammar and syntax must be correct in the reply language "
+    "(natural Greek when the user writes Greek; natural English when they write English). "
     "Never output writing rules, labels, markdown, asterisks, or instruction fragments. "
     "Never answer with a single word or a cut-off phrase."
 )
@@ -2009,6 +2002,7 @@ _CONVERSATION_STYLE_RULE = (
     "In the user-facing reply always use native words of the user's language "
     "(Greek: ύπνος, διατροφή, ανάπτυξη, θηλασμός). Never mix languages or leave English fragments "
     "such as SLEEP, σLEEP, or nutrition inside another language. "
+    "Prefer fluent, grammatically correct phrasing — no telegram-style fragments or broken clauses. "
     "If an earlier assistant turn mixed languages or had broken words, do not copy it; rewrite cleanly."
 )
 
@@ -2542,7 +2536,8 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
         return False
     return str(row.get("status") or "active") == "active"
 
-_CHAT_MAX_TOKENS = 1024
+_CHAT_MAX_TOKENS = 320
+_CHAT_MAX_TOKENS_LONG = 768
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
 
 _EL_TOPIC_LEAKS = (
@@ -2798,7 +2793,7 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
     def _generation_config():
         # Avoid thinkingConfig — newer Gemini 3.x models reject thinkingBudget:0.
         return {
-            "maxOutputTokens": max(int(_CHAT_MAX_TOKENS or 1024), 1024),
+            "maxOutputTokens": max(int(_CHAT_MAX_TOKENS_LONG or 768), 320),
             "temperature": 0.6,
         }
 
@@ -3959,6 +3954,14 @@ async def _run_chat_core(
     timing["evaluator_ms"] = evaluator.get("elapsed_ms", 0)
     needs_rag = bool(evaluator.get("needs_rag", True))
     llm_history = prepare_llm_history(req.message, req.history)
+    try:
+        try:
+            from .evaluator import is_pure_greeting
+        except ImportError:
+            from evaluator import is_pure_greeting
+        greeting_only = is_pure_greeting(req.message)
+    except Exception:
+        greeting_only = False
 
     t_rag0 = _time.perf_counter()
     rag_chunks: list = []
@@ -3985,45 +3988,47 @@ async def _run_chat_core(
     t_ctx0 = _time.perf_counter()
     family_context = build_profile_context(req.profile)
     memories_context = ""
-    if req.recentMemories:
-        mem_lines = []
-        for m in req.recentMemories[:memory_context_limit]:
-            line = m.text
-            if m.date:
-                line += f" ({m.date})"
-            if m.ref:
-                line += f" [re: {m.ref}]"
-            mem_lines.append(line)
-        memories_context = "\n".join(mem_lines)
     milestones_context = ""
-    if req.recentMilestones:
-        ms_lines = []
-        for m in req.recentMilestones[:milestone_context_limit]:
-            line = m.label
-            if m.ref:
-                line += f" [re: {m.ref}]"
-            if m.stageId:
-                line += f" ({m.stageId})"
-            ms_lines.append(line)
-        milestones_context = "\n".join(ms_lines)
     docs_context = ""
-    if req.recentDocs:
-        doc_lines = []
-        for d in req.recentDocs[:10]:
-            line = d.title
-            if d.category:
-                line += f" [{d.category}]"
-            if d.date:
-                line += f" ({d.date})"
-            if d.ref:
-                line += f" — ref: {d.ref}"
-            doc_lines.append(line)
-        docs_context = "\n".join(doc_lines)
     promotion_context = ""
-    if promo:
-        promotion_context = promo.get("body", "") or ""
-        if promo.get("link"):
-            promotion_context += f" {promo['link']}"
+    # Greetings / chitchat: keep profile (name) only — skip heavy context for speed.
+    if not greeting_only:
+        if req.recentMemories:
+            mem_lines = []
+            for m in req.recentMemories[:memory_context_limit]:
+                line = m.text
+                if m.date:
+                    line += f" ({m.date})"
+                if m.ref:
+                    line += f" [re: {m.ref}]"
+                mem_lines.append(line)
+            memories_context = "\n".join(mem_lines)
+        if req.recentMilestones:
+            ms_lines = []
+            for m in req.recentMilestones[:milestone_context_limit]:
+                line = m.label
+                if m.ref:
+                    line += f" [re: {m.ref}]"
+                if m.stageId:
+                    line += f" ({m.stageId})"
+                ms_lines.append(line)
+            milestones_context = "\n".join(ms_lines)
+        if req.recentDocs:
+            doc_lines = []
+            for d in req.recentDocs[:10]:
+                line = d.title
+                if d.category:
+                    line += f" [{d.category}]"
+                if d.date:
+                    line += f" ({d.date})"
+                if d.ref:
+                    line += f" — ref: {d.ref}"
+                doc_lines.append(line)
+            docs_context = "\n".join(doc_lines)
+        if promo:
+            promotion_context = promo.get("body", "") or ""
+            if promo.get("link"):
+                promotion_context += f" {promo['link']}"
     system_prompt = build_system_prompt(
         rag_context,
         family_context,
@@ -4109,6 +4114,15 @@ async def _run_chat_core(
                 from replicate_chat import call_replicate_chat
 
             async def _replicate_call():
+                use_long = bool(image_parts) or needs_rag or complex_query
+                max_tokens = _CHAT_MAX_TOKENS_LONG if use_long else _CHAT_MAX_TOKENS
+                prefer_quality = msg_lang in GEMINI_FIRST_LANGS
+                # Fast path for chitchat / non-RAG: Gemini Flash first (strong EL/EN, lower latency).
+                prefer_fast = (
+                    not prefer_quality
+                    and not image_parts
+                    and (greeting_only or not needs_rag)
+                )
                 reply, model_slug, meta = await call_replicate_chat(
                     message_for_llm,
                     llm_history,
@@ -4116,8 +4130,9 @@ async def _run_chat_core(
                     replicate_key,
                     image_parts=image_parts or None,
                     history_limit=chat_context_limit,
-                    max_tokens=_CHAT_MAX_TOKENS,
-                    prefer_quality=msg_lang in GEMINI_FIRST_LANGS,
+                    max_tokens=max_tokens,
+                    prefer_quality=prefer_quality,
+                    prefer_fast=prefer_fast,
                 )
                 if not reply:
                     raise RuntimeError("replicate returned empty reply")
