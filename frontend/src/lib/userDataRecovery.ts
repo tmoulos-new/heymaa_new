@@ -135,7 +135,7 @@ export function mergeDocsLists(local: unknown[], remote: unknown[]): unknown[] {
     if (id) byId.set(id, d);
     else noId.push(d);
   }
-  return [...byId.values(), ...noId];
+  return [...Array.from(byId.values()), ...noId];
 }
 
 function familyScore(f: FamilyData): number {
