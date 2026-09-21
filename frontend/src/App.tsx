@@ -102,6 +102,7 @@ import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { chatContextDepth, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
 import {
+  canArchiveAnotherThread,
   featureAllowed,
   featureLabel,
   featureRequiredPlanLabel,
@@ -335,6 +336,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   attachments?: ChatAttachment[];
+  /** Quoted message when user replied (Viber-style). */
+  replyTo?: { role: "user" | "assistant"; content: string } | null;
   promo?: { title: string; body: string; link?: string | null; badge?: string; cta?: string | null } | null;
   memorySuggestion?: MemorySuggestion | null;
 }
@@ -2158,9 +2161,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   // Threads state — bootstrap from full localStorage scan (all past JWT keys)
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
   const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan().chat as Message[]) || []);
+  /** When set, live `messages` belong to this archived thread (kept in sync). */
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [showThreads, setShowThreads] = useState(false);
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [msgActionIndex, setMsgActionIndex] = useState<number | null>(null);
+  const [replyTarget, setReplyTarget] = useState<{
+    index: number;
+    role: "user" | "assistant";
+    content: string;
+  } | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [msgDeleteIndex, setMsgDeleteIndex] = useState<number | null>(null);
+  const msgLongPressRef = useRef<{
+    timer: number | null;
+    index: number | null;
+    startX: number;
+    startY: number;
+    fired: boolean;
+  }>({ timer: null, index: null, startX: 0, startY: 0, fired: false });
   const [showChatLibrary, setShowChatLibrary] = useState(false);
   const [libraryPreview, setLibraryPreview] = useState<{ src: string; name: string; kind?: "image" | "video" } | null>(null);
   const [libraryDeleteTarget, setLibraryDeleteTarget] = useState<ChatLibraryItem | null>(null);
@@ -2602,7 +2622,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const sbSave = useCallback(async (key: string, value: any) => {
     const payload = key === "chat" ? chatMessagesForStorage(value) : value;
-    const allowEmptyCloud = key === "docs" || key === "shopitems" || key === "superitems";
+    const allowEmptyCloud =
+      key === "docs" ||
+      key === "shopitems" ||
+      key === "superitems" ||
+      key === "chat" ||
+      key === "threads";
     // Memories use IndexedDB — never jam full photo payloads into localStorage
     if (key !== "memories") {
       const raw = JSON.stringify(payload);
@@ -2832,9 +2857,149 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(()=>{ if (!cloudReady) return; void sbSave("shopitems", shopItems); },[shopItems, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("superitems", superItems); },[superItems, sbSave, cloudReady]);
 
+  const clearMsgLongPress = useCallback(() => {
+    const state = msgLongPressRef.current;
+    if (state.timer != null) {
+      window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+  }, []);
+
+  const openMsgActions = useCallback((index: number) => {
+    if (index < 0 || index >= messages.length) return;
+    clearMsgLongPress();
+    setMsgActionIndex(index);
+  }, [clearMsgLongPress, messages.length]);
+
+  const msgPressHandlers = useCallback((index: number) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      clearMsgLongPress();
+      const state = msgLongPressRef.current;
+      state.index = index;
+      state.startX = e.clientX;
+      state.startY = e.clientY;
+      state.fired = false;
+      state.timer = window.setTimeout(() => {
+        state.fired = true;
+        state.timer = null;
+        openMsgActions(index);
+      }, 480);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const state = msgLongPressRef.current;
+      if (state.timer == null) return;
+      if (Math.abs(e.clientX - state.startX) > 12 || Math.abs(e.clientY - state.startY) > 12) {
+        clearMsgLongPress();
+      }
+    },
+    onPointerUp: () => {
+      clearMsgLongPress();
+    },
+    onPointerCancel: () => {
+      clearMsgLongPress();
+    },
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      openMsgActions(index);
+    },
+  }), [clearMsgLongPress, openMsgActions]);
+
+  const snippetForReply = useCallback((text: string) => {
+    const cleaned = (text || "").replace(/\s+/g, " ").trim();
+    if (!cleaned) return lang === "el" ? "(συνημμένο)" : "(attachment)";
+    return cleaned.length > 120 ? `${cleaned.slice(0, 120)}…` : cleaned;
+  }, [lang]);
+
+  const copyMessageText = useCallback(async (text: string) => {
+    const value = (text || "").trim();
+    if (!value) {
+      showToast(lang === "el" ? "Δεν υπάρχει κείμενο για αντιγραφή." : "Nothing to copy.", "err");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(lang === "el" ? "Αντιγράφηκε" : "Copied", "ok");
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast(lang === "el" ? "Αντιγράφηκε" : "Copied", "ok");
+      } catch {
+        showToast(lang === "el" ? "Αποτυχία αντιγραφής." : "Could not copy.", "err");
+      }
+    }
+  }, [lang, showToast]);
+
+  const startReplyToMessage = useCallback((index: number) => {
+    const msg = messages[index];
+    if (!msg) return;
+    setEditingIndex(null);
+    setReplyTarget({
+      index,
+      role: msg.role,
+      content: snippetForReply(msg.content),
+    });
+    setMsgActionIndex(null);
+    window.setTimeout(() => inputRef.current?.focus(), 60);
+  }, [messages, snippetForReply]);
+
+  const startEditMessage = useCallback((index: number) => {
+    const msg = messages[index];
+    if (!msg) return;
+    setReplyTarget(null);
+    setEditingIndex(index);
+    setInput(msg.content || "");
+    setChatPendingAttachments([]);
+    setMsgActionIndex(null);
+    window.setTimeout(() => inputRef.current?.focus(), 60);
+  }, [messages]);
+
+  const confirmDeleteMessage = useCallback(() => {
+    if (msgDeleteIndex == null) return;
+    const idx = msgDeleteIndex;
+    setMessages((prev) => prev.filter((_, i) => i !== idx));
+    setReplyTarget((prev) => {
+      if (!prev) return prev;
+      if (prev.index === idx) return null;
+      if (prev.index > idx) return { ...prev, index: prev.index - 1 };
+      return prev;
+    });
+    setEditingIndex((prev) => {
+      if (prev == null) return prev;
+      if (prev === idx) {
+        setInput("");
+        return null;
+      }
+      return prev > idx ? prev - 1 : prev;
+    });
+    setMsgDeleteIndex(null);
+    setMsgActionIndex(null);
+  }, [msgDeleteIndex]);
+
   const sendMessage = async (text: string, attachments: ChatAttachment[] = []) => {
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0) return;
+
+    // Viber-style edit: update the bubble in place, no new API turn.
+    if (editingIndex != null) {
+      const idx = editingIndex;
+      setMessages((prev) =>
+        prev.map((m, i) => (i === idx ? { ...m, content: trimmed } : m)),
+      );
+      setEditingIndex(null);
+      setInput("");
+      setChatPendingAttachments([]);
+      return;
+    }
+
     if (recordingIntentRef.current) {
       recordingIntentRef.current = false;
       const r = recRef.current;
@@ -2849,8 +3014,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       hasVideoAttachment ? GAMIFICATION_CHAT_VIDEO_PATH : appPath("chat", "send"),
       attachments.length ? "Send message with attachment" : "Send message",
     );
-    const userMsg: Message = { role: "user", content: trimmed, attachments: attachments.length ? attachments : undefined };
-    const next = [...messages, userMsg]; setMessages(next); setInput(""); setChatPendingAttachments([]); setLoading(true);
+    const activeReply = replyTarget;
+    const replyMeta = activeReply
+      ? { role: activeReply.role, content: activeReply.content }
+      : undefined;
+    const apiMessage = activeReply
+      ? (lang === "el"
+          ? `Απαντώντας σε «${activeReply.content}»: ${trimmed}`
+          : `Replying to "${activeReply.content}": ${trimmed}`)
+      : trimmed;
+    const userMsg: Message = {
+      role: "user",
+      content: trimmed,
+      attachments: attachments.length ? attachments : undefined,
+      replyTo: replyMeta || undefined,
+    };
+    const next = [...messages, userMsg];
+    setMessages(next);
+    setInput("");
+    setChatPendingAttachments([]);
+    setReplyTarget(null);
+    setLoading(true);
     if (isLocalDemoToken(token)) {
       const msg = lang === "el"
         ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat με φωτογραφίες/αρχεία χρειάζεται σύνδεση με πραγματικό λογαριασμό."
@@ -2892,7 +3076,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       const res = await axios.post(
         `${API}/chat`,
         {
-          message: trimmed,
+          message: apiMessage,
           history: historyForApi,
           attachments: attachments.map(attachmentPayloadForApi),
           profile: {
@@ -2982,8 +3166,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setTimeout(()=>{ setInput(text); inputRef.current?.focus(); }, 80);
   };
 
-  const requestNewThread = () => {
-    if (!messages.length && !input.trim() && !chatPendingAttachments.length) return;
+  const titleOfMessages = useCallback((msgs: Message[], fallback: string) => {
+    const first = msgs.find((m) => m.role === "user" && (m.content || "").trim()) || msgs[0];
+    const text = (first?.content || fallback).replace(/\s+/g, " ").trim();
+    if (!text) return fallback;
+    return text.length > 64 ? `${text.slice(0, 64)}…` : text;
+  }, []);
+
+  const wipeLiveChat = useCallback(() => {
     ttsSessionRef.current += 1;
     ttsAbortRef.current?.abort();
     ttsAbortRef.current = null;
@@ -2997,11 +3187,134 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setInput("");
     setChatPendingAttachments([]);
     setShowChatAttachSheet(false);
+    setActiveThreadId(null);
+    setReplyTarget(null);
+    setEditingIndex(null);
+    setMsgActionIndex(null);
+    setMsgDeleteIndex(null);
+  }, []);
+
+  const upsertThreadMessages = useCallback((threadId: string, msgs: Message[], titleFallback: string) => {
+    setThreads((prev) =>
+      prev.map((th) =>
+        th.id === threadId
+          ? {
+              ...th,
+              messages: msgs,
+              title: th.title || titleOfMessages(msgs, titleFallback),
+            }
+          : th,
+      ),
+    );
+  }, [titleOfMessages]);
+
+  const archiveLiveChat = useCallback((msgs: Message[]): boolean => {
+    if (!msgs.length) return true;
+    if (activeThreadId) {
+      upsertThreadMessages(activeThreadId, msgs, t("pastthreads", lang));
+      return true;
+    }
+    if (!canArchiveAnotherThread(planEntitlements, subSnapshot, threads.length)) {
+      void fetchSubscriptionStatus(token)
+        .then(applySubscriptionSnapshot)
+        .catch(() => {});
+      setShowSubscriptionSheet(true);
+      return false;
+    }
+    const id = String(Date.now());
+    const locale = lang === "el" ? "el-GR" : "en-GB";
+    const date = new Date().toLocaleDateString(locale, { day: "numeric", month: "short" });
+    setThreads((prev) => [
+      {
+        id,
+        title: titleOfMessages(msgs, t("pastthreads", lang)),
+        date,
+        messages: msgs.map((m) => ({ ...m })),
+      },
+      ...prev,
+    ]);
+    return true;
+  }, [
+    activeThreadId,
+    applySubscriptionSnapshot,
+    lang,
+    planEntitlements,
+    subSnapshot,
+    threads.length,
+    titleOfMessages,
+    token,
+    upsertThreadMessages,
+  ]);
+
+  const requestNewThread = () => {
+    if (!messages.length && !input.trim() && !chatPendingAttachments.length) return;
+    if (messages.length && !archiveLiveChat(messages)) return;
+    wipeLiveChat();
+  };
+
+  const openConversation = (threadId: string) => {
+    if (threadId === "__current__") {
+      setShowChatSearch(false);
+      setShowThreads(false);
+      setTab("chat");
+      return;
+    }
+    const th = threads.find((item) => item.id === threadId);
+    if (!th) return;
+
+    if (messages.length && activeThreadId !== threadId) {
+      const sameAsTarget =
+        messages.length === (th.messages?.length || 0) &&
+        messages[0]?.content === th.messages?.[0]?.content &&
+        messages[messages.length - 1]?.content === th.messages?.[th.messages.length - 1]?.content;
+      if (!sameAsTarget) {
+        if (activeThreadId) {
+          upsertThreadMessages(activeThreadId, messages, t("pastthreads", lang));
+        } else if (!archiveLiveChat(messages)) {
+          return;
+        }
+      }
+    }
+
+    const loaded = Array.isArray(th.messages) ? th.messages.map((m) => ({ ...m })) : [];
+    setMessages(loaded);
+    setActiveThreadId(th.id);
+    setInput("");
+    setChatPendingAttachments([]);
+    setShowChatSearch(false);
+    setShowThreads(false);
+    setTab("chat");
   };
 
   const deleteThread = (threadId: string) => {
     setThreads((prev) => prev.filter((th) => th.id !== threadId));
+    if (activeThreadId === threadId) wipeLiveChat();
   };
+
+  const deleteSearchHit = (hitId: string) => {
+    if (hitId === "__current__") {
+      wipeLiveChat();
+      return;
+    }
+    deleteThread(hitId);
+  };
+
+  // Keep the open archived thread's stored history aligned with live chat.
+  useEffect(() => {
+    if (!activeThreadId) return;
+    setThreads((prev) => {
+      const idx = prev.findIndex((th) => th.id === activeThreadId);
+      if (idx < 0) return prev;
+      if (prev[idx].messages === messages) return prev;
+      const next = prev.slice();
+      next[idx] = {
+        ...next[idx],
+        messages,
+        title: next[idx].title || titleOfMessages(messages, t("pastthreads", lang)),
+      };
+      return next;
+    });
+  }, [messages, activeThreadId, lang, titleOfMessages]);
 
   const chatSearchHits = useMemo(() => {
     const needle = chatSearchQuery.trim().toLowerCase();
@@ -3018,36 +3331,37 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       if (diffDays === 1) return t("search_yesterday", lang);
       return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
     };
-    const titleOf = (msgs: Message[], fallback: string) => {
-      const first = msgs.find((m) => m.role === "user" && (m.content || "").trim()) || msgs[0];
-      const text = (first?.content || fallback).replace(/\s+/g, " ").trim();
-      if (!text) return fallback;
-      return text.length > 64 ? `${text.slice(0, 64)}…` : text;
-    };
     const blobOf = (msgs: Message[]) =>
       msgs.map((m) => `${m.content || ""} ${(m.attachments || []).map((a) => a.name).join(" ")}`).join(" ").toLowerCase();
     const hits: { id: string; title: string; dateLabel: string; thread?: Thread }[] = [];
-    if (messages.length && (!needle || blobOf(messages).includes(needle) || titleOf(messages, t("current_chat", lang)).toLowerCase().includes(needle))) {
+    // Live (unsaved) chat only — when viewing an archived thread it already appears below.
+    if (
+      !activeThreadId &&
+      messages.length &&
+      (!needle ||
+        blobOf(messages).includes(needle) ||
+        titleOfMessages(messages, t("current_chat", lang)).toLowerCase().includes(needle))
+    ) {
       hits.push({
         id: "__current__",
-        title: titleOf(messages, t("current_chat", lang)),
+        title: titleOfMessages(messages, t("current_chat", lang)),
         dateLabel: dateLabel(Date.now()),
       });
     }
     threads.forEach((th) => {
-      const hay = `${th.title} ${blobOf(th.messages)}`.toLowerCase();
+      const hay = `${th.title} ${blobOf(th.messages || [])}`.toLowerCase();
       if (!needle || hay.includes(needle)) {
         const idTs = Number(th.id);
         hits.push({
           id: th.id,
-          title: th.title || titleOf(th.messages, t("pastthreads", lang)),
+          title: th.title || titleOfMessages(th.messages || [], t("pastthreads", lang)),
           dateLabel: Number.isFinite(idTs) ? dateLabel(idTs) : (th.date || dateLabel(null)),
           thread: th,
         });
       }
     });
     return hits;
-  }, [chatSearchQuery, messages, threads, lang]);
+  }, [activeThreadId, chatSearchQuery, messages, threads, lang, titleOfMessages]);
 
   const chatLibrary = useMemo(
     () => collectChatLibraryItems(messages, threads, t("current_chat", lang)),
@@ -5040,7 +5354,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <button
                 type="button"
                 className="hm-thread-item__main"
-                onClick={()=>{setMessages(th.messages);setShowThreads(false);}}
+                onClick={() => openConversation(th.id)}
               >
                 <div className="hm-thread-item__title">{th.title}</div>
                 <div className="hm-thread-item__meta">
@@ -5106,18 +5420,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 ) : null}
                 <div className="hm-chat-search-list">
                   {chatSearchHits.map((hit) => (
-                    <button
-                      key={hit.id}
-                      type="button"
-                      className="hm-chat-search-row"
-                      onClick={() => {
-                        if (hit.thread) setMessages(hit.thread.messages);
-                        setShowChatSearch(false);
-                      }}
-                    >
-                      <span className="hm-chat-search-row__title">{hit.title}</span>
-                      <span className="hm-chat-search-row__date">{hit.dateLabel}</span>
-                    </button>
+                    <div key={hit.id} className="hm-chat-search-item">
+                      <button
+                        type="button"
+                        className="hm-chat-search-row"
+                        onClick={() => openConversation(hit.id)}
+                      >
+                        <span className="hm-chat-search-row__title">{hit.title}</span>
+                        <span className="hm-chat-search-row__date">{hit.dateLabel}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="hm-chat-search-row__delete"
+                        aria-label={lang === "el" ? "Διαγραφή" : "Delete"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSearchHit(hit.id);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -5125,6 +5448,89 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
         </DialogPanel>
       </AppDialog>
+
+      <AppDialog
+        open={msgActionIndex != null}
+        onClose={() => setMsgActionIndex(null)}
+        size="sm"
+        align="bottom"
+        ariaLabel={lang === "el" ? "Ενέργειες μηνύματος" : "Message actions"}
+        panelClassName="hm-dialog--msg-actions"
+      >
+        <div className="hm-msg-actions">
+          {(() => {
+            const idx = msgActionIndex;
+            const target = idx != null ? messages[idx] : null;
+            if (idx == null || !target) return null;
+            const actions: { id: string; label: string; danger?: boolean; onClick: () => void }[] = [
+              {
+                id: "reply",
+                label: lang === "el" ? "Απάντηση" : "Reply",
+                onClick: () => startReplyToMessage(idx),
+              },
+              {
+                id: "copy",
+                label: lang === "el" ? "Αντιγραφή" : "Copy",
+                onClick: () => {
+                  void copyMessageText(target.content);
+                  setMsgActionIndex(null);
+                },
+              },
+              {
+                id: "edit",
+                label: lang === "el" ? "Επεξεργασία" : "Edit",
+                onClick: () => startEditMessage(idx),
+              },
+              {
+                id: "delete",
+                label: lang === "el" ? "Διαγραφή" : "Delete",
+                danger: true,
+                onClick: () => {
+                  setMsgActionIndex(null);
+                  setMsgDeleteIndex(idx);
+                },
+              },
+            ];
+            return (
+              <>
+                <div className="hm-msg-actions__preview">{snippetForReply(target.content)}</div>
+                {actions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className={`hm-msg-actions__btn${action.danger ? " hm-msg-actions__btn--danger" : ""}`}
+                    onClick={action.onClick}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="hm-msg-actions__btn hm-msg-actions__btn--cancel"
+                  onClick={() => setMsgActionIndex(null)}
+                >
+                  {lang === "el" ? "Ακύρωση" : "Cancel"}
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      </AppDialog>
+
+      <ConfirmDialog
+        open={msgDeleteIndex != null}
+        title={lang === "el" ? "Διαγραφή μηνύματος" : "Delete message"}
+        message={
+          lang === "el"
+            ? "Θέλεις σίγουρα να διαγράψεις αυτό το μήνυμα;"
+            : "Are you sure you want to delete this message?"
+        }
+        confirmLabel={lang === "el" ? "Διαγραφή" : "Delete"}
+        cancelLabel={t("cancel", lang)}
+        variant="danger"
+        onConfirm={confirmDeleteMessage}
+        onCancel={() => setMsgDeleteIndex(null)}
+      />
 
       <AppDialog
         open={showChatLibrary}
@@ -5722,7 +6128,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <div className="hm-chat-message-row">
                     <HeyMaaAvatar size={32} />
                     <div className="hm-chat-message-row__body">
-                      <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--assistant" style={{background:chatAssistantBg,color:navy}}>{msg.content}</div>
+                      <div
+                        data-hm-bubble
+                        className={`hm-chat-bubble hm-chat-bubble--assistant hm-chat-bubble--pressable${msgActionIndex === i ? " hm-chat-bubble--menu-open" : ""}`}
+                        style={{background:chatAssistantBg,color:navy}}
+                        {...msgPressHandlers(i)}
+                      >
+                        {msg.replyTo && (
+                          <div className="hm-chat-bubble__quote">
+                            <span className="hm-chat-bubble__quote-label">
+                              {msg.replyTo.role === "assistant" ? "HeyMaa" : (displayName || (lang === "el" ? "Εσύ" : "You"))}
+                            </span>
+                            <span className="hm-chat-bubble__quote-text">{msg.replyTo.content}</span>
+                          </div>
+                        )}
+                        {msg.content}
+                      </div>
                       <div style={{display:"flex",gap:6,alignItems:"center"}}>
                         <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
                       </div>
@@ -5730,7 +6151,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   </div>
                 ):(
                   <div className="hm-chat-message-row hm-chat-message-row--user">
-                    <div data-hm-bubble className="hm-chat-bubble hm-chat-bubble--user" style={{background:navy,color:"#fff"}}>
+                    <div
+                      data-hm-bubble
+                      className={`hm-chat-bubble hm-chat-bubble--user hm-chat-bubble--pressable${msgActionIndex === i ? " hm-chat-bubble--menu-open" : ""}`}
+                      style={{background:navy,color:"#fff"}}
+                      {...msgPressHandlers(i)}
+                    >
+                      {msg.replyTo && (
+                        <div className="hm-chat-bubble__quote hm-chat-bubble__quote--on-user">
+                          <span className="hm-chat-bubble__quote-label">
+                            {msg.replyTo.role === "assistant" ? "HeyMaa" : (displayName || (lang === "el" ? "Εσύ" : "You"))}
+                          </span>
+                          <span className="hm-chat-bubble__quote-text">{msg.replyTo.content}</span>
+                        </div>
+                      )}
                       {msg.attachments?.map((att, j) => (
                         att.kind === "image" && att.data ? (
                           <img
@@ -6269,6 +6703,37 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       {tab==="chat"&&input.trim().length>3&&(()=>{const d=detectLang(input); if(d&&d!==lang){return (<div style={{padding:"8px 16px",background:"rgba(222,90,158,.1)",borderTop:"1px solid rgba(222,90,158,.2)",fontSize:11,color:"#c4488a",lineHeight:1.4,flexShrink:0}}>💬 {t("lang_mismatch",lang).replace("{flag}",L.f+" "+L.n)}</div>);} return null;})()}
       {/* CHAT INPUT */}
       {tab==="chat"&&<div className="hm-app-composer" data-tour="chat-composer">
+        {(replyTarget || editingIndex != null) && (
+          <div className="hm-chat-context-bar hm-app-bar-inner">
+            <div className="hm-chat-context-bar__body">
+              <span className="hm-chat-context-bar__label">
+                {editingIndex != null
+                  ? (lang === "el" ? "Επεξεργασία" : "Edit")
+                  : (lang === "el" ? "Απάντηση" : "Reply")}
+              </span>
+              <span className="hm-chat-context-bar__preview">
+                {editingIndex != null
+                  ? snippetForReply(messages[editingIndex]?.content || "")
+                  : replyTarget?.content}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="hm-chat-context-bar__close"
+              aria-label={lang === "el" ? "Ακύρωση" : "Cancel"}
+              onClick={() => {
+                if (editingIndex != null) {
+                  setEditingIndex(null);
+                  setInput("");
+                } else {
+                  setReplyTarget(null);
+                }
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {chatPendingAttachments.length > 0 && (
           <div className="hm-chat-attach-preview hm-app-bar-inner">
             {chatPendingAttachments.map((att, i) => (
@@ -6302,7 +6767,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             aria-label={showChatAttachSheet ? (lang === "el" ? "Κλείσιμο μενού" : "Close menu") : (lang === "el" ? "Προσθήκη" : "Add")}
             aria-expanded={showChatAttachSheet}
             aria-haspopup="menu"
-            disabled={loading || recording || chatPendingAttachments.length >= 4}
+            disabled={loading || recording || chatPendingAttachments.length >= 4 || editingIndex != null}
             onClick={openChatAttachPicker}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">

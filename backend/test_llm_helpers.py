@@ -61,6 +61,10 @@ class ProfileContextTests(unittest.TestCase):
         self.assertIn("Greetings and language", prompt)
         self.assertIn("ύπνος", prompt)
         self.assertIn("do not volunteer the name", ctx)
+        self.assertIn("τον Μάριο", ctx)
+        self.assertIn("Greek personal names", prompt)
+        self.assertIn("τον Μάριο", prompt)
+        self.assertNotIn("do not transliterate, translate, Hellenize, decline", ctx)
 
     def test_empty_family_explains_add_child_path(self):
         from types import SimpleNamespace

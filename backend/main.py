@@ -1781,9 +1781,14 @@ def build_profile_context(profile):
     user_name = (getattr(profile, "name", None) or "").strip()
     if user_name:
         lines.append(
-            f"The user's name is «{user_name}». Always address them using exactly this spelling "
-            f"as written — do not transliterate, translate, Hellenize, decline, or invent a "
-            f"different form (e.g. do not turn «Nikol» into «Νίκο»). "
+            f"The user's name is «{user_name}». Keep this registered spelling as the identity of the person "
+            f"(do not transliterate, translate, Hellenize, or invent a different name — "
+            f"e.g. never turn Latin «Nikol» into Greek «Νίκο»/«Νίκος»). "
+            f"When writing Greek, decline Greek-script names correctly by case "
+            f"(Ονομαστική ο Μάριος → Αιτιατική τον Μάριο → Γενική του Μάριου → Κλητική Μάριε; "
+            f"same pattern for Νίκος→Νίκο, Γιώργος→Γιώργο, etc.). "
+            f"Do not leave nominative -ος/-ης/-ας after articles τον/του/στον or in other declined slots. "
+            f"Non-Greek / Latin names stay unchanged in every case (no invented Greek endings). "
             f"Never call them Mama unless that is actually their name."
         )
     children = []
@@ -1855,7 +1860,12 @@ def build_profile_context(profile):
         lines.append(f"This user has a child named {name}{gender_bit}, currently {age_desc}{born}.")
     if children:
         lines.append(
-            "Use the child's name when the user is asking about them. "
+            "Use the child's registered name when the user is asking about them. "
+            "In Greek, decline Greek-script child/family names by case "
+            "(e.g. «Έχεις ένα παιδί, τον Μάριο» — never «τον Μάριος»; "
+            "«του Μάριου», «Γεια σου, Μάριε»). "
+            "Keep the same base name; only change the grammatical ending. "
+            "Latin/foreign names are not declined into Greek. "
             "On a mere greeting, do not volunteer the name or a list of support topics."
         )
     members = getattr(profile, "familyMembers", None) or []
@@ -2006,6 +2016,20 @@ _CONVERSATION_STYLE_RULE = (
     "If an earlier assistant turn mixed languages or had broken words, do not copy it; rewrite cleanly."
 )
 
+_GREEK_NAME_CASE_RULE = (
+    "\n\n--- Greek personal names (when the reply is in Greek) ---\n"
+    "Decline Greek-script first names by case; never paste the nominative after τον/στον/του "
+    "or in other declined slots. Common masculine patterns: "
+    "Μάριος → τον Μάριο / του Μάριου / Μάριε; "
+    "Νίκος → τον Νίκο / του Νίκου / Νίκο; "
+    "Γιώργος → τον Γιώργο / του Γιώργου / Γιώργο; "
+    "Γιάννης → τον Γιάννη / του Γιάννη / Γιάννη; "
+    "Κώστας → τον Κώστα / του Κώστα / Κώστα. "
+    "Feminine names in -α/-η usually keep the same form (την Μαρία, της Μαρίας, Μαρία). "
+    "Do not invent a different person-name or Hellenize Latin spellings (Nikol stays Nikol). "
+    "Wrong: «τον Μάριος», «τον Νίκος». Right: «τον Μάριο», «τον Νίκο»."
+)
+
 _APP_NAV_RULE = (
     "\n\n--- How to add a child in the HeyMaa app (always follow) ---\n"
     "HeyMaa cannot register children from chat. When the user asks how to add, save, or "
@@ -2022,6 +2046,7 @@ def build_system_prompt(rag_context, family_context="", memories_context="", doc
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
     prompt += _CONVERSATION_STYLE_RULE
+    prompt += _GREEK_NAME_CASE_RULE
     prompt += _APP_NAV_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
