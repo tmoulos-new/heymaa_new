@@ -484,11 +484,11 @@ export default function Home() {
           <div className="inside-grid">
             {insideCards.map((item) => (
               <article className="inside-card" key={item.id}>
+                <h3 className="inside-card-title">{item.title}</h3>
+                <p className="inside-card-body">{item.body}</p>
                 <div className="inside-phone inside-phone--card">
                   <img src={INSIDE_IMAGES[item.id]} alt={item.imageAlt} />
                 </div>
-                <h3 className="inside-card-title">{item.title}</h3>
-                <p className="inside-card-body">{item.body}</p>
               </article>
             ))}
           </div>

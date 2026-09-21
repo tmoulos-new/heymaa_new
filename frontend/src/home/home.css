@@ -340,7 +340,7 @@ body{font-family:var(--font-sans);background:var(--cream);}
   z-index:1;
 }
 .inside-phone img{display:block;width:100%;height:auto;background:transparent;}
-.inside-phone--card{width:min(100%,168px);margin:0 auto 14px;}
+.inside-phone--card{width:min(100%,168px);margin:14px auto 0;}
 .inside-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -356,11 +356,13 @@ body{font-family:var(--font-sans);background:var(--cream);}
   min-width:0;
   position:relative;
   overflow:hidden;
+  display:flex;
+  flex-direction:column;
 }
 .inside-card::before{
   content:"";
   position:absolute;
-  top:-48px;
+  bottom:-48px;
   left:50%;
   width:170px;
   height:170px;
@@ -370,6 +372,7 @@ body{font-family:var(--font-sans);background:var(--cream);}
 }
 .inside-card-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:6px;line-height:1.3;}
 .inside-card-body{font-size:13px;color:rgba(43,58,103,0.62);line-height:1.55;margin:0;}
+.inside-card .inside-phone--card{margin-top:auto;padding-top:14px;}
 .inside-extras{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
