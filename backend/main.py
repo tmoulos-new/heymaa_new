@@ -1752,7 +1752,8 @@ def build_rag_context(chunks):
         total += len(piece)
     return "\n---\n".join(parts)
 
-def _describe_child_age(birth_date_str):
+def _child_age_months_and_days(birth_date_str):
+    """Return (months, days_if_under_one_month) or (None, None) on bad input."""
     from datetime import date
     try:
         birth = date.fromisoformat(birth_date_str)
@@ -1762,16 +1763,46 @@ def _describe_child_age(birth_date_str):
             months -= 1
         months = max(0, months)
         if months < 1:
-            days = (today - birth).days
-            return f"{max(0, days)} days old"
-        elif months < 24:
-            return f"{months} months old"
-        else:
-            years = months // 12
-            rem = months % 12
-            return f"{years} years{f' and {rem} months' if rem else ''} old"
+            return 0, max(0, (today - birth).days)
+        return months, None
     except Exception:
+        return None, None
+
+
+def _describe_child_age(birth_date_str):
+    months, days = _child_age_months_and_days(birth_date_str)
+    if months is None:
         return "unknown age"
+    if months < 1:
+        return f"{days} days old"
+    if months < 24:
+        return f"{months} months old"
+    years = months // 12
+    rem = months % 12
+    return f"{years} years{f' and {rem} months' if rem else ''} old"
+
+
+def _greek_age_phrase(birth_date_str):
+    """Natural Greek age fragment for prompts (e.g. «3 μηνών»)."""
+    months, days = _child_age_months_and_days(birth_date_str)
+    if months is None:
+        return ""
+    if months < 1:
+        d = days or 0
+        if d == 1:
+            return "1 ημέρας"
+        return f"{d} ημερών"
+    if months == 1:
+        return "1 μηνός"
+    if months < 24:
+        return f"{months} μηνών"
+    years = months // 12
+    rem = months % 12
+    if years == 1 and rem == 0:
+        return "1 έτους"
+    if rem:
+        return f"{years} ετών και {rem} μηνών"
+    return f"{years} ετών"
 
 def build_profile_context(profile):
     if not profile:
@@ -1852,12 +1883,21 @@ def build_profile_context(profile):
         name = child.get("name") or "their child"
         if child.get("birthDate"):
             age_desc = _describe_child_age(child["birthDate"])
+            el_age = _greek_age_phrase(child["birthDate"])
         else:
             age_desc = child.get("ageFallback") or "unknown age"
+            el_age = ""
         gender = (child.get("gender") or "").strip().lower()
         gender_bit = f" ({gender})" if gender in {"girl", "boy", "surprise"} else ""
         born = f", born {child['birthDate']}" if child.get("birthDate") else ""
-        lines.append(f"This user has a child named {name}{gender_bit}, currently {age_desc}{born}.")
+        line = f"This user has a child named {name}{gender_bit}, currently {age_desc}{born}."
+        if el_age:
+            line += (
+                f" When writing Greek about this child's age, say «είναι {el_age}» "
+                f"(e.g. «Ο/Η {name} είναι {el_age}») — never smash words like «τριώνμης» "
+                f"or phrases like «τριώνμης ηλικίας»."
+            )
+        lines.append(line)
     if children:
         lines.append(
             "Use the child's registered name when the user is asking about them. "
@@ -2030,6 +2070,17 @@ _GREEK_NAME_CASE_RULE = (
     "Wrong: «τον Μάριος», «τον Νίκος». Right: «τον Μάριο», «τον Νίκο»."
 )
 
+_GREEK_AGE_PHRASE_RULE = (
+    "\n\n--- Greek age phrasing (when the reply is in Greek) ---\n"
+    "State ages with separate, correct words. Prefer digits + genitive unit: "
+    "«είναι 3 μηνών», «είναι 11 μηνών», «είναι 2 ετών», «είναι 10 ημερών». "
+    "Written-out forms are also fine: «τριών μηνών», «δύο ετών». "
+    "Never fuse the number and the unit into one nonsense word "
+    "(wrong: «τριώνμης», «δυόμης», «11μηνης»). "
+    "Never say «τριώνμης ηλικίας» or «Χμης ηλικίας» — say «τριών μηνών» / «X μηνών». "
+    "1 month → «1 μηνός» or «ενός μηνός»; 1 year → «1 έτους» or «ενός έτους»."
+)
+
 _APP_NAV_RULE = (
     "\n\n--- How to add a child in the HeyMaa app (always follow) ---\n"
     "HeyMaa cannot register children from chat. When the user asks how to add, save, or "
@@ -2047,6 +2098,7 @@ def build_system_prompt(rag_context, family_context="", memories_context="", doc
     prompt += _SHORT_DIALOGUE_RULE
     prompt += _CONVERSATION_STYLE_RULE
     prompt += _GREEK_NAME_CASE_RULE
+    prompt += _GREEK_AGE_PHRASE_RULE
     prompt += _APP_NAV_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
@@ -2574,15 +2626,28 @@ _EL_TOPIC_LEAKS = (
     (_re.compile(r"\bdevelopment\b", _re.I), "ανάπτυξη"),
 )
 
+# Fused / broken Greek age phrases the model sometimes invents.
+_EL_AGE_GARBLES = (
+    (_re.compile(r"τρι[ωώ]νμης(?:\s+ηλικίας)?", _re.I | _re.U), "τριών μηνών"),
+    (_re.compile(r"δυ[οό]μης(?:\s+ηλικίας)?", _re.I | _re.U), "δύο μηνών"),
+    (_re.compile(r"τεσσ[αά]ρωνμης(?:\s+ηλικίας)?", _re.I | _re.U), "τεσσάρων μηνών"),
+    (_re.compile(r"π[εέ]ντεμης(?:\s+ηλικίας)?", _re.I | _re.U), "πέντε μηνών"),
+    (_re.compile(r"[εέ]ξιμης(?:\s+ηλικίας)?", _re.I | _re.U), "έξι μηνών"),
+    (_re.compile(r"(\d+)\s*μηνης(?:\s+ηλικίας)?", _re.I | _re.U), r"\1 μηνών"),
+    (_re.compile(r"(\d+)μης(?:\s+ηλικίας)?", _re.I | _re.U), r"\1 μηνών"),
+)
+
 
 def _scrub_language_leaks(text: str, lang: str) -> str:
-    """Replace English topic labels that leaked into a Greek reply (e.g. σLEEP)."""
+    """Fix English topic leaks and common broken Greek age phrases in replies."""
     t = text or ""
     lang_l = (lang or "").strip().lower()
     if not t or not lang_l.startswith("el"):
         return t
     out = t
     for rx, repl in _EL_TOPIC_LEAKS:
+        out = rx.sub(repl, out)
+    for rx, repl in _EL_AGE_GARBLES:
         out = rx.sub(repl, out)
     return out
 

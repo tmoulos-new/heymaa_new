@@ -62,7 +62,9 @@ class ProfileContextTests(unittest.TestCase):
         self.assertIn("ύπνος", prompt)
         self.assertIn("do not volunteer the name", ctx)
         self.assertIn("τον Μάριο", ctx)
+        self.assertIn("μηνών", ctx)
         self.assertIn("Greek personal names", prompt)
+        self.assertIn("Greek age phrasing", prompt)
         self.assertIn("τον Μάριο", prompt)
         self.assertNotIn("do not transliterate, translate, Hellenize, decline", ctx)
 
@@ -103,6 +105,14 @@ class LanguageLeakScrubTests(unittest.TestCase):
 
         src = "I can help with sleep and nutrition."
         self.assertEqual(_scrub_language_leaks(src, "en"), src)
+
+    def test_fixes_smashed_greek_age(self):
+        from main import _scrub_language_leaks
+
+        src = "Ο Μάριος είναι τριώνμης ηλικίας, και μεγαλώνει καλά."
+        out = _scrub_language_leaks(src, "el")
+        self.assertNotIn("τριώνμης", out)
+        self.assertIn("τριών μηνών", out)
 
 
 class LlmHistoryTests(unittest.TestCase):

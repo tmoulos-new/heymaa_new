@@ -5453,24 +5453,42 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         open={msgActionIndex != null}
         onClose={() => setMsgActionIndex(null)}
         size="sm"
-        align="bottom"
+        align="center"
         ariaLabel={lang === "el" ? "Ενέργειες μηνύματος" : "Message actions"}
         panelClassName="hm-dialog--msg-actions"
       >
-        <div className="hm-msg-actions">
+        <div className="hm-msg-actions" role="menu">
           {(() => {
             const idx = msgActionIndex;
             const target = idx != null ? messages[idx] : null;
             if (idx == null || !target) return null;
-            const actions: { id: string; label: string; danger?: boolean; onClick: () => void }[] = [
+            const actions: {
+              id: string;
+              label: string;
+              danger?: boolean;
+              icon: React.ReactNode;
+              onClick: () => void;
+            }[] = [
               {
                 id: "reply",
                 label: lang === "el" ? "Απάντηση" : "Reply",
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M9 14L4 9l5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ),
                 onClick: () => startReplyToMessage(idx),
               },
               {
                 id: "copy",
                 label: lang === "el" ? "Αντιγραφή" : "Copy",
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="8" y="8" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+                    <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                ),
                 onClick: () => {
                   void copyMessageText(target.content);
                   setMsgActionIndex(null);
@@ -5479,40 +5497,44 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               {
                 id: "edit",
                 label: lang === "el" ? "Επεξεργασία" : "Edit",
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                  </svg>
+                ),
                 onClick: () => startEditMessage(idx),
               },
               {
                 id: "delete",
                 label: lang === "el" ? "Διαγραφή" : "Delete",
                 danger: true,
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M7 7l1 13a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-13" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                ),
                 onClick: () => {
                   setMsgActionIndex(null);
                   setMsgDeleteIndex(idx);
                 },
               },
             ];
-            return (
-              <>
-                <div className="hm-msg-actions__preview">{snippetForReply(target.content)}</div>
-                {actions.map((action) => (
-                  <button
-                    key={action.id}
-                    type="button"
-                    className={`hm-msg-actions__btn${action.danger ? " hm-msg-actions__btn--danger" : ""}`}
-                    onClick={action.onClick}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="hm-msg-actions__btn hm-msg-actions__btn--cancel"
-                  onClick={() => setMsgActionIndex(null)}
-                >
-                  {lang === "el" ? "Ακύρωση" : "Cancel"}
-                </button>
-              </>
-            );
+            return actions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                role="menuitem"
+                className={`hm-msg-actions__btn${action.danger ? " hm-msg-actions__btn--danger" : ""}`}
+                onClick={action.onClick}
+              >
+                <span className="hm-msg-actions__icon">{action.icon}</span>
+                <span className="hm-msg-actions__label">{action.label}</span>
+              </button>
+            ));
           })()}
         </div>
       </AppDialog>
