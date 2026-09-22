@@ -209,6 +209,35 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const nodes = Array.from(
+      document.querySelectorAll<HTMLElement>(".hm-reveal"),
+    );
+    if (nodes.length === 0) return;
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (reduceMotion) {
+      nodes.forEach((node) => node.classList.add("is-in"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-in");
+          observer.unobserve(entry.target);
+        });
+      },
+      { threshold: 0.14, rootMargin: "0px 0px -6% 0px" },
+    );
+
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = TABLER_ICONS;
@@ -382,7 +411,7 @@ export default function Home() {
             )}
           </div>
           <div className="hero-overlay" aria-hidden="true" />
-          <div className="hero">
+          <div className="hero hm-reveal is-in">
             <div className="app-auth-logo-wrap hero-logo">
               <img src={AUTH_LOGO_SRC} alt={t("nav.logoAlt")} />
             </div>
@@ -397,7 +426,7 @@ export default function Home() {
         </section>
 
         <section className="what-is section">
-          <div className="what-is-panel">
+          <div className="what-is-panel hm-reveal">
             <div className="what-is-grid">
               <div className="what-is-copy">
                 <h2 className="sec-title">{t("whatIs.title")}</h2>
@@ -435,7 +464,7 @@ export default function Home() {
             {howItems.map((item, index) => {
               const photo = HOW_PHOTOS[index];
               return (
-              <div className="how-card" key={item.title}>
+              <div className={`how-card hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.title}>
                 {photo ? (
                   <div className="how-photo">
                     <img src={photo.src} alt={t(photo.altKey)} />
@@ -468,22 +497,24 @@ export default function Home() {
           <h2 className="sec-title" id="inside-title">{t("inside.title")}</h2>
           <p className="sec-sub">{t("inside.subtitle")}</p>
           {featuredInside ? (
-            <div className="inside-featured">
-              <div className="inside-featured-copy">
-                <h3 className="inside-card-title">{featuredInside.title}</h3>
-                <p className="inside-card-body">{featuredInside.body}</p>
-              </div>
-              <div className="inside-phone">
-                <img
-                  src={INSIDE_IMAGES[featuredInside.id]}
-                  alt={featuredInside.imageAlt}
-                />
+            <div className="inside-featured-shell hm-reveal">
+              <div className="inside-featured">
+                <div className="inside-featured-copy">
+                  <h3 className="inside-card-title">{featuredInside.title}</h3>
+                  <p className="inside-card-body">{featuredInside.body}</p>
+                </div>
+                <div className="inside-phone inside-phone--card">
+                  <img
+                    src={INSIDE_IMAGES[featuredInside.id]}
+                    alt={featuredInside.imageAlt}
+                  />
+                </div>
               </div>
             </div>
           ) : null}
           <div className="inside-grid">
-            {insideCards.map((item) => (
-              <article className="inside-card" key={item.id}>
+            {insideCards.map((item, index) => (
+              <article className={`inside-card hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.id}>
                 <h3 className="inside-card-title">{item.title}</h3>
                 <p className="inside-card-body">{item.body}</p>
                 <div className="inside-phone inside-phone--card">
@@ -494,8 +525,8 @@ export default function Home() {
           </div>
           {insideExtras.length > 0 ? (
             <div className="inside-extras">
-              {insideExtras.map((extra) => (
-                <article className="inside-extra" key={extra.title}>
+              {insideExtras.map((extra, index) => (
+                <article className={`inside-extra hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={extra.title}>
                   <div className="inside-extra-icon" aria-hidden="true">
                     <i className={`ti ${extra.icon}`} />
                   </div>
@@ -510,64 +541,100 @@ export default function Home() {
         </section>
 
         <div className="section story-section">
-          <div className="testimonial-carousel">
-            <button
-              type="button"
-              className="testimonial-nav testimonial-nav-prev"
-              aria-label={t("testimonial.prevLabel")}
-              onClick={() =>
-                setTestimonialIndex(
-                  (index) =>
-                    (index - 1 + testimonialItems.length) %
-                    testimonialItems.length
-                )
-              }
-            >
-              <i className="ti ti-chevron-left" aria-hidden="true" />
-            </button>
-            {activeTestimonial ? (
-              <blockquote className="testimonial-card">
-                <div className="testimonial-copy">
-                <div
-                  className="testimonial-stars"
-                  aria-label={t("testimonial.ratingLabel")}
+          <div className="story-stage hm-reveal">
+            <div className="story-deco" aria-hidden="true">
+              <span className="story-blob story-blob--tl" />
+              <span className="story-blob story-blob--br" />
+              <span className="story-ring" />
+              <span className="story-arc" />
+              <span className="story-spark story-spark--1">✦</span>
+              <span className="story-spark story-spark--2">✦</span>
+              <span className="story-spark story-spark--3">✧</span>
+              <span className="story-heart">♡</span>
+              <span className="story-dot-cluster">
+                <span /><span /><span /><span /><span /><span />
+              </span>
+            </div>
+            <span className="story-quote-mark" aria-hidden="true">
+              “
+            </span>
+            <div className="story-glow" aria-hidden="true" />
+            <div className="testimonial-carousel">
+              <button
+                type="button"
+                className="testimonial-nav testimonial-nav-prev"
+                aria-label={t("testimonial.prevLabel")}
+                onClick={() =>
+                  setTestimonialIndex(
+                    (index) =>
+                      (index - 1 + testimonialItems.length) %
+                      testimonialItems.length
+                  )
+                }
+              >
+                <i className="ti ti-chevron-left" aria-hidden="true" />
+              </button>
+              {activeTestimonial ? (
+                <blockquote
+                  className="testimonial-card"
+                  key={testimonialIndex}
                 >
-                  ★★★★★
-                </div>
-                <p className="testimonial-quote">{activeTestimonial.quote}</p>
-                <footer className="testimonial-author">
-                  <span className="testimonial-avatar" aria-hidden="true">
-                    {activeTestimonial.initial}
-                  </span>
-                  <span className="testimonial-meta">
-                    <span className="testimonial-name">
-                      {activeTestimonial.name}
-                    </span>
-                    <span className="testimonial-location">
-                      {activeTestimonial.location}
-                    </span>
-                  </span>
-                </footer>
-                </div>
-              </blockquote>
+                  <div className="testimonial-copy">
+                    <div
+                      className="testimonial-stars"
+                      aria-label={t("testimonial.ratingLabel")}
+                    >
+                      ★★★★★
+                    </div>
+                    <p className="testimonial-quote">{activeTestimonial.quote}</p>
+                    <footer className="testimonial-author">
+                      <span className="testimonial-avatar" aria-hidden="true">
+                        {activeTestimonial.initial}
+                      </span>
+                      <span className="testimonial-meta">
+                        <span className="testimonial-name">
+                          {activeTestimonial.name}
+                        </span>
+                        <span className="testimonial-location">
+                          {activeTestimonial.location}
+                        </span>
+                      </span>
+                    </footer>
+                  </div>
+                </blockquote>
+              ) : null}
+              <button
+                type="button"
+                className="testimonial-nav testimonial-nav-next"
+                aria-label={t("testimonial.nextLabel")}
+                onClick={() =>
+                  setTestimonialIndex(
+                    (index) => (index + 1) % testimonialItems.length
+                  )
+                }
+              >
+                <i className="ti ti-chevron-right" aria-hidden="true" />
+              </button>
+            </div>
+            {testimonialItems.length > 1 ? (
+              <div className="testimonial-dots">
+                {testimonialItems.map((item, index) => (
+                  <button
+                    key={`${item.name}-${index}`}
+                    type="button"
+                    className={`testimonial-dot${index === testimonialIndex ? " is-active" : ""}`}
+                    aria-label={`${index + 1} / ${testimonialItems.length}`}
+                    aria-current={index === testimonialIndex ? "true" : undefined}
+                    onClick={() => setTestimonialIndex(index)}
+                  />
+                ))}
+              </div>
             ) : null}
-            <button
-              type="button"
-              className="testimonial-nav testimonial-nav-next"
-              aria-label={t("testimonial.nextLabel")}
-              onClick={() =>
-                setTestimonialIndex(
-                  (index) => (index + 1) % testimonialItems.length
-                )
-              }
-            >
-              <i className="ti ti-chevron-right" aria-hidden="true" />
-            </button>
           </div>
         </div>
 
         <div className="section pricing-section">
-          <div className="pricing-panel">
+          <div className="pricing-panel hm-reveal">
             <div className="pricing-panel-header">
               <h2 className="sec-title pricing-panel-title">{t("pricing.title")}</h2>
               <p className="pricing-panel-sub">{t("pricing.subtitle")}</p>
@@ -600,21 +667,29 @@ export default function Home() {
         </div>
 
         <section className="section safety-section" aria-labelledby="safety-title">
-          <h2 className="sec-title" id="safety-title">{t("safety.title")}</h2>
-          <p className="sec-sub">{t("safety.subtitle")}</p>
-          <div className="safety-grid">
-            {safetyItems.map((item) => (
-              <article className="safety-card" key={item.text}>
-                <div className="safety-icon" aria-hidden="true">
-                  <i className={`ti ${item.icon}`} />
-                </div>
-                <p className="safety-text">{item.text}</p>
-              </article>
-            ))}
+          <div className="safety-panel hm-reveal">
+            <div className="safety-panel-glow" aria-hidden="true" />
+            <div className="safety-panel-mark" aria-hidden="true">
+              <i className="ti ti-shield-lock" />
+            </div>
+            <div className="safety-panel-head">
+              <h2 className="sec-title safety-title" id="safety-title">{t("safety.title")}</h2>
+              <p className="sec-sub safety-sub">{t("safety.subtitle")}</p>
+            </div>
+            <ul className="safety-points">
+              {safetyItems.map((item) => (
+                <li className="safety-point" key={item.text}>
+                  <div className="safety-icon" aria-hidden="true">
+                    <i className={`ti ${item.icon}`} />
+                  </div>
+                  <p className="safety-text">{item.text}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <div className="section faq-section">
+        <div className="section faq-section hm-reveal">
           <div className="sec-title">{t("faq.label")}</div>
           <FaqAccordionList
             items={faqItems}
@@ -625,7 +700,7 @@ export default function Home() {
         </div>
 
         <section className="cta-section section" aria-label={t("cta.button")}>
-          <div className="cta-wrap">
+          <div className="cta-wrap hm-reveal">
             <img
               className="cta-photo"
               src={ctaMomImage}
