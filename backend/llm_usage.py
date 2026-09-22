@@ -1,10 +1,9 @@
-"""Persist LLM spend and Replicate prepaid-credit tracking for the admin panel.
+"""Persist LLM spend and optional prepaid-budget tracking for the admin panel.
 
-HeyMaa uses a dedicated Replicate account. Prepaid remaining is that account's
-Billing balance. There is no remaining-credit API, so admins paste the live
-number; HeyMaa subtracts chat spend and emails when remaining is low or
-Replicate returns 402 (account empty). Gemini RAG embeddings bill Google, not
-this balance.
+Chat uses Groq → Gemini → Claude (direct APIs). Admins can paste an optional
+prepaid/budget remaining number; HeyMaa subtracts chat spend (groq/gemini/claude)
+and emails when remaining is low. Gemini RAG embeddings are tracked separately
+and do not count against the chat budget pot.
 """
 from __future__ import annotations
 
@@ -31,34 +30,23 @@ def take_embed_calls() -> int:
     return n
 
 CREDITS_SETTINGS_KEY = "llm_credits"
-REPLICATE_BILLING_URL = "https://replicate.com/account/billing"
-REPLICATE_TOKENS_URL = "https://replicate.com/account/api-tokens"
-REPLICATE_PREPAID_DOCS_URL = "https://replicate.com/docs/topics/billing/prepaid-credit"
-REPLICATE_ORGS_URL = "https://replicate.com/organizations/create"
-HEYMAA_REPLICATE_ENV = "REPLICATE_HEYMAA_API_TOKEN"
 
-PROVIDERS = ("replicate", "groq", "gemini", "claude", "gemini_embed")
+# Historical provider kept so old llm_transactions / credits JSON still normalize.
+PROVIDERS = ("groq", "gemini", "claude", "gemini_embed", "replicate")
+CHAT_SPEND_PROVIDERS = frozenset({"groq", "gemini", "claude"})
 
-# Fallback USD per successful call when Replicate metrics are missing.
 COST_PER_CALL_USD: dict[str, float] = {
-    "replicate": 0.002,
     "groq": 0.0002,
     "gemini": 0.002,
     "claude": 0.0025,
     "gemini_embed": 0.00003,
-}
-
-# Official Replicate models used by HeyMaa chat.
-REPLICATE_MODEL_RATES: dict[str, dict[str, float]] = {
-    "google/gemini-2.5-flash": {"per_call": 0.002, "per_predict_second": 0.0},
-    "meta/meta-llama-3-70b-instruct": {"per_call": 0.0, "per_predict_second": 0.00115},
-    "anthropic/claude-4.5-haiku": {"per_call": 0.0025, "per_predict_second": 0.0},
+    "replicate": 0.002,
 }
 
 CHAT_MODEL_LABELS: tuple[tuple[str, str], ...] = (
-    ("meta/meta-llama-3-70b-instruct", "Llama 70B"),
-    ("google/gemini-2.5-flash", "Gemini Flash"),
-    ("anthropic/claude-4.5-haiku", "Claude Haiku"),
+    ("groq", "Groq"),
+    ("gemini", "Gemini"),
+    ("claude-haiku-4-5-20251001", "Claude Haiku"),
 )
 
 CREDIT_ERROR_MARKERS = (
@@ -215,22 +203,33 @@ def token_fingerprint(token: str) -> str:
     return hashlib.sha256(raw).hexdigest()[:20]
 
 
-def mask_replicate_token(token: str) -> str:
+def mask_api_token(token: str) -> str:
     t = (token or "").strip()
     if not t:
         return "not set"
     if len(t) <= 8:
-        return "••••"
-    prefix = t[:4] if t.startswith("r8_") else t[:3]
-    return f"{prefix}…{t[-4:]}"
+        return "***"
+    return f"{t[:4]}…{t[-4:]}"
+
+
+def mask_replicate_token(token: str) -> str:
+    """Back-compat alias."""
+    return mask_api_token(token)
+
+
+def credit_scope_identity(source: str = "legacy") -> dict[str, str]:
+    return {"fingerprint": "legacy-chat", "mask": "groq/gemini/claude", "source": source or "legacy"}
 
 
 def replicate_token_identity(token: str, source: str = "") -> dict[str, str]:
+    """Back-compat: older callers expected a Replicate token fingerprint."""
     t = (token or "").strip()
+    if not t:
+        return credit_scope_identity(source or "unset")
     return {
         "fingerprint": token_fingerprint(t),
-        "mask": mask_replicate_token(t),
-        "source": source or ("unset" if not t else "token"),
+        "mask": mask_api_token(t),
+        "source": source or "token",
     }
 
 
@@ -282,14 +281,8 @@ def classify_llm_error(message: str) -> Optional[str]:
 
 
 def estimate_replicate_cost(model: str, predict_time_s: Optional[float] = None) -> float:
-    rates = REPLICATE_MODEL_RATES.get(model) or {"per_call": COST_PER_CALL_USD["replicate"], "per_predict_second": 0.0}
-    cost = float(rates.get("per_call") or 0)
-    per_sec = float(rates.get("per_predict_second") or 0)
-    if per_sec and predict_time_s:
-        cost += max(0.0, float(predict_time_s)) * per_sec
-    if cost <= 0:
-        cost = COST_PER_CALL_USD["replicate"]
-    return round(cost, 6)
+    """Back-compat for old tests / historical rows — flat per-call estimate."""
+    return float(COST_PER_CALL_USD.get("replicate", 0.002))
 
 
 def estimate_event_cost(
@@ -301,8 +294,6 @@ def estimate_event_cost(
 ) -> float:
     if not ok:
         return 0.0
-    if provider == "replicate":
-        return estimate_replicate_cost(model, predict_time_s)
     return float(COST_PER_CALL_USD.get(provider, 0.0))
 
 
@@ -319,7 +310,7 @@ def _rollover_periods(state: dict[str, Any], now: datetime) -> None:
 
 
 def chat_model_stats(state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Always return Llama / Gemini / Claude rows so admin can see the split at zero."""
+    """Always return Groq / Gemini / Claude rows so admin can see the split at zero."""
     models = state.get("models") if isinstance(state.get("models"), dict) else {}
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -380,13 +371,13 @@ def apply_usage_event(
     out = normalize_state(state)
     stamp = now or utc_now()
     _rollover_periods(out, stamp)
-    provider = provider if provider in PROVIDERS else "replicate"
+    provider = provider if provider in PROVIDERS else "groq"
     cost = max(0.0, float(cost_usd or 0))
     out["calls"][provider] = int(out["calls"].get(provider) or 0) + 1
     out["cost_usd"][provider] = round(float(out["cost_usd"].get(provider) or 0) + cost, 6)
     if ok:
-        # Key budget counts only HeyMaa Replicate calls — not Gemini RAG or legacy APIs.
-        if provider == "replicate":
+        # Chat budget counts Groq / Gemini / Claude — not RAG embeddings or historical Replicate.
+        if provider in CHAT_SPEND_PROVIDERS:
             out["spent_since_sync_usd"] = round(float(out.get("spent_since_sync_usd") or 0) + cost, 6)
             out["calls_since_sync"] = int(out.get("calls_since_sync") or 0) + 1
         out["day_cost_usd"] = round(float(out.get("day_cost_usd") or 0) + cost, 6)
@@ -402,7 +393,7 @@ def apply_usage_event(
         out["last_error_kind"] = error_kind
         out["last_error_at"] = iso_now(stamp)
         out["last_error_msg"] = (error_msg or "")[:240]
-    elif ok and provider == "replicate":
+    elif ok and provider in CHAT_SPEND_PROVIDERS:
         out["last_error_kind"] = None
         out["last_error_msg"] = None
     return out
@@ -494,12 +485,13 @@ def mark_alerts_sent(state: dict[str, Any], kinds: list[str], now: Optional[date
     return out
 
 
-def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "replicate") -> dict[str, Any]:
+def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "legacy") -> dict[str, Any]:
     remaining = remaining_credit_usd(state)
     total_calls = sum(int(state.get("calls", {}).get(p) or 0) for p in PROVIDERS)
     total_cost = round(sum(float(state.get("cost_usd", {}).get(p) or 0) for p in PROVIDERS), 4)
+    balance = state.get("replicate_balance_usd")
     return {
-        "provider_mode": provider_mode,
+        "provider_mode": provider_mode or "legacy",
         "calls": dict(state.get("calls") or {}),
         "cost_usd": {k: round(float(v or 0), 4) for k, v in (state.get("cost_usd") or {}).items()},
         "models": state.get("models") or {},
@@ -509,11 +501,12 @@ def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "replicate") -
         "day_cost_usd": round(float(state.get("day_cost_usd") or 0), 4),
         "day_calls": int(state.get("day_calls") or 0),
         "month_cost_usd": round(float(state.get("month_cost_usd") or 0), 4),
-        "replicate_balance_usd": state.get("replicate_balance_usd"),
+        "llm_balance_usd": balance,
+        "replicate_balance_usd": balance,
         "spent_since_sync_usd": round(float(state.get("spent_since_sync_usd") or 0), 4),
         "heymaa_spend_usd": round(float(state.get("spent_since_sync_usd") or 0), 4),
         "remaining_usd": remaining,
-        "credit_scope": "heymaa",
+        "credit_scope": "legacy",
         "alert_threshold_usd": state.get("alert_threshold_usd"),
         "daily_budget_usd": state.get("daily_budget_usd"),
         "monthly_budget_usd": state.get("monthly_budget_usd"),
@@ -522,20 +515,12 @@ def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "replicate") -
         "last_error_kind": state.get("last_error_kind"),
         "last_error_at": state.get("last_error_at"),
         "last_error_msg": state.get("last_error_msg"),
-        "replicate_configured": bool(
-            (state.get("replicate_key_fp") or "")
-            or ((state.get("replicate_key_mask") or "") not in ("", "not set"))
-        ),
         "key_rotated": bool(state.get("key_rotated")),
         "key_rotated_at": state.get("key_rotated_at"),
-        "billing_url": REPLICATE_BILLING_URL,
-        "tokens_url": REPLICATE_TOKENS_URL,
-        "prepaid_docs_url": REPLICATE_PREPAID_DOCS_URL,
-        "orgs_url": REPLICATE_ORGS_URL,
         "note": (
-            "This Replicate account is HeyMaa-only. Remaining is the prepaid number last "
-            "pasted from Billing, minus HeyMaa chat since then. Gemini RAG embeddings bill "
-            "Google, not this pot. Turn on auto reload in Billing so chat does not stop at $0."
+            "Chat uses Groq → Gemini → Claude. Remaining is the budget number last "
+            "pasted here, minus chat spend since then. Gemini RAG embeddings are tracked "
+            "separately and do not drain this pot."
         ),
     }
 
@@ -950,7 +935,7 @@ def notify_admins_if_needed(
                 threshold_usd=state.get("alert_threshold_usd"),
                 day_cost_usd=float(state.get("day_cost_usd") or 0),
                 last_error=str(state.get("last_error_msg") or ""),
-                billing_url=REPLICATE_BILLING_URL,
+                billing_url=admin_url,
                 admin_url=admin_url,
                 lang="el",
             )

@@ -12,9 +12,9 @@ class NormalizeRawTests(unittest.TestCase):
         self.assertEqual(_normalize_raw("hi"), ("hi", "", {}))
 
     def test_triple(self):
-        text, model, meta = _normalize_raw(("hello", "meta/llama", {"predict_time_s": 1.2}))
+        text, model, meta = _normalize_raw(("hello", "openai/gpt-oss-20b", {"predict_time_s": 1.2}))
         self.assertEqual(text, "hello")
-        self.assertEqual(model, "meta/llama")
+        self.assertEqual(model, "openai/gpt-oss-20b")
         self.assertEqual(meta["predict_time_s"], 1.2)
 
 
@@ -29,8 +29,8 @@ class InsertTransactionTests(unittest.TestCase):
         tid = insert_llm_transaction(
             sb,
             purpose="chat",
-            provider="replicate",
-            model="meta/meta-llama-3-70b-instruct",
+            provider="groq",
+            model="openai/gpt-oss-20b",
             ok=True,
             cost_usd=0.0123,
             latency_ms=450,
@@ -42,7 +42,7 @@ class InsertTransactionTests(unittest.TestCase):
         self.assertIsNotNone(tid)
         sb.table.assert_called_with("llm_transactions")
         row = table.insert.call_args[0][0]
-        self.assertEqual(row["provider"], "replicate")
+        self.assertEqual(row["provider"], "groq")
         self.assertEqual(row["cost_usd"], 0.0123)
         self.assertEqual(row["purpose"], "chat")
         self.assertEqual(row["predict_time_ms"], 1500)
@@ -69,14 +69,14 @@ class WrapperInvokeTests(unittest.IsolatedAsyncioTestCase):
         wrapper = LLMWrapper(sb=sb, notify=False, on_call=on_call)
 
         async def _call():
-            return "ok reply", "meta/meta-llama-3-70b-instruct", {"predict_time_s": 2.0}
+            return "ok reply", "openai/gpt-oss-20b", {"predict_time_s": 2.0}
 
-        result = await wrapper.chat("replicate", _call, request_id="r1", input_chars=10)
+        result = await wrapper.chat("groq", _call, request_id="r1", input_chars=10)
         self.assertTrue(result.ok)
         self.assertEqual(result.text, "ok reply")
         self.assertGreater(result.cost_usd, 0)
         expected = estimate_event_cost(
-            "replicate", model="meta/meta-llama-3-70b-instruct", predict_time_s=2.0, ok=True
+            "groq", model="openai/gpt-oss-20b", predict_time_s=2.0, ok=True
         )
         self.assertEqual(result.cost_usd, expected)
         self.assertEqual(len(seen), 1)

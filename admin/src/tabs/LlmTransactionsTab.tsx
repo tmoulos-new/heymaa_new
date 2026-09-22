@@ -45,11 +45,11 @@ const PAGE_SIZE = 25
 
 const PROVIDER_OPTIONS = [
   { value: '', label: 'All providers' },
-  { value: 'replicate', label: 'Replicate' },
   { value: 'groq', label: 'Groq' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'claude', label: 'Claude' },
   { value: 'gemini_embed', label: 'Gemini embed' },
+  { value: 'replicate', label: 'Replicate (legacy)' },
 ]
 
 const PURPOSE_OPTIONS = [

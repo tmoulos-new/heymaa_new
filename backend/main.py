@@ -2723,9 +2723,9 @@ def _is_usable_reply(text: str) -> bool:
     if letters < 6:
         return False
     try:
-        from .replicate_chat import looks_truncated_reply
+        from .llm_reply import looks_truncated_reply
     except ImportError:
-        from replicate_chat import looks_truncated_reply
+        from llm_reply import looks_truncated_reply
     if looks_truncated_reply(t):
         return False
     low = t.lower()
@@ -3308,14 +3308,12 @@ def match_promotion(token: str):
     except Exception:
         return None
     return None
-# Routes
+# Routes — chat is Groq → Gemini → Claude only (direct APIs).
 _LLM_SECRET_KEYS = {
-    "replicate": "llm_replicate",
     "groq": "llm_groq",
     "gemini": "llm_gemini",
     "claude": "llm_claude",
 }
-_LLM_PROVIDER_MODES = frozenset({"legacy", "replicate", "replicate_with_legacy_fallback"})
 _llm_secret_cache: Optional[dict] = None
 _llm_secret_cache_at = 0.0
 
@@ -3326,7 +3324,7 @@ def _llm_secrets_from_db() -> dict:
     now = _t.time()
     if _llm_secret_cache is not None and (now - _llm_secret_cache_at) < 60:
         return _llm_secret_cache
-    out = {"replicate": "", "groq": "", "gemini": "", "claude": ""}
+    out = {"groq": "", "gemini": "", "claude": ""}
     client = ensure_supabase()
     if not client:
         return out
@@ -3347,45 +3345,15 @@ def _llm_secrets_from_db() -> dict:
     _llm_secret_cache_at = now
     return out
 
-def _replicate_api_token_from_env() -> str:
-    for name in ("REPLICATE_HEYMAA_API_TOKEN", "REPLICATE_API_TOKEN", "HEYMAA_API_TOKEN"):
-        val = (os.getenv(name) or "").strip()
-        if val:
-            return val
-    return ""
 
-
-def _replicate_token_identity() -> dict:
-    """Which Replicate secret HeyMaa chat actually uses (prefer dedicated HeyMaa token)."""
-    try:
-        try:
-            from .llm_usage import replicate_token_identity
-        except ImportError:
-            from llm_usage import replicate_token_identity
-    except Exception:
-        replicate_token_identity = None  # type: ignore
-    token = ""
-    source = ""
-    for name in ("REPLICATE_HEYMAA_API_TOKEN", "REPLICATE_API_TOKEN", "HEYMAA_API_TOKEN"):
-        val = (os.getenv(name) or "").strip()
-        if val:
-            token = val
-            source = f"env:{name}"
-            break
-    if not token:
-        db_token = (_llm_secrets_from_db().get("replicate") or "").strip()
-        if db_token:
-            token = db_token
-            source = "db:llm_replicate"
-    if replicate_token_identity:
-        return replicate_token_identity(token, source)
-    return {"fingerprint": "", "mask": "not set", "source": source or "unset"}
+def _credit_scope_identity() -> dict:
+    """Stable scope for admin LLM spend tracking (not tied to a vendor token)."""
+    return {"fingerprint": "legacy-chat", "mask": "groq/gemini/claude", "source": "legacy"}
 
 
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
-        "replicate": _replicate_api_token_from_env(),
         "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
         "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
@@ -3397,47 +3365,18 @@ def _llm_api_keys():
     }
 
 
-def _llm_provider_mode(replicate_key: str = "") -> str:
-    """How chat routes LLM calls: replicate-only, legacy direct APIs, or replicate then legacy."""
-    mode = (os.getenv("LLM_PROVIDER_MODE") or "").strip().lower()
-    if mode in _LLM_PROVIDER_MODES:
-        return mode
-    if replicate_key:
-        return "replicate"
-    return "legacy"
-
 _llm_probe_cache: Optional[dict] = None
 _llm_probe_cache_at = 0.0
 
 def _probe_llm_providers() -> dict:
-    """Health ping. In Replicate mode, skip billed Groq/Claude chat probes."""
+    """Health ping for direct chat providers + Gemini embeddings."""
     global _llm_probe_cache, _llm_probe_cache_at
     import time as _t
     now = _t.time()
     if _llm_probe_cache is not None and (now - _llm_probe_cache_at) < 120:
         return _llm_probe_cache
     keys = _llm_api_keys()
-    mode = _llm_provider_mode(keys.get("replicate", ""))
-    out: dict = {"llm_provider_mode": mode}
-    probe_legacy = mode in ("legacy", "replicate_with_legacy_fallback")
-
-    replicate_key = keys.get("replicate") or ""
-    if replicate_key:
-        try:
-            try:
-                from .replicate_chat import probe_replicate_account_sync
-            except ImportError:
-                from replicate_chat import probe_replicate_account_sync
-            info = probe_replicate_account_sync(replicate_key)
-            who = info.get("username") or "ok"
-            out["replicate"] = {
-                "ok": True,
-                "msg": f"online · chat (Llama / Gemini / Claude) · {who}",
-            }
-        except Exception as e:
-            out["replicate"] = {"ok": False, "msg": str(e)[:120]}
-    else:
-        out["replicate"] = {"ok": False, "msg": "no key"}
+    out: dict = {"llm_provider_mode": "legacy"}
 
     gemini_key = keys.get("gemini") or ""
     if gemini_key:
@@ -3448,20 +3387,14 @@ def _probe_llm_providers() -> dict:
             )
             if not r.ok:
                 raise RuntimeError((r.text or "")[:120])
-            out["gemini"] = {"ok": True, "msg": "online · RAG embeddings only (not chat)"}
+            out["gemini"] = {"ok": True, "msg": "online · chat, vision, RAG"}
         except Exception as e:
             out["gemini"] = {"ok": False, "msg": str(e)[:120]}
     else:
-        out["gemini"] = {"ok": False, "msg": "no key (RAG)"}
+        out["gemini"] = {"ok": False, "msg": "no key"}
 
     for name in ("groq", "claude"):
         key = keys.get(name) or ""
-        if not probe_legacy:
-            out[name] = {
-                "ok": True,
-                "msg": "not required — models run on Replicate",
-            }
-            continue
         if not key:
             out[name] = {"ok": False, "msg": "no key"}
             continue
@@ -3474,6 +3407,7 @@ def _probe_llm_providers() -> dict:
                     max_tokens=16,
                     reasoning_effort="low",
                 )
+                out[name] = {"ok": True, "msg": "online · primary chat"}
             else:
                 import anthropic
                 anthropic.Anthropic(api_key=key).messages.create(
@@ -3481,7 +3415,7 @@ def _probe_llm_providers() -> dict:
                     max_tokens=8,
                     messages=[{"role": "user", "content": "hi"}],
                 )
-            out[name] = {"ok": True, "msg": "online"}
+                out[name] = {"ok": True, "msg": "online · chat fallback"}
         except Exception as e:
             out[name] = {"ok": False, "msg": str(e)[:120]}
 
@@ -3510,7 +3444,7 @@ def root():
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
         "vercel": bool(os.getenv("VERCEL")),
         "llm": {name: bool(val) for name, val in llm.items()},
-        "llm_provider_mode": _llm_provider_mode(llm.get("replicate", "")),
+        "llm_provider_mode": "legacy",
         "llm_probe": _probe_llm_providers(),
         "viva": viva,
     }
@@ -4164,8 +4098,7 @@ async def _run_chat_core(
     image_parts = _attachment_image_parts(req.attachments)
     errors = []
     _prov_keys = _llm_api_keys()
-    replicate_key = _prov_keys.get("replicate", "")
-    provider_mode = _llm_provider_mode(replicate_key)
+    provider_mode = "legacy"
     llm_meta: dict = {}
     llm_tx_ids: list = []
     wrapper = _get_llm_wrapper()
@@ -4226,76 +4159,6 @@ async def _run_chat_core(
             }
         return out
 
-    if provider_mode != "legacy" and replicate_key:
-        try:
-            try:
-                from .replicate_chat import call_replicate_chat
-            except ImportError:
-                from replicate_chat import call_replicate_chat
-
-            async def _replicate_call():
-                use_long = bool(image_parts) or needs_rag or complex_query
-                max_tokens = _CHAT_MAX_TOKENS_LONG if use_long else _CHAT_MAX_TOKENS
-                prefer_quality = msg_lang in GEMINI_FIRST_LANGS
-                # Fast path for chitchat / non-RAG: Gemini Flash first (strong EL/EN, lower latency).
-                prefer_fast = (
-                    not prefer_quality
-                    and not image_parts
-                    and (greeting_only or not needs_rag)
-                )
-                reply, model_slug, meta = await call_replicate_chat(
-                    message_for_llm,
-                    llm_history,
-                    system_prompt,
-                    replicate_key,
-                    image_parts=image_parts or None,
-                    history_limit=chat_context_limit,
-                    max_tokens=max_tokens,
-                    prefer_quality=prefer_quality,
-                    prefer_fast=prefer_fast,
-                )
-                if not reply:
-                    raise RuntimeError("replicate returned empty reply")
-                if not _is_usable_reply(reply):
-                    raise RuntimeError(f"replicate returned unusable reply: {reply[:80]!r}")
-                return reply, model_slug, meta or {}
-
-            result = await wrapper.chat(
-                "replicate",
-                _replicate_call,
-                user_id=user_id,
-                request_id=request_id,
-                input_chars=input_chars,
-                fold_pending_embeds=False,
-            )
-            timing["llm_ms"] = result.latency_ms
-            timing["llm_cost_usd"] = result.cost_usd
-            timing["llm_transaction_id"] = result.transaction_id
-            llm_meta = dict(result.meta or {})
-            if result.transaction_id:
-                llm_tx_ids.append(result.transaction_id)
-            return _chat_success(result.text, f"replicate:{result.model}")
-        except Exception as e:
-            if "llm_ms" not in timing:
-                timing["llm_ms"] = round((_time.perf_counter() - t_total0) * 1000, 1)
-            errors.append(f"replicate: {e}")
-            if provider_mode == "replicate":
-                joined = " | ".join(errors)
-                low = joined.lower()
-                if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
-                    _api_error(
-                        503,
-                        "llm_busy",
-                        "HeyMaa is busy right now. Please try again in a minute.",
-                        joined,
-                    )
-                _api_error(
-                    503,
-                    "llm_failed",
-                    "HeyMaa could not answer right now. Please try again in a moment.",
-                    joined,
-                )
-
     if image_parts:
         providers = ["gemini", "claude", "groq"]
     elif msg_lang in GEMINI_FIRST_LANGS:
@@ -4312,7 +4175,7 @@ async def _run_chat_core(
     if not providers:
         raise HTTPException(
             status_code=503,
-            detail="No LLM providers configured (set REPLICATE_HEYMAA_API_TOKEN or GROQ/GEMINI/ANTHROPIC keys).",
+            detail="No LLM providers configured (set GROQ_API_KEY, GEMINI_API_KEY, and/or ANTHROPIC_API_KEY).",
         )
     for provider in providers:
         try:
@@ -4562,8 +4425,8 @@ async def admin_panel():
     return FileResponse(_admin_index_path(), media_type="text/html")
 
 import time as _time
-USAGE_LOG = {"replicate": 0, "groq": 0, "gemini": 0, "claude": 0, "gemini_embed": 0, "since": _time.time()}
-COST_PER_CALL = {"replicate": 0.002, "groq": 0.0002, "gemini": 0.002, "claude": 0.0025}
+USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "gemini_embed": 0, "since": _time.time()}
+COST_PER_CALL = {"groq": 0.0002, "gemini": 0.002, "claude": 0.0025}
 
 
 def _get_llm_wrapper():
@@ -4584,7 +4447,7 @@ def _get_llm_wrapper():
         wrapper = get_wrapper()
         # Refresh sb / notify config each time (sb may init after first import).
         wrapper.sb = sb
-        wrapper.key_identity_fn = _replicate_token_identity
+        wrapper.key_identity_fn = _credit_scope_identity
         wrapper.on_call = _on_call
         wrapper.notify = True
         wrapper.resend_api_key = RESEND_API_KEY
@@ -4630,7 +4493,7 @@ def _track_llm_usage(
             model=model,
             predict_time_s=predict_time_s,
             error_msg=error_msg,
-            key_identity=_replicate_token_identity(),
+            key_identity=_credit_scope_identity(),
             purpose=purpose,
             latency_ms=latency_ms,
             user_id=user_id,
@@ -4806,14 +4669,15 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             from .llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
         except ImportError:
             from llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
-        keys = _llm_api_keys()
-        mode = _llm_provider_mode(keys.get("replicate", ""))
-        snap = usage_snapshot(load_credits_state(sb, _replicate_token_identity()), provider_mode=mode)
+        snap = usage_snapshot(
+            load_credits_state(sb, _credit_scope_identity()),
+            provider_mode="legacy",
+        )
         snap["process_calls"] = {
-            "replicate": USAGE_LOG["replicate"],
             "groq": USAGE_LOG["groq"],
             "gemini": USAGE_LOG["gemini"],
             "claude": USAGE_LOG["claude"],
+            "gemini_embed": USAGE_LOG["gemini_embed"],
         }
         try:
             snap.update(llm_transaction_totals(sb))
@@ -4821,34 +4685,20 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             snap.setdefault("tx_total", 0)
             snap.setdefault("tx_total_cost_usd", 0.0)
             snap.setdefault("tx_table_ready", False)
-        try:
-            rkey = keys.get("replicate") or ""
-            if rkey:
-                try:
-                    from .replicate_chat import probe_replicate_account_sync
-                except ImportError:
-                    from replicate_chat import probe_replicate_account_sync
-                acc = probe_replicate_account_sync(rkey)
-                snap["replicate_account"] = {
-                    "username": acc.get("username"),
-                    "type": acc.get("type"),
-                }
-        except Exception:
-            pass
         return snap
     except Exception:
-        est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("replicate", "groq", "gemini", "claude"))
+        est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq", "gemini", "claude"))
         days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
         return {
             "calls": {
-                "replicate": USAGE_LOG["replicate"],
                 "groq": USAGE_LOG["groq"],
                 "gemini": USAGE_LOG["gemini"],
                 "claude": USAGE_LOG["claude"],
+                "gemini_embed": USAGE_LOG["gemini_embed"],
             },
             "estimated_cost_usd": round(est_cost, 4),
             "since_days": round(days, 1),
-            "provider_mode": _llm_provider_mode(_llm_api_keys().get("replicate", "")),
+            "provider_mode": "legacy",
             "tx_total": 0,
             "tx_total_cost_usd": 0.0,
             "tx_table_ready": False,
@@ -4894,7 +4744,9 @@ async def admin_llm_transactions(
 
 
 class LlmCreditsUpdate(BaseModel):
-    replicate_balance_usd: float
+    # llm_balance_usd is preferred; replicate_balance_usd kept for older admin clients.
+    llm_balance_usd: Optional[float] = None
+    replicate_balance_usd: Optional[float] = None
     alert_threshold_usd: Optional[float] = 5.0
     daily_budget_usd: Optional[float] = None
     monthly_budget_usd: Optional[float] = None
@@ -4903,8 +4755,11 @@ class LlmCreditsUpdate(BaseModel):
 @app.post("/admin/credits")
 async def admin_update_credits(req: LlmCreditsUpdate, x_token: Optional[str] = Header(None)):
     admin_id = verify_admin(x_token)
-    if req.replicate_balance_usd < 0:
-        raise HTTPException(status_code=400, detail="replicate_balance_usd must be >= 0")
+    balance = req.llm_balance_usd if req.llm_balance_usd is not None else req.replicate_balance_usd
+    if balance is None:
+        raise HTTPException(status_code=400, detail="llm_balance_usd is required")
+    if balance < 0:
+        raise HTTPException(status_code=400, detail="llm_balance_usd must be >= 0")
     threshold = 5.0 if req.alert_threshold_usd is None else float(req.alert_threshold_usd)
     if threshold < 0:
         raise HTTPException(status_code=400, detail="alert_threshold_usd must be >= 0")
@@ -4923,18 +4778,17 @@ async def admin_update_credits(req: LlmCreditsUpdate, x_token: Optional[str] = H
                 save_credits_state,
                 usage_snapshot,
             )
-        ident = _replicate_token_identity()
+        ident = _credit_scope_identity()
         state = apply_credit_sync(
             load_credits_state(sb, ident),
-            replicate_balance_usd=float(req.replicate_balance_usd),
+            replicate_balance_usd=float(balance),
             alert_threshold_usd=threshold,
             daily_budget_usd=req.daily_budget_usd,
             monthly_budget_usd=req.monthly_budget_usd,
             key_identity=ident,
         )
         save_credits_state(sb, state, updated_by=admin_id)
-        mode = _llm_provider_mode(_llm_api_keys().get("replicate", ""))
-        return {"ok": True, **usage_snapshot(state, provider_mode=mode)}
+        return {"ok": True, **usage_snapshot(state, provider_mode="legacy")}
     except HTTPException:
         raise
     except Exception as e:
