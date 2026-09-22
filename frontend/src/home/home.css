@@ -37,6 +37,7 @@ body{font-family:var(--font-sans);background:var(--cream);}
 #landing-page{
   --landing-content-max:min(960px,calc(100% - 48px));
   --landing-pad-x:24px;
+  --landing-zoom:1;
   overflow-x: hidden;
   overflow-x: clip;
   max-width: 100%;
@@ -45,17 +46,30 @@ body{font-family:var(--font-sans);background:var(--cream);}
 /* Desktop: match the composition users preferred at ~125% browser zoom */
 @media (min-width:1024px){
   #landing-page{
-    zoom:1.25;
+    --landing-zoom:1.25;
+    zoom:var(--landing-zoom);
+  }
+  /* zoom scales layout; shrink CSS height so navbar + hero still fill one screen */
+  #landing-page .hero-section{
+    height:calc(100vh / var(--landing-zoom) - var(--navbar-height));
+    height:calc(100dvh / var(--landing-zoom) - var(--navbar-height));
+    min-height:0;
   }
 }
 @supports not (zoom:1){
   @media (min-width:1024px){
     #landing-page{
+      --landing-zoom:1;
       --landing-content-max:min(1200px,calc(100% - 64px));
     }
     #landing-page .sec-title{font-size:clamp(26px,4.2vw,38px);}
     #landing-page .sec-sub{font-size:16px;}
     #landing-page .inside-phone--card{width:min(100%,220px);}
+    #landing-page .hero-section{
+      height:calc(100vh - var(--navbar-height));
+      height:calc(100dvh - var(--navbar-height));
+      min-height:480px;
+    }
   }
 }
 #landing-page,#landing-page button,#landing-page input,#landing-page textarea,#landing-page select,#landing-page label,#landing-page a,#landing-page h1,#landing-page h2,#landing-page h3,#landing-page h4,#landing-page p,#landing-page span,#landing-page li{font-family:var(--font-sans);}

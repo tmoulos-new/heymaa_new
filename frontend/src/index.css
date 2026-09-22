@@ -43,9 +43,41 @@ body {
   overscroll-behavior-x: none;
 }
 
+:root {
+  --hm-app-zoom: 1;
+}
+
 #root {
   overflow-x: hidden;
   overflow-x: clip;
+}
+
+/* Desktop: scale product UI (chat, auth, checkout, subscription) to 115% */
+@media (min-width: 1024px) {
+  :root {
+    --hm-app-zoom: 1.15;
+  }
+
+  #root {
+    zoom: var(--hm-app-zoom);
+  }
+
+  /* Landing keeps its own 125% scale — do not compound */
+  #root:has(#landing-page) {
+    zoom: 1;
+  }
+}
+
+@supports not (zoom: 1) {
+  @media (min-width: 1024px) {
+    :root {
+      --hm-app-zoom: 1;
+    }
+
+    #root {
+      zoom: 1;
+    }
+  }
 }
 
 html.hm-auth-lock,

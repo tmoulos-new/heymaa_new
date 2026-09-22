@@ -6,6 +6,7 @@
   --muted:#7A7068;--border:rgba(43,58,103,.1);--shadow:0 4px 24px rgba(43,58,103,.08);
   --green:#2D9E6B;--purple:#7C5CBF;--radius:14px;
   --sidebar-w:240px;--sidebar-w-collapsed:68px;
+  --hm-app-zoom:1;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{
@@ -17,8 +18,19 @@ html{
 }
 body{
   font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--navy);line-height:1.5;
-  min-height:100vh;width:100%;max-width:100%;
+  min-height:calc(100vh / var(--hm-app-zoom));min-height:calc(100dvh / var(--hm-app-zoom));
+  width:100%;max-width:100%;
   overflow-x:hidden;overflow-x:clip;overscroll-behavior-x:none;
+}
+@media (min-width:1024px){
+  :root{--hm-app-zoom:1.15}
+  #root{zoom:var(--hm-app-zoom)}
+}
+@supports not (zoom:1){
+  @media (min-width:1024px){
+    :root{--hm-app-zoom:1}
+    #root{zoom:1}
+  }
 }
 html.hm-auth-lock,
 html.hm-auth-lock body,
@@ -36,7 +48,7 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 
 /* ── Login gate ── */
 .gate-wrap{
-  min-height:100vh;min-height:100dvh;
+  min-height:calc(100vh / var(--hm-app-zoom));min-height:calc(100dvh / var(--hm-app-zoom));
   width:100%;max-width:100%;min-width:0;
   display:flex;align-items:center;justify-content:center;
   padding:max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px));
@@ -55,7 +67,7 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 .gate .msg{margin:16px 0 0}
 
 /* ── Shell ── */
-.shell{min-height:100vh;display:block}
+.shell{min-height:calc(100vh / var(--hm-app-zoom));min-height:calc(100dvh / var(--hm-app-zoom));display:block}
 
 .sidebar{
   position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);z-index:200;
@@ -166,7 +178,7 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 .sidebar.collapsed .sidebar-nav button::after{left:calc(100% + 8px)}
 
 .content-wrap{
-  margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column;
+  margin-left:var(--sidebar-w);min-height:calc(100vh / var(--hm-app-zoom));min-height:calc(100dvh / var(--hm-app-zoom));display:flex;flex-direction:column;
   transition:margin-left .22s ease;
 }
 .sidebar.collapsed ~ .content-wrap{margin-left:var(--sidebar-w-collapsed)}

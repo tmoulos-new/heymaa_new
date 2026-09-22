@@ -30,7 +30,7 @@ function AppChunkFallback() {
   return (
     <div
       style={{
-        minHeight: "100dvh",
+        minHeight: "calc(100dvh / var(--hm-app-zoom, 1))",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

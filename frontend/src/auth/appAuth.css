@@ -1,8 +1,8 @@
 @import url('../styles/buttons.css');
 
 .app-auth-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: calc(100vh / var(--hm-app-zoom, 1));
+  min-height: calc(100dvh / var(--hm-app-zoom, 1));
   width: 100%;
   max-width: 100%;
   min-width: 0;

@@ -6,7 +6,8 @@
 }
 
 .legal-page {
-  min-height: 100vh;
+  min-height: calc(100vh / var(--landing-zoom, 1));
+  min-height: calc(100dvh / var(--landing-zoom, 1));
   background: var(--cream, #d4dce8);
   font-family: 'DM Sans', sans-serif;
   color: #2b3a67;
