@@ -2912,7 +2912,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const fromThreads = threads.flatMap((th) => collectPersistableMedia(th.messages || [], allowVideo));
     const byId = new Map<string, (typeof fromLive)[number]>();
     for (const e of [...fromLive, ...fromThreads]) byId.set(e.id, e);
-    const entries = [...byId.values()];
+    const entries = Array.from(byId.values());
     if (!entries.length) return;
     const timer = window.setTimeout(() => {
       void persistChatMediaEntries(token, entries, chatMediaLimit);
