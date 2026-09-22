@@ -345,6 +345,63 @@ export function clearBootLocalScanCache(): void {
   _bootScanCache = null;
 }
 
+/** Keys that may survive permanent account deletion (prefs only — never user content). */
+const LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE = new Set([
+  "hm_cookie_consent_v1",
+  "hm_pre_lang",
+]);
+
+function clearHeymaaIndexedDb(): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase("heymaa_v1");
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+      req.onblocked = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+/**
+ * Wipe all local HeyMaa user content after permanent account deletion.
+ * Recovery intentionally scans every hm_* scope — without this wipe, a new
+ * signup on the same device would resurrect chat/family/memories.
+ */
+export async function purgeLocalAppData(): Promise<void> {
+  clearBootLocalScanCache();
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("hm_")) continue;
+      if (LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE.has(key)) continue;
+      toRemove.push(key);
+    }
+    for (const key of toRemove) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const sessionKeys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("hm_")) sessionKeys.push(key);
+    }
+    for (const key of sessionKeys) sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+  await clearHeymaaIndexedDb();
+}
+
 export function recoverFromLocalStorageScan(): RecoveredUserData {
   const buckets = scanLocalStorageBuckets();
   let memories: SyncMemory[] = [];

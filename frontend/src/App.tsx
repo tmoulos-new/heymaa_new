@@ -37,7 +37,7 @@ import { FamilyPhotoCropDialog } from "./components/FamilyPhotoCropDialog";
 import { FamilyPersonAvatar } from "./components/FamilyPersonAvatar";
 import { FamilyDocumentsPanel } from "./components/FamilyDocumentsPanel";
 import { MilestonesPanel } from "./components/MilestonesPanel";
-import { normalizeDocEntries, type DocEntry } from "./lib/familyDocuments";
+import { normalizeDocEntries, formatDocsForChatContext, type DocEntry } from "./lib/familyDocuments";
 import {
   currentStageIdForChild,
   currentStageIdForPregnancy,
@@ -106,6 +106,7 @@ import {
   stableSk,
   loadFamilyForToken,
   clearBootLocalScanCache,
+  purgeLocalAppData,
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
@@ -3169,7 +3170,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       milestoneContextLimit,
       lastCheckedMap,
     );
-    const recentDocs = docs.slice(0, 40).map((d) => ({ title: d.title, category: d.category, date: d.date, ref: d.ref }));
+    const recentDocs = formatDocsForChatContext(docs, {
+      lang,
+      userName: displayName || profile.name || undefined,
+      childNames: familyChildren.map((c) => c.name),
+      resolveMemberLabel: (ref) => {
+        const member = familyData.members.find((m) => memberMemoryRef(m.id) === ref);
+        if (!member) return null;
+        return memberDisplayLabel(member, familyData.members, relationshipLabel(member.relationship, lang));
+      },
+    });
     const greetingOnly = /^(hi|hello|hey|γεια σου|γεια|γειά σου|γειά|καλημέρα|καλησπέρα|καλημερα|καλησπερα|χαίρετε|τι κάνεις|τι κανεις|πώς είσαι|πως είσαι|πως εισαι|πώς εισαι|how are you|how's it going)\s*[;?!]*$/i.test(trimmed);
     const historyForApi = greetingOnly
       ? []
@@ -4387,8 +4397,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return ok;
   };
 
-  const handleAccountDeleted = () => {
+  const handleAccountDeleted = async () => {
     setShowAccountPrivacy(false);
+    try {
+      await purgeLocalAppData();
+    } catch {
+      /* best effort — still log out */
+    }
     onLogout();
   };
 

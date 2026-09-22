@@ -11,7 +11,7 @@ type Props = {
   token: string
   consentMarketing: boolean
   onConsentChange: (next: boolean) => Promise<boolean>
-  onAccountDeleted: () => void
+  onAccountDeleted: () => void | Promise<void>
   onClose: () => void
   onToast: (text: string, kind: 'ok' | 'err') => void
 }
@@ -85,7 +85,7 @@ export function AccountPrivacySheet({
     try {
       await deleteAccount(token, deletePassword)
       setShowDeleteConfirm(false)
-      onAccountDeleted()
+      await onAccountDeleted()
     } catch (e) {
       setShowDeleteConfirm(false)
       onToast(e instanceof Error ? e.message : isEl ? 'Αποτυχία διαγραφής.' : 'Delete failed.', 'err')

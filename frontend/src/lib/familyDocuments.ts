@@ -114,6 +114,46 @@ export function downloadDocFile(file: DocFile) {
   a.remove()
 }
 
+/** Human-readable doc rows for /chat librarian context (no file bytes). */
+export function formatDocsForChatContext(
+  docs: DocEntry[],
+  opts: {
+    lang: string
+    userName?: string
+    childNames?: string[]
+    resolveMemberLabel?: (ref: string) => string | null
+  },
+  limit = 40,
+): Array<{
+  title: string
+  category?: string
+  date?: string
+  ref?: string
+  note?: string
+  provider?: string
+}> {
+  const el = opts.lang === 'el'
+  const childSet = new Set((opts.childNames || []).map((n) => n.trim()).filter(Boolean))
+  const resolveRef = (ref: string): string => {
+    const r = (ref || '').trim()
+    if (!r) return el ? 'γενικό / οικογένεια' : 'general / family'
+    if (r === 'pregnancy') return el ? 'εγκυμοσύνη' : 'pregnancy'
+    if (r === '__self__') return (opts.userName || '').trim() || (el ? 'εσύ' : 'you')
+    if (childSet.has(r)) return r
+    const memberLabel = opts.resolveMemberLabel?.(r)
+    if (memberLabel) return memberLabel
+    return r.startsWith('m:') ? (el ? 'μέλος οικογένειας' : 'family member') : r
+  }
+  return docs.slice(0, limit).map((d) => ({
+    title: d.title,
+    category: docCategoryLabel(d.category, opts.lang),
+    ...(d.date ? { date: d.date } : {}),
+    ref: resolveRef(d.ref),
+    ...(d.note ? { note: d.note.slice(0, 240) } : {}),
+    ...(d.provider ? { provider: d.provider.slice(0, 120) } : {}),
+  }))
+}
+
 export function formatDocDateInput(d = new Date()) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')

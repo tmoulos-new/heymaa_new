@@ -2107,7 +2107,18 @@ def build_system_prompt(rag_context, family_context="", memories_context="", doc
     if milestones_context:
         prompt += f"\n\n--- Development milestones this user has ticked (use naturally if relevant to age or progress, never list them all) ---\n{milestones_context}"
     if docs_context:
-        prompt += f"\n\n--- Document archive (act as librarian: you know what documents exist and for whom, but NEVER read or comment on their content. Only mention their existence when naturally relevant) ---\n{docs_context}"
+        prompt += (
+            "\n\n--- Document archive (Family → Document Archive) ---\n"
+            "You KNOW the documents listed below are registered in this user's archive. "
+            "When they ask what documents/records they have, what exists for a child or person, "
+            "or whether they logged a test/vaccine/visit, answer from this list using titles, "
+            "categories, dates, and who each concerns. "
+            "Do NOT invent documents that are not listed. "
+            "Do NOT claim to have read uploaded file contents or medical results — only the "
+            "metadata (and any short note) below. "
+            "If the list is empty, say you do not see any documents in their archive yet.\n"
+            f"{docs_context}"
+        )
     if promotion_context:
         prompt += "\n\n--- Sponsored content (mention ONLY if it naturally fits the current conversation topic, in at most one brief sentence translated into the user language, ALWAYS followed by the word sponsored in parentheses) ---\n" + promotion_context
     if rag_context:
@@ -2986,6 +2997,8 @@ class DocContext(BaseModel):
     category: Optional[str] = None
     date: Optional[str] = None
     ref: Optional[str] = None
+    note: Optional[str] = None
+    provider: Optional[str] = None
 
 class ProfileContext(BaseModel):
     name: Optional[str] = None
@@ -4103,18 +4116,22 @@ async def _run_chat_core(
                     line += f" ({m.stageId})"
                 ms_lines.append(line)
             milestones_context = "\n".join(ms_lines)
-        if req.recentDocs:
+        if req.recentDocs is not None:
             doc_lines = []
-            for d in req.recentDocs[:10]:
+            for d in req.recentDocs[:20]:
                 line = d.title
                 if d.category:
                     line += f" [{d.category}]"
                 if d.date:
                     line += f" ({d.date})"
                 if d.ref:
-                    line += f" — ref: {d.ref}"
+                    line += f" — for: {d.ref}"
+                if d.provider:
+                    line += f" — provider: {d.provider}"
+                if d.note:
+                    line += f" — note: {d.note}"
                 doc_lines.append(line)
-            docs_context = "\n".join(doc_lines)
+            docs_context = "\n".join(doc_lines) if doc_lines else "(empty — no documents registered yet)"
         if promo:
             promotion_context = promo.get("body", "") or ""
             if promo.get("link"):
@@ -5877,6 +5894,8 @@ def _admin_chat_context_from_user_data(
                     category=d.get("category") or None,
                     date=d.get("date") or None,
                     ref=d.get("ref") or None,
+                    note=(str(d.get("note")).strip()[:240] if d.get("note") else None),
+                    provider=(str(d.get("provider")).strip()[:120] if d.get("provider") else None),
                 )
             )
 
