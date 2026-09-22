@@ -35,6 +35,15 @@ const ARCHIVED_THREADS_BY_PLAN: Record<string, number> = {
   admin: 90,
 }
 
+/** Max chat Library media items (images/videos) kept in IndexedDB. */
+const CHAT_MEDIA_LIBRARY_BY_PLAN: Record<string, number> = {
+  trial: 24,
+  starter: 80,
+  premium: 160,
+  annual: 200,
+  admin: 200,
+}
+
 function planSlot(
   entitlements: PlanEntitlements | null | undefined,
   snapshot: SubscriptionSnapshot | null,
@@ -77,6 +86,13 @@ export function archivedThreadsLimit(
 ): number {
   if (entitlements?.archived_threads_limit != null) return entitlements.archived_threads_limit
   return ARCHIVED_THREADS_BY_PLAN[planSlot(entitlements, snapshot)] ?? 3
+}
+
+export function chatMediaLibraryLimit(
+  entitlements: PlanEntitlements | null | undefined,
+  snapshot: SubscriptionSnapshot | null,
+): number {
+  return CHAT_MEDIA_LIBRARY_BY_PLAN[planSlot(entitlements, snapshot)] ?? 24
 }
 
 export function fullMemoryAllowed(

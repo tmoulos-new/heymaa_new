@@ -80,11 +80,20 @@ import {
 import {
   attachmentPayloadForApi,
   chatMessagesForStorage,
+  ensureAttachmentMediaIds,
   fileToChatAttachment,
   MAX_CHAT_FILE_BYTES,
   MAX_MEMORY_VIDEO_BYTES,
+  threadsForStorage,
   type ChatAttachment,
 } from "./lib/chatAttachments";
+import {
+  collectPersistableMedia,
+  hydrateMessageAttachments,
+  loadChatMediaMap,
+  persistChatMediaEntries,
+  removeChatMediaIds,
+} from "./lib/chatMediaSync";
 import { useKeyboardInset } from "./lib/useKeyboardInset";
 import {
   mergeCloudUserData,
@@ -101,7 +110,7 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
-import { chatContextDepth, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
+import { chatContextDepth, chatMediaLibraryLimit, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
 import {
   canArchiveAnotherThread,
   featureAllowed,
@@ -2130,6 +2139,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     () => milestoneContextCount(planEntitlements, subSnapshot),
     [planEntitlements, subSnapshot],
   );
+  const chatMediaLimit = useMemo(
+    () => chatMediaLibraryLimit(planEntitlements, subSnapshot),
+    [planEntitlements, subSnapshot],
+  );
 
   useEffect(() => {
     if (!accessExpiryInfo?.urgent) return;
@@ -2622,7 +2635,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [memories, saveMemoriesLocal, saveMemoriesCloud]);
 
   const sbSave = useCallback(async (key: string, value: any) => {
-    const payload = key === "chat" ? chatMessagesForStorage(value) : value;
+    const payload =
+      key === "chat"
+        ? chatMessagesForStorage(value)
+        : key === "threads"
+          ? threadsForStorage(value)
+          : value;
     const allowEmptyCloud =
       key === "docs" ||
       key === "shopitems" ||
@@ -2685,8 +2703,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (local.family.children.length || local.family.members.length) {
           setFamilyData(ensureFamilyMemberIds(local.family));
         }
-        if (local.chat.length) setMessages(local.chat as Message[]);
-        if (local.threads.length) setThreads(local.threads as Thread[]);
+        const mediaMap = await loadChatMediaMap(token);
+        if (cancelled) return;
+        if (local.chat.length) {
+          setMessages(hydrateMessageAttachments(local.chat as Message[], mediaMap));
+        }
+        if (local.threads.length) {
+          setThreads(
+            (local.threads as Thread[]).map((th) => ({
+              ...th,
+              messages: hydrateMessageAttachments(th.messages || [], mediaMap),
+            })),
+          );
+        }
         if (local.docs.length && !docsDirtyRef.current) {
           setDocs(normalizeDocEntries(local.docs as unknown[]));
         }
@@ -2712,8 +2741,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         ) as Memory[];
         setMemories(finalMemories);
         setFamilyData(ensureFamilyMemberIds(merged.family));
-        if (merged.chat.length) setMessages(merged.chat as Message[]);
-        if (merged.threads.length) setThreads(merged.threads as Thread[]);
+        if (merged.chat.length) {
+          setMessages(hydrateMessageAttachments(merged.chat as Message[], mediaMap));
+        }
+        if (merged.threads.length) {
+          setThreads(
+            (merged.threads as Thread[]).map((th) => ({
+              ...th,
+              messages: hydrateMessageAttachments(th.messages || [], mediaMap),
+            })),
+          );
+        }
         // Docs: never resurrect entries the user already deleted in this session.
         setDocs((prev) => {
           if (docsDirtyRef.current) {
@@ -2824,6 +2862,63 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   useEffect(()=>{ if (!cloudReady) return; void sbSave("chat", messages); },[messages, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("threads", threads); },[threads, sbSave, cloudReady]);
+  // Persist chat Library blobs (images/videos/files) in IndexedDB so they survive reload.
+  useEffect(() => {
+    if (!cloudReady || !token) return;
+    let needsStamp = false;
+    const scan = (msgs: Message[]) => {
+      for (const m of msgs) {
+        for (const a of m.attachments || []) {
+          if (
+            (a.kind === "image" || a.kind === "video" || a.kind === "file") &&
+            a.data &&
+            !a.mediaId
+          ) {
+            needsStamp = true;
+            return;
+          }
+        }
+      }
+    };
+    scan(messages);
+    if (!needsStamp) {
+      for (const th of threads) {
+        scan(th.messages || []);
+        if (needsStamp) break;
+      }
+    }
+    if (needsStamp) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.attachments?.length
+            ? { ...m, attachments: ensureAttachmentMediaIds(m.attachments as ChatAttachment[]) }
+            : m,
+        ),
+      );
+      setThreads((prev) =>
+        prev.map((th) => ({
+          ...th,
+          messages: (th.messages || []).map((m) =>
+            m.attachments?.length
+              ? { ...m, attachments: ensureAttachmentMediaIds(m.attachments as ChatAttachment[]) }
+              : m,
+          ),
+        })),
+      );
+      return;
+    }
+    const allowVideo = featureAllowed("memory_video", planEntitlements, subSnapshot);
+    const fromLive = collectPersistableMedia(messages, allowVideo);
+    const fromThreads = threads.flatMap((th) => collectPersistableMedia(th.messages || [], allowVideo));
+    const byId = new Map<string, (typeof fromLive)[number]>();
+    for (const e of [...fromLive, ...fromThreads]) byId.set(e.id, e);
+    const entries = [...byId.values()];
+    if (!entries.length) return;
+    const timer = window.setTimeout(() => {
+      void persistChatMediaEntries(token, entries, chatMediaLimit);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [messages, threads, cloudReady, token, chatMediaLimit, planEntitlements, subSnapshot]);
   // Always persist memories locally (IDB); also sync to cloud with compressed photos
   useEffect(() => {
     if (!memoriesLocalReady) return;
@@ -3024,10 +3119,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           ? `Απαντώντας σε «${activeReply.content}»: ${trimmed}`
           : `Replying to "${activeReply.content}": ${trimmed}`)
       : trimmed;
+    const durableAttachments = attachments.length ? ensureAttachmentMediaIds(attachments) : [];
     const userMsg: Message = {
       role: "user",
       content: trimmed,
-      attachments: attachments.length ? attachments : undefined,
+      attachments: durableAttachments.length ? durableAttachments : undefined,
       replyTo: replyMeta || undefined,
     };
     const next = [...messages, userMsg];
@@ -3036,6 +3132,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setChatPendingAttachments([]);
     setReplyTarget(null);
     setLoading(true);
+    if (durableAttachments.some((a) => (a.kind === "image" || a.kind === "video" || a.kind === "file") && a.data && a.mediaId)) {
+      const allowVideo = featureAllowed("memory_video", planEntitlements, subSnapshot);
+      void persistChatMediaEntries(
+        token,
+        collectPersistableMedia([{ attachments: durableAttachments }], allowVideo),
+        chatMediaLimit,
+      );
+    }
     if (isLocalDemoToken(token)) {
       const msg = lang === "el"
         ? "Σε local demo η HeyMaa δεν μιλάει με το API. Για chat με φωτογραφίες/αρχεία χρειάζεται σύνδεση με πραγματικό λογαριασμό."
@@ -3079,7 +3183,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         {
           message: apiMessage,
           history: historyForApi,
-          attachments: attachments.map(attachmentPayloadForApi),
+          attachments: durableAttachments.map(attachmentPayloadForApi),
           profile: {
             name: displayName || profile.name || null,
             childName: profile.childName,
@@ -3383,6 +3487,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         ),
       );
     }
+    if (item.mediaId) void removeChatMediaIds(token, [item.mediaId]);
     if (libraryPreview && libraryPreview.src === item.href) setLibraryPreview(null);
     setLibraryDeleteTarget(null);
   };

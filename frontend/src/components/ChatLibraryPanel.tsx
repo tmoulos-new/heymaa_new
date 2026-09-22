@@ -5,6 +5,7 @@ export type ChatLibraryItem = {
   kind: "image" | "video" | "file";
   name: string;
   href?: string;
+  mediaId?: string;
   date: string;
   source: "live" | string;
   msgIndex: number;
@@ -36,15 +37,18 @@ export function collectChatLibraryItems<T extends LibraryMessage>(
         };
         if (att.kind === "image" && att.data) {
           item.href = att.data;
+          if (att.mediaId) item.mediaId = att.mediaId;
           media.push(item);
           return;
         }
         if (att.kind === "video" && att.data) {
           item.href = att.data;
+          if (att.mediaId) item.mediaId = att.mediaId;
           media.push(item);
           return;
         }
         if (att.kind === "file") {
+          if (att.mediaId) item.mediaId = att.mediaId;
           if (att.data) {
             item.href = att.data.includes(",")
               ? att.data

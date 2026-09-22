@@ -1,4 +1,5 @@
 import { compressImageDataUrl } from "./memoriesSync";
+import { newChatMediaId } from "./chatMediaSync";
 
 export type ChatAttachment = {
   kind: "image" | "file" | "video";
@@ -7,6 +8,8 @@ export type ChatAttachment = {
   /** data URL for images/video (display); base64 without prefix for PDFs */
   data?: string;
   textPreview?: string;
+  /** IndexedDB key for durable Library blobs (images/videos/files). */
+  mediaId?: string;
 };
 
 export const MAX_CHAT_FILE_BYTES = 6 * 1024 * 1024;
@@ -29,16 +32,34 @@ export async function fileToChatAttachment(file: File): Promise<ChatAttachment> 
   if (file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp)$/i.test(lower)) {
     const dataUrl = await readAsDataURL(file);
     const compressed = await compressImageDataUrl(dataUrl, 1024, 0.68);
-    return { kind: "image", name: file.name, mime: "image/jpeg", data: compressed };
+    return {
+      kind: "image",
+      name: file.name,
+      mime: "image/jpeg",
+      data: compressed,
+      mediaId: newChatMediaId(),
+    };
   }
   if (file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(lower)) {
     const dataUrl = await readAsDataURL(file);
-    return { kind: "video", name: file.name, mime: file.type || "video/mp4", data: dataUrl };
+    return {
+      kind: "video",
+      name: file.name,
+      mime: file.type || "video/mp4",
+      data: dataUrl,
+      mediaId: newChatMediaId(),
+    };
   }
   if (file.type === "application/pdf" || lower.endsWith(".pdf")) {
     const dataUrl = await readAsDataURL(file);
     const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-    return { kind: "file", name: file.name, mime: file.type || "application/pdf", data: b64 };
+    return {
+      kind: "file",
+      name: file.name,
+      mime: file.type || "application/pdf",
+      data: b64,
+      mediaId: newChatMediaId(),
+    };
   }
   const text = await file.text();
   return {
@@ -63,14 +84,43 @@ export function attachmentPayloadForApi(att: ChatAttachment) {
   };
 }
 
-/** Drop binary payloads before localStorage / cloud sync (keeps names for UI chips). */
+/** Drop binary payloads before localStorage / cloud sync (keeps names + mediaId for Library). */
 export function chatMessagesForStorage<T extends { attachments?: ChatAttachment[] }>(messages: T[]): T[] {
   return messages.map((msg) => {
     if (!msg.attachments?.length) return msg
     return {
       ...msg,
-      attachments: msg.attachments.map(({ kind, name, mime }) => ({ kind, name, mime })),
+      attachments: msg.attachments.map(({ kind, name, mime, mediaId, textPreview }) => ({
+        kind,
+        name,
+        mime,
+        ...(mediaId ? { mediaId } : {}),
+        ...(kind === "file" && textPreview ? { textPreview } : {}),
+      })),
     }
+  })
+}
+
+export function threadsForStorage<T extends { messages: { attachments?: ChatAttachment[] }[] }>(
+  threads: T[],
+): T[] {
+  return threads.map((th) => ({
+    ...th,
+    messages: chatMessagesForStorage(th.messages),
+  }))
+}
+
+/** Ensure image/video/file attachments with binary data have a durable mediaId. */
+export function ensureAttachmentMediaIds(attachments: ChatAttachment[]): ChatAttachment[] {
+  return attachments.map((att) => {
+    if (
+      (att.kind === "image" || att.kind === "video" || att.kind === "file") &&
+      att.data &&
+      !att.mediaId
+    ) {
+      return { ...att, mediaId: newChatMediaId() }
+    }
+    return att
   })
 }
 
