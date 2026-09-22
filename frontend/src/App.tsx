@@ -1915,7 +1915,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const showUndoToast = (text: string, undo: () => void) => {
     showToast(text, "ok", undo, t("undo", lang));
   };
-  const navy="#2B3A67",coral="#de5a9e",teal="#4ABEAA",cream="#D4DCE8",gl="#E8EEF5",chatAssistantBg="#E8E2F0",logoPurple="#BEB4CD";
+  const navy="#2B3A67",coral="#de5a9e",teal="#4ABEAA",cream="#D4DCE8",gl="#E8EEF5",chatAssistantBg="#FFF7F2",logoPurple="#BEB4CD";
   const [gamification, setGamification] = useState<GamificationStatus | null>(null);
   const [pointRulesVersion, setPointRulesVersion] = useState(0);
   const [referralCode, setReferralCode] = useState<string | null>(null);
