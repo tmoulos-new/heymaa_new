@@ -1,6 +1,5 @@
 .checkout-result-page {
-  min-height: calc(100vh / var(--hm-app-zoom, 1));
-  min-height: calc(100dvh / var(--hm-app-zoom, 1));
+  min-height: 100vh;
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(74, 190, 170, 0.18), transparent 55%),
     radial-gradient(ellipse 60% 40% at 100% 100%, rgba(222, 90, 158, 0.1), transparent 50%),

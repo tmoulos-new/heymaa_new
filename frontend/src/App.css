@@ -57,8 +57,7 @@ body { font-family: 'DM Sans', sans-serif; background: #fdf6f0; height: 100vh; d
 .chat-container::-webkit-scrollbar-thumb { background: #e9d5ff; border-radius: 4px; }
 /* Invite Screen */
 .invite-screen {
-  min-height: calc(100vh / var(--hm-app-zoom, 1));
-  min-height: calc(100dvh / var(--hm-app-zoom, 1));
+  min-height: 100vh;
   background: linear-gradient(135deg, #2B3A67 0%, #4ABEAA 100%);
   display: flex;
   align-items: center;

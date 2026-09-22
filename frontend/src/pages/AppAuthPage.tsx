@@ -59,7 +59,7 @@ export function AppAuthPage() {
     return (
       <div
         style={{
-          minHeight: 'calc(100dvh / var(--hm-app-zoom, 1))',
+          minHeight: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -78,7 +78,7 @@ export function AppAuthPage() {
     return (
       <div
         style={{
-          minHeight: 'calc(100dvh / var(--hm-app-zoom, 1))',
+          minHeight: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

@@ -1696,7 +1696,7 @@ function ResetScreen({ token, lang, onDone }: { token: string; lang: string; onD
     } finally { setLoading(false); }
   };
   return (
-    <div style={{minHeight:"calc(100vh / var(--hm-app-zoom, 1))",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
       <div style={cardStyle}>
         <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:20}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
         {done ? (
@@ -1745,7 +1745,7 @@ function ChangePasswordScreen({
     } finally { setLoading(false) }
   }
   return (
-    <div style={{minHeight:"calc(100vh / var(--hm-app-zoom, 1))",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#2B3A67 0%,#4ABEAA 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans',sans-serif"}}>
       <div style={cardStyle}>
         <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:700,color:"#2B3A67",marginBottom:12}}>Hey<span style={{color:"#4ABEAA"}}>Maa</span></div>
         <div style={{fontSize:17,fontWeight:600,color:"#2B3A67",marginBottom:6}}>{lang==="el"?"Νέος κωδικός":"Choose a new password"}</div>
@@ -1805,7 +1805,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     void syncProfileToSupabase(token,p);
     onDone(p);
   };
-  const s: React.CSSProperties = {minHeight:"calc(100dvh / var(--hm-app-zoom, 1))",background:"#D4DCE8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
+  const s: React.CSSProperties = {minHeight:"100dvh",background:"#D4DCE8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"};
   const inp: React.CSSProperties = {width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:"#2B3A67",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10};
   return (
     <div style={s}>
@@ -7383,7 +7383,7 @@ export default function App() {
   if(!sessionReady) {
     const isEl = (localStorage.getItem("hm_pre_lang") || "el").toLowerCase().startsWith("el");
     return (
-      <div style={{ minHeight: "calc(100dvh / var(--hm-app-zoom, 1))", display: "flex", alignItems: "center", justifyContent: "center", background: "#D4DCE8", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#D4DCE8", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>{isEl ? "Φόρτωση…" : "Loading…"}</div>
       </div>
     );
