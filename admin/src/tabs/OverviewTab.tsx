@@ -3,7 +3,8 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
-  CreditCard,
+  ExternalLink,
+  Gauge,
   RefreshCw,
   Save,
 } from 'lucide-react'
@@ -12,6 +13,27 @@ import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { pathForTab } from '../lib/constants'
 import type { ProviderStatus } from '../lib/types'
+
+type ProviderBalance = {
+  provider?: string
+  ok?: boolean
+  label?: string
+  kind?: string
+  msg?: string
+  summary?: string
+  note?: string
+  billing_url?: string
+  usage_url?: string
+  remaining_requests?: number | null
+  limit_requests?: number | null
+  remaining_tokens?: number | null
+  limit_tokens?: number | null
+  requests_pct_left?: number | null
+  tokens_pct_left?: number | null
+  month_cost_usd?: number | null
+  tracked_cost_usd?: number | null
+  rate_limited?: boolean
+}
 
 type UsageState = {
   provider_mode?: string
@@ -22,10 +44,8 @@ type UsageState = {
   day_cost_usd?: number
   day_calls?: number
   month_cost_usd?: number
-  llm_balance_usd?: number | null
-  replicate_balance_usd?: number | null
-  spent_since_sync_usd?: number
   remaining_usd?: number | null
+  remaining_vs_cap_usd?: number | null
   alert_threshold_usd?: number | null
   daily_budget_usd?: number | null
   monthly_budget_usd?: number | null
@@ -33,11 +53,16 @@ type UsageState = {
   reload_needed?: boolean
   last_error_kind?: string | null
   last_error_msg?: string | null
-  heymaa_spend_usd?: number
   note?: string
   tx_total?: number
   tx_total_cost_usd?: number
   tx_table_ready?: boolean
+  provider_balances?: {
+    fetched_at?: string | null
+    disclaimer?: string
+    error?: string
+    providers?: Record<string, ProviderBalance>
+  }
 }
 
 const PROVIDER_ORDER = ['groq', 'gemini', 'claude', 'resend'] as const
@@ -55,6 +80,8 @@ const SPEND_ROWS: { key: string; label: string; hint: string }[] = [
   { key: 'claude', label: 'Claude', hint: 'Chat fallback' },
   { key: 'gemini_embed', label: 'Embeddings', hint: 'RAG only' },
 ]
+
+const BALANCE_ORDER = ['groq', 'gemini', 'claude'] as const
 
 function money(value: number | null | undefined, digits = 2) {
   if (value == null || Number.isNaN(Number(value))) return '—'
@@ -74,18 +101,11 @@ function asStatus(raw: unknown): ProviderStatus {
   return { ok: false, msg: 'no status' }
 }
 
-function applyBudgetFields(
-  d: UsageState,
-  setBalance: (v: string) => void,
-  setThreshold: (v: string) => void,
-  setDaily: (v: string) => void,
-  setMonthly: (v: string) => void,
-) {
-  const bal = d.llm_balance_usd ?? d.replicate_balance_usd
-  if (bal != null) setBalance(String(bal))
-  if (d.alert_threshold_usd != null) setThreshold(String(d.alert_threshold_usd))
-  setDaily(d.daily_budget_usd != null ? String(d.daily_budget_usd) : '')
-  setMonthly(d.monthly_budget_usd != null ? String(d.monthly_budget_usd) : '')
+function headroomClass(pct: number | null | undefined) {
+  if (pct == null || Number.isNaN(pct)) return ''
+  if (pct <= 10) return 'coral'
+  if (pct <= 30) return 'coral'
+  return 'green'
 }
 
 export function OverviewTab({ userCount }: { userCount: number | null }) {
@@ -95,11 +115,11 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const [health, setHealth] = useState<Record<string, unknown> | null>(null)
   const [healthErr, setHealthErr] = useState(false)
   const [usage, setUsage] = useState<UsageState | null>(null)
-  const [balanceInput, setBalanceInput] = useState('')
   const [thresholdInput, setThresholdInput] = useState('5')
   const [dailyInput, setDailyInput] = useState('')
   const [monthlyInput, setMonthlyInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [balancesLoading, setBalancesLoading] = useState(false)
 
   const goToTransactions = () => navigate(pathForTab('llmtransactions'))
 
@@ -115,12 +135,17 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   }, [adminFetch])
 
   const loadUsage = useCallback(async () => {
+    setBalancesLoading(true)
     try {
       const d = (await adminFetch('/admin/usage')) as unknown as UsageState
       setUsage(d)
-      applyBudgetFields(d, setBalanceInput, setThresholdInput, setDailyInput, setMonthlyInput)
+      if (d.alert_threshold_usd != null) setThresholdInput(String(d.alert_threshold_usd))
+      setDailyInput(d.daily_budget_usd != null ? String(d.daily_budget_usd) : '')
+      setMonthlyInput(d.monthly_budget_usd != null ? String(d.monthly_budget_usd) : '')
     } catch {
       /* ignore */
+    } finally {
+      setBalancesLoading(false)
     }
   }, [adminFetch])
 
@@ -129,12 +154,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
     void loadUsage()
   }, [loadHealth, loadUsage])
 
-  const saveCredits = async () => {
-    const balance = Number(balanceInput)
-    if (!Number.isFinite(balance) || balance < 0) {
-      show('Enter the current LLM budget remaining ($).', 'err')
-      return
-    }
+  const saveCaps = async () => {
     const threshold = Number(thresholdInput || 5)
     setSaving(true)
     try {
@@ -142,7 +162,6 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          llm_balance_usd: balance,
           alert_threshold_usd: Number.isFinite(threshold) ? threshold : 5,
           daily_budget_usd: dailyInput === '' ? null : Number(dailyInput),
           monthly_budget_usd: monthlyInput === '' ? null : Number(monthlyInput),
@@ -152,17 +171,16 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         show(String(d.error), 'err')
         return
       }
-      setUsage(d)
-      applyBudgetFields(d, setBalanceInput, setThresholdInput, setDailyInput, setMonthlyInput)
-      show('LLM budget synced.', 'ok')
+      await loadUsage()
+      show('Spend caps saved.', 'ok')
     } catch {
-      show('Could not save budget', 'err')
+      show('Could not save caps', 'err')
     } finally {
       setSaving(false)
     }
   }
 
-  const remaining = usage?.remaining_usd
+  const remainingVsCap = usage?.remaining_vs_cap_usd ?? usage?.remaining_usd
   const reloadNeeded = Boolean(usage?.reload_needed)
   const remainingClass = reloadNeeded ? 'coral' : 'green'
   const historicReplicate = Number(usage?.calls?.replicate || 0)
@@ -170,6 +188,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
     usage?.tx_table_ready && usage.tx_total_cost_usd != null
       ? usage.tx_total_cost_usd
       : usage?.estimated_cost_usd
+  const balances = usage?.provider_balances?.providers || {}
 
   return (
     <>
@@ -177,11 +196,10 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         <div className="msg err" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
           <div>
-            <strong>Reload LLM budget.</strong>{' '}
+            <strong>Spend cap alert.</strong>{' '}
             {usage?.last_error_kind === 'credit_exhausted'
-              ? 'A chat provider blocked new work — top up and sync the remaining balance.'
-              : `Estimated remaining is ${money(remaining)} (at or below your alert).`}{' '}
-            Admins are emailed when this happens.
+              ? 'A chat provider blocked new work — check vendor billing consoles below.'
+              : `Remaining vs your cap is ${money(remainingVsCap)} (at or below alert).`}
           </div>
         </div>
       )}
@@ -191,14 +209,90 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           <div className="n">{userCount ?? '—'}</div>
           <div className="l">Total users</div>
         </div>
-        <div className={`stat ${remainingClass}`}>
-          <div className="n">{money(remaining)}</div>
-          <div className="l">Budget remaining</div>
-        </div>
         <div className="stat coral">
           <div className="n">{money(usage?.day_cost_usd, 3)}</div>
-          <div className="l">Spend today</div>
+          <div className="l">Chat spend today</div>
+          <div className="meta">{usage?.day_calls ?? 0} calls · HeyMaa tracked</div>
         </div>
+        <div className={`stat ${remainingClass}`}>
+          <div className="n">{money(usage?.month_cost_usd, 3)}</div>
+          <div className="l">Chat spend this month</div>
+          <div className="meta">
+            {remainingVsCap != null
+              ? `${money(remainingVsCap)} left vs your cap`
+              : 'Set a daily/monthly cap below'}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2>
+            <Gauge size={16} className="h-icon" /> Live provider headroom
+          </h2>
+          <button type="button" className="sec sm" disabled={balancesLoading} onClick={() => void loadUsage()}>
+            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+            {balancesLoading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+        <p className="card-desc">
+          Groq, Gemini, and Claude <strong>do not expose prepaid $ balance</strong> on the chat API
+          key. This panel shows live rate-limit remaining (Groq), Admin month spend when configured
+          (Claude), and HeyMaa-tracked spend + billing links (Gemini).
+        </p>
+        {usage?.provider_balances?.error ? (
+          <div className="msg err">{usage.provider_balances.error}</div>
+        ) : null}
+        <div className="grid-3">
+          {BALANCE_ORDER.map((id) => {
+            const row = balances[id]
+            const pct = row?.requests_pct_left ?? row?.tokens_pct_left
+            const statClass = headroomClass(pct)
+            return (
+              <div className={`stat ${statClass}`.trim()} key={id}>
+                <div className="l" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <span>{row?.label || PROVIDER_LABEL[id] || id}</span>
+                  <span className={`dot ${providerDot(row?.ok, !row)}`} />
+                </div>
+                <div className="n" style={{ fontSize: row?.month_cost_usd != null ? undefined : '0.95rem' }}>
+                  {row?.month_cost_usd != null
+                    ? money(row.month_cost_usd, 2)
+                    : row?.remaining_requests != null && row?.limit_requests != null
+                      ? `${Math.round(row.remaining_requests).toLocaleString()}`
+                      : row?.ok
+                        ? 'OK'
+                        : '—'}
+                </div>
+                <div className="meta">{row?.summary || row?.msg || (balancesLoading ? 'Loading…' : 'No data')}</div>
+                <div className="meta" style={{ marginTop: 6 }}>
+                  {row?.billing_url ? (
+                    <a href={row.billing_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                      Billing <ExternalLink size={12} style={{ verticalAlign: -1 }} />
+                    </a>
+                  ) : null}
+                  {row?.usage_url ? (
+                    <>
+                      {' · '}
+                      <a href={row.usage_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                        Usage
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {usage?.provider_balances?.disclaimer ? (
+          <p className="meta" style={{ marginTop: 12 }}>
+            {usage.provider_balances.disclaimer}
+          </p>
+        ) : null}
+        {balances.claude?.note || balances.gemini?.note || balances.groq?.note ? (
+          <p className="meta">
+            Tip: set <code>ANTHROPIC_ADMIN_API_KEY</code> (sk-ant-admin…) for Claude month-to-date $.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid-2">
@@ -213,7 +307,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </div>
           <p className="card-desc">
             Chat order is <strong>Groq → Gemini → Claude</strong>. Photos and some languages try
-            Gemini first. Gemini also powers RAG embeddings. Resend is email only.
+            Gemini first. Resend is email only.
           </p>
           <div className="prov-grid">
             {healthErr && <div className="msg err">Failed to load provider status</div>}
@@ -255,7 +349,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         >
           <div className="card-head">
             <h2>
-              <BarChart3 size={16} className="h-icon" /> Usage
+              <BarChart3 size={16} className="h-icon" /> HeyMaa usage
             </h2>
             <button
               type="button"
@@ -276,9 +370,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             <div className="stat coral">
               <div className="n">{money(totalCost, 3)}</div>
               <div className="l">Total cost</div>
-              <div className="meta">
-                {usage?.tx_table_ready ? 'From ledger' : 'Estimated estimate'}
-              </div>
+              <div className="meta">{usage?.tx_table_ready ? 'From ledger' : 'Estimate'}</div>
             </div>
             <div className="stat">
               <div className="n">{usage?.day_calls ?? '…'}</div>
@@ -301,69 +393,27 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               )
             })}
           </div>
-          {usage && (
+          {usage && historicReplicate > 0 ? (
             <p className="meta" style={{ marginTop: 12 }}>
-              {usage.spent_since_sync_usd != null ? (
-                <>Since last budget sync: {money(usage.spent_since_sync_usd, 3)}</>
-              ) : null}
-              {historicReplicate > 0 ? (
-                <>
-                  {usage.spent_since_sync_usd != null ? ' · ' : null}
-                  Historical Replicate calls: {historicReplicate}
-                </>
-              ) : null}
-              {!usage.tx_table_ready ? (
-                <>
-                  <br />
-                  Run <code>llm_transactions.sql</code> to enable the per-call ledger.
-                </>
-              ) : null}
+              Historical Replicate calls still in ledger: {historicReplicate}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 
       <div className="card">
         <div className="card-head">
           <h2>
-            <CreditCard size={16} className="h-icon" /> LLM spend budget
+            <AlertTriangle size={16} className="h-icon" /> Internal spend caps
           </h2>
-          <button type="button" className="sec sm" onClick={() => void loadUsage()}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
-          </button>
         </div>
         <p className="card-desc">
-          Optional prepaid pot for <strong>chat</strong> (Groq / Gemini / Claude). Paste the remaining
-          budget you want to track. Remaining = that amount minus chat spend since the last sync.
-          RAG embeddings do not drain this pot.
+          Optional HeyMaa alerts when <strong>our tracked chat spend</strong> crosses a daily or
+          monthly cap. This is not the vendor prepaid balance (unavailable via API).
         </p>
-        {usage?.note ? <p className="meta">{usage.note}</p> : null}
         <div className="row">
           <div className="field-wrap">
-            <FieldLabel required>Budget remaining now $</FieldLabel>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={balanceInput}
-              onChange={(e) => setBalanceInput(e.target.value)}
-              placeholder="e.g. 25.00"
-            />
-          </div>
-          <div className="field-wrap">
-            <FieldLabel>Alert below ($)</FieldLabel>
-            <input
-              type="number"
-              min={0}
-              step="0.5"
-              value={thresholdInput}
-              onChange={(e) => setThresholdInput(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="row">
-          <div className="field-wrap">
-            <FieldLabel>Daily spend cap $ (optional)</FieldLabel>
+            <FieldLabel>Daily spend cap $</FieldLabel>
             <input
               type="number"
               min={0}
@@ -374,7 +424,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             />
           </div>
           <div className="field-wrap">
-            <FieldLabel>Monthly spend cap $ (optional)</FieldLabel>
+            <FieldLabel>Monthly spend cap $</FieldLabel>
             <input
               type="number"
               min={0}
@@ -384,32 +434,21 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               placeholder="off"
             />
           </div>
+          <div className="field-wrap">
+            <FieldLabel>Alert below remaining $</FieldLabel>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              value={thresholdInput}
+              onChange={(e) => setThresholdInput(e.target.value)}
+            />
+          </div>
         </div>
-        <button type="button" className="teal" disabled={saving} onClick={() => void saveCredits()}>
+        <button type="button" className="teal" disabled={saving} onClick={() => void saveCaps()}>
           <Save size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-          {saving ? 'Saving…' : 'Sync LLM budget'}
+          {saving ? 'Saving…' : 'Save caps'}
         </button>
-        {usage?.synced_at && (
-          <p className="meta">
-            Last sync {new Date(usage.synced_at).toLocaleString()}
-            {usage.heymaa_spend_usd != null ? ` · Spent since sync ${money(usage.heymaa_spend_usd, 3)}` : ''}
-            {usage.last_error_msg ? ` · Last error: ${usage.last_error_msg}` : ''}
-          </p>
-        )}
-        <div className="links">
-          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">
-            Groq API keys
-          </a>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
-            Google AI Studio (Gemini)
-          </a>
-          <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">
-            Anthropic (Claude)
-          </a>
-          <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer">
-            Resend
-          </a>
-        </div>
       </div>
     </>
   )

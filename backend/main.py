@@ -4669,10 +4669,12 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             from .llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
         except ImportError:
             from llm_usage import load_credits_state, llm_transaction_totals, usage_snapshot
-        snap = usage_snapshot(
-            load_credits_state(sb, _credit_scope_identity()),
-            provider_mode="legacy",
-        )
+        try:
+            from .llm_provider_balances import collect_provider_balances
+        except ImportError:
+            from llm_provider_balances import collect_provider_balances
+        state = load_credits_state(sb, _credit_scope_identity())
+        snap = usage_snapshot(state, provider_mode="legacy")
         snap["process_calls"] = {
             "groq": USAGE_LOG["groq"],
             "gemini": USAGE_LOG["gemini"],
@@ -4685,6 +4687,40 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             snap.setdefault("tx_total", 0)
             snap.setdefault("tx_total_cost_usd", 0.0)
             snap.setdefault("tx_table_ready", False)
+
+        # Prefer real tracked spend for "remaining vs optional caps"
+        day_cost = float(snap.get("day_cost_usd") or state.get("day_cost_usd") or 0)
+        month_cost = float(snap.get("month_cost_usd") or state.get("month_cost_usd") or 0)
+        daily_cap = state.get("daily_budget_usd")
+        monthly_cap = state.get("monthly_budget_usd")
+        remaining_vs_cap = None
+        if monthly_cap is not None:
+            remaining_vs_cap = round(float(monthly_cap) - month_cost, 4)
+        elif daily_cap is not None:
+            remaining_vs_cap = round(float(daily_cap) - day_cost, 4)
+        snap["remaining_vs_cap_usd"] = remaining_vs_cap
+        # Stop advertising the manual prepaid paste as "remaining"
+        snap["remaining_usd"] = remaining_vs_cap
+        snap["manual_balance_usd"] = state.get("replicate_balance_usd")
+
+        cost_by = snap.get("cost_usd") if isinstance(snap.get("cost_usd"), dict) else {}
+        keys = _llm_api_keys()
+        try:
+            snap["provider_balances"] = collect_provider_balances(
+                keys,
+                tracked_cost_usd={
+                    "gemini": float(cost_by.get("gemini") or 0) + float(cost_by.get("gemini_embed") or 0),
+                    "groq": float(cost_by.get("groq") or 0),
+                    "claude": float(cost_by.get("claude") or 0),
+                },
+            )
+        except Exception as e:
+            snap["provider_balances"] = {
+                "fetched_at": None,
+                "providers": {},
+                "error": str(e)[:200],
+                "disclaimer": "Could not fetch live provider headroom.",
+            }
         return snap
     except Exception:
         est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq", "gemini", "claude"))
@@ -4744,25 +4780,23 @@ async def admin_llm_transactions(
 
 
 class LlmCreditsUpdate(BaseModel):
-    # llm_balance_usd is preferred; replicate_balance_usd kept for older admin clients.
-    llm_balance_usd: Optional[float] = None
-    replicate_balance_usd: Optional[float] = None
+    """Optional internal spend caps (not vendor prepaid balances)."""
     alert_threshold_usd: Optional[float] = 5.0
     daily_budget_usd: Optional[float] = None
     monthly_budget_usd: Optional[float] = None
+    # Kept for older clients; ignored for "remaining" display.
+    llm_balance_usd: Optional[float] = None
+    replicate_balance_usd: Optional[float] = None
 
 
 @app.post("/admin/credits")
 async def admin_update_credits(req: LlmCreditsUpdate, x_token: Optional[str] = Header(None)):
     admin_id = verify_admin(x_token)
-    balance = req.llm_balance_usd if req.llm_balance_usd is not None else req.replicate_balance_usd
-    if balance is None:
-        raise HTTPException(status_code=400, detail="llm_balance_usd is required")
-    if balance < 0:
-        raise HTTPException(status_code=400, detail="llm_balance_usd must be >= 0")
     threshold = 5.0 if req.alert_threshold_usd is None else float(req.alert_threshold_usd)
     if threshold < 0:
         raise HTTPException(status_code=400, detail="alert_threshold_usd must be >= 0")
+    # Optional legacy paste — only stored if provided; not used as live remaining.
+    balance = req.llm_balance_usd if req.llm_balance_usd is not None else req.replicate_balance_usd
     try:
         try:
             from .llm_usage import (
@@ -4779,9 +4813,13 @@ async def admin_update_credits(req: LlmCreditsUpdate, x_token: Optional[str] = H
                 usage_snapshot,
             )
         ident = _credit_scope_identity()
+        state = load_credits_state(sb, ident)
+        sync_balance = float(balance) if balance is not None else float(state.get("replicate_balance_usd") or 0)
+        if balance is not None and balance < 0:
+            raise HTTPException(status_code=400, detail="llm_balance_usd must be >= 0")
         state = apply_credit_sync(
-            load_credits_state(sb, ident),
-            replicate_balance_usd=float(balance),
+            state,
+            replicate_balance_usd=sync_balance,
             alert_threshold_usd=threshold,
             daily_budget_usd=req.daily_budget_usd,
             monthly_budget_usd=req.monthly_budget_usd,
