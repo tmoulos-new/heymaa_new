@@ -68,6 +68,7 @@ import {
   buildMilestoneMemory,
   migrateLegacyMilestoneMemories,
   milestoneMemoryKey,
+  parseMilestoneMemoryKey,
 } from "./lib/milestoneMemories";
 import { isMemoryMilestone } from "./lib/memoryTypes";
 import {
@@ -3797,14 +3798,50 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const removed = memories[index];
     if (!removed) return;
     setMemories(memories.filter((_, j) => j !== index));
-    showUndoToast(
-      t("mem_deleted", lang),
-      () => setMemories((prev) => {
+
+    let unchecked: { ref: string; stageId: string; idx: number; bulletsLen: number } | null = null;
+    const parsed = removed.milestoneKey ? parseMilestoneMemoryKey(removed.milestoneKey) : null;
+    if (parsed && (isMemoryMilestone(removed) || removed.source === "milestone" || removed.milestoneKey)) {
+      const stageId = parsed.stageId ?? resolveStageIdForRef(parsed.ref);
+      const bulletsLen = getMilestoneBullets(stageId, lang).length;
+      unchecked = { ref: parsed.ref, stageId, idx: parsed.idx, bulletsLen };
+      setMilestoneChecksMap((prev) =>
+        setCheckForStage(prev, parsed.ref, stageId, parsed.idx, false, bulletsLen),
+      );
+      setLastCheckedMap((prev) => {
+        const cur = prev[parsed.ref];
+        if (cur && cur.stageId === stageId && cur.idx === parsed.idx) {
+          return { ...prev, [parsed.ref]: null };
+        }
+        return prev;
+      });
+      const activityPath = appPath("milestones", "uncheck");
+      track("submit", activityPath, "Milestone unchecked via memory delete", {
+        ref: parsed.ref,
+        stageId,
+        idx: parsed.idx,
+      });
+      setGamification((prev) =>
+        applyPointsDelta(prev || defaultGamificationStatus(), gamificationPointsForPath(activityPath)),
+      );
+    }
+
+    showUndoToast(t("mem_deleted", lang), () => {
+      setMemories((prev) => {
         const next = [...prev];
         next.splice(Math.min(index, next.length), 0, removed);
         return next;
-      }),
-    );
+      });
+      if (unchecked) {
+        const { ref, stageId, idx, bulletsLen } = unchecked;
+        setMilestoneChecksMap((prev) => setCheckForStage(prev, ref, stageId, idx, true, bulletsLen));
+        setLastCheckedMap((prev) => ({ ...prev, [ref]: { stageId, idx } }));
+        const activityPath = appPath("milestones", "check");
+        setGamification((prev) =>
+          applyPointsDelta(prev || defaultGamificationStatus(), gamificationPointsForPath(activityPath)),
+        );
+      }
+    });
   };
 
   const toggleMilestone = (ref: string, stageId: string, idx: number, label: string) => {
