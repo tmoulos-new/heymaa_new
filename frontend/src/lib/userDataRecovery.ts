@@ -1,7 +1,7 @@
 /**
- * Emergency recovery + stable storage keys.
- * Data used to be keyed by the full JWT — any token refresh looked like a wipe.
- * This module scans ALL hm_* localStorage keys + IndexedDB and re-homes onto user id.
+ * Stable storage keys + optional emergency local scan helpers.
+ * Durable load/bootstrap is scoped to the signed-in user id so logout → signup
+ * cannot resurrect another account's chat/family/memories from the same browser.
  */
 
 import {
@@ -285,7 +285,7 @@ function recoverFamilyFromLegacyScan(): FamilyData {
   return ensureFamilyMemberIds(family);
 }
 
-/** Prefer the stable user-id key; fall back to legacy scan only when empty. */
+/** Prefer the stable user-id key only — never resurrect another account's family. */
 export function loadFamilyForToken(token: string): FamilyData {
   try {
     const stableRaw = localStorage.getItem(stableSk(token, "family"));
@@ -296,7 +296,7 @@ export function loadFamilyForToken(token: string): FamilyData {
   } catch {
     /* ignore */
   }
-  return recoverFamilyFromLegacyScan();
+  return ensureFamilyMemberIds(parseFamilyData("{}", undefined));
 }
 
 /** Classify a localStorage key into a data bucket. */
@@ -335,11 +335,93 @@ export function scanLocalStorageBuckets(): Record<string, string[]> {
   return out;
 }
 
-/** Cached once per page load so React state initializers share one scan. */
-let _bootScanCache: RecoveredUserData | null = null;
-export function bootLocalScan(): RecoveredUserData {
-  if (!_bootScanCache) _bootScanCache = recoverFromLocalStorageScan();
-  return _bootScanCache;
+/** Cached once per token so React state initializers share one scoped read. */
+let _bootScanCache: { scope: string; data: RecoveredUserData } | null = null;
+
+function emptyRecoveredUserData(): RecoveredUserData {
+  return {
+    memories: [],
+    family: ensureFamilyMemberIds(parseFamilyData("{}", undefined)),
+    chat: [],
+    threads: [],
+    docs: [],
+    milestones_map: {},
+    shopitems: null,
+    superitems: null,
+    ttsused: null,
+    profile: null,
+  };
+}
+
+/** Load only this account's durable local keys (never other users on the same device). */
+export function recoverScopedLocalUserData(token: string): RecoveredUserData {
+  const sk = (suffix: string) => stableSk(token, suffix);
+  const readArr = (suffix: string) => {
+    try {
+      return parseJsonArray(localStorage.getItem(sk(suffix)));
+    } catch {
+      return [];
+    }
+  };
+  let shopitems: string[] | null = null;
+  let superitems: string[] | null = null;
+  let ttsused: number | null = null;
+  let profile: unknown | null = null;
+  let milestones_map: Record<string, unknown> = {};
+  try {
+    const shopRaw = localStorage.getItem(sk("shopitems"));
+    if (shopRaw) {
+      const arr = parseJsonArray(shopRaw) as string[];
+      if (arr.length) shopitems = arr;
+    }
+  } catch { /* ignore */ }
+  try {
+    const superRaw = localStorage.getItem(sk("superitems"));
+    if (superRaw) {
+      const arr = parseJsonArray(superRaw) as string[];
+      if (arr.length) superitems = arr;
+    }
+  } catch { /* ignore */ }
+  try {
+    const ttsRaw = localStorage.getItem(sk("ttsused"));
+    if (ttsRaw != null) {
+      const n = parseInt(String(ttsRaw).replace(/^"|"$/g, ""), 10);
+      if (!Number.isNaN(n)) ttsused = n;
+    }
+  } catch { /* ignore */ }
+  try {
+    const profileRaw = localStorage.getItem(sk("profile"));
+    if (profileRaw) {
+      const p = JSON.parse(profileRaw);
+      if (p && typeof p === "object") profile = p;
+    }
+  } catch { /* ignore */ }
+  try {
+    milestones_map = parseJsonObject(localStorage.getItem(sk("milestones_map")));
+  } catch { /* ignore */ }
+
+  return {
+    memories: parseMemoriesJson(localStorage.getItem(sk("memories_meta")) || localStorage.getItem(sk("memories"))),
+    family: loadFamilyForToken(token),
+    chat: readArr("chat"),
+    threads: readArr("threads"),
+    docs: readArr("docs"),
+    milestones_map: milestones_map as MilestoneChecksMap,
+    shopitems,
+    superitems,
+    ttsused,
+    profile,
+  };
+}
+
+/** Scoped bootstrap for React initializers — requires the signed-in token. */
+export function bootLocalScan(token?: string | null): RecoveredUserData {
+  if (!token) return emptyRecoveredUserData();
+  const scope = storageScope(token);
+  if (_bootScanCache?.scope === scope) return _bootScanCache.data;
+  const data = recoverScopedLocalUserData(token);
+  _bootScanCache = { scope, data };
+  return data;
 }
 export function clearBootLocalScanCache(): void {
   _bootScanCache = null;
@@ -365,7 +447,7 @@ function clearHeymaaIndexedDb(): Promise<void> {
 }
 
 /**
- * Wipe all local HeyMaa user content after permanent account deletion.
+ * Wipe all local HeyMaa user content (logout / account deletion).
  * Recovery intentionally scans every hm_* scope — without this wipe, a new
  * signup on the same device would resurrect chat/family/memories.
  */
@@ -557,47 +639,12 @@ export async function loadBundledMemoriesExport(): Promise<SyncMemory[]> {
 }
 
 export async function recoverAllLocalUserData(token: string): Promise<RecoveredUserData> {
-  const fromScan = recoverFromLocalStorageScan();
+  // Only this account's keys + IndexedDB scope. Cross-account local scans used to
+  // paste the previous user's chat/family/memories onto a fresh signup.
+  const scoped = recoverScopedLocalUserData(token);
   const fromIdb = await loadMemoriesDurable(token);
-  const bundled = await loadBundledRecoverySnapshot();
-  const bookletMemories = await loadBundledMemoriesExport();
-
-  let memories = pickRicherMemories(fromScan.memories, fromIdb);
-  if (bundled?.memories?.length) {
-    memories = pickRicherMemories(memories, bundled.memories);
-  }
-  if (bookletMemories.length) {
-    memories = pickRicherMemories(memories, bookletMemories);
-  }
-
-  let family = loadFamilyForToken(token);
-  if (familyScore(family) === 0) family = fromScan.family;
-  if (bundled?.family) {
-    family = mergeFamily(family, bundled.family);
-  }
-
-  const merged: RecoveredUserData = {
-    ...fromScan,
-    memories,
-    family,
-    chat: bundled?.chat?.length
-      ? arrayRicher(fromScan.chat, bundled.chat)
-      : fromScan.chat,
-    threads: bundled?.threads?.length
-      ? arrayRicher(fromScan.threads, bundled.threads)
-      : fromScan.threads,
-    // Honor the stable docs key even when it is intentionally empty ([]).
-    // Scanning skips [] and arrayRicher would otherwise resurrect legacy hm_docs_* keys.
-    docs: (() => {
-      try {
-        const raw = localStorage.getItem(stableSk(token, "docs"));
-        if (raw != null) return parseJsonArray(raw);
-      } catch {
-        /* ignore */
-      }
-      return fromScan.docs;
-    })(),
-  };
+  const memories = pickRicherMemories(scoped.memories, fromIdb);
+  const merged: RecoveredUserData = { ...scoped, memories };
   await rehomeRecoveredData(token, merged);
   return merged;
 }

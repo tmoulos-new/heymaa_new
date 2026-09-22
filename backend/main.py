@@ -8070,6 +8070,66 @@ async def get_userdata(key: str = None, x_token: str = Header(None)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# App content keys that may be pasted across accounts if local recovery misfires.
+# Server-managed keys (tts, grants, rewards) are intentionally excluded.
+USERDATA_CONTENT_KEYS = (
+    "family",
+    "chat",
+    "threads",
+    "memories",
+    "docs",
+    "milestones_map",
+    "shopitems",
+    "superitems",
+    "profile",
+)
+
+
+@app.delete("/userdata/content")
+async def delete_userdata_content(x_token: str = Header(None)):
+    """Wipe this account's app content in user_data (not subscription / points)."""
+    auth = resolve_auth(x_token)
+    if not sb:
+        raise HTTPException(status_code=503, detail="DB unavailable")
+    if auth.get("kind") == "invite":
+        raise HTTPException(status_code=403, detail="Invite sessions cannot clear userdata")
+    user_id = auth.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        deleted = 0
+        res = (
+            sb.table("user_data")
+            .delete()
+            .eq("user_id", user_id)
+            .in_("key", list(USERDATA_CONTENT_KEYS))
+            .execute()
+        )
+        deleted += len(res.data or [])
+        try:
+            prof = (
+                sb.table("profiles")
+                .select("token")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            prof_token = (prof.data or [{}])[0].get("token")
+            if prof_token:
+                res2 = (
+                    sb.table("user_data")
+                    .delete()
+                    .eq("token", prof_token)
+                    .in_("key", list(USERDATA_CONTENT_KEYS))
+                    .execute()
+                )
+                deleted += len(res2.data or [])
+        except Exception:
+            pass
+        return {"ok": True, "deleted": deleted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/userdata")
 async def set_userdata(body: dict, x_token: str = Header(None)):
     auth = resolve_auth(x_token)

@@ -223,54 +223,18 @@ async function idbSet(key: string, value: unknown): Promise<void> {
   });
 }
 
-/** Sync bootstrap — scan ALL hm_memories* keys (every past JWT scope). */
+/** Sync bootstrap — current user scope only (never other accounts left on this device). */
 export function loadMemoriesFromLocalStorage(token: string): SyncMemory[] {
-  void token;
   try {
-    const sources: SyncMemory[][] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key || !key.startsWith("hm_memories")) continue;
-      sources.push(parseMemoriesJson(localStorage.getItem(key)));
-    }
-    return mergeMemories(...sources);
+    return parseMemoriesJson(localStorage.getItem(metaKey(storageScope(token))));
   } catch {
     return [];
   }
 }
 
-async function idbGetAllMemoryArrays(): Promise<SyncMemory[]> {
-  try {
-    const db = await openIdb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, "readonly");
-      const store = tx.objectStore(IDB_STORE);
-      const req = store.openCursor();
-      const chunks: SyncMemory[][] = [];
-      req.onsuccess = () => {
-        const cursor = req.result;
-        if (!cursor) {
-          resolve(mergeMemories(...chunks));
-          return;
-        }
-        const key = String(cursor.key);
-        if (key.startsWith("memories:") && Array.isArray(cursor.value)) {
-          chunks.push(cursor.value as SyncMemory[]);
-        }
-        cursor.continue();
-      };
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    return [];
-  }
-}
-
-/** Full load: all IndexedDB memory scopes ∪ all localStorage memory keys. */
+/** Full load for this account only (localStorage meta ∪ IndexedDB scope). */
 export async function loadMemoriesDurable(token: string): Promise<SyncMemory[]> {
   const fromLs = loadMemoriesFromLocalStorage(token);
-  const fromIdb = await idbGetAllMemoryArrays();
-  // Also try current scope explicitly (in case cursor unavailable)
   let scoped: SyncMemory[] = [];
   try {
     const raw = await idbGet(idbMemoriesKey(storageScope(token)));
@@ -278,7 +242,7 @@ export async function loadMemoriesDurable(token: string): Promise<SyncMemory[]> 
   } catch {
     /* ignore */
   }
-  return mergeMemories(fromLs, fromIdb, scoped);
+  return mergeMemories(fromLs, scoped);
 }
 
 /**

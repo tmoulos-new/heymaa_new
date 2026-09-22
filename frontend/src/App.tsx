@@ -2173,9 +2173,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     showToast(claimSuccessMessage(payload.grant, lang), "ok");
   }, [applySubscriptionSnapshot, ingestRewards, lang, token]);
 
-  // Threads state — bootstrap from full localStorage scan (all past JWT keys)
-  const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan().threads as Thread[]) || []);
-  const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan().chat as Message[]) || []);
+  // Threads state — bootstrap from this account's local keys only
+  const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan(token).threads as Thread[]) || []);
+  const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan(token).chat as Message[]) || []);
   /** When set, live `messages` belong to this archived thread (kept in sync). */
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [showThreads, setShowThreads] = useState(false);
@@ -2200,7 +2200,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [libraryPreview, setLibraryPreview] = useState<{ src: string; name: string; kind?: "image" | "video" } | null>(null);
   const [libraryDeleteTarget, setLibraryDeleteTarget] = useState<ChatLibraryItem | null>(null);
 
-  const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan().memories as Memory[]);
+  const [memories, setMemories] = useState<Memory[]>(() => bootLocalScan(token).memories as Memory[]);
   const [memPendingPhoto, setMemPendingPhoto] = useState<string | null>(null);
   const [memPendingVideo, setMemPendingVideo] = useState<string | null>(null);
   const awaitingMemoryPhotoRef = useRef(false);
@@ -2213,23 +2213,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [memoriesLocalReady, setMemoriesLocalReady] = useState(false);
   const [memoriesSaving, setMemoriesSaving] = useState(false);
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<MilestoneChecksMap>(() => {
-    const raw = (bootLocalScan().milestones_map || {}) as Record<string, unknown>;
+    const raw = (bootLocalScan(token).milestones_map || {}) as Record<string, unknown>;
     return raw as MilestoneChecksMap;
   });
   const [lastCheckedMap, setLastCheckedMap] = useState<Record<string, { stageId: string; idx: number } | null>>({});
   const [activeMilestoneRef, setActiveMilestoneRef] = useState<string|undefined>(undefined);
-  const [docs, setDocs] = useState<DocEntry[]>(() => normalizeDocEntries(bootLocalScan().docs as unknown[]));
+  const [docs, setDocs] = useState<DocEntry[]>(() => normalizeDocEntries(bootLocalScan(token).docs as unknown[]));
   const docsDirtyRef = useRef(false);
   const handleDocsChange = useCallback((next: DocEntry[] | ((prev: DocEntry[]) => DocEntry[])) => {
     docsDirtyRef.current = true;
     setDocs(next);
   }, []);
   const [shopItems, setShopItems] = useState<string[]>(() => {
-    const s = bootLocalScan().shopitems;
+    const s = bootLocalScan(token).shopitems;
     return s?.length ? s : ["Silicone teether","Travel crib","High contrast books","Floor gym"];
   });
   const [superItems, setSuperItems] = useState<string[]>(() => {
-    const s = bootLocalScan().superitems;
+    const s = bootLocalScan(token).superitems;
     return s?.length ? s : ["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];
   });
 
@@ -7200,17 +7200,24 @@ export default function App() {
   const [sessionReady, setSessionReady] = useState(() => !!resolveAppAuthToken() || !!new URLSearchParams(window.location.search).get("reset"));
   const handleLogout = () => {
     const tk = token;
-    // Block cookie/refresh restore first, then clear local session immediately so the
-    // first Log out confirm actually leaves the app (no wait for /auth/logout).
+    // Block cookie/refresh restore first, then wipe local user content so the next
+    // signup/login on this device cannot resurrect the previous account's data.
     blockAuthSessionPersist();
-    clearAuthToken();
-    invalidateAuthCaches(tk);
-    setToken(null);
-    setProfile(null);
-    setSubActive(null);
-    setSubStatus(null);
-    setMustChangePassword(false);
-    void logoutUser(tk).catch(() => {});
+    void (async () => {
+      try {
+        await purgeLocalAppData();
+      } catch {
+        /* best effort — still clear the session */
+      }
+      clearAuthToken();
+      invalidateAuthCaches(tk);
+      setToken(null);
+      setProfile(null);
+      setSubActive(null);
+      setSubStatus(null);
+      setMustChangePassword(false);
+      void logoutUser(tk).catch(() => {});
+    })();
   };
   const handleLogoutRef = useRef(handleLogout);
   handleLogoutRef.current = handleLogout;
