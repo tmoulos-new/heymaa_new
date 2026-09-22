@@ -212,7 +212,15 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
                 className="hm-date-cal__select hm-date-cal__select--month"
                 value={view.m}
                 aria-label={isEl ? 'Μήνας' : 'Month'}
-                onChange={(e) => setView((cur) => ({ ...cur, m: Number(e.target.value) }))}
+                onChange={(e) => {
+                  const m = Number(e.target.value)
+                  setView((cur) => ({ ...cur, m }))
+                  if (!selected) return
+                  const dim = new Date(view.y, m + 1, 0).getDate()
+                  const d = Math.min(selected.d, dim)
+                  const iso = toIso(view.y, m, d)
+                  if (!isOutOfRange(iso, min, max)) onChange(iso)
+                }}
               >
                 {months.map((label, i) => (
                   <option key={label} value={i}>{label}</option>
@@ -222,7 +230,15 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
                 className="hm-date-cal__select hm-date-cal__select--year"
                 value={view.y}
                 aria-label={isEl ? 'Έτος' : 'Year'}
-                onChange={(e) => setView((cur) => ({ ...cur, y: Number(e.target.value) }))}
+                onChange={(e) => {
+                  const y = Number(e.target.value)
+                  setView((cur) => ({ ...cur, y }))
+                  if (!selected) return
+                  const dim = new Date(y, selected.m + 1, 0).getDate()
+                  const d = Math.min(selected.d, dim)
+                  const iso = toIso(y, selected.m, d)
+                  if (!isOutOfRange(iso, min, max)) onChange(iso)
+                }}
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>

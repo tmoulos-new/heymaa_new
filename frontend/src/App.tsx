@@ -3707,15 +3707,41 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const handleChatFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const picked = Array.from(files).slice(0, 4);
-    try {
-      const next = await Promise.all(picked.map((f) => fileToChatAttachment(f)));
-      setChatPendingAttachments((prev) => [...prev, ...next].slice(0, 4));
-    } catch (err: any) {
-      if (err?.message === "too_large") {
-        showToast(lang === "el" ? "Το αρχείο είναι πολύ μεγάλο (μέγ. 6MB)." : "File is too large (max 6MB).", "err");
-      } else {
-        showToast(lang === "el" ? "Δεν ήταν δυνατή η ανάγνωση του αρχείου." : "Could not read that file.", "err");
+    const accepted: ChatAttachment[] = [];
+    const oversized: string[] = [];
+    let readFailed = false;
+    for (const file of picked) {
+      if (file.size > MAX_CHAT_FILE_BYTES) {
+        oversized.push(file.name || (lang === "el" ? "αρχείο" : "file"));
+        continue;
       }
+      try {
+        accepted.push(await fileToChatAttachment(file));
+      } catch (err: any) {
+        if (err?.message === "too_large") {
+          oversized.push(file.name || (lang === "el" ? "αρχείο" : "file"));
+        } else {
+          readFailed = true;
+        }
+      }
+    }
+    if (accepted.length) {
+      setChatPendingAttachments((prev) => [...prev, ...accepted].slice(0, 4));
+    }
+    if (oversized.length) {
+      const names = oversized.join(", ");
+      const msg =
+        lang === "el"
+          ? oversized.length === 1
+            ? `Το αρχείο «${names}» είναι μεγαλύτερο από 6MB και δεν μπορεί να σταλεί στο chat. Δοκίμασε μικρότερη φωτογραφία ή έγγραφο.`
+            : `Τα αρχεία «${names}» είναι μεγαλύτερα από 6MB και δεν μπορούν να σταλούν στο chat. Δοκίμασε μικρότερες φωτογραφίες ή έγγραφα.`
+          : oversized.length === 1
+            ? `“${names}” is larger than 6MB and can’t be sent in chat. Try a smaller photo or document.`
+            : `“${names}” are larger than 6MB and can’t be sent in chat. Try smaller photos or documents.`;
+      setMessages((prev) => [...prev, { role: "assistant", content: msg }]);
+    }
+    if (readFailed) {
+      showToast(lang === "el" ? "Δεν ήταν δυνατή η ανάγνωση του αρχείου." : "Could not read that file.", "err");
     }
   };
 
@@ -4294,11 +4320,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       const idx = treeEdit.childIndex;
       const birthDate = treeEditBirthDate || familyChildren[idx]?.birthDate;
       if (!birthDate) return;
-      nextFamily = {
-        ...familyData,
-        children: familyData.children.map((c, i) => (i === idx ? { ...c, name, birthDate } : c)),
-      };
+      const prevChild = familyChildren[idx];
+      const updatedChildren = familyData.children.map((c, i) =>
+        i === idx ? { ...c, name, birthDate } : c,
+      );
+      nextFamily = { ...familyData, children: updatedChildren };
       setFamilyData(nextFamily);
+      const updatedProfile: Profile = {
+        ...profile,
+        children: updatedChildren.map(({ name: n, birthDate: bd }) => ({ name: n, birthDate: bd })),
+        childName: updatedChildren[0]?.name || profile.childName,
+        childBirthDate: updatedChildren[0]?.birthDate || profile.childBirthDate,
+        childAge: updatedChildren[0]
+          ? formatChildAge(updatedChildren[0].birthDate, lang, nowForAge)
+          : profile.childAge,
+      };
+      onProfileUpdate(updatedProfile);
+      void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
+      if (prevChild && prevChild.name !== name) {
+        setActiveMemRef((cur) => (cur === prevChild.name ? name : cur));
+        setActiveMilestoneRef((cur) => (cur === prevChild.name ? name : cur));
+      }
     } else if (treeEdit.memberIndex != null) {
       const idx = treeEdit.memberIndex;
       const relationship = treeEditRole.trim() || "Family";
