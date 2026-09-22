@@ -1,7 +1,11 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const API_TARGET = process.env.VITE_API_PROXY || 'http://127.0.0.1:8000'
+/** Resolve API proxy target from .env* / shell (not exposed as client API base). */
+function resolveApiTarget(mode: string) {
+  const env = loadEnv(mode, process.cwd(), '')
+  return env.VITE_API_PROXY || process.env.VITE_API_PROXY || 'http://127.0.0.1:8010'
+}
 
 /** SPA routes under /admin — must not be proxied to the API on browser refresh. */
 const ADMIN_UI_GET_PATHS = new Set([
@@ -32,25 +36,28 @@ function adminApiBypass(req: { method?: string; headers?: { accept?: string }; u
   return undefined
 }
 
-export default defineConfig({
-  plugins: [react()],
-  base: '/admin/',
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
-  },
-  server: {
-    host: '127.0.0.1',
-    port: 5174,
-    proxy: {
-      '^/auth': {
-        target: API_TARGET,
-        changeOrigin: true,
-      },
-      '^/admin/(health|me|usage|credits|llm_transactions|invite_tester|upload|offers|promotions|regions|levels|plans|point_rules|point_settings|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
-        target: API_TARGET,
-        changeOrigin: true,
-        bypass: adminApiBypass,
+export default defineConfig(({ mode }) => {
+  const API_TARGET = resolveApiTarget(mode)
+  return {
+    plugins: [react()],
+    base: '/admin/',
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+    },
+    server: {
+      host: '127.0.0.1',
+      port: 5174,
+      proxy: {
+        '^/auth': {
+          target: API_TARGET,
+          changeOrigin: true,
+        },
+        '^/admin/(health|me|usage|credits|llm_transactions|invite_tester|upload|offers|promotions|regions|levels|plans|point_rules|point_settings|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt)': {
+          target: API_TARGET,
+          changeOrigin: true,
+          bypass: adminApiBypass,
+        },
       },
     },
-  },
+  }
 })

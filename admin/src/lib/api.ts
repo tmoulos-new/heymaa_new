@@ -1,12 +1,9 @@
 export function getApiBase(): string {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    const h = window.location.hostname
-    if (h === 'localhost' || h === '127.0.0.1') {
-      return import.meta.env.VITE_API_PROXY || 'http://127.0.0.1:8000'
-    }
-  }
-  // Production: same-origin (Vercel rewrites /admin/* and /auth/* to API).
+  // Optional absolute override (e.g. point a local UI at a remote API).
+  // Do not use VITE_API_PROXY here — that var is only the Vite/CRA proxy *target*.
+  // Locally, keep same-origin so /admin/* and /auth/* go through the dev proxy
+  // (defaulting the client to :8000 broke admin when the API runs on :8010).
+  if (import.meta.env.VITE_API_URL) return String(import.meta.env.VITE_API_URL)
   return ''
 }
 

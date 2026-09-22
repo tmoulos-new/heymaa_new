@@ -2423,6 +2423,19 @@ def _list_all_auth_users() -> list:
         page += 1
     return users
 
+def _iso_timestamp(value) -> Optional[str]:
+    """Normalize datetime/string timestamps for JSON + stable sorting."""
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except Exception:
+            return str(value)
+    text = str(value).strip()
+    return text or None
+
+
 def _auth_user_row(auth_user) -> dict:
     """Normalize auth user object/dict for admin list merge."""
     if isinstance(auth_user, dict):
@@ -2443,7 +2456,7 @@ def _auth_user_row(auth_user) -> dict:
         "plan": None,
         "subscription_status": "auth_only",
         "trial_ends_at": None,
-        "created_at": created,
+        "created_at": _iso_timestamp(created),
         "last_login": None,
         "role": None,
         "account_kind": "auth_only",
@@ -5586,7 +5599,8 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
             pass
 
         merged = app_users + auth_only
-        merged.sort(key=lambda u: u.get("created_at") or "", reverse=True)
+        # Auth users may return datetime objects; app rows use ISO strings.
+        merged.sort(key=lambda u: _iso_timestamp(u.get("created_at")) or "", reverse=True)
         user_ids = [u.get("id") for u in merged if u.get("id")]
         summaries = _user_data_summaries_for_users(user_ids)
         grants_summaries = _grants_summary_for_users(user_ids)
