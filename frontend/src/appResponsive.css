@@ -4226,10 +4226,13 @@ button.hm-ms-ref-chip {
 }
 
 .hm-notif-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  width: min(320px, calc(100svw - 32px));
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  left: max(12px, env(safe-area-inset-left, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  width: auto;
+  max-width: 360px;
+  margin-left: auto;
   max-height: min(420px, 70dvh);
   overflow: hidden;
   display: flex;
@@ -4237,8 +4240,17 @@ button.hm-ms-ref-chip {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 14px 40px rgba(43, 58, 103, 0.22);
-  z-index: 2;
+  z-index: calc(var(--hm-z-header) + 20);
   box-sizing: border-box;
+}
+
+@media (min-width: 700px) {
+  .hm-notif-panel {
+    left: auto;
+    right: max(24px, env(safe-area-inset-right, 0px));
+    width: 320px;
+    max-width: 320px;
+  }
 }
 
 .hm-notif-panel-head {
@@ -4252,6 +4264,12 @@ button.hm-ms-ref-chip {
   font-weight: 700;
   color: var(--hm-navy);
   border-bottom: 1px solid rgba(43, 58, 103, 0.08);
+}
+
+.hm-notif-panel-head > span:first-child {
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .hm-notif-panel-count {

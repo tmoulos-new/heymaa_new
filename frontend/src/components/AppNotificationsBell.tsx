@@ -7,6 +7,7 @@ import {
   readNotificationIds,
   type AppNotification,
 } from '../lib/appNotifications'
+import { AppModalPortal } from './AppModalPortal'
 
 type Props = {
   lang: string
@@ -98,45 +99,47 @@ export function AppNotificationsBell({
       </button>
 
       {open ? (
-        <div
-          id={panelId}
-          className="hm-notif-panel"
-          role="region"
-          aria-label={isEl ? 'Ειδοποιήσεις εφαρμογής' : 'App alerts'}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="hm-notif-panel-head">
-            <span>{isEl ? 'Ειδοποιήσεις' : 'Alerts'}</span>
-            {notifications.length > 0 ? (
-              <span className="hm-notif-panel-count">
-                {unreadCount > 0
-                  ? (isEl ? `${unreadCount} ${unreadCount === 1 ? 'νέα' : 'νέες'}` : `${unreadCount} new`)
-                  : (isEl ? 'Όλες διαβασμένες' : 'All read')}
-              </span>
-            ) : null}
-          </div>
+        <AppModalPortal>
+          <div
+            id={panelId}
+            className="hm-notif-panel"
+            role="region"
+            aria-label={isEl ? 'Ειδοποιήσεις εφαρμογής' : 'App alerts'}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="hm-notif-panel-head">
+              <span>{isEl ? 'Ειδοποιήσεις' : 'Alerts'}</span>
+              {notifications.length > 0 ? (
+                <span className="hm-notif-panel-count">
+                  {unreadCount > 0
+                    ? (isEl ? `${unreadCount} ${unreadCount === 1 ? 'νέα' : 'νέες'}` : `${unreadCount} new`)
+                    : (isEl ? 'Όλες διαβασμένες' : 'All read')}
+                </span>
+              ) : null}
+            </div>
 
-          {notifications.length === 0 ? (
-            <div className="hm-notif-empty">
-              <span className="hm-notif-empty-icon" aria-hidden="true">
-                🔔
-              </span>
-              <p>{isEl ? 'Δεν έχεις ενεργές ειδοποιήσεις.' : 'No active alerts right now.'}</p>
-            </div>
-          ) : (
-            <div className="hm-notif-list">
-              {notifications.map((item) => (
-                <NotificationRow
-                  key={item.id}
-                  item={item}
-                  unread={!readIds.has(item.id)}
-                  onOpen={() => markRead([item.id])}
-                  onAction={() => runAction(item)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            {notifications.length === 0 ? (
+              <div className="hm-notif-empty">
+                <span className="hm-notif-empty-icon" aria-hidden="true">
+                  🔔
+                </span>
+                <p>{isEl ? 'Δεν έχεις ενεργές ειδοποιήσεις.' : 'No active alerts right now.'}</p>
+              </div>
+            ) : (
+              <div className="hm-notif-list">
+                {notifications.map((item) => (
+                  <NotificationRow
+                    key={item.id}
+                    item={item}
+                    unread={!readIds.has(item.id)}
+                    onOpen={() => markRead([item.id])}
+                    onAction={() => runAction(item)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </AppModalPortal>
       ) : null}
     </div>
   )
