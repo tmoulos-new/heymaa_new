@@ -1,0 +1,17 @@
+# Keep uploads lean.
+.cursor/
+.venv/
+backend/.venv/
+**/__pycache__/
+**/*.pyc
+frontend/node_modules/
+admin/node_modules/
+docs/
+.env
+.env.*
+!.env.example
+logs/
+backups/
+data/
+backend/knowledge_seed/
+backend/milestones_cache/
