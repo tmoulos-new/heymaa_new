@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process'
+import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -18,6 +19,18 @@ function run(label, command, args, extraEnv = {}) {
   }
 }
 
+function rmrf(rel) {
+  const target = path.join(root, rel)
+  if (!fs.existsSync(target)) return
+  try {
+    fs.rmSync(target, { recursive: true, force: true, maxRetries: 3 })
+    console.log(`removed ${rel}`)
+  } catch (err) {
+    // Best-effort: never fail the deploy over cleanup.
+    console.warn(`could not remove ${rel}: ${err?.message || err}`)
+  }
+}
+
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 const node = process.execPath
 const installArgs = ['install', '--include=dev', '--no-audit', '--no-fund']
@@ -32,5 +45,13 @@ run('frontend production build', npm, ['run', 'build', '--prefix', 'frontend'], 
 })
 run('admin production build', npm, ['run', 'build', '--prefix', 'admin'])
 run('merge frontend + admin output', node, ['scripts/merge-vercel-build.mjs'])
+
+// Python Vercel Functions bundle the whole project after this script.
+// Drop Node install trees so Function Storage does not keep ~1.5GB per deploy.
+console.log('\n=== prune build trees (reduce Function Storage) ===')
+rmrf('frontend/node_modules')
+rmrf('admin/node_modules')
+rmrf('frontend/build')
+rmrf('dist')
 
 console.log('\n=== Vercel build finished ===')
