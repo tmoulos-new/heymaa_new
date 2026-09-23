@@ -3,7 +3,7 @@
   "functions": {
     "backend/main.py": {
       "maxDuration": 120,
-      "excludeFiles": "{frontend/node_modules/**,frontend/src/**,frontend/public/**,frontend/build/**,frontend/scripts/**,admin/node_modules/**,admin/src/**,admin/public/**,Cloudflare Demo/**,Clouflare Heymaa/**,.cursor/**,docs/**,scripts/**,dist/**,static/**,.venv/**,backend/.venv/**,backend/__pycache__/**,backend/migrations/**,backend/knowledge_seed/**,backend/milestones_cache/**,backend/scripts/**,**/*.md,**/*.test.py,**/test_*.py,uv.lock,.git/**}"
+      "excludeFiles": "{frontend/node_modules/**,frontend/src/**,frontend/build/**,admin/node_modules/**,admin/src/**,.cursor/**,docs/**,scripts/**,dist/**,.venv/**,backend/.venv/**,backend/__pycache__/**,backend/migrations/**,backend/knowledge_seed/**,backend/milestones_cache/**,backend/scripts/**,uv.lock}"
     }
   },
   "rewrites": [

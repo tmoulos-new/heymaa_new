@@ -1,6 +1,4 @@
-# Keep Function / Deployment Storage small — do not upload build junk or demos.
-# (Git already ignores node_modules; this covers local `vercel` deploys and belt-and-suspenders.)
-
+# Keep uploads/builds lean (Git already ignores node_modules).
 .cursor/
 .venv/
 backend/.venv/
@@ -11,18 +9,12 @@ frontend/node_modules/
 frontend/build/
 admin/node_modules/
 
-Cloudflare Demo/
-Clouflare Heymaa/
-
 docs/
-*.md
-!README.md
 
 .env
 .env.*
 !.env.example
 
-# Local/dev scratch
 logs/
 backups/
 data/
