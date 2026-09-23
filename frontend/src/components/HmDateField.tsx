@@ -214,11 +214,11 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
                 aria-label={isEl ? 'Μήνας' : 'Month'}
                 onChange={(e) => {
                   const m = Number(e.target.value)
+                  const y = view.y
                   setView((cur) => ({ ...cur, m }))
-                  if (!selected) return
-                  const dim = new Date(view.y, m + 1, 0).getDate()
-                  const d = Math.min(selected.d, dim)
-                  const iso = toIso(view.y, m, d)
+                  const dim = new Date(y, m + 1, 0).getDate()
+                  const d = Math.min(selected?.d ?? 1, dim)
+                  const iso = toIso(y, m, d)
                   if (!isOutOfRange(iso, min, max)) onChange(iso)
                 }}
               >
@@ -232,11 +232,11 @@ export function HmDateField({ value, onChange, lang, id, ariaLabel, variant = 'i
                 aria-label={isEl ? 'Έτος' : 'Year'}
                 onChange={(e) => {
                   const y = Number(e.target.value)
+                  const m = selected?.m ?? view.m
                   setView((cur) => ({ ...cur, y }))
-                  if (!selected) return
-                  const dim = new Date(y, selected.m + 1, 0).getDate()
-                  const d = Math.min(selected.d, dim)
-                  const iso = toIso(y, selected.m, d)
+                  const dim = new Date(y, m + 1, 0).getDate()
+                  const d = Math.min(selected?.d ?? 1, dim)
+                  const iso = toIso(y, m, d)
                   if (!isOutOfRange(iso, min, max)) onChange(iso)
                 }}
               >

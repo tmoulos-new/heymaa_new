@@ -4318,22 +4318,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       syncProfileInBackground({ ...profile, name, consentMarketing: profile.consentMarketing });
     } else if (treeEdit.childIndex != null) {
       const idx = treeEdit.childIndex;
-      const birthDate = treeEditBirthDate || familyChildren[idx]?.birthDate;
+      const birthDate = (treeEditBirthDate || "").trim() || familyChildren[idx]?.birthDate || "";
       if (!birthDate) return;
-      const prevChild = familyChildren[idx];
-      const updatedChildren = familyData.children.map((c, i) =>
-        i === idx ? { ...c, name, birthDate } : c,
+      // Use the displayed list (family ∪ profile merge) as source of truth — familyData.children
+      // alone can be empty/stale, which made year edits look like they "didn't save".
+      const baseChildren =
+        familyData.children.length > 0 ? familyData.children : familyChildren;
+      if (!baseChildren[idx]) return;
+      const prevChild = familyChildren[idx] || baseChildren[idx];
+      const updatedChildren = baseChildren.map((c, i) =>
+        i === idx
+          ? {
+              ...c,
+              name,
+              birthDate,
+              gender: prevChild?.gender ?? c.gender,
+              photo: prevChild?.photo ?? c.photo,
+              photoFrame: prevChild?.photoFrame ?? c.photoFrame,
+            }
+          : c,
       );
       nextFamily = { ...familyData, children: updatedChildren };
       setFamilyData(nextFamily);
       const updatedProfile: Profile = {
         ...profile,
         children: updatedChildren.map(({ name: n, birthDate: bd }) => ({ name: n, birthDate: bd })),
-        childName: updatedChildren[0]?.name || profile.childName,
-        childBirthDate: updatedChildren[0]?.birthDate || profile.childBirthDate,
+        childName: updatedChildren[0]?.name || "",
+        childBirthDate: updatedChildren[0]?.birthDate || "",
         childAge: updatedChildren[0]
           ? formatChildAge(updatedChildren[0].birthDate, lang, nowForAge)
-          : profile.childAge,
+          : "",
       };
       onProfileUpdate(updatedProfile);
       void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
