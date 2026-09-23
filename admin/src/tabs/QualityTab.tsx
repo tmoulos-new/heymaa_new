@@ -216,8 +216,8 @@ export function QualityTab() {
         <p className="card-desc">
           Full quality loop: thumbs, rule + LLM judge, bad-reply queue, golden regression, and
           preference export for later fine-tune. Prefer prompt/RAG fixes from proposals before
-          training a custom model. Run <code>backend/migrations/chat_quality.sql</code> if tables
-          are missing.
+          training a custom model. Turns appear only after the SQL migration and new chats (not
+          backfilled from older history).
         </p>
         {err ? <div className="msg err">{err}</div> : null}
         {data?.migration_hint ? <div className="msg err">{data.migration_hint}</div> : null}
@@ -228,30 +228,39 @@ export function QualityTab() {
 
       <div className="grid-3 insights-kpi-grid">
         <div className={`stat ${scoreClass(h?.score)}`}>
-          <div className="n">{h?.score != null ? Math.round(h.score) : '—'}</div>
+          <div className="n">{loading ? '…' : h?.score != null ? Math.round(h.score) : 0}</div>
           <div className="l">Health score / 100</div>
           <div className="meta">
-            Confidence {h?.confidence ?? '—'} · sample {h?.sample_size ?? 0}
+            Confidence {loading ? '…' : (h?.confidence ?? 'low')} · sample{' '}
+            {loading ? '…' : (h?.sample_size ?? 0)}
           </div>
         </div>
         <div className="stat teal">
-          <div className="n">{k?.turns ?? '—'}</div>
+          <div className="n">{loading ? '…' : (k?.turns ?? 0)}</div>
           <div className="l">Logged turns</div>
           <div className="meta">
-            👍 {k?.thumbs_up ?? 0} · 👎 {k?.thumbs_down ?? 0}
+            👍 {loading ? '…' : (k?.thumbs_up ?? 0)} · 👎 {loading ? '…' : (k?.thumbs_down ?? 0)}
           </div>
         </div>
         <div className={`stat ${(k?.open_bad || 0) > 0 ? 'coral' : 'green'}`}>
-          <div className="n">{k?.open_bad ?? '—'}</div>
+          <div className="n">{loading ? '…' : (k?.open_bad ?? 0)}</div>
           <div className="l">Open bad replies</div>
-          <div className="meta">{k?.auto_fail ?? 0} scored &lt; 75 in window</div>
+          <div className="meta">
+            {loading ? '…' : (k?.auto_fail ?? 0)} scored &lt; 75 in window
+          </div>
         </div>
         <div className={`stat ${g?.ok ? 'green' : 'coral'}`}>
           <div className="n">
-            {g?.passed ?? '—'}/{g?.total ?? '—'}
+            {loading ? '…' : `${g?.passed ?? 0}/${g?.total ?? 0}`}
           </div>
           <div className="l">Golden pack</div>
-          <div className="meta">{g?.ok ? 'All regression cases pass' : `${g?.failed ?? 0} failing`}</div>
+          <div className="meta">
+            {loading
+              ? '…'
+              : g?.ok
+                ? 'All regression cases pass'
+                : `${g?.failed ?? 0} failing`}
+          </div>
         </div>
       </div>
 

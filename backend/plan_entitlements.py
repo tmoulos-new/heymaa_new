@@ -35,9 +35,14 @@ def resolve_plan_slot(
     *,
     is_trial: bool = False,
 ) -> str:
-    plan_raw = (plan or "").lower()
+    plan_raw = (plan or "").lower().strip()
     status = (subscription_status or "").lower()
-    if is_trial or status == "trial" or plan_raw == "trial":
+    if (
+        is_trial
+        or status == "trial"
+        or plan_raw in ("trial", "free", "free trial", "free_trial")
+        or plan_raw.startswith("free")
+    ):
         return "trial"
     if "annual" in plan_raw or "year" in plan_raw or "ετήσ" in plan_raw:
         return "annual"

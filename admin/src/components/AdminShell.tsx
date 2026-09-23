@@ -138,7 +138,7 @@ export function AdminShell() {
         if (typeof n === 'number') setUserCount(n)
       })
       .catch(() => {
-        /* Overview can still show — from Users tab later */
+        if (!cancelled) setUserCount(null)
       })
     return () => {
       cancelled = true

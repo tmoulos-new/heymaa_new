@@ -174,6 +174,7 @@ def _paginate(
     gte_col: Optional[str] = None,
     gte_val: Optional[str] = None,
     eq: Optional[dict] = None,
+    in_filter: Optional[tuple[str, list]] = None,
     order_col: str = "created_at",
     page_size: int = 1000,
     max_rows: int = 20000,
@@ -189,6 +190,9 @@ def _paginate(
             if eq:
                 for k, v in eq.items():
                     q = q.eq(k, v)
+            if in_filter:
+                col, vals = in_filter
+                q = q.in_(col, vals)
             res = q.order(order_col, desc=False).range(offset, end).execute()
             batch = res.data or []
             rows.extend(batch)
@@ -203,6 +207,100 @@ def _paginate(
         return [], str(e)
 
 
+USERS_COLUMNS_FULL = (
+    "id,email,plan,plan_id,subscription_status,trial_ends_at,"
+    "subscription_ends_at,created_at,last_login,role"
+)
+USERS_COLUMNS_MIN = "id,email,plan,subscription_status,trial_ends_at,subscription_ends_at,created_at,role"
+
+
+def _fetch_users(sb) -> tuple[list[dict], Optional[str]]:
+    """Load users with column fallback when newer columns are missing."""
+    users, err = _paginate(sb, "users", USERS_COLUMNS_FULL, order_col="created_at")
+    if not err:
+        return users, None
+    msg = (err or "").lower()
+    # Missing column (plan_id / last_login) → retry leaner select
+    if "column" in msg or "does not exist" in msg or "42703" in msg:
+        users2, err2 = _paginate(sb, "users", USERS_COLUMNS_MIN, order_col="created_at")
+        if err2:
+            return [], err2
+        return users2, f"users: used minimal columns ({err})"
+    return [], err
+
+
+def _behavior_from_user_data(sb, notes: list[str]) -> dict:
+    """Count chat/thread/memory rows without downloading huge JSON values."""
+    chat_total = 0
+    thread_total = 0
+    memory_total = 0
+    users_with_chat = 0
+    try:
+        # Keys only — never select `value` (chat blobs can be MBs and time out the API).
+        ud_rows, ud_err = _paginate(
+            sb,
+            "user_data",
+            "user_id,key",
+            in_filter=("key", ["chat", "threads", "memories"]),
+            order_col="user_id",
+            max_rows=20000,
+        )
+        if ud_err:
+            ud_rows, ud_err = _paginate(
+                sb,
+                "user_data",
+                "user_id,key",
+                order_col="updated_at",
+                max_rows=15000,
+            )
+            if ud_err:
+                # Last resort: no order (some schemas lack updated_at)
+                try:
+                    res = (
+                        sb.table("user_data")
+                        .select("user_id,key")
+                        .in_("key", ["chat", "threads", "memories"])
+                        .limit(5000)
+                        .execute()
+                    )
+                    ud_rows = res.data or []
+                    ud_err = None
+                except Exception as e2:
+                    notes.append(f"user_data: {ud_err or e2}")
+                    return {
+                        "users_with_chat": 0,
+                        "avg_chat_messages": 0.0,
+                        "total_chat_messages": 0,
+                        "total_threads": 0,
+                        "total_memories": 0,
+                    }
+        chat_users: set[str] = set()
+        wanted = {"chat", "threads", "memories"}
+        for row in ud_rows:
+            key = str(row.get("key") or "")
+            if key not in wanted:
+                continue
+            uid = str(row.get("user_id") or "")
+            if key == "chat" and uid:
+                chat_users.add(uid)
+                chat_total += 1
+            elif key == "threads":
+                thread_total += 1
+            elif key == "memories":
+                memory_total += 1
+        users_with_chat = len(chat_users)
+    except Exception as e:
+        notes.append(f"user_data: {e}")
+
+    return {
+        "users_with_chat": users_with_chat,
+        "avg_chat_messages": 0.0,
+        "total_chat_messages": chat_total,
+        "total_threads": thread_total,
+        "total_memories": memory_total,
+    }
+
+
 def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dict:
     """Aggregate admin insights payload. Soft-fails missing tables."""
     now = now or datetime.now(timezone.utc)
@@ -214,22 +312,12 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
     week_start = now - timedelta(days=7)
     notes: list[str] = []
 
-    users: list[dict] = []
     if not sb:
         return _empty_payload(days, now, notes=["Database not configured"])
 
-    try:
-        users, err = _paginate(
-            sb,
-            "users",
-            "id,email,plan,plan_id,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role",
-            order_col="created_at",
-        )
-        if err:
-            notes.append(err)
-    except Exception as e:
-        notes.append(f"users: {e}")
-        users = []
+    users, users_err = _fetch_users(sb)
+    if users_err:
+        notes.append(users_err)
 
     user_ids = [str(u["id"]) for u in users if u.get("id")]
     cancel_by_user: dict[str, dict] = {}
@@ -263,17 +351,22 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         except Exception as e:
             notes.append(f"plans: {e}")
 
-    # Growth / mix
+    # Growth / mix — free/trial is a first-class plan (not only "paying")
     plan_counts: dict[str, int] = defaultdict(int)
     status_counts: dict[str, int] = defaultdict(int)
     new_users_by_day: dict[str, float] = defaultdict(float)
     new_7d = 0
     new_30d = 0
+    new_today = 0
     trial_active = 0
+    free_plan_users = 0
     active_7d = 0
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     for u in users:
         pid = resolve_user_plan_id(u)
         plan_counts[pid] += 1
+        if pid == "trial":
+            free_plan_users += 1
         status = (u.get("subscription_status") or "unknown").lower() or "unknown"
         status_counts[status] += 1
 
@@ -284,6 +377,8 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
             new_7d += 1
         if created and created >= now - timedelta(days=30):
             new_30d += 1
+        if created and created >= today_start:
+            new_today += 1
 
         if status == "trial" and period_still_active(
             "trial", trial_ends_at=u.get("trial_ends_at"), now=now
@@ -296,18 +391,30 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
 
     mrr = compute_mrr(users, cancel_by_user, now=now)
 
+    PLAN_DISPLAY_NAME = {
+        "trial": "Free trial",
+        "starter": "Starter",
+        "premium": "Premium",
+        "annual": "Annual",
+    }
     users_per_plan = []
     for pid in list(PLAN_IDS) + sorted(k for k in plan_counts if k not in PLAN_IDS):
         count = int(plan_counts.get(pid) or 0)
         if count == 0 and pid not in PLAN_IDS:
             continue
-        name = (plans_by_id.get(pid) or {}).get("name") or pid
+        raw_name = (plans_by_id.get(pid) or {}).get("name") or ""
+        name = raw_name if raw_name and raw_name.lower() not in ("trial", "free") else (
+            PLAN_DISPLAY_NAME.get(pid) or pid
+        )
+        if pid == "trial" and not raw_name:
+            name = "Free trial"
         users_per_plan.append(
             {
                 "plan_id": pid,
-                "name": name,
+                "name": name or PLAN_DISPLAY_NAME.get(pid) or pid,
                 "users": count,
                 "monthly_price_eur": monthly_price_eur(pid),
+                "is_free": pid == "trial" or monthly_price_eur(pid) <= 0,
             }
         )
 
@@ -392,7 +499,7 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         cash_30d += amount
         orders_30d += 1
 
-    # DAU from user_activity_log
+    # DAU from user_activity_log (ids only — no payloads)
     activity_rows, act_err = _paginate(
         sb,
         "user_activity_log",
@@ -400,7 +507,7 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         gte_col="created_at",
         gte_val=window_start.isoformat(),
         order_col="created_at",
-        max_rows=50000,
+        max_rows=40000,
     )
     if act_err:
         notes.append(act_err)
@@ -414,50 +521,8 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         dau_sets[_day_key(created)].add(uid)
     dau_by_day = {k: float(len(v)) for k, v in dau_sets.items()}
 
-    # Light consumption from user_data chat/threads/memories counts
-    chat_total = 0
-    thread_total = 0
-    memory_total = 0
-    users_with_chat = 0
-    try:
-        ud_rows, ud_err = _paginate(
-            sb,
-            "user_data",
-            "user_id,key,value",
-            order_col="updated_at",
-            max_rows=30000,
-        )
-        if ud_err:
-            notes.append(ud_err)
-        else:
-            for row in ud_rows:
-                key = str(row.get("key") or "")
-                value = row.get("value")
-                n = 0
-                if isinstance(value, list):
-                    n = len(value)
-                elif isinstance(value, dict):
-                    # threads/chat sometimes stored as dict of lists
-                    if key in ("chat", "threads", "memories"):
-                        for v in value.values():
-                            if isinstance(v, list):
-                                n += len(v)
-                            else:
-                                n += 1
-                        if n == 0:
-                            n = len(value)
-                if key == "chat" and n:
-                    chat_total += n
-                    users_with_chat += 1
-                elif key == "threads" and n:
-                    thread_total += n
-                elif key == "memories" and n:
-                    memory_total += n
-    except Exception as e:
-        notes.append(f"user_data: {e}")
-
+    behavior = _behavior_from_user_data(sb, notes)
     registered = len(users)
-    avg_chat = round(chat_total / users_with_chat, 1) if users_with_chat else 0.0
 
     end_d = now.date()
     return {
@@ -467,8 +532,10 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         "notes": notes,
         "kpis": {
             "total_users": registered,
+            "new_users_today": new_today,
             "new_users_7d": new_7d,
             "new_users_30d": new_30d,
+            "free_plan_users": free_plan_users,
             "paying_active": mrr["paying_active"],
             "trial_active": trial_active,
             "pending_cancels": pending_cancels,
@@ -496,13 +563,14 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         },
         "behavior": {
             "active_last_7d": active_7d,
-            "users_with_chat": users_with_chat,
-            "avg_chat_messages": avg_chat,
-            "total_chat_messages": chat_total,
-            "total_threads": thread_total,
-            "total_memories": memory_total,
+            "users_with_chat": behavior["users_with_chat"],
+            "avg_chat_messages": behavior["avg_chat_messages"],
+            "total_chat_messages": behavior["total_chat_messages"],
+            "total_threads": behavior["total_threads"],
+            "total_memories": behavior["total_memories"],
             "users_near_llm_limit": near_limit,
             "dau_today": int(dau_by_day.get(end_d.isoformat()) or 0),
+            "note": "Chat message depth skipped (keys only) so Insights stays fast.",
         },
         "prices_eur": {
             "starter": monthly_price_eur("starter"),
@@ -524,8 +592,10 @@ def _empty_payload(days: int, now: datetime, notes: list[str]) -> dict:
         "notes": notes,
         "kpis": {
             "total_users": 0,
+            "new_users_today": 0,
             "new_users_7d": 0,
             "new_users_30d": 0,
+            "free_plan_users": 0,
             "paying_active": 0,
             "trial_active": 0,
             "pending_cancels": 0,

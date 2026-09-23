@@ -136,13 +136,20 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const [pendingCancels, setPendingCancels] = useState<number | null>(null)
   const [ragErrorCount, setRagErrorCount] = useState<number | null>(null)
   const [snapshot, setSnapshot] = useState<{
+    total_users?: number
+    new_users_today?: number
     new_users_7d?: number
+    free_plan_users?: number
+    trial_active?: number
     paying_active?: number
     recognized_mrr_eur?: number
     llm_cost_usd_mtd?: number
     projected_llm_cost_usd_month?: number
     cash_revenue_eur?: number
   } | null>(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(true)
+  const [snapshotErr, setSnapshotErr] = useState<string | null>(null)
+  const [snapshotNotes, setSnapshotNotes] = useState<string[]>([])
 
   const goToTransactions = () => navigate(pathForTab('llmtransactions'))
   const goToCancellations = () => navigate(pathForTab('cancellations'))
@@ -199,22 +206,53 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   }, [adminFetch])
 
   const loadSnapshot = useCallback(async () => {
+    setSnapshotLoading(true)
+    setSnapshotErr(null)
     try {
       const d = (await adminFetch('/admin/insights?days=30')) as {
         kpis?: {
+          total_users?: number
+          new_users_today?: number
           new_users_7d?: number
+          free_plan_users?: number
+          trial_active?: number
           paying_active?: number
           recognized_mrr_eur?: number
           llm_cost_usd_mtd?: number
           projected_llm_cost_usd_month?: number
           cash_revenue_eur?: number
         }
+        notes?: string[]
       }
       setSnapshot(d.kpis || null)
-    } catch {
+      setSnapshotNotes(Array.isArray(d.notes) ? d.notes : [])
+    } catch (e) {
       setSnapshot(null)
+      setSnapshotNotes([])
+      setSnapshotErr((e instanceof Error && e.message) || 'Insights request failed')
+    } finally {
+      setSnapshotLoading(false)
     }
   }, [adminFetch])
+
+  const snapNum = (n: number | null | undefined) => {
+    if (snapshotLoading) return '…'
+    if (snapshotErr) return '—'
+    if (n == null) return '—'
+    return n
+  }
+
+  const snapMoneyEur = (n: number | null | undefined) => {
+    if (snapshotLoading) return '…'
+    if (snapshotErr || n == null) return '—'
+    return `€${Number(n).toFixed(0)}`
+  }
+
+  const snapMoneyUsd = (n: number | null | undefined) => {
+    if (snapshotLoading) return '…'
+    if (snapshotErr || n == null) return '—'
+    return `$${Number(n).toFixed(2)}`
+  }
 
   useEffect(() => {
     void loadHealth()
@@ -358,6 +396,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               void loadUsage()
               void loadPendingCancels()
               void loadRagErrors()
+              void loadSnapshot()
             }}
           >
             <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
@@ -402,46 +441,49 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </button>
         </div>
         <p className="card-desc">
-          Growth, projected MRR, cash, and LLM run-rate. Full charts live on Insights.
+          Growth, free-plan and paid mix, cash, and LLM run-rate. Free trial is a plan — it shows
+          here, not only under Paying. Full charts live on Insights.
         </p>
+        {snapshotErr ? (
+          <div className="msg err" style={{ marginBottom: 12 }}>
+            Could not load snapshot: {snapshotErr}
+          </div>
+        ) : null}
+        {snapshotNotes.length > 0 ? (
+          <div className="msg err" style={{ marginBottom: 12 }}>
+            Partial sources: {snapshotNotes.join(' · ')}
+          </div>
+        ) : null}
         <div className="grid-3">
           <div className="stat teal">
-            <div className="n">{snapshot?.new_users_7d ?? '—'}</div>
-            <div className="l">New users (7d)</div>
+            <div className="n">{snapNum(snapshot?.new_users_today ?? snapshot?.new_users_7d)}</div>
+            <div className="l">New users today</div>
+            <div className="meta">+{snapNum(snapshot?.new_users_7d)} in last 7d</div>
           </div>
           <div className="stat">
-            <div className="n">{snapshot?.paying_active ?? '—'}</div>
-            <div className="l">Paying active</div>
+            <div className="n">{snapNum(snapshot?.free_plan_users)}</div>
+            <div className="l">Free plan users</div>
+            <div className="meta">
+              {snapNum(snapshot?.trial_active)} with active trial access
+            </div>
           </div>
           <div className="stat green">
-            <div className="n">
-              {snapshot?.recognized_mrr_eur != null
-                ? `€${Number(snapshot.recognized_mrr_eur).toFixed(0)}`
-                : '—'}
-            </div>
+            <div className="n">{snapNum(snapshot?.paying_active)}</div>
+            <div className="l">Paying active</div>
+            <div className="meta">Starter / Premium / Annual</div>
+          </div>
+          <div className="stat green">
+            <div className="n">{snapMoneyEur(snapshot?.recognized_mrr_eur)}</div>
             <div className="l">Projected MRR</div>
           </div>
           <div className="stat">
-            <div className="n">
-              {snapshot?.cash_revenue_eur != null
-                ? `€${Number(snapshot.cash_revenue_eur).toFixed(0)}`
-                : '—'}
-            </div>
+            <div className="n">{snapMoneyEur(snapshot?.cash_revenue_eur)}</div>
             <div className="l">Cash (30d)</div>
           </div>
           <div className="stat coral">
-            <div className="n">
-              {snapshot?.llm_cost_usd_mtd != null
-                ? `$${Number(snapshot.llm_cost_usd_mtd).toFixed(2)}`
-                : '—'}
-            </div>
+            <div className="n">{snapMoneyUsd(snapshot?.llm_cost_usd_mtd)}</div>
             <div className="l">LLM cost MTD</div>
-            <div className="meta">
-              Proj.{' '}
-              {snapshot?.projected_llm_cost_usd_month != null
-                ? `$${Number(snapshot.projected_llm_cost_usd_month).toFixed(2)}`
-                : '—'}
-            </div>
+            <div className="meta">Proj. {snapMoneyUsd(snapshot?.projected_llm_cost_usd_month)}</div>
           </div>
         </div>
       </div>
@@ -460,7 +502,10 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
 
       <div className="grid-3">
         <div className="stat teal">
-          <div className="n">{userCount ?? '—'}</div>
+          <div className="n">
+            {userCount ??
+              (snapshotLoading ? '…' : snapshotErr ? '—' : (snapshot?.total_users ?? '—'))}
+          </div>
           <div className="l">Total users</div>
         </div>
         <div

@@ -813,10 +813,26 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
 
 
 def _empty_dashboard(days: int, notes: list[str]) -> dict:
+    try:
+        from .chat_quality_golden import run_golden_suite
+    except ImportError:
+        from chat_quality_golden import run_golden_suite
+    try:
+        golden = run_golden_suite()
+    except Exception:
+        golden = {"ok": False, "passed": 0, "failed": 0, "total": 0, "cases": []}
+    now = _now()
+    empty_series = []
+    end = now.date()
+    start = end - timedelta(days=max(1, days) - 1)
+    cur = start
+    while cur <= end:
+        empty_series.append({"date": cur.isoformat(), "value": 0.0})
+        cur += timedelta(days=1)
     return {
         "ok": True,
         "days": days,
-        "generated_at": _now().isoformat(),
+        "generated_at": now.isoformat(),
         "notes": notes,
         "health": compute_health_score(up=0, down=0, auto_fail=0, reviewed=0, rule_hits=0),
         "kpis": {
@@ -829,11 +845,17 @@ def _empty_dashboard(days: int, notes: list[str]) -> dict:
             "auto_fail": 0,
         },
         "top_tags": [],
-        "series": {"turns": [], "thumbs_down": []},
+        "series": {"turns": empty_series, "thumbs_down": empty_series},
         "bad_queue": [],
         "proposals": [],
-        "golden": {"ok": False, "passed": 0, "failed": 0, "total": 0, "cases": []},
-        "migration_hint": "Run backend/migrations/chat_quality.sql in Supabase.",
+        "golden": {
+            "ok": golden.get("ok"),
+            "passed": golden.get("passed"),
+            "failed": golden.get("failed"),
+            "total": golden.get("total"),
+            "cases": golden.get("cases") or [],
+        },
+        "migration_hint": "Run backend/migrations/chat_quality.sql in Supabase, then send a few chat messages.",
     }
 
 

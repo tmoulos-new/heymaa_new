@@ -189,23 +189,29 @@ def list_cancel_requests(sb, *, status_filter: Optional[str] = "pending") -> lis
 
 
 def cancel_snapshots_for_users(sb, user_ids: list[str]) -> dict[str, dict]:
-    """Map user_id → cancel_snapshot_fields for admin user lists."""
+    """Map user_id → cancel_snapshot_fields for admin user lists.
+
+    Fetch by cancel key only (few rows) instead of a giant ``user_id IN (...)`` —
+    PostgREST URL limits otherwise fail silently on larger user bases.
+    """
     out: dict[str, dict] = {}
     if not sb or not user_ids:
+        return out
+    wanted = {str(uid) for uid in user_ids if uid}
+    if not wanted:
         return out
     try:
         res = (
             sb.table("user_data")
             .select("user_id,value")
             .eq("key", SUBSCRIPTION_CANCEL_KEY)
-            .in_("user_id", user_ids)
             .execute()
         )
     except Exception:
         return out
     for row in res.data or []:
         uid = str(row.get("user_id") or "")
-        if not uid:
+        if not uid or uid not in wanted:
             continue
         record = normalize_cancel_record(row.get("value"))
         if not record:
