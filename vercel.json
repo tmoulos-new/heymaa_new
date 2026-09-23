@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "backend/main.py": {
-      "maxDuration": 120
+      "maxDuration": 120,
+      "excludeFiles": "{frontend/node_modules/**,frontend/src/**,frontend/public/**,frontend/build/**,frontend/scripts/**,admin/node_modules/**,admin/src/**,admin/public/**,Cloudflare Demo/**,Clouflare Heymaa/**,.cursor/**,docs/**,scripts/**,dist/**,static/**,.venv/**,backend/.venv/**,backend/__pycache__/**,backend/migrations/**,backend/knowledge_seed/**,backend/milestones_cache/**,backend/scripts/**,**/*.md,**/*.test.py,**/test_*.py,uv.lock,.git/**}"
     }
   },
   "rewrites": [

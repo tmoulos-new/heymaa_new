@@ -210,9 +210,9 @@ export function InsightsTab() {
         </div>
         <div className="stat">
           <div className="n">{loading ? '…' : (k?.active_last_7d ?? 0)}</div>
-          <div className="l">Active last 7d (login)</div>
+          <div className="l">Active last 7d</div>
           <div className="meta">
-            DAU today {loading ? '…' : (b?.dau_today ?? 0)} · near limit{' '}
+            Based on last activity · DAU today {loading ? '…' : (b?.dau_today ?? 0)} · near limit{' '}
             {loading ? '…' : (k?.users_near_llm_limit ?? 0)}
           </div>
         </div>

@@ -279,6 +279,61 @@ def _sign_in_with_password_as_user(email: str, password: str):
     return _user_auth_client().auth.sign_in_with_password({"email": email, "password": password})
 
 
+# Throttle last_active writes (serverless-friendly; best-effort per instance).
+_last_active_touch_mono: dict[str, float] = {}
+_LAST_ACTIVE_MIN_INTERVAL_SEC = 120.0
+
+
+def _touch_user_presence(
+    user_id: Optional[str],
+    *,
+    login: bool = False,
+    force: bool = False,
+) -> None:
+    """Update last_active (and last_login when login=True). Best-effort + throttled."""
+    if not user_id or not sb:
+        return
+    import time as _time
+    from datetime import datetime, timezone
+
+    now_mono = _time.monotonic()
+    if not force and not login:
+        prev = _last_active_touch_mono.get(user_id)
+        if prev is not None and (now_mono - prev) < _LAST_ACTIVE_MIN_INTERVAL_SEC:
+            return
+
+    iso = datetime.now(timezone.utc).isoformat()
+    payload: dict = {"last_active": iso}
+    if login:
+        payload["last_login"] = iso
+
+    try:
+        sb.table("users").update(payload).eq("id", user_id).execute()
+        _last_active_touch_mono[user_id] = now_mono
+        return
+    except Exception as e:
+        err = str(e).lower()
+        # Column missing before migration — fall back to last_login only.
+        if "last_active" in err or "42703" in err or "column" in err:
+            try:
+                sb.table("users").update({"last_login": iso}).eq("id", user_id).execute()
+                _last_active_touch_mono[user_id] = now_mono
+            except Exception:
+                pass
+            return
+        # Ignore transient write failures
+
+
+def _touch_last_login(user_id: Optional[str]) -> None:
+    """Record auth signup/login time and mark the user active."""
+    _touch_user_presence(user_id, login=True, force=True)
+
+
+def _touch_last_active(user_id: Optional[str], *, force: bool = False) -> None:
+    """Record meaningful in-app activity (throttled)."""
+    _touch_user_presence(user_id, login=False, force=force)
+
+
 def _auth_json_response(session, extra: Optional[dict] = None) -> JSONResponse:
     """Return access token JSON and persist access + refresh HttpOnly cookies."""
     sess = getattr(session, "session", None) or session
@@ -506,6 +561,8 @@ def _log_user_activity(
         sb.table(USER_ACTIVITY_LOG_TABLE).insert(payload).execute()
     except Exception:
         pass
+    if auth.get("user_id"):
+        _touch_last_active(auth.get("user_id"))
     return _maybe_award_points(auth, action, path, details=details)
 
 def _milestone_point_key(details: Optional[dict]) -> Optional[str]:
@@ -3569,6 +3626,7 @@ def register_user(req: RegisterRequest):
         })
         from datetime import datetime, timezone
         trial_ends = _trial_ends_at_iso(datetime.now(timezone.utc))
+        now = datetime.now(timezone.utc).isoformat()
         sb.table('users').insert({
             'id': user_id,
             'email': email,
@@ -3580,9 +3638,9 @@ def register_user(req: RegisterRequest):
             'invite_code': invite_code,
             'role': None,
             'level_id': 1,
+            'last_login': now,
         }).execute()
         auth = {'kind': 'user', 'user_id': user_id, 'token': None}
-        now = datetime.now(timezone.utc).isoformat()
         profile_fields = {
             'pregnancy_active': bool(req.pregnancy_or_mom),
             'want_child': bool(req.want_child),
@@ -3599,6 +3657,7 @@ def register_user(req: RegisterRequest):
         if invite_code:
             _award_invite_referral(invite_code, user_id)
         session = _sign_in_with_password_as_user(email, req.password)
+        _touch_last_login(user_id)  # sets last_login + last_active when column exists
         if RESEND_API_KEY:
             try:
                 try:
@@ -3646,8 +3705,7 @@ def login_user(req: LoginRequest):
         email = req.email.lower().strip()
         session = _sign_in_with_password_as_user(email, req.password)
         user_id = session.user.id
-        from datetime import datetime
-        sb.table('users').update({'last_login': datetime.utcnow().isoformat()}).eq('id', user_id).execute()
+        _touch_last_login(user_id)
         u = sb.table('users').select('plan,name,role,must_change_password').eq('id', user_id).execute()
         row = u.data[0] if u.data else {}
         return _auth_json_response(session, {
@@ -3702,6 +3760,9 @@ def current_auth_session(request: Request, x_token: Optional[str] = Header(None)
         try:
             user_res = sb.auth.get_user(access)
             if user_res and user_res.user:
+                uid = getattr(user_res.user, "id", None)
+                if uid:
+                    _touch_last_active(str(uid))
                 return {"token": access}
         except Exception:
             pass
@@ -3709,6 +3770,14 @@ def current_auth_session(request: Request, x_token: Optional[str] = Header(None)
     if not refresh:
         raise HTTPException(status_code=401, detail="Not authenticated.")
     session = _refresh_user_session(refresh)
+    try:
+        sess = getattr(session, "session", None) or session
+        user = getattr(sess, "user", None) or getattr(session, "user", None)
+        uid = getattr(user, "id", None) if user else None
+        if uid:
+            _touch_last_active(str(uid))
+    except Exception:
+        pass
     return _auth_json_response(session)
 
 @app.post("/auth/cancel-subscription")
@@ -4355,6 +4424,8 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         entitlements = _entitlements_for_token(x_token)
         promo = match_promotion(x_token)
         uid = auth.get("user_id") if auth.get("kind") != "invite" else None
+        if uid:
+            _touch_last_active(uid)
         return await _run_chat_core(
             req, entitlements=entitlements, promo=promo, user_id=uid
         )
@@ -4379,6 +4450,8 @@ async def chat_feedback(req: ChatFeedbackRequest, x_token: Optional[str] = Heade
         user_id = None
     else:
         user_id = auth.get("user_id")
+    if user_id:
+        _touch_last_active(user_id)
     try:
         try:
             from .chat_quality import upsert_feedback
@@ -4507,6 +4580,8 @@ async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
     if not sb:
         raise HTTPException(status_code=503, detail=_db_unavailable_detail())
     auth = resolve_auth(x_token)
+    if auth.get("user_id"):
+        _touch_last_active(auth.get("user_id"))
     try:
         from .tts_voice import (
             decode_tts_resume,
@@ -5717,10 +5792,24 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
     if not sb:
         return {"users": []}
     try:
-        columns = "id,email,name,plan,plan_id,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role,must_change_password,level_id"
-        app_users = _paginate_table_rows("users", columns)
+        columns = "id,email,name,plan,plan_id,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,last_active,role,must_change_password,level_id"
+        try:
+            app_users = _paginate_table_rows("users", columns)
+        except Exception as e:
+            err = str(e).lower()
+            if "last_active" in err or "42703" in err or "column" in err:
+                columns = "id,email,name,plan,plan_id,subscription_status,trial_ends_at,subscription_ends_at,created_at,last_login,role,must_change_password,level_id"
+                app_users = _paginate_table_rows("users", columns)
+            else:
+                raise
         for row in app_users:
             row["account_kind"] = "registered"
+            # Prefer real activity; fall back to login then join time.
+            last_active = row.get("last_active") or row.get("last_login") or row.get("created_at")
+            if last_active:
+                row["last_active"] = last_active
+            if not row.get("last_login") and row.get("created_at"):
+                row["last_login"] = row["created_at"]
 
         known_ids = {u.get("id") for u in app_users if u.get("id")}
         auth_only: list = []
@@ -8596,6 +8685,8 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
         import datetime as _dt
         updated_at = _dt.datetime.utcnow().isoformat()
         user_data_upsert(auth, key, value, updated_at)
+        if auth.get("user_id"):
+            _touch_last_active(auth.get("user_id"))
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

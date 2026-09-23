@@ -116,6 +116,8 @@ export interface UserRow {
   subscription_status?: string
   created_at?: string
   last_login?: string
+  /** Last meaningful activity (chat, saves, navigation). Falls back to last_login/created_at. */
+  last_active?: string
   trial_ends_at?: string
   subscription_ends_at?: string
   role?: string | null

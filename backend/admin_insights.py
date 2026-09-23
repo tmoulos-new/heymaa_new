@@ -228,6 +228,10 @@ def _paginate(
 
 USERS_COLUMNS_FULL = (
     "id,email,plan,plan_id,subscription_status,trial_ends_at,"
+    "subscription_ends_at,created_at,last_login,last_active,role"
+)
+USERS_COLUMNS_NO_ACTIVE = (
+    "id,email,plan,plan_id,subscription_status,trial_ends_at,"
     "subscription_ends_at,created_at,last_login,role"
 )
 USERS_COLUMNS_MIN = "id,email,plan,subscription_status,trial_ends_at,subscription_ends_at,created_at,role"
@@ -239,12 +243,15 @@ def _fetch_users(sb) -> tuple[list[dict], Optional[str]]:
     if not err:
         return users, None
     msg = (err or "").lower()
-    # Missing column (plan_id / last_login) → retry leaner select
+    # Missing column (last_active / plan_id / last_login) → retry leaner select
     if "column" in msg or "does not exist" in msg or "42703" in msg:
-        users2, err2 = _paginate(sb, "users", USERS_COLUMNS_MIN, order_col="created_at")
-        if err2:
-            return [], err2
-        return users2, f"users: used minimal columns ({err})"
+        users2, err2 = _paginate(sb, "users", USERS_COLUMNS_NO_ACTIVE, order_col="created_at")
+        if not err2:
+            return users2, f"users: used columns without last_active ({err})"
+        users3, err3 = _paginate(sb, "users", USERS_COLUMNS_MIN, order_col="created_at")
+        if err3:
+            return [], err3
+        return users3, f"users: used minimal columns ({err})"
     return [], err
 
 
@@ -409,7 +416,11 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         ):
             trial_active += 1
 
-        last = _parse_dt(u.get("last_login"))
+        last = (
+            _parse_dt(u.get("last_active"))
+            or _parse_dt(u.get("last_login"))
+            or _parse_dt(u.get("created_at"))
+        )
         if last and last >= week_start:
             active_7d += 1
 

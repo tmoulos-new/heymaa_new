@@ -568,7 +568,8 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
         !err &&
         paged.map((u) => {
           const since = u.created_at ? new Date(u.created_at).toLocaleDateString() : '?'
-          const last = u.last_login ? new Date(u.last_login).toLocaleDateString() : 'never'
+          const lastActiveAt = u.last_active || u.last_login || u.created_at
+          const last = lastActiveAt ? new Date(lastActiveAt).toLocaleDateString() : 'never'
           const trialEnd = u.trial_ends_at ? new Date(u.trial_ends_at).toLocaleDateString() : ''
           const isAuthOnly = u.account_kind === 'auth_only' || u.subscription_status === 'auth_only'
           const packageName = (u.package || u.plan || 'trial').toString()
@@ -643,7 +644,7 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
               </div>
               <div className="b">
                 {u.name ? `${u.name} · ` : ''}
-                {statusInfo} · joined {since} · last login {last}
+                {statusInfo} · joined {since} · last active {last}
                 {grantSummary ? ` · grants: ${grantSummary}` : ''}
                 {(u.pending_rewards || 0) > 0 ? ` · ${u.pending_rewards} gift(s) pending` : ''}
               </div>
