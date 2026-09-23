@@ -2286,10 +2286,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowHelpSupport(true);
   }, []);
 
-  const openProfilePointsFaq = useCallback(() => {
-    const idx = helpFaqItems.findIndex((item) =>
-      /Πώς κερδίζω πόντους|How do I earn points/i.test(item.question),
-    );
+  const openProfileGamificationFaq = useCallback((topic: 'points' | 'levels' = 'points') => {
+    const pattern =
+      topic === 'levels'
+        ? /Τι είναι τα επίπεδα|What are levels/i
+        : /Πώς κερδίζω πόντους|How do I earn points/i;
+    const idx = helpFaqItems.findIndex((item) => pattern.test(item.question));
     openFaqDialog(idx >= 0 ? idx : 0);
   }, [helpFaqItems, openFaqDialog]);
 
@@ -6145,7 +6147,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               onClaimPending={() => openPendingReward(rewardsSnapshot, { force: true, userInitiated: true })}
               showHeaderChip={headerPointsVisible}
               onToggleHeaderChip={toggleHeaderPointsChip}
-              onOpenFaq={openProfilePointsFaq}
+              onOpenFaq={openProfileGamificationFaq}
             />
 
             <AppTabSection lang={lang} label={lang==="el"?"Ρυθμίσεις":"Settings"}>
@@ -6323,7 +6325,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         {/* ── CHAT ── */}
         {tab==="chat"&&(
           <div className="hm-chat-column" style={{display:"flex",flexDirection:"column"}}>
-            <ChatMedicalDisclaimer lang={lang} />
+            <ChatMedicalDisclaimer lang={lang} token={token} />
             {/* Voice quota bar */}
             <div style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:"rgba(43,58,103,.55)",marginBottom:4}}>

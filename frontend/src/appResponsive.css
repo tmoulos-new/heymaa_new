@@ -84,6 +84,8 @@
     --hm-sheet-max: min(560px, calc(100% - 48px));
     --hm-sheet-wide-max: min(860px, calc(100% - 48px));
     --hm-content-max: 100%;
+    /* Match landing navbar inset: centered bar content, full-bleed background */
+    --hm-bar-content-max: min(var(--hm-desktop-content-max), calc(100% - 48px));
   }
 }
 
@@ -150,7 +152,7 @@ body.hm-app-active #root {
   min-width: 0;
 }
 
-/* Readable inner column — body scrolls full width; content caps at 1000px on desktop */
+/* Readable inner column — body scrolls full width; content caps on desktop */
 .hm-app-body-inner,
 .hm-app-bar-inner {
   width: 100%;
@@ -165,7 +167,8 @@ body.hm-app-active #root {
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  max-width: 100%;
+  width: 100%;
+  max-width: none;
 }
 
 .hm-app-tabbar {
@@ -249,11 +252,6 @@ body.hm-app-active #root {
     font-size: 12px !important;
   }
 
-  .hm-app-header {
-    padding-left: max(40px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(40px, env(safe-area-inset-right, 0px)) !important;
-  }
-
   .hm-app-composer {
     padding-left: max(40px, env(safe-area-inset-left, 0px));
     padding-right: max(40px, env(safe-area-inset-right, 0px));
@@ -261,11 +259,6 @@ body.hm-app-active #root {
 }
 
 @media (min-width: 1400px) {
-  .hm-app-header {
-    padding-left: max(56px, env(safe-area-inset-left, 0px)) !important;
-    padding-right: max(56px, env(safe-area-inset-right, 0px)) !important;
-  }
-
   .hm-app-composer {
     padding-left: max(56px, env(safe-area-inset-left, 0px));
     padding-right: max(56px, env(safe-area-inset-right, 0px));
@@ -712,7 +705,7 @@ body.hm-app-active #root {
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 16px;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -720,6 +713,13 @@ body.hm-app-active #root {
   background: linear-gradient(90deg, #f8e5d6 0%, #fff3e8 100%);
   border-bottom: 1px solid rgba(43, 58, 103, 0.08);
   font-family: 'DM Sans', sans-serif;
+}
+
+@media (min-width: 700px) {
+  .hm-trial-banner {
+    padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - var(--hm-bar-content-max, min(1000px, calc(100% - 48px)))) / 2));
+    padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - var(--hm-bar-content-max, min(1000px, calc(100% - 48px)))) / 2));
+  }
 }
 
 .hm-trial-banner--urgent {
@@ -1695,11 +1695,11 @@ body.hm-app-active #root {
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(222, 90, 158), 0.1);
-  border: 1px solid rgba(222, 90, 158), 0.22);
-  color: #8f4a32;
+  padding: 2px 0 4px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  color: var(--hm-magenta, #de5a9e);
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -1731,6 +1731,31 @@ body.hm-app-active #root {
   min-width: 0;
   flex: 1;
   overflow-wrap: anywhere;
+}
+
+.hm-chat-medical-banner__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin: -4px -4px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.hm-chat-medical-banner__close:hover,
+.hm-chat-medical-banner__close:focus-visible {
+  opacity: 1;
+  background: rgba(222, 90, 158, 0.1);
+  outline: none;
 }
 
 .hm-dialog-panel--white.hm-dialog-panel--pad-md {
@@ -1783,6 +1808,17 @@ body.hm-app-active #root {
   flex-direction: row;
   align-items: stretch;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Align rail + chat with the centered header column on desktop */
+@media (min-width: 700px) {
+  .hm-chat-workspace--rail .hm-chat-workspace__stage {
+    max-width: var(--hm-bar-content-max);
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 .hm-chat-workspace__main {
@@ -1801,17 +1837,27 @@ body.hm-app-active #root {
 
 .hm-chat-rail {
   flex-shrink: 0;
-  width: 48px;
+  width: 52px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px 10px;
+  gap: 6px;
+  padding: 10px 6px 12px;
   box-sizing: border-box;
   background: transparent;
   border-right: none;
-  z-index: 2;
-  overflow: hidden;
+  z-index: 6;
+  overflow: visible;
+}
+
+@media (min-width: 700px) {
+  .hm-chat-rail {
+    margin: 8px 0 8px 4px;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
 }
 
 .hm-chat-rail__btn {
@@ -1820,25 +1866,26 @@ body.hm-app-active #root {
   height: 40px;
   border: none;
   border-radius: 12px;
-  background: transparent;
-  color: var(--hm-navy);
+  background: rgba(222, 90, 158, 0.16);
+  color: var(--hm-navy, #2b3a67);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .hm-chat-rail__btn:hover:not(:disabled),
 .hm-chat-rail__btn:focus-visible {
-  background: rgba(43, 58, 103, 0.08);
+  background: rgba(222, 90, 158, 0.28);
+  color: var(--hm-navy, #2b3a67);
   outline: none;
 }
 
 .hm-chat-rail__btn:disabled {
-  opacity: 0.38;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -1858,17 +1905,32 @@ body.hm-app-active #root {
   border-radius: 10px;
   box-shadow: 0 6px 18px rgba(43, 58, 103, 0.22);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  z-index: 20;
-  transition: opacity 0.12s ease;
+  z-index: 30;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
 }
 
-.hm-chat-rail__btn:hover:not(:disabled) .hm-chat-rail__tip,
-.hm-chat-rail__btn:focus-visible .hm-chat-rail__tip {
-  opacity: 1;
+.hm-chat-rail__tip::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: var(--hm-navy);
 }
 
-@media (hover: none) {
+/* Desktop hover / keyboard focus only — hide on touch & narrow screens */
+@media (hover: hover) and (min-width: 700px) {
+  .hm-chat-rail__btn:hover .hm-chat-rail__tip,
+  .hm-chat-rail__btn:focus-visible .hm-chat-rail__tip {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media (hover: none), (max-width: 699px) {
   .hm-chat-rail__tip {
     display: none;
   }
@@ -2834,6 +2896,14 @@ body.hm-app-active #root {
   padding: 14px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
   background-color: var(--hm-navy);
   background-image: var(--hm-navy-blend-bar);
+}
+
+/* Desktop / tablet: same centered placement as landing navbar */
+@media (min-width: 700px) {
+  .hm-app-header {
+    padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - var(--hm-bar-content-max)) / 2));
+    padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - var(--hm-bar-content-max)) / 2));
+  }
 }
 
 .hm-header-popover-backdrop {
@@ -5633,6 +5703,44 @@ button.hm-ms-ref-chip {
   background: linear-gradient(135deg, #fff4e8, #fff);
   cursor: pointer;
   text-align: left;
+}
+
+.hm-profile-gamification-card__next-gift {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(222, 90, 158, 0.22);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(222, 90, 158, 0.06);
+  text-align: left;
+}
+
+.hm-profile-gamification-card__next-gift-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.hm-profile-gamification-card__next-gift-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hm-profile-gamification-card__next-gift-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hm-navy, #2b3a67);
+}
+
+.hm-profile-gamification-card__next-gift-sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(222, 90, 158, 0.95);
 }
 
 .hm-profile-gamification-card__gift-btn-icon {

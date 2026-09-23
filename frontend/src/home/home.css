@@ -623,7 +623,6 @@ body{font-family:var(--font-sans);background:var(--cream);}
   .testimonial-card{padding:4px 6px;}
   .testimonial-copy{padding:4px;}
   .story-stage{padding:24px 12px 20px;}
-  .story-quote-mark{left:8px;top:2px;}
   .inside-featured-shell{
     padding:0;
     margin-bottom:20px;
@@ -697,123 +696,12 @@ body{font-family:var(--font-sans);background:var(--cream);}
   isolation:isolate;
   border-radius:28px;
   padding:clamp(32px,4.5vw,48px) clamp(16px,3vw,28px) clamp(24px,3.5vw,32px);
-  background:#fff;
-  box-shadow:0 16px 40px rgba(43,58,103,0.08);
-}
-.story-deco{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  z-index:0;
-  overflow:hidden;
-}
-.story-blob{
-  position:absolute;
-  border-radius:50%;
-  filter:blur(2px);
-}
-.story-blob--tl{
-  width:min(52%,260px);
-  aspect-ratio:1.15;
-  top:-18%;
-  left:-10%;
-  background:radial-gradient(circle at 40% 40%,rgba(180,198,222,0.55) 0%,rgba(180,198,222,0.18) 55%,transparent 72%);
-  animation:storyGlow 9s ease-in-out infinite;
-}
-.story-blob--br{
-  width:min(48%,240px);
-  aspect-ratio:1;
-  right:-12%;
-  bottom:-22%;
-  background:radial-gradient(circle at 55% 45%,rgba(143,168,201,0.42) 0%,rgba(180,198,222,0.16) 50%,transparent 70%);
-  animation:storyGlow 10s ease-in-out infinite reverse;
-}
-.story-ring{
-  position:absolute;
-  right:clamp(18px,4vw,48px);
-  top:clamp(18px,3vw,36px);
-  width:clamp(72px,14vw,110px);
-  aspect-ratio:1;
-  border-radius:50%;
-  border:2px solid rgba(143,168,201,0.35);
-  box-shadow:inset 0 0 0 10px rgba(180,198,222,0.12);
-  animation:storyMark 7s ease-in-out infinite;
-}
-.story-arc{
-  position:absolute;
-  left:12%;
-  bottom:10%;
-  width:clamp(90px,18vw,140px);
-  height:clamp(46px,9vw,70px);
-  border:2px solid rgba(143,168,201,0.28);
-  border-top:none;
-  border-radius:0 0 120px 120px;
-  opacity:.9;
-}
-.story-spark{
-  position:absolute;
-  color:#8fa8c9;
-  line-height:1;
-  font-size:14px;
-  opacity:.75;
-  animation:storySpark 3.8s ease-in-out infinite;
-}
-.story-spark--1{top:18%;right:22%;font-size:16px;}
-.story-spark--2{top:58%;right:12%;font-size:12px;animation-delay:.8s;}
-.story-spark--3{bottom:28%;left:16%;font-size:13px;animation-delay:1.4s;}
-.story-heart{
-  position:absolute;
-  top:22%;
-  right:8%;
-  font-size:clamp(28px,5vw,40px);
-  color:rgba(143,168,201,0.28);
-  line-height:1;
-  animation:storyMark 6.5s ease-in-out infinite;
-}
-.story-dot-cluster{
-  position:absolute;
-  right:18%;
-  bottom:18%;
-  display:grid;
-  grid-template-columns:repeat(3,8px);
-  gap:7px;
-  opacity:.55;
-}
-.story-dot-cluster span{
-  display:block;
-  width:6px;
-  height:6px;
-  border-radius:50%;
-  background:#8fa8c9;
-}
-.story-dot-cluster span:nth-child(2),
-.story-dot-cluster span:nth-child(4){opacity:.55;}
-.story-dot-cluster span:nth-child(3),
-.story-dot-cluster span:nth-child(6){opacity:.3;}
-.story-glow{
-  position:absolute;
-  width:min(60%,300px);
-  aspect-ratio:1;
-  left:35%;
-  top:-30%;
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(180,198,222,0.28) 0%,transparent 70%);
-  pointer-events:none;
-  z-index:0;
-  animation:storyGlow 8s ease-in-out infinite;
-}
-.story-quote-mark{
-  position:absolute;
-  top:clamp(4px,1vw,10px);
-  left:clamp(10px,2vw,22px);
-  font-family:Georgia,"Times New Roman",serif;
-  font-size:clamp(100px,17vw,152px);
-  line-height:0.75;
-  color:rgba(143,168,201,0.42);
-  pointer-events:none;
-  z-index:0;
-  user-select:none;
-  animation:storyMark 6s ease-in-out infinite;
+  background-color:#9b2d6b;
+  background-image:url('../assets/heymaa-story-bg.jpg');
+  background-size:cover;
+  background-position:center;
+  box-shadow:0 16px 40px rgba(155,45,107,0.28);
+  color:#fff;
 }
 .testimonial-nav{
   width:44px;
@@ -821,20 +709,22 @@ body{font-family:var(--font-sans);background:var(--cream);}
   min-width:44px;
   min-height:44px;
   border-radius:50%;
-  border:1.5px solid rgba(143,168,201,0.55);
-  background:#fff;
-  color:#7a96ba;
+  border:1.5px solid rgba(255,255,255,0.55);
+  background:rgba(255,255,255,0.18);
+  color:#fff;
   display:flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
   flex-shrink:0;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
   transition:background .15s,border-color .15s,color .15s,transform .15s;
 }
 .testimonial-nav:hover{
-  background:rgba(180,198,222,0.25);
-  border-color:#7a96ba;
-  color:var(--navy);
+  background:rgba(255,255,255,0.32);
+  border-color:rgba(255,255,255,0.85);
+  color:#fff;
   transform:scale(1.04);
 }
 .testimonial-nav i{font-size:16px;line-height:1;}
@@ -857,28 +747,30 @@ body{font-family:var(--font-sans);background:var(--cream);}
 .testimonial-stars{
   font-size:20px;
   letter-spacing:3px;
-  color:#8fa8c9;
+  color:#fff;
   margin-bottom:12px;
   line-height:1;
+  text-shadow:0 1px 8px rgba(80,20,60,0.35);
 }
 .testimonial-quote{
   font-family:var(--font-sans);
   font-size:clamp(14px,1.8vw,16px);
   font-style:normal;
   font-weight:500;
-  color:var(--navy);
+  color:#fff;
   line-height:1.55;
   margin-bottom:18px;
   letter-spacing:-0.01em;
+  text-shadow:0 1px 10px rgba(80,20,60,0.4);
 }
 .testimonial-author{display:flex;align-items:center;gap:12px;}
 .testimonial-avatar{
   width:42px;
   height:42px;
   border-radius:50%;
-  background:rgba(180,198,222,0.35);
-  color:var(--navy);
-  border:2px solid rgba(143,168,201,0.65);
+  background:rgba(255,255,255,0.22);
+  color:#fff;
+  border:2px solid rgba(255,255,255,0.7);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -887,8 +779,19 @@ body{font-family:var(--font-sans);background:var(--cream);}
   flex-shrink:0;
 }
 .testimonial-meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.testimonial-name{font-size:14px;font-weight:600;color:var(--navy);line-height:1.3;}
-.testimonial-location{font-size:12px;color:rgba(43,58,103,0.55);line-height:1.3;}
+.testimonial-name{
+  font-size:14px;
+  font-weight:600;
+  color:#fff;
+  line-height:1.3;
+  text-shadow:0 1px 8px rgba(80,20,60,0.35);
+}
+.testimonial-location{
+  font-size:12px;
+  color:rgba(255,255,255,0.78);
+  line-height:1.3;
+  text-shadow:0 1px 6px rgba(80,20,60,0.3);
+}
 .testimonial-dots{
   position:relative;
   z-index:1;
@@ -903,46 +806,22 @@ body{font-family:var(--font-sans);background:var(--cream);}
   padding:0;
   border:none;
   border-radius:999px;
-  background:rgba(43,58,103,0.18);
+  background:rgba(255,255,255,0.35);
   cursor:pointer;
   transition:width .2s,background .2s;
 }
 .testimonial-dot.is-active{
   width:22px;
-  background:#8fa8c9;
+  background:#fff;
 }
-.testimonial-dot:hover{background:rgba(143,168,201,0.65);}
-.testimonial-dot.is-active:hover{background:#8fa8c9;}
-@keyframes storyGlow{
-  0%,100%{opacity:.7;transform:translate(0,0) scale(1);}
-  50%{opacity:1;transform:translate(8%,-6%) scale(1.08);}
-}
-@keyframes storyMark{
-  0%,100%{transform:translateY(0);}
-  50%{transform:translateY(4px);}
-}
+.testimonial-dot:hover{background:rgba(255,255,255,0.65);}
+.testimonial-dot.is-active:hover{background:#fff;}
 @keyframes storyRise{
   from{opacity:0;transform:translateY(10px);}
   to{opacity:1;transform:translateY(0);}
 }
-@keyframes storySpark{
-  0%,100%{opacity:.45;transform:scale(1);}
-  50%{opacity:.95;transform:scale(1.15);}
-}
 @media (prefers-reduced-motion:reduce){
-  .story-glow,
-  .story-blob,
-  .story-ring,
-  .story-heart,
-  .story-spark,
-  .story-quote-mark,
   .testimonial-copy{animation:none;}
-}
-@media (max-width:699px){
-  .story-ring{width:64px;top:14px;right:14px;}
-  .story-heart{font-size:26px;top:18%;}
-  .story-arc{left:8%;bottom:8%;}
-  .story-dot-cluster{right:12%;bottom:14%;}
 }
 .pricing-section.section{max-width:var(--landing-content-max);}
 #landing-page #page > .pricing-section + .safety-section{padding-top:20px;}
@@ -1333,12 +1212,6 @@ button.plan-radio:focus-visible{outline:2px solid rgba(42,42,90,0.45);outline-of
   .safety-icon,
   .safety-panel-glow,
   .safety-point,
-  .story-glow,
-  .story-blob,
-  .story-ring,
-  .story-heart,
-  .story-spark,
-  .story-quote-mark,
   .testimonial-copy,
   .testimonial-stars,
   .testimonial-avatar,

@@ -542,23 +542,6 @@ export default function Home() {
 
         <div className="section story-section">
           <div className="story-stage hm-reveal">
-            <div className="story-deco" aria-hidden="true">
-              <span className="story-blob story-blob--tl" />
-              <span className="story-blob story-blob--br" />
-              <span className="story-ring" />
-              <span className="story-arc" />
-              <span className="story-spark story-spark--1">✦</span>
-              <span className="story-spark story-spark--2">✦</span>
-              <span className="story-spark story-spark--3">✧</span>
-              <span className="story-heart">♡</span>
-              <span className="story-dot-cluster">
-                <span /><span /><span /><span /><span /><span />
-              </span>
-            </div>
-            <span className="story-quote-mark" aria-hidden="true">
-              “
-            </span>
-            <div className="story-glow" aria-hidden="true" />
             <div className="testimonial-carousel">
               <button
                 type="button"

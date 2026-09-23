@@ -16,11 +16,12 @@ function RailIcon({ children }: { children: ReactNode }) {
   );
 }
 
-function IconSquarePen() {
+function IconCirclePlus() {
+  // Circle + plus reads more clearly as “new conversation” than a pen.
   return (
     <RailIcon>
-      <path d="M12 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" {...stroke} />
-      <path d="M16.5 3.5a1.8 1.8 0 0 1 2.5 2.5L12 13l-3.2.7.7-3.2 6.99-7Z" {...stroke} />
+      <circle cx="12" cy="12" r="9" {...stroke} />
+      <path d="M12 8v8M8 12h8" {...stroke} />
     </RailIcon>
   );
 }
@@ -72,7 +73,7 @@ export function ChatIconRail({
   newChatDisabled?: boolean;
 }) {
   const items: RailItem[] = [
-    { key: "new", label: newChatLabel, onClick: onNewChat, disabled: newChatDisabled, icon: <IconSquarePen /> },
+    { key: "new", label: newChatLabel, onClick: onNewChat, disabled: newChatDisabled, icon: <IconCirclePlus /> },
     { key: "search", label: searchLabel, onClick: onSearch, icon: <IconSearch /> },
     { key: "library", label: libraryLabel, onClick: onLibrary, icon: <IconImages /> },
   ];

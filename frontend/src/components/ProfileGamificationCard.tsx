@@ -5,10 +5,16 @@ import {
   GAMIFICATION_LEVELS,
   getReferralBonusPoints,
   levelEmoji,
+  levelRewardsText,
 } from '../lib/gamificationCard'
 
 import type { PendingLevelReward } from '../lib/levelRewards'
-import { activeGrantMessage, effectiveRewardDescription, rewardTitle } from '../lib/levelRewards'
+import {
+  activeGrantMessage,
+  effectiveRewardDescription,
+  liveLevelPlanRewards,
+  rewardTitle,
+} from '../lib/levelRewards'
 import { IconCopy, IconShare } from './ui/LineIcons'
 
 type Props = {
@@ -22,7 +28,7 @@ type Props = {
   onClaimPending?: () => void
   showHeaderChip?: boolean
   onToggleHeaderChip?: () => void
-  onOpenFaq?: () => void
+  onOpenFaq?: (topic: 'points' | 'levels') => void
 }
 
 const RING_R = 38
@@ -50,6 +56,21 @@ export function ProfileGamificationCard({
   const dashOffset = RING_C * (1 - pct / 100)
   const grantActive = Boolean(activeGrantEndsAt && activeGrantPlan)
   const nextName = next_level ? levelName(next_level, lang) : null
+
+  const nextGiftDescription = (() => {
+    if (level.is_max || !next_level) return null
+    const row = liveLevelPlanRewards().find((r) => r.levelId === next_level.number)
+    if (row) {
+      return effectiveRewardDescription(
+        { level_id: row.levelId, plan_slot: row.planSlot, days: row.days },
+        lang,
+        currentPlanSlot,
+      )
+    }
+    const fallback = levelRewardsText(next_level.number, lang)
+    if (/Χωρίς δώρο|No gift/i.test(fallback)) return null
+    return fallback
+  })()
 
   const flashReferral = (message: string) => {
     setReferralFeedback(message)
@@ -185,6 +206,22 @@ export function ProfileGamificationCard({
           </button>
         ) : null}
 
+        {nextGiftDescription && nextName ? (
+          <div className="hm-profile-gamification-card__next-gift" role="status">
+            <span className="hm-profile-gamification-card__next-gift-icon" aria-hidden="true">✨</span>
+            <span className="hm-profile-gamification-card__next-gift-copy">
+              <span className="hm-profile-gamification-card__next-gift-title">
+                {isEl ? `Δώρο στο «${nextName}»` : `Gift at “${nextName}”`}
+              </span>
+              <span className="hm-profile-gamification-card__next-gift-sub">
+                {isEl
+                  ? `Φτάσε εκεί και κέρδισε ${nextGiftDescription}.`
+                  : `Reach it and earn ${nextGiftDescription}.`}
+              </span>
+            </span>
+          </div>
+        ) : null}
+
         {grantActive ? (
           <p className="hm-profile-gamification-card__grant">
             {activeGrantMessage(activeGrantPlan as string, activeGrantEndsAt as string, lang)}
@@ -199,9 +236,22 @@ export function ProfileGamificationCard({
             </span>
           ))}
           {onOpenFaq ? (
-            <button type="button" className="hm-profile-gamification-card__faq-link" onClick={onOpenFaq}>
-              {isEl ? 'Πώς κερδίζεις πόντους;' : 'How do points work?'}
-            </button>
+            <>
+              <button
+                type="button"
+                className="hm-profile-gamification-card__faq-link"
+                onClick={() => onOpenFaq('points')}
+              >
+                {isEl ? 'Πώς κερδίζεις πόντους;' : 'How do points work?'}
+              </button>
+              <button
+                type="button"
+                className="hm-profile-gamification-card__faq-link"
+                onClick={() => onOpenFaq('levels')}
+              >
+                {isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?'}
+              </button>
+            </>
           ) : null}
         </div>
 
