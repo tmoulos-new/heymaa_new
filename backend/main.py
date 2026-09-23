@@ -3701,45 +3701,70 @@ def current_auth_session(request: Request, x_token: Optional[str] = Header(None)
     session = _refresh_user_session(refresh)
     return _auth_json_response(session)
 
-SUBSCRIPTION_CANCEL_KEY = "subscription_cancel_requested"
-
 @app.post("/auth/cancel-subscription")
 def cancel_subscription_request(x_token: Optional[str] = Header(None)):
-    """Record a cancellation request; paid access continues until the billing period ends."""
+    """Record a cancellation request for admin review; access continues until period end."""
     if not ensure_supabase():
         raise HTTPException(status_code=500, detail=_db_unavailable_detail())
     auth = resolve_auth(x_token)
     if auth.get("kind") != "user" or not auth.get("user_id"):
         raise HTTPException(status_code=403, detail="Registered account required.")
     user_id = auth["user_id"]
-    res = sb.table("users").select("plan,subscription_status,email,name").eq("id", user_id).execute()
+    try:
+        from .subscription_cancel import (
+            get_cancel_row,
+            upsert_cancel_record,
+            cancel_snapshot_fields,
+        )
+    except ImportError:
+        from subscription_cancel import (
+            get_cancel_row,
+            upsert_cancel_record,
+            cancel_snapshot_fields,
+        )
+    res = (
+        sb.table("users")
+        .select("plan,plan_id,subscription_status,subscription_ends_at,email,name")
+        .eq("id", user_id)
+        .execute()
+    )
     if not res.data:
         raise HTTPException(status_code=404, detail="User not found.")
     row = res.data[0]
     status = (row.get("subscription_status") or "").lower()
-    plan = (row.get("plan") or "").lower()
+    plan = (row.get("plan") or row.get("plan_id") or "").lower()
     if status != "active" or plan in ("", "trial"):
         raise HTTPException(status_code=400, detail="No active paid subscription to cancel.")
+    existing = get_cancel_row(sb, user_id)
+    if existing and (existing.get("record") or {}).get("status") == "approved":
+        snap = cancel_snapshot_fields(existing)
+        return {
+            "ok": True,
+            "cancel_requested": True,
+            "cancel_status": "approved",
+            "cancel_access_until": snap.get("cancel_access_until") or row.get("subscription_ends_at"),
+            "message": "Cancellation already confirmed. You keep access until the end of your billing period.",
+        }
+    if existing and (existing.get("record") or {}).get("status") == "pending":
+        snap = cancel_snapshot_fields(existing)
+        return {
+            "ok": True,
+            "cancel_requested": True,
+            "cancel_status": "pending",
+            "cancel_access_until": snap.get("cancel_access_until") or row.get("subscription_ends_at"),
+            "message": "Cancellation request already pending admin review.",
+        }
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     cancel_payload = {
+        "status": "pending",
         "requested_at": now,
         "plan": plan,
         "email": row.get("email"),
         "name": row.get("name"),
+        "subscription_ends_at": row.get("subscription_ends_at"),
     }
-    existing = (
-        sb.table("user_data")
-        .select("key")
-        .eq("user_id", user_id)
-        .eq("key", SUBSCRIPTION_CANCEL_KEY)
-        .execute()
-    )
-    fields = {"key": SUBSCRIPTION_CANCEL_KEY, "value": cancel_payload, "updated_at": now}
-    if existing.data:
-        sb.table("user_data").update(fields).eq("user_id", user_id).eq("key", SUBSCRIPTION_CANCEL_KEY).execute()
-    else:
-        sb.table("user_data").insert({**fields, "user_id": user_id}).execute()
+    upsert_cancel_record(sb, user_id, cancel_payload)
     if RESEND_API_KEY:
         try:
             try:
@@ -3750,10 +3775,12 @@ def cancel_subscription_request(x_token: Optional[str] = Header(None)):
             cancel_msg = EmailMessage(
                 subject=f"HeyMaa cancel request — {row.get('email') or user_id}",
                 html=(
-                    f"<p>User requested subscription cancellation.</p>"
+                    f"<p>User requested subscription cancellation (pending admin review).</p>"
                     f"<p>Email: {row.get('email')}</p>"
                     f"<p>Plan: {plan}</p>"
+                    f"<p>Current period ends: {row.get('subscription_ends_at') or 'not set'}</p>"
                     f"<p>Requested at: {now}</p>"
+                    f"<p>Review in Admin → Cancellations.</p>"
                 ),
             )
             send_email(
@@ -3767,7 +3794,9 @@ def cancel_subscription_request(x_token: Optional[str] = Header(None)):
     return {
         "ok": True,
         "cancel_requested": True,
-        "message": "Cancellation request received. You keep access until the end of your billing period.",
+        "cancel_status": "pending",
+        "cancel_access_until": row.get("subscription_ends_at"),
+        "message": "Cancellation request received. Our team will confirm. You keep access until the end of your billing period.",
     }
 
 @app.get('/auth/me')
@@ -7415,6 +7444,204 @@ async def admin_set_user_trial(user_id: str, body: UserTrialUpdate, x_token: Opt
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class SubscriptionCancelAction(BaseModel):
+    """Admin cancel decision. mode: period_end (default) | immediate."""
+    mode: Optional[str] = "period_end"
+    note: Optional[str] = None
+
+
+@app.get("/admin/subscription-cancellations")
+async def admin_list_subscription_cancellations(
+    status: Optional[str] = Query("pending"),
+    x_token: Optional[str] = Header(None),
+):
+    verify_admin(x_token)
+    if not sb:
+        return {"requests": []}
+    try:
+        from .subscription_cancel import list_cancel_requests
+    except ImportError:
+        from subscription_cancel import list_cancel_requests
+    status_filter = (status or "pending").strip().lower() or "pending"
+    if status_filter not in ("pending", "approved", "dismissed", "all"):
+        raise HTTPException(status_code=400, detail="status must be pending, approved, dismissed, or all")
+    return {"requests": list_cancel_requests(sb, status_filter=status_filter)}
+
+
+@app.post("/admin/users/{user_id}/subscription-cancel/approve")
+async def admin_approve_subscription_cancel(
+    user_id: str,
+    body: Optional[SubscriptionCancelAction] = None,
+    x_token: Optional[str] = Header(None),
+):
+    """Approve cancel: keep access until period end, or end immediately (refunds)."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    body = body or SubscriptionCancelAction()
+    mode = (body.mode or "period_end").strip().lower()
+    if mode not in ("period_end", "immediate"):
+        raise HTTPException(status_code=400, detail="mode must be period_end or immediate")
+    try:
+        from .subscription_cancel import (
+            get_cancel_row,
+            upsert_cancel_record,
+            ensure_subscription_ends_at,
+        )
+    except ImportError:
+        from subscription_cancel import (
+            get_cancel_row,
+            upsert_cancel_record,
+            ensure_subscription_ends_at,
+        )
+    from datetime import datetime, timezone
+
+    ures = (
+        sb.table("users")
+        .select("id,email,name,plan,plan_id,subscription_status,subscription_ends_at")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not ures.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = ures.data[0]
+    plan = user.get("plan") or user.get("plan_id") or "starter"
+    cancel_row = get_cancel_row(sb, user_id)
+    record = dict((cancel_row or {}).get("record") or {})
+    now = datetime.now(timezone.utc).isoformat()
+    before_snap = _user_log_snapshot(user_id)
+
+    if not record.get("requested_at"):
+        record["requested_at"] = now
+        record["plan"] = plan
+        record["email"] = user.get("email")
+        record["name"] = user.get("name")
+        record["admin_initiated"] = True
+
+    if mode == "immediate":
+        ends = now
+        sb.table("users").update(
+            {
+                "subscription_status": "cancelled",
+                "subscription_ends_at": ends,
+            }
+        ).eq("id", user_id).execute()
+        record.update(
+            {
+                "status": "approved",
+                "immediate": True,
+                "approved_at": now,
+                "approved_by": admin_id,
+                "access_until": ends,
+                "note": (body.note or "").strip() or None,
+            }
+        )
+    else:
+        ends = ensure_subscription_ends_at(sb, user_id, str(plan))
+        record.update(
+            {
+                "status": "approved",
+                "immediate": False,
+                "approved_at": now,
+                "approved_by": admin_id,
+                "access_until": ends,
+                "subscription_ends_at": ends,
+                "note": (body.note or "").strip() or None,
+            }
+        )
+    upsert_cancel_record(sb, user_id, record)
+    after_snap = _user_log_snapshot(user_id)
+    _log_activity(
+        admin_id,
+        "approve_subscription_cancel",
+        "user",
+        user_id,
+        details={"mode": mode, "access_until": ends},
+        value_before=before_snap,
+        value_after=after_snap,
+    )
+
+    if RESEND_API_KEY and user.get("email"):
+        try:
+            try:
+                from .email_templates import EmailMessage, send_email
+            except ImportError:
+                from email_templates import EmailMessage, send_email
+            if mode == "immediate":
+                body_html = (
+                    "<p>Your HeyMaa subscription has been cancelled.</p>"
+                    "<p>Access ended immediately. For refund questions, reply to this email or contact info@heymaa.ai.</p>"
+                )
+            else:
+                body_html = (
+                    "<p>Your HeyMaa cancellation request was confirmed.</p>"
+                    f"<p>You keep access until <strong>{ends}</strong>. There is no further automatic charge for this period.</p>"
+                    "<p>Questions? Contact info@heymaa.ai or +30 2109287420.</p>"
+                )
+            send_email(
+                api_key=RESEND_API_KEY,
+                from_address=RESEND_FROM,
+                to=user["email"],
+                message=EmailMessage(
+                    subject="HeyMaa — subscription cancellation confirmed",
+                    html=body_html,
+                ),
+            )
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "cancel_status": "approved",
+        "mode": mode,
+        "access_until": ends,
+        "subscription_status": "cancelled" if mode == "immediate" else user.get("subscription_status"),
+    }
+
+
+@app.post("/admin/users/{user_id}/subscription-cancel/dismiss")
+async def admin_dismiss_subscription_cancel(
+    user_id: str,
+    body: Optional[SubscriptionCancelAction] = None,
+    x_token: Optional[str] = Header(None),
+):
+    """Dismiss a pending cancel request so the subscription continues."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    body = body or SubscriptionCancelAction()
+    try:
+        from .subscription_cancel import get_cancel_row, upsert_cancel_record
+    except ImportError:
+        from subscription_cancel import get_cancel_row, upsert_cancel_record
+    from datetime import datetime, timezone
+
+    cancel_row = get_cancel_row(sb, user_id)
+    if not cancel_row:
+        raise HTTPException(status_code=404, detail="No cancellation request for this user")
+    record = dict(cancel_row.get("record") or {})
+    now = datetime.now(timezone.utc).isoformat()
+    record.update(
+        {
+            "status": "dismissed",
+            "dismissed_at": now,
+            "dismissed_by": admin_id,
+            "note": (body.note or "").strip() or None,
+        }
+    )
+    upsert_cancel_record(sb, user_id, record)
+    _log_activity(
+        admin_id,
+        "dismiss_subscription_cancel",
+        "user",
+        user_id,
+        details={"note": body.note},
+        value_before={"status": cancel_row.get("record", {}).get("status")},
+        value_after={"status": "dismissed"},
+    )
+    return {"ok": True, "cancel_status": "dismissed"}
 
 @app.patch("/admin/users/{user_id}/role")
 async def admin_set_user_role(user_id: str, body: UserRoleUpdate, x_token: Optional[str] = Header(None)):

@@ -5,6 +5,25 @@ import { PRIVACY_URL, TERMS_URL } from '../auth/authStrings'
 import { displayUppercase } from '../lib/greekText'
 import { homeDisplayLocale } from '../i18n'
 
+function FooterAboutText({ text }: { text: string }) {
+  const parts = text.split(/<\/?company>/)
+  if (parts.length !== 3) return <>{text}</>
+  return (
+    <>
+      {parts[0]}
+      <a
+        className="footer-about-link"
+        href="https://caredirect.com"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {parts[1]}
+      </a>
+      {parts[2]}
+    </>
+  )
+}
+
 export function SiteFooter({
   contentLang,
   landingLng,
@@ -36,7 +55,25 @@ export function SiteFooter({
                 Hey<span>Maa</span>
               </span>
             </div>
-            <p className="footer-about-text">{t('footer.about')}</p>
+            <p className="footer-about-text">
+              <FooterAboutText text={String(t('footer.about'))} />
+            </p>
+            <div className="footer-social">
+              <a
+                className="footer-social-link"
+                href="https://www.facebook.com/heymaaAI/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('footer.facebook')}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M14.5 8.5V6.8c0-.7.1-1.1 1.2-1.1H17V3h-2.4C11.8 3 11 4.6 11 6.6v1.9H9v2.8h2V21h3.5v-9.7h2.4l.4-2.8h-2.8z"
+                  />
+                </svg>
+              </a>
+            </div>
           </div>
 
           <div className="footer-col">

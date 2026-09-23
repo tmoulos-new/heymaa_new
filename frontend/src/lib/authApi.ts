@@ -182,6 +182,8 @@ export type SubscriptionSnapshot = {
   entitlements?: PlanEntitlements
   voice_quota?: VoiceQuota
   cancel_requested?: boolean
+  cancel_status?: 'pending' | 'approved' | 'dismissed' | string | null
+  cancel_access_until?: string | null
   access_ends_at?: string | null
   rewards?: import('./levelRewards').RewardsSnapshot
   active_plan_grants?: import('./levelRewards').ActivePlanGrant[]
@@ -376,11 +378,13 @@ export async function restoreAuthSession(): Promise<string | null> {
 }
 
 export async function requestSubscriptionCancel(token: string) {
-  const res = await axios.post<{ ok: boolean; cancel_requested?: boolean; message?: string }>(
-    `${API}/auth/cancel-subscription`,
-    {},
-    { headers: { 'x-token': token } },
-  )
+  const res = await axios.post<{
+    ok: boolean
+    cancel_requested?: boolean
+    cancel_status?: string
+    cancel_access_until?: string | null
+    message?: string
+  }>(`${API}/auth/cancel-subscription`, {}, { headers: { 'x-token': token } })
   return res.data
 }
 

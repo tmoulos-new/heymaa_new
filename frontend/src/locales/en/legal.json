@@ -1,107 +1,213 @@
-{
+﻿{
   "cookie": {
     "title": "Cookies & privacy",
-    "body": "We use essential cookies/session storage for sign-in and optional anonymous statistics (Google Analytics) to improve the app. See our",
-    "privacyLink": "Privacy Policy",
+    "body": "We use essential cookies/session storage for sign-in and app operation, and optional statistics cookies (Google Analytics) to improve HeyMaa. You can accept all or essential-only. Details in our",
+    "privacyLink": "Privacy Policy (Cookies section)",
     "accept": "Accept all",
     "reject": "Essential only"
   },
   "shell": {
     "home": "Home",
-    "relatedTerms": "Terms & Conditions",
-    "relatedPrivacy": "Privacy Policy",
+    "relatedTerms": "Terms & Conditions of Use",
+    "relatedPrivacy": "Privacy & Data Protection Policy",
     "backSignup": "Back to sign up"
   },
-  "notice": "Full legal text is shown in English. A complete Greek version is available when your app language is Greek.",
+  "notice": "",
   "terms": {
-    "title": "Terms & Conditions",
+    "title": "Terms & Conditions of Use",
     "sections": [
       {
-        "heading": "1. Nature of the Service",
+        "heading": "1. Introduction – Service Provider",
         "paragraphs": [
-          "HeyMaa is a digital assistant (chatbot/web interface) that provides information, guidance, and support through interaction 24 hours a day, seven days a week. The service is designed for general use and is not intended for specialized matters requiring professional intervention, such as medical diagnoses, prescriptions, legal or financial advice, or any matter that may put your health, safety, rights, or property at risk."
+          "The HeyMaa application and website (heymaa.ai and related subdomains, the \"Service\" or \"HeyMaa\") are provided by CARE DIRECT S.A. (\"Care Direct\" or the \"Company\"), established in Greece. Contact: info@heymaa.ai / info@caredirect.com, tel. +30 2109287420 (Support line, Monday–Friday 09:00–17:00), address Premetis 2, Agios Dimitrios, 173 42 Athens.",
+          "By accessing, registering for, or using HeyMaa you must carefully read these terms. Browsing or use means you have read and unreservedly accept them. If you disagree, please do not use the Service.",
+          "Care Direct may amend these terms. Continued use after published changes constitutes acceptance. You are encouraged to review this page periodically."
         ]
       },
       {
-        "heading": "2. Limitations & Disclaimers",
-        "list": [
-          "Answers provided through HeyMaa are based on programming, algorithms, and available data. There is no guarantee that this information is accurate, complete, or up to date.",
-          "Use of the information is solely at the user's initiative, who assumes full responsibility for any action based on it.",
-          "The service does not replace a professional (doctor, pharmacist, lawyer, advisor, etc.). For matters requiring specialized assessment, consult a qualified professional.",
-          "The service provider and its partners are not liable for direct or indirect damages, losses, or consequences arising from use or failure to use the service."
-        ]
-      },
-      {
-        "heading": "3. User Responsibility",
-        "list": [
-          "As a user/subscriber, you agree to use the service responsibly and in accordance with the law and ethical standards.",
-          "If you do not agree with any part of this text, please do not use the service."
-        ]
-      },
-      {
-        "heading": "4. Updates & Modifications",
-        "list": [
-          "Care Direct reserves the right to modify, suspend, or discontinue the service or any part of it without notice.",
-          "These terms may be updated from time to time. Continued use of the service constitutes acceptance of the changes."
-        ]
-      },
-      {
-        "heading": "5. Acceptable Use – Prohibitions",
-        "list": [
-          "Misuse of the service for illegal, harmful, misleading, or abusive actions is prohibited.",
-          "Submitting or sharing sensitive personal, business, or medical data through the interface is prohibited."
-        ]
-      },
-      {
-        "heading": "6. Applicable Law & Jurisdiction",
-        "list": [
-          "These terms are governed by the laws of the Hellenic Republic. Any dispute arising from use of the service shall be subject to the competent courts of Athens."
-        ]
-      },
-      {
-        "heading": "7. Contact",
+        "heading": "2. Nature of the HeyMaa Service",
         "paragraphs": [
-          "For questions or issues regarding HeyMaa or these terms, contact Care Direct at info@caredirect.com or tel. +30 210 928 7420 (Support line, Monday–Friday 09:00–17:00)."
+          "HeyMaa is a digital maternity assistant (chatbot / application) offering information, organisational tools, and support through chat, memories, family profile, milestones, and related features, on a 24/7 basis where technically available.",
+          "The Service is intended for general information and day-to-day organisation around pregnancy and parenthood. It is not intended for specialised needs requiring professional intervention, such as medical diagnosis, prescriptions, legal or financial advice, or any matter that may put your health, safety, rights, or property at risk."
+        ]
+      },
+      {
+        "heading": "3. Limitations & Disclaimers (medical / professional use)",
+        "list": [
+          "Answers are based on programming, AI models, and available data. There is no guarantee that information is always accurate, complete, or up to date.",
+          "Use of the information is at your own initiative and responsibility.",
+          "HeyMaa does not replace a doctor, midwife, paediatrician, pharmacist, or other healthcare professional. For symptoms, medication, child development, or any health concern, consult a qualified professional.",
+          "Care Direct and its partners are not liable for direct or indirect damages arising from use or non-use of the Service, to the extent permitted by law."
+        ]
+      },
+      {
+        "heading": "4. Registration, account & security",
+        "list": [
+          "Full use may require an account (e.g. email and password). You agree that the details you provide are true and that you will update them when they change.",
+          "You are responsible for safeguarding your credentials and for all activity under your account. Notify us promptly of any unauthorised use.",
+          "Care Direct may suspend or terminate access to an account that breaches these terms or the law, with or without prior notice where needed to protect the Service or third parties."
+        ]
+      },
+      {
+        "heading": "5. Intellectual property",
+        "paragraphs": [
+          "Content, trademarks, logos, design, software, and other elements of HeyMaa are the intellectual property of Care Direct or their lawful owners and are protected under Greek and EU law (including Law 2121/1993) and international conventions.",
+          "You are granted a personal, non-exclusive, non-transferable licence to use the Service for private, non-commercial purposes. Copying, modification, republication, commercial exploitation, or creation of derivative works without Care Direct’s prior written consent is prohibited, except where the law provides otherwise."
+        ]
+      },
+      {
+        "heading": "6. Acceptable use – Prohibitions",
+        "list": [
+          "Use the Service lawfully, in good faith, and in accordance with accepted standards of conduct.",
+          "Misuse for illegal, harmful, misleading, abusive, or aggressive acts is prohibited.",
+          "Submitting content that infringes third-party rights or contains malware is prohibited.",
+          "Attempts at unauthorised access, overload, or disruption of Service systems are prohibited.",
+          "Do not enter bank passwords, full third-party payment details, or other highly sensitive data that are not necessary for your account."
+        ]
+      },
+      {
+        "heading": "7. Subscriptions, trials & payments",
+        "paragraphs": [
+          "Some features may be offered under a free trial or paid plans. Applicable prices, duration, limits (e.g. voice replies, archived chats), and renewal terms appear in the app and on subscription pages at purchase.",
+          "Cancel a subscription using the options in the app (e.g. Settings → Subscription). Access may continue until the end of the already paid period, where applicable."
+        ]
+      },
+      {
+        "heading": "8. Personal data",
+        "paragraphs": [
+          "Processing of personal data is governed by the HeyMaa Privacy & Data Protection Policy, which forms an integral part of these terms."
+        ]
+      },
+      {
+        "heading": "9. Third-party links",
+        "paragraphs": [
+          "The Service may contain links to third-party websites. Care Direct does not control their content or policies and is not responsible for your use of them. Visiting third-party sites is at your own risk."
+        ]
+      },
+      {
+        "heading": "10. Availability & limitation of liability",
+        "list": [
+          "The Service is provided \"as is\" and \"as available\". We do not guarantee uninterrupted or error-free operation.",
+          "To the fullest extent permitted by law, Care Direct is not liable for indirect, incidental, or special damages arising from use of the Service.",
+          "Nothing in these terms excludes liability that cannot be excluded under mandatory law."
+        ]
+      },
+      {
+        "heading": "11. Applicable law & jurisdiction",
+        "paragraphs": [
+          "These terms are governed by the laws of the Hellenic Republic and applicable European Union law. The courts of Athens have jurisdiction, without prejudice to any consumer rights under mandatory provisions."
+        ]
+      },
+      {
+        "heading": "12. Contact",
+        "paragraphs": [
+          "For questions about HeyMaa or these terms: info@heymaa.ai or info@caredirect.com, tel. +30 2109287420 (Monday–Friday 09:00–17:00)."
         ]
       }
     ]
   },
   "privacy": {
-    "title": "Privacy Policy",
+    "title": "Privacy & Data Protection Policy",
     "sections": [
       {
-        "heading": "1. Personal Data, Security & Privacy",
-        "list": [
-          "By entering data in HeyMaa, you acknowledge that personal or non-personal data may be collected, stored, and processed in accordance with our Data Protection Policy.",
-          "The service is not a secure or fully private environment for highly sensitive information (such as medical data, financial details, passwords, or confidential business information).",
-          "We recommend not disclosing personal information that is not necessary."
-        ]
-      },
-      {
-        "heading": "2. Updates & Marketing",
-        "list": [
-          "With your consent, you may receive updates from Care Direct and its partners by email, phone, mail, or newsletters for market research and promotion of products and services.",
-          "Processing for these purposes is based on your consent or, where required, legitimate interest of Care Direct or its partners.",
-          "You may withdraw consent for marketing communications at any time."
-        ]
-      },
-      {
-        "heading": "3. Data Protection",
+        "heading": "1. Data controller",
         "paragraphs": [
-          "CARE DIRECT S.A. (\"Care Direct\" or the \"Company\") recognizes the importance of safeguarding personal data and is committed to protecting visitors' and users' information in accordance with Greek Law 4624/2019 and the GDPR (Regulation (EU) 2016/679).",
-          "Care Direct does not collect personal data unless you provide it voluntarily.",
-          "Browsing the website does not require sharing personal data. Technical data transferred automatically to the web server (such as ISP name, referring pages, pages visited, or IP address) is used for statistical purposes only and the user remains anonymous.",
-          "If you accept optional analytics cookies, we load Google Analytics (Google Ireland Limited / Google LLC, measurement ID G-JDCYL7LLHS) to measure site usage. This may transfer technical data to the United States with appropriate safeguards. You can refuse these cookies and still use the site.",
-          "You provide personal data only if you wish to register for Care Direct services. In that case, you agree that the information you provide is complete, accurate, and true, and that you will update it when it changes.",
-          "Required fields include, indicatively: username, email address, password, member role (e.g. parent, expectant mother), child date(s) of birth, child gender.",
-          "Optional fields may include: first name, last name, address, phone, date of birth, marital status, profession, etc.",
-          "By accepting the terms of use, you may accept newsletters, SMS, phone updates, and postal material from Care Direct and its partners (MATTEL AEBE, FREZYDERM ABEE, Dcode EPE, QED EPE, MAM HELLAS EPE, Procter & Gamble Hellas MEPE, ESSITY HELLAS AE, LEGO System A/S, SEPTONA A.E., MARS HELLAS AEE FOODS) for research and promotion of products and services.",
-          "Visitors are not obliged to complete the above fields. However, without required data, registration as a member is not possible and you may only browse as a guest.",
-          "Care Direct processes personal data based on your consent or legitimate interest. Analytical methods such as profiling may be used to assess interests. Data is retained as long as necessary for these purposes and may be transferred outside the EU (e.g. USA) with appropriate safeguards.",
-          "Users have the right of access, rectification, erasure, restriction, objection, portability, and the right to lodge a complaint with the supervisory authority."
+          "The controller of personal data collected through HeyMaa is CARE DIRECT S.A. (\"Care Direct\"). Contact: info@heymaa.ai / info@caredirect.com, tel. +30 2109287420, Premetis 2, Agios Dimitrios, 173 42 Athens.",
+          "Care Direct is committed to complying with Regulation (EU) 2016/679 (GDPR) and Greek Law 4624/2019, as applicable."
+        ]
+      },
+      {
+        "heading": "2. Scope",
+        "paragraphs": [
+          "This policy applies to the HeyMaa website and application. It explains what data we collect, for which purposes, on which legal basis, with whom it may be shared, and what your rights are.",
+          "Browsing without an account does not necessarily require you to identify yourself. Certain technical data (e.g. IP address, browser type) may be recorded automatically for operation, security, and —with your consent— statistics."
+        ]
+      },
+      {
+        "heading": "3. What data we collect",
+        "list": [
+          "Account details: email, password (stored with secure hashing), display name, and language preferences.",
+          "Family / maternity profile: information you provide (e.g. role, children’s dates of birth, profile photos, family members).",
+          "Service content: chats with HeyMaa, memories, milestones, document notes, uploads, archived conversations — to the extent you create or store them in the app.",
+          "Subscription & transactions: plan/trial status and related payment identifiers from the payment provider (HeyMaa does not store full card details where payment is handled by an external provider).",
+          "Technical / usage: logs, device/session identifiers, data from essential cookies, and —if you accept— Google Analytics data.",
+          "Communications: messages you send us (e.g. support email) and consent choices for Care Direct updates/offers, where applicable."
+        ]
+      },
+      {
+        "heading": "4. Purposes & legal bases",
+        "list": [
+          "Providing and improving the Service (performance of a contract / pre-contractual steps).",
+          "Account security, fraud prevention, and technical maintenance (legitimate interest and/or contract).",
+          "Managing subscriptions and payments (contract and legal obligation where applicable).",
+          "Support responses (contract / legitimate interest).",
+          "Optional usage statistics via Google Analytics (consent via the cookie banner).",
+          "Commercial/informational communications from Care Direct and partner companies (consent; you may withdraw it at any time)."
+        ]
+      },
+      {
+        "heading": "5. Sensitive data & care when using chat",
+        "paragraphs": [
+          "HeyMaa is not an environment for safely storing highly sensitive information that is not necessary (e.g. full third-party medical records, bank passwords). We recommend not disclosing more than you need to use the app.",
+          "If you include health data or other special-category data in your chats or memories, processing takes place in the context of providing the Service you request and on the relevant legal basis (e.g. consent or manifestly made public by you), where applicable."
+        ]
+      },
+      {
+        "heading": "6. Recipients & transfers",
+        "paragraphs": [
+          "Data may be processed by providers that support us under instruction (hosting, databases, email, payments, LLM models for chat replies), under contractual confidentiality and security commitments.",
+          "For marketing with your consent, recipients may include Care Direct partner companies. The partner list is available at caredirect.com/partners.aspx.",
+          "If you accept statistics cookies, Google Analytics is loaded (Google Ireland Limited / Google LLC, measurement ID G-JDCYL7LLHS). Technical data may be transferred outside the EEA (e.g. USA) with appropriate safeguards (e.g. EU standard contractual clauses / equivalent measures).",
+          "Care Direct takes steps to protect data; however, the internet involves inherent risks. Do not send information you wish to keep confidential via unencrypted email."
         ],
         "htmlParagraphs": [
-          "The full list of partner companies is available at <a href=\"https://www.caredirect.com/partners.aspx\" target=\"_blank\" rel=\"noopener noreferrer\">www.caredirect.com/partners.aspx</a>."
+          "Full list of partner companies: <a href=\"https://www.caredirect.com/partners.aspx\" target=\"_blank\" rel=\"noopener noreferrer\">www.caredirect.com/partners.aspx</a>."
+        ]
+      },
+      {
+        "heading": "7. Retention",
+        "paragraphs": [
+          "We retain data as long as needed for the purposes for which it was collected (providing the account and Service, legal obligations, dispute resolution) or until you exercise a right of erasure/withdrawal, where applicable.",
+          "After account deletion, data is deleted or anonymised within a reasonable period, unless longer retention is required by law."
+        ]
+      },
+      {
+        "heading": "8. Your rights",
+        "list": [
+          "Access, rectification, erasure (\"right to be forgotten\"), restriction, objection, portability — under the GDPR.",
+          "Withdrawal of consent (e.g. marketing or analytics cookies) without affecting the lawfulness of processing before withdrawal.",
+          "In the app: data export and account deletion under Settings → Privacy & data, where available.",
+          "Requests and support: info@heymaa.ai or info@caredirect.com.",
+          "Complaint to the Hellenic Data Protection Authority (www.dpa.gr)."
+        ]
+      },
+      {
+        "heading": "9. Account security",
+        "paragraphs": [
+          "You are responsible for activity under your credentials. Use a strong password and sign out on shared devices. Notify us if you suspect a breach."
+        ]
+      },
+      {
+        "heading": "10. Cookie Policy",
+        "id": "cookies",
+        "paragraphs": [
+          "Cookies are small text files stored on your device. They do not \"read\" other files on your computer. On HeyMaa we use:",
+          "Essential cookies / session storage: for sign-in, security, language preferences, and basic operation. Without them the Service may not work correctly.",
+          "Optional statistics cookies: Google Analytics (G-JDCYL7LLHS) to understand website/app usage for improvements. These activate only if you choose \"Accept all\" on the banner.",
+          "You may change browser settings to block or delete cookies. If you block essential cookies, some features (e.g. staying signed in) may be unavailable.",
+          "Consent for optional cookies may be given or refused via the banner on your first visit. More on data processing is set out in the rest of this Privacy Policy."
+        ]
+      },
+      {
+        "heading": "11. Policy updates",
+        "paragraphs": [
+          "We may update this policy. The current version is published on this page. Material changes may also be notified in the app or by email, where appropriate."
+        ]
+      },
+      {
+        "heading": "12. Contact",
+        "paragraphs": [
+          "For personal data and cookie matters: info@heymaa.ai / info@caredirect.com, tel. +30 2109287420 (Monday–Friday 09:00–17:00)."
         ]
       }
     ]

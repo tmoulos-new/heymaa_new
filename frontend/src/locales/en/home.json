@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "signIn": "Sign in",
     "demo": "Start free",
@@ -18,6 +18,7 @@
     "title": "Every moment that<br>deserves to be <em>remembered</em>.",
     "subtitle": "Write, speak or send a photo. HeyMaa organises your memories, records your children's development, and is always with you — no stress, no pressure.",
     "cta": "See how it works",
+    "scrollDown": "Scroll down",
     "pillLanguages": "2 languages"
   },
   "whatIs": {
@@ -281,7 +282,7 @@
       },
       {
         "question": "What happens when the trial ends?",
-        "answer": "If you don't upgrade, app access stops. You'll get a reminder before expiry. Choose a plan from Settings → Subscription or contact us at info@heymaa.ai or the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
+        "answer": "If you don't upgrade, app access stops. You'll get a reminder before expiry. Choose a plan from Settings → Subscription or contact us at info@heymaa.ai or the Support line +30 2109287420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "Does HeyMaa give medical advice?",
@@ -289,7 +290,7 @@
       },
       {
         "question": "How do I cancel my subscription?",
-        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
+        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line +30 2109287420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "Is my data safe?",
@@ -311,7 +312,7 @@
       },
       {
         "question": "What happens when the trial ends?",
-        "answer": "If you don't upgrade, app access stops. You'll get a reminder before expiry. Choose a plan from Settings → Subscription or contact us at info@heymaa.ai or the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
+        "answer": "If you don't upgrade, app access stops. You'll get a reminder before expiry. Choose a plan from Settings → Subscription or contact us at info@heymaa.ai or the Support line +30 2109287420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "How do voice messages work?",
@@ -351,7 +352,7 @@
       },
       {
         "question": "How do I cancel my subscription?",
-        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line 210 928 7420 (Monday–Friday 09:00–17:00)."
+        "answer": "Cancel in the app: Settings → Subscription → Cancel subscription. You keep access until the end of the period you already paid for; there is no automatic charge. Until then you can restore the subscription. For help, email info@heymaa.ai or call the Support line +30 2109287420 (Monday–Friday 09:00–17:00)."
       },
       {
         "question": "I forgot my password",
@@ -377,11 +378,11 @@
   },
   "footer": {
     "logoAlt": "HeyMaa",
-    "about": "The HeyMaa app is developed by Care Direct.",
+    "about": "The HeyMaa app is developed by <company>Care Direct</company>.",
     "contactTitle": "Contact",
     "email": "info@heymaa.ai",
     "phoneLabel": "Support line",
-    "phone": "210 928 7420",
+    "phone": "+30 2109287420",
     "phoneTel": "+302109287420",
     "phoneHours": "Monday–Friday 09:00–17:00",
     "address": "Premetis 2, Agios Dimitrios, 173 42 Athens",
@@ -389,6 +390,7 @@
     "linkContact": "Contact",
     "linkPrivacy": "Privacy Policy",
     "linkTerms": "Terms & Conditions",
+    "facebook": "HeyMaa on Facebook",
     "copy": "© 2026 HeyMaa - Care Direct. Made with love for every mom."
   }
 }

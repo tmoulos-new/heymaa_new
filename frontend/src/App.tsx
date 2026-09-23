@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Navigate, Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -1961,7 +1961,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
   }, [tHome, homeLng, pointRulesVersion]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
-  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "210 928 7420");
+  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "+30 2109287420");
   const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287420");
   const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή Εξυπηρέτησης" : "Support line"));
   const helpPhoneHours = String(tHome("footer.phoneHours", { lng: homeLng }) || (lang === "el" ? "Δευτέρα–Παρασκευή 09:00–17:00" : "Monday–Friday 09:00–17:00"));
@@ -6502,23 +6502,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>)}
               </div>
             ))}
-            {loading&&<div className="hm-chat-message-row" aria-live="polite" aria-busy="true" aria-label="…">
+            {loading&&<div className="hm-chat-message-row" aria-live="polite" aria-busy="true" aria-label={t("thinking", lang)}>
               <HeyMaaAvatar size={32} />
               <div className="hm-chat-bubble hm-chat-bubble--assistant hm-chat-bubble--typing" style={{background:chatAssistantBg}}>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    border: "2.5px solid rgba(43,58,103,.18)",
-                    borderTopColor: navy,
-                    display: "inline-block",
-                    animation: "hmThinkSpin .75s linear infinite",
-                  }}
-                />
+                <span className="hm-chat-typing" aria-hidden="true">
+                  <span /><span /><span />
+                </span>
               </div>
-              <style>{`@keyframes hmThinkSpin{to{transform:rotate(360deg)}}`}</style>
             </div>}
             <div ref={bottomRef}/>
           </div>

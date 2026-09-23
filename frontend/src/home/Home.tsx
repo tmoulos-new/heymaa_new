@@ -423,9 +423,39 @@ export default function Home() {
               </button>
             </div>
           </div>
+          <a
+            className="hero-scroll-hint"
+            href="#what-is"
+            aria-label={t("hero.scrollDown")}
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("what-is")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
+          >
+            <svg
+              className="hero-scroll-hint__icon"
+              viewBox="0 0 24 24"
+              width="28"
+              height="28"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 9l6 6 6-6"
+              />
+            </svg>
+          </a>
         </section>
 
-        <section className="what-is section">
+        <section className="what-is section" id="what-is">
           <div className="what-is-panel hm-reveal">
             <div className="what-is-grid">
               <div className="what-is-copy">

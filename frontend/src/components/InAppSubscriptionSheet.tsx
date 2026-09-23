@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { PlanCard } from './PlanCard'
@@ -154,14 +154,42 @@ export function InAppSubscriptionSheet({
     !!activeSlot &&
     activeSlot !== 'trial'
 
-  const cancelPending = !!snapshot?.cancel_requested
+  const cancelPending = snapshot?.cancel_status === 'pending' || (!!snapshot?.cancel_requested && snapshot?.cancel_status !== 'approved')
+  const cancelApproved = snapshot?.cancel_status === 'approved'
+  const cancelAccessUntil =
+    snapshot?.cancel_access_until ||
+    snapshot?.subscription_ends_at ||
+    snapshot?.access_ends_at ||
+    null
+
+  const formatCancelDate = (iso: string | null) => {
+    if (!iso) return ''
+    try {
+      return new Date(iso).toLocaleDateString(contentLang === 'el' ? 'el-GR' : 'en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    } catch {
+      return iso
+    }
+  }
 
   const handleCancelRequest = async () => {
     setCancelError('')
     setCancelBusy(true)
     try {
       const res = await requestSubscriptionCancel(token)
-      setSnapshot((prev) => (prev ? { ...prev, cancel_requested: true } : prev))
+      setSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              cancel_requested: true,
+              cancel_status: (res.cancel_status as SubscriptionSnapshot['cancel_status']) || 'pending',
+              cancel_access_until: res.cancel_access_until ?? prev.cancel_access_until,
+            }
+          : prev,
+      )
       if (!res.ok) setCancelError(res.message || tSub('cancel.pendingBody'))
     } catch (e: unknown) {
       const err = e as { response?: { data?: { detail?: string } } }
@@ -172,7 +200,7 @@ export function InAppSubscriptionSheet({
   }
 
   const supportEmail = 'info@heymaa.ai'
-  const supportPhone = String(tHome('footer.phone') || '210 928 7420')
+  const supportPhone = String(tHome('footer.phone') || '+30 2109287420')
   const supportPhoneTel = String(tHome('footer.phoneTel') || '+302109287420')
   const supportPhoneLabel = String(tHome('footer.phoneLabel') || (lang === 'el' ? 'Γραμμή Εξυπηρέτησης' : 'Support line'))
 
@@ -257,10 +285,20 @@ export function InAppSubscriptionSheet({
         {showCancelHelp ? (
           <div className="hm-subscription-cancel-card">
             <div className="hm-subscription-cancel-card__title">
-              {cancelPending ? tSub('cancel.pendingTitle') : tSub('cancel.title')}
+              {cancelApproved
+                ? tSub('cancel.approvedTitle')
+                : cancelPending
+                  ? tSub('cancel.pendingTitle')
+                  : tSub('cancel.title')}
             </div>
             <p className="hm-subscription-cancel-card__body">
-              {cancelPending ? tSub('cancel.pendingBody') : tSub('cancel.body')}
+              {cancelApproved
+                ? tSub('cancel.approvedBody', {
+                    date: formatCancelDate(cancelAccessUntil) || '—',
+                  })
+                : cancelPending
+                  ? tSub('cancel.pendingBody')
+                  : tSub('cancel.body')}
             </p>
             {cancelError ? (
               <p className="hm-subscription-cancel-card__body" style={{ color: 'var(--hm-magenta, #de5a9e)' }}>
@@ -268,7 +306,7 @@ export function InAppSubscriptionSheet({
               </p>
             ) : null}
             <div className="hm-subscription-cancel-card__actions">
-              {!cancelPending ? (
+              {!cancelPending && !cancelApproved ? (
                 <button
                   type="button"
                   className="hm-btn hm-btn--secondary hm-btn--block"

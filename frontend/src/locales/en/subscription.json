@@ -39,10 +39,12 @@
   },
   "cancel": {
     "title": "Cancel subscription",
-    "body": "Request cancellation here. You keep access until the end of your billing period. Our team will confirm by email.",
+    "body": "Request cancellation here. Our team reviews every request. You keep access until the end of your billing period. Refunds are handled by support.",
     "requestButton": "Request cancellation",
-    "pendingTitle": "Cancellation requested",
-    "pendingBody": "We received your request. You keep access until the end of your billing period.",
+    "pendingTitle": "Cancellation requested — pending review",
+    "pendingBody": "We received your request. An admin will confirm it. You keep access until the end of your billing period.",
+    "approvedTitle": "Cancellation confirmed",
+    "approvedBody": "Your cancellation is confirmed. You keep access until {{date}}. There is no further automatic charge for this period.",
     "emailButton": "Email info@heymaa.ai",
     "helpButton": "Help & support"
   },

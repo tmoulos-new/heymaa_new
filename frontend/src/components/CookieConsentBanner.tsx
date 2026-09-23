@@ -40,7 +40,7 @@ export function CookieConsentBanner({ onConsentChange }: Props) {
         </p>
         <p className="hm-cookie-banner__body">
           {tl('cookie.body')}{' '}
-          <Link to={PRIVACY_URL} className="hm-cookie-banner__link">
+          <Link to={`${PRIVACY_URL}#cookies`} className="hm-cookie-banner__link">
             {tl('cookie.privacyLink')}
           </Link>
         </p>

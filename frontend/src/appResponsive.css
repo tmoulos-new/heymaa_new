@@ -717,8 +717,8 @@ body.hm-app-active #root {
 
 @media (min-width: 700px) {
   .hm-trial-banner {
-    padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - var(--hm-bar-content-max, min(1000px, calc(100% - 48px)))) / 2));
-    padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - var(--hm-bar-content-max, min(1000px, calc(100% - 48px)))) / 2));
+    padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - var(--hm-bar-content-max)) / 2));
+    padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - var(--hm-bar-content-max)) / 2));
   }
 }
 
@@ -2019,6 +2019,59 @@ body.hm-app-active #root {
 
 .hm-chat-bubble--assistant {
   border-radius: 0 12px 12px 12px;
+}
+
+.hm-chat-bubble--typing {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  min-width: 56px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.hm-chat-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 14px;
+}
+
+.hm-chat-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hm-navy, #2b3a67);
+  opacity: 0.35;
+  animation: hmChatTypingDot 1.2s ease-in-out infinite;
+}
+
+.hm-chat-typing span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.hm-chat-typing span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes hmChatTypingDot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0) scale(0.92);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-chat-typing span {
+    animation: none;
+    opacity: 0.55;
+  }
 }
 
 .hm-chat-bubble--user {

@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { legalDocumentLang } from '../lib/legalLocale'
 import { readStoredAppLang } from '../lib/appLang'
 
 export type LegalSection = {
+  id?: string
   heading: string
   paragraphs?: string[]
   htmlParagraphs?: string[]
@@ -25,12 +27,19 @@ export function LegalDocument({ docKey }: { docKey: 'terms' | 'privacy' }) {
       ? t('notice', { ns: 'legal', lng: docLang, defaultValue: '' })
       : ''
 
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '')
+    if (!hash) return
+    const el = document.getElementById(hash)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [docKey, sections.length])
+
   return (
     <>
       <h1 className="sec-title">{title}</h1>
       {notice ? <p className="legal-notice">{notice}</p> : null}
       {sections.map((section) => (
-        <section key={section.heading}>
+        <section key={section.heading} id={section.id || undefined}>
           <h2>{section.heading}</h2>
           {section.paragraphs?.map((p) => (
             <p key={p.slice(0, 40)}>{p}</p>

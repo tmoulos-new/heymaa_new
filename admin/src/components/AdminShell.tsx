@@ -12,6 +12,7 @@ import {
   Menu,
   MousePointerClick,
   Bot,
+  Ban,
   BookOpen,
   Receipt,
   RefreshCw,
@@ -29,6 +30,7 @@ import { OverviewTab } from '../tabs/OverviewTab'
 import { TestersTab } from '../tabs/TestersTab'
 import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
+import { CancellationsTab } from '../tabs/CancellationsTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { GamificationTab } from '../tabs/GamificationTab'
@@ -53,6 +55,7 @@ const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
   { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
   { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
   { id: 'users', icon: Users, tip: 'Users' },
+  { id: 'cancellations', icon: Ban, tip: 'Cancellations' },
   { id: 'userdata', icon: Database, tip: 'User Data' },
   { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
   { id: 'chatprompt', icon: Bot, tip: 'Chat Prompt' },
@@ -168,7 +171,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' || tab === 'llmtransactions' || tab === 'userfinancials' ? ' main-wide' : ''}`}>
+        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' || tab === 'llmtransactions' || tab === 'userfinancials' || tab === 'cancellations' ? ' main-wide' : ''}`}>
           <Routes>
             <Route
               index
@@ -188,6 +191,10 @@ export function AdminShell() {
             <Route
               path="users"
               element={<UsersTab key={`us-${refreshKey}`} onCount={onUserCount} />}
+            />
+            <Route
+              path="cancellations"
+              element={<CancellationsTab key={`cx-${refreshKey}`} />}
             />
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
             <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />

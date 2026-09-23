@@ -446,7 +446,11 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
         )
 
     user_row = None
-    cancel_requested = False
+    cancel_fields: dict[str, Any] = {
+        "cancel_requested": False,
+        "cancel_status": None,
+        "cancel_access_until": None,
+    }
     user_id = auth.get("user_id") if auth.get("kind") == "user" else None
     grants: list = []
     if user_id and sb:
@@ -464,17 +468,15 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
         except Exception:
             user_row = None
         try:
-            cancel_res = (
-                sb.table("user_data")
-                .select("key")
-                .eq("user_id", user_id)
-                .eq("key", "subscription_cancel_requested")
-                .limit(1)
-                .execute()
-            )
-            cancel_requested = bool(cancel_res.data)
+            try:
+                from .subscription_cancel import get_cancel_row, cancel_snapshot_fields
+            except ImportError:
+                from subscription_cancel import get_cancel_row, cancel_snapshot_fields
+            cancel_fields = cancel_snapshot_fields(get_cancel_row(sb, user_id))
+            if not cancel_fields.get("cancel_access_until"):
+                cancel_fields["cancel_access_until"] = subscription.get("subscription_ends_at")
         except Exception:
-            cancel_requested = False
+            pass
     if auth.get("kind") == "invite":
         _, entitlements = invite_plan_context()
         rewards = None
@@ -493,7 +495,7 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
         **subscription,
         "entitlements": entitlements,
         "voice_quota": voice_quota,
-        "cancel_requested": cancel_requested,
+        **cancel_fields,
     }
     if access_ends_at:
         payload["access_ends_at"] = access_ends_at
