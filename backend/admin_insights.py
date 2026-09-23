@@ -102,6 +102,25 @@ def resolve_user_plan_id(user: dict) -> str:
     return plan_id_from_name(user.get("plan"), user.get("subscription_status"))
 
 
+def is_admin_user(user: dict) -> bool:
+    """True when users.role is admin (excluded from growth / plan / MRR stats)."""
+    return str(user.get("role") or "").lower().strip() == "admin"
+
+
+def exclude_admin_users(users: list[dict]) -> tuple[list[dict], set[str]]:
+    """Return (non-admin users, admin id set)."""
+    admins: set[str] = set()
+    kept: list[dict] = []
+    for u in users:
+        uid = str(u.get("id") or "")
+        if is_admin_user(u):
+            if uid:
+                admins.add(uid)
+            continue
+        kept.append(u)
+    return kept, admins
+
+
 def compute_mrr(
     users: list[dict],
     cancel_by_user: dict[str, dict],
@@ -229,8 +248,9 @@ def _fetch_users(sb) -> tuple[list[dict], Optional[str]]:
     return [], err
 
 
-def _behavior_from_user_data(sb, notes: list[str]) -> dict:
+def _behavior_from_user_data(sb, notes: list[str], *, exclude_user_ids: Optional[set[str]] = None) -> dict:
     """Count chat/thread/memory rows without downloading huge JSON values."""
+    exclude_user_ids = exclude_user_ids or set()
     chat_total = 0
     thread_total = 0
     memory_total = 0
@@ -281,6 +301,8 @@ def _behavior_from_user_data(sb, notes: list[str]) -> dict:
             if key not in wanted:
                 continue
             uid = str(row.get("user_id") or "")
+            if uid and uid in exclude_user_ids:
+                continue
             if key == "chat" and uid:
                 chat_users.add(uid)
                 chat_total += 1
@@ -318,6 +340,8 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
     users, users_err = _fetch_users(sb)
     if users_err:
         notes.append(users_err)
+
+    users, admin_ids = exclude_admin_users(users)
 
     user_ids = [str(u["id"]) for u in users if u.get("id")]
     cancel_by_user: dict[str, dict] = {}
@@ -437,6 +461,9 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
     llm_cost_mtd = 0.0
     llm_by_user: dict[str, dict] = defaultdict(lambda: {"tx": 0, "cost": 0.0})
     for row in llm_rows:
+        uid = str(row.get("user_id") or "")
+        if uid and uid in admin_ids:
+            continue
         created = _parse_dt(row.get("created_at"))
         if not created:
             continue
@@ -447,7 +474,6 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
         llm_cost_30d += cost
         if created >= month_start:
             llm_cost_mtd += cost
-        uid = str(row.get("user_id") or "")
         if uid:
             llm_by_user[uid]["tx"] += 1
             llm_by_user[uid]["cost"] += cost
@@ -516,12 +542,12 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
     for row in activity_rows:
         created = _parse_dt(row.get("created_at"))
         uid = str(row.get("user_id") or "")
-        if not created or not uid:
+        if not created or not uid or uid in admin_ids:
             continue
         dau_sets[_day_key(created)].add(uid)
     dau_by_day = {k: float(len(v)) for k, v in dau_sets.items()}
 
-    behavior = _behavior_from_user_data(sb, notes)
+    behavior = _behavior_from_user_data(sb, notes, exclude_user_ids=admin_ids)
     registered = len(users)
 
     end_d = now.date()

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 type Props = {
   variant?: 'white' | 'cream'
-  padding?: 'md' | 'lg'
+  padding?: 'none' | 'md' | 'lg'
   className?: string
   children: ReactNode
 }

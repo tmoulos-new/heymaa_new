@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { FaqAnswerBody } from './FaqAnswerBody'
 import type { HomeFaqItem } from '../i18n/homeTypes'
 import { toggleFaqAccordionIndex } from '../lib/useFaqAccordion'
@@ -15,6 +15,28 @@ type Props = {
   idPrefix?: string
   /** Keep opened question in view inside scrollable dialogs (default: true). */
   scrollIntoViewOnOpen?: boolean
+  /** `dialog` = grouped cards + denser reading layout for the FAQ popup. */
+  variant?: 'page' | 'dialog'
+}
+
+type FaqGroup = {
+  label: string
+  startIndex: number
+  items: FaqItem[]
+}
+
+function clusterByGroup(items: FaqItem[]): FaqGroup[] {
+  const groups: FaqGroup[] = []
+  items.forEach((item, i) => {
+    const label = (item.group || '').trim()
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) {
+      last.items.push(item)
+      return
+    }
+    groups.push({ label, startIndex: i, items: [item] })
+  })
+  return groups
 }
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -37,6 +59,7 @@ export function FaqAccordionList({
   defaultOpenIndex = null,
   idPrefix: idPrefixProp,
   scrollIntoViewOnOpen = true,
+  variant = 'page',
 }: Props) {
   const reactId = useId()
   const idPrefix = idPrefixProp || `faq${reactId.replace(/:/g, '')}`
@@ -44,6 +67,7 @@ export function FaqAccordionList({
   const itemRefs = useRef<Array<HTMLDivElement | null>>([])
   const controlled = openIndexProp !== undefined
   const openIndex = controlled ? openIndexProp : internalOpen
+  const groups = useMemo(() => clusterByGroup(items), [items])
 
   const setOpenIndex = useCallback(
     (index: number | null) => {
@@ -53,27 +77,32 @@ export function FaqAccordionList({
     [controlled, onOpenIndexChange],
   )
 
-  const revealOpenedItem = useCallback((index: number) => {
+  const revealOpenedItem = useCallback((index: number, block: ScrollLogicalPosition = 'nearest') => {
     if (!scrollIntoViewOnOpen) return
     const itemEl = itemRefs.current[index]
-    const trigger = itemEl?.querySelector<HTMLElement>('.hm-faq-trigger')
-    if (!trigger) return
+    if (!itemEl) return
 
     const scrollParentEl = findScrollParent(itemEl)
     const scrollTopBefore = scrollParentEl?.scrollTop ?? 0
 
-    // Wait for close/open layout — double rAF after grid height transition starts.
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        trigger.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
-        // scrollIntoView can over-correct in modals; if we jumped upward a lot, nudge back slightly.
-        if (scrollParentEl && scrollParentEl.scrollTop < scrollTopBefore - 48) {
+        itemEl.scrollIntoView({ block, inline: 'nearest', behavior: 'auto' })
+        const panel = itemEl.querySelector<HTMLElement>('.hm-faq-panel--open .hm-faq-panel__inner')
+        panel?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+        if (block === 'nearest' && scrollParentEl && scrollParentEl.scrollTop < scrollTopBefore - 48) {
           scrollParentEl.scrollTop = scrollTopBefore
-          trigger.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+          itemEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
         }
       })
     })
   }, [scrollIntoViewOnOpen])
+
+  useEffect(() => {
+    if (openIndex == null || !scrollIntoViewOnOpen) return
+    const t = window.setTimeout(() => revealOpenedItem(openIndex, 'start'), 50)
+    return () => window.clearTimeout(t)
+  }, [openIndex, scrollIntoViewOnOpen, revealOpenedItem, items.length])
 
   const toggle = useCallback(
     (index: number) => {
@@ -107,52 +136,88 @@ export function FaqAccordionList({
     [openIndex, revealOpenedItem, setOpenIndex],
   )
 
+  const renderItem = (item: FaqItem, flatIndex: number) => {
+    const open = openIndex === flatIndex
+    const triggerId = `${idPrefix}-trigger-${flatIndex}`
+    const panelId = `${idPrefix}-panel-${flatIndex}`
+    return (
+      <div
+        key={`${item.question}-${flatIndex}`}
+        ref={(el) => {
+          itemRefs.current[flatIndex] = el
+        }}
+        className={`hm-faq-item${open ? ' hm-faq-item--open' : ''}`}
+      >
+        <h3 className="hm-faq-item__heading">
+          <button
+            type="button"
+            id={triggerId}
+            className="hm-faq-trigger"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => toggle(flatIndex)}
+          >
+            <span className="hm-faq-trigger__q">{item.question}</span>
+            <span
+              className={`hm-faq-trigger__chevron${open ? ' hm-faq-trigger__chevron--open' : ''}`}
+              aria-hidden="true"
+            >
+              ›
+            </span>
+          </button>
+        </h3>
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={triggerId}
+          aria-hidden={!open}
+          className={`hm-faq-panel${open ? ' hm-faq-panel--open' : ''}`}
+        >
+          <div className="hm-faq-panel__inner">
+            <div className="hm-faq-answer">
+              <FaqAnswerBody item={item} />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (variant === 'dialog') {
+    return (
+      <div className="hm-faq-list hm-faq-list--dialog" role="presentation">
+        {groups.map((group) => (
+          <section
+            key={`${group.label || 'ungrouped'}-${group.startIndex}`}
+            className="hm-faq-group"
+            aria-label={group.label || undefined}
+          >
+            {group.label ? (
+              <h2 className="hm-faq-group__label">{group.label}</h2>
+            ) : null}
+            <div className="hm-faq-group__card">
+              {group.items.map((item, offset) => renderItem(item, group.startIndex + offset))}
+            </div>
+          </section>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="hm-faq-list" role="presentation">
       {items.map((item, i) => {
-        const open = openIndex === i
-        const triggerId = `${idPrefix}-trigger-${i}`
-        const panelId = `${idPrefix}-panel-${i}`
+        const group = (item.group || '').trim()
+        const showGroup = Boolean(group) && (i === 0 || (items[i - 1]?.group || '').trim() !== group)
         return (
-          <div
-            key={`${item.question}-${i}`}
-            ref={(el) => {
-              itemRefs.current[i] = el
-            }}
-            className={`hm-faq-item${open ? ' hm-faq-item--open' : ''}`}
-          >
-            <h3 className="hm-faq-item__heading">
-              <button
-                type="button"
-                id={triggerId}
-                className="hm-faq-trigger"
-                aria-expanded={open}
-                aria-controls={panelId}
-                onClick={() => toggle(i)}
-              >
-                <span className="hm-faq-trigger__q">{item.question}</span>
-                <span
-                  className={`hm-faq-trigger__chevron${open ? ' hm-faq-trigger__chevron--open' : ''}`}
-                  aria-hidden="true"
-                >
-                  ›
-                </span>
-              </button>
-            </h3>
-            <div
-              id={panelId}
-              role="region"
-              aria-labelledby={triggerId}
-              aria-hidden={!open}
-              className={`hm-faq-panel${open ? ' hm-faq-panel--open' : ''}`}
-            >
-              <div className="hm-faq-panel__inner">
-                <div className="hm-faq-answer">
-                  <FaqAnswerBody item={item} />
-                </div>
+          <Fragment key={`${item.question}-${i}`}>
+            {showGroup ? (
+              <div className="hm-faq-group-label" role="presentation">
+                {group}
               </div>
-            </div>
-          </div>
+            ) : null}
+            {renderItem(item, i)}
+          </Fragment>
         )
       })}
     </div>

@@ -4,7 +4,9 @@ from datetime import date, datetime, timezone
 
 from admin_insights import (
     compute_mrr,
+    exclude_admin_users,
     fill_day_series,
+    is_admin_user,
     monthly_price_eur,
     period_still_active,
     project_month_cost,
@@ -12,6 +14,19 @@ from admin_insights import (
 
 
 class AdminInsightsHelpersTests(unittest.TestCase):
+    def test_exclude_admin_users(self):
+        users = [
+            {"id": "1", "role": "admin", "plan_id": "premium"},
+            {"id": "2", "role": None, "plan_id": "trial"},
+            {"id": "3", "role": "Admin", "plan_id": "starter"},
+            {"id": "4", "role": "user", "plan_id": "starter"},
+        ]
+        kept, admins = exclude_admin_users(users)
+        self.assertEqual(admins, {"1", "3"})
+        self.assertEqual([u["id"] for u in kept], ["2", "4"])
+        self.assertTrue(is_admin_user(users[0]))
+        self.assertFalse(is_admin_user(users[1]))
+
     def test_monthly_prices(self):
         self.assertEqual(monthly_price_eur("starter"), 19.0)
         self.assertEqual(monthly_price_eur("premium"), 39.0)

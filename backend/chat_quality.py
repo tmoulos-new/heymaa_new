@@ -643,6 +643,22 @@ def _paginate_since(sb, table: str, columns: str, since_iso: str, *, order_col: 
     return rows
 
 
+def _admin_user_ids(sb) -> set[str]:
+    """Ids of users.role = admin (excluded from quality KPIs)."""
+    out: set[str] = set()
+    if not sb:
+        return out
+    try:
+        res = sb.table("users").select("id").eq("role", "admin").execute()
+        for row in res.data or []:
+            uid = str(row.get("id") or "")
+            if uid:
+                out.add(uid)
+    except Exception:
+        pass
+    return out
+
+
 def build_quality_dashboard(sb, *, days: int = 30) -> dict:
     days = max(7, min(90, int(days or 30)))
     now = _now()
@@ -651,6 +667,8 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
 
     if not sb:
         return _empty_dashboard(days, notes=["Database not configured"])
+
+    admin_ids = _admin_user_ids(sb)
 
     try:
         turns = _paginate_since(
@@ -668,6 +686,19 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
         notes.append(f"turns: {e}")
         turns = []
 
+    admin_message_ids: set[str] = set()
+    if admin_ids:
+        for t in turns:
+            uid = str(t.get("user_id") or "")
+            mid = str(t.get("message_id") or "")
+            if uid and uid in admin_ids and mid:
+                admin_message_ids.add(mid)
+        turns = [
+            t
+            for t in turns
+            if str(t.get("user_id") or "") not in admin_ids
+        ]
+
     try:
         feedback = _paginate_since(
             sb, FEEDBACK_TABLE, "message_id,vote,reason,created_at,user_id", since
@@ -675,6 +706,14 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
     except Exception as e:
         notes.append(f"feedback: {e}")
         feedback = []
+
+    if admin_ids:
+        feedback = [
+            f
+            for f in feedback
+            if str(f.get("user_id") or "") not in admin_ids
+            and str(f.get("message_id") or "") not in admin_message_ids
+        ]
 
     try:
         reviews = _paginate_since(
@@ -686,6 +725,11 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
     except Exception as e:
         notes.append(f"reviews: {e}")
         reviews = []
+
+    if admin_message_ids:
+        reviews = [
+            r for r in reviews if str(r.get("message_id") or "") not in admin_message_ids
+        ]
 
     up = sum(1 for f in feedback if f.get("vote") == "up")
     down = sum(1 for f in feedback if f.get("vote") == "down")

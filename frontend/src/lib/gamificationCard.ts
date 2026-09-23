@@ -225,6 +225,7 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
   return [
     {
       question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
+      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
       answer: isEl
         ? 'Κερδίζεις πόντους αυτόματα όταν χρησιμοποιείς την εφαρμογή — χωρίς ξεχωριστή ενέργεια.'
         : 'You earn points automatically when you use the app — no extra steps needed.',
@@ -255,6 +256,7 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     },
     {
       question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
+      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
       answer: isEl
         ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο — από «Νέα Μαμά» έως «HeyMaa Champion».'
         : 'As you collect points, you level up — from New Mom to HeyMaa Champion.',
@@ -293,6 +295,7 @@ export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
     },
     {
       question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
+      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
       answer: isEl
         ? 'Όλα τα στοιχεία gamification βρίσκονται στην καρτέλα Προφίλ.'
         : 'All gamification info is on the Profile tab.',
@@ -324,5 +327,9 @@ export function mergeGamificationFaqItems<T extends GamificationFaqItem>(
   baseItems: T[],
   lang: string,
 ): T[] {
-  return [...baseItems, ...(buildGamificationFaqItems(lang) as T[])];
+  const gamification = buildGamificationFaqItems(lang) as T[]
+  const accountGroup = lang === 'el' ? 'Λογαριασμός & ιδιωτικότητα' : 'Account & privacy'
+  const insertAt = baseItems.findIndex((item) => item.group === accountGroup)
+  if (insertAt < 0) return [...baseItems, ...gamification]
+  return [...baseItems.slice(0, insertAt), ...gamification, ...baseItems.slice(insertAt)]
 }

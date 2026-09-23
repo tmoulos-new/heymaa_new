@@ -59,8 +59,10 @@ export interface FaqAnswerSection {
 }
 
 export interface HomeFaqItem {
-  question: string;
+  question: string
   /** Short intro or legacy plain-text answer when sections are omitted */
-  answer?: string;
-  sections?: FaqAnswerSection[];
+  answer?: string
+  sections?: FaqAnswerSection[]
+  /** Optional section label for in-app FAQ lists (omit on landing). */
+  group?: string
 }

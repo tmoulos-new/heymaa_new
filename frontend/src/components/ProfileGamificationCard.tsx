@@ -98,18 +98,6 @@ export function ProfileGamificationCard({
       : (isEl ? 'Δεν στάλθηκε η πρόσκληση' : 'Could not send invite'))
   }
 
-  const activityChips = isEl
-    ? [
-        { icon: '💬', label: 'Chat' },
-        { icon: '📷', label: 'Αναμνήσεις' },
-        { icon: '🏆', label: 'Ορόσημα' },
-      ]
-    : [
-        { icon: '💬', label: 'Chat' },
-        { icon: '📷', label: 'Memories' },
-        { icon: '🏆', label: 'Milestones' },
-      ]
-
   return (
     <div className="hm-profile-gamification-card" id="hm-profile-gamification">
       <div className="hm-profile-gamification-card__hero">
@@ -228,32 +216,24 @@ export function ProfileGamificationCard({
           </p>
         ) : null}
 
-        <div className="hm-profile-gamification-card__chips">
-          {activityChips.map((chip) => (
-            <span key={chip.label} className="hm-profile-gamification-card__chip">
-              <span aria-hidden="true">{chip.icon}</span>
-              {chip.label}
-            </span>
-          ))}
-          {onOpenFaq ? (
-            <>
-              <button
-                type="button"
-                className="hm-profile-gamification-card__faq-link"
-                onClick={() => onOpenFaq('points')}
-              >
-                {isEl ? 'Πώς κερδίζεις πόντους;' : 'How do points work?'}
-              </button>
-              <button
-                type="button"
-                className="hm-profile-gamification-card__faq-link"
-                onClick={() => onOpenFaq('levels')}
-              >
-                {isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?'}
-              </button>
-            </>
-          ) : null}
-        </div>
+        {onOpenFaq ? (
+          <div className="hm-profile-gamification-card__chips">
+            <button
+              type="button"
+              className="hm-profile-gamification-card__faq-link"
+              onClick={() => onOpenFaq('points')}
+            >
+              {isEl ? 'Πώς κερδίζεις πόντους;' : 'How do points work?'}
+            </button>
+            <button
+              type="button"
+              className="hm-profile-gamification-card__faq-link"
+              onClick={() => onOpenFaq('levels')}
+            >
+              {isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?'}
+            </button>
+          </div>
+        ) : null}
 
         {onToggleHeaderChip ? (
           <div className="hm-profile-gamification-card__tools">

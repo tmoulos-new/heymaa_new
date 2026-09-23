@@ -168,7 +168,7 @@ import { LanguageFlagOverlay } from "./components/LanguageFlagPicker";
 import { getLanguagePickerItem } from "./lib/languagePicker";
 import { SUPPORTED_LANG_CODE_SET } from "./lib/supportedLanguages";
 import { AppNavIcon, ChatMicIcon, type AppNavTabId } from "./components/AppNavIcons";
-import { IconPencil, IconTrash } from "./components/ui/LineIcons";
+import { IconPencil, IconThumbDown, IconThumbUp, IconTrash } from "./components/ui/LineIcons";
 import { ChatIconRail } from "./components/ChatIconRail";
 import { ChatLibraryPanel, collectChatLibraryItems, removeMessageAttachment, type ChatLibraryItem } from "./components/ChatLibraryPanel";
 import { PRIVACY_URL, TERMS_URL } from "./auth/authStrings";
@@ -2293,9 +2293,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const pattern =
       topic === 'levels'
         ? /Τι είναι τα επίπεδα|What are levels/i
-        : /Πώς κερδίζω πόντους|How do I earn points/i;
+        : /Πώς κερδίζ(?:ω|εις) πόντους|How do I earn points|How do points work/i;
     const idx = helpFaqItems.findIndex((item) => pattern.test(item.question));
-    openFaqDialog(idx >= 0 ? idx : 0);
+    openFaqDialog(idx >= 0 ? idx : null);
   }, [helpFaqItems, openFaqDialog]);
 
   const [notifReadIds, setNotifReadIds] = useState(() => readNotificationIds(token));
@@ -3242,7 +3242,18 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           content: res.data.reply,
           promo: res.data.promo || null,
           memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
-          messageId: typeof res.data?.message_id === "string" ? res.data.message_id : undefined,
+          messageId: (() => {
+            const raw = res.data?.message_id;
+            if (typeof raw === "string" && raw.trim()) return raw.trim();
+            if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+            try {
+              return typeof crypto !== "undefined" && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `local-${Date.now()}`;
+            } catch {
+              return `local-${Date.now()}`;
+            }
+          })(),
           feedback: null,
         },
       ]);
@@ -3284,16 +3295,21 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const rateAssistantReply = async (index: number, vote: "up" | "down") => {
     const msg = messages[index];
-    if (!msg || msg.role !== "assistant" || !msg.messageId || !token) return;
+    if (!msg || msg.role !== "assistant" || !token) return;
     if (msg.feedback === vote) return;
+    const messageId =
+      (typeof msg.messageId === "string" && msg.messageId.trim()) ||
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `local-${Date.now()}-${index}`);
     setMessages((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, feedback: vote } : m)),
+      prev.map((m, i) => (i === index ? { ...m, messageId, feedback: vote } : m)),
     );
     try {
       await axios.post(
         `${API}/chat/feedback`,
         {
-          message_id: msg.messageId,
+          message_id: messageId,
           vote,
           reason: vote === "down" ? "thumbs_down" : undefined,
         },
@@ -3301,7 +3317,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       );
     } catch {
       setMessages((prev) =>
-        prev.map((m, i) => (i === index ? { ...m, feedback: msg.feedback ?? null } : m)),
+        prev.map((m, i) =>
+          i === index ? { ...m, messageId: msg.messageId, feedback: msg.feedback ?? null } : m,
+        ),
       );
       showToast(
         lang === "el" ? "Δεν αποθηκεύτηκε η αξιολόγηση." : "Could not save your rating.",
@@ -4791,26 +4809,47 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         ariaLabel={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
         panelClassName="hm-faq-dialog"
       >
-        <DialogPanel variant="cream" padding="md">
-          <SheetHeader
-            title={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
-            subtitle={lang === "el" ? "Πλάνα, πόντοι και η εφαρμογή" : "Plans, points, and the app"}
-            onBack={() => setShowFaqDialog(false)}
-            backLabel={lang === "el" ? "Πίσω" : "Back"}
-          />
-          <FaqAccordionList
-            items={helpFaqItems}
-            openIndex={openProfileFaqIndex}
-            onOpenIndexChange={setOpenProfileFaqIndex}
-            idPrefix="profile-faq"
-          />
-          <button
-            type="button"
-            className="hm-btn hm-btn--outline hm-btn--block"
-            onClick={openHelpContact}
-          >
-            {lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
-          </button>
+        <DialogPanel variant="cream" padding="none" className="hm-faq-dialog__panel">
+          <div className="hm-faq-dialog__head">
+            <SheetHeader
+              title={lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}
+              subtitle={
+                lang === "el"
+                  ? "Βρες γρήγορα απαντήσεις για πλάνα, χρήση και λογαριασμό"
+                  : "Quick answers on plans, using the app, and your account"
+              }
+              onBack={() => setShowFaqDialog(false)}
+              backLabel={lang === "el" ? "Πίσω" : "Back"}
+              compact
+            />
+          </div>
+          <div className="hm-faq-dialog__scroll">
+            <FaqAccordionList
+              key={
+                showFaqDialog
+                  ? `profile-faq-${openProfileFaqIndex ?? 'none'}`
+                  : 'profile-faq-closed'
+              }
+              items={helpFaqItems}
+              openIndex={openProfileFaqIndex}
+              onOpenIndexChange={setOpenProfileFaqIndex}
+              idPrefix="profile-faq"
+              scrollIntoViewOnOpen
+              variant="dialog"
+            />
+          </div>
+          <div className="hm-faq-dialog__foot">
+            <p className="hm-faq-dialog__foot-hint">
+              {lang === "el" ? "Δεν βρήκες αυτό που ψάχνεις;" : "Still need help?"}
+            </p>
+            <button
+              type="button"
+              className="hm-btn hm-btn--outline hm-btn--block"
+              onClick={openHelpContact}
+            >
+              {lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}
+            </button>
+          </div>
         </DialogPanel>
       </AppDialog>
 
@@ -6437,30 +6476,28 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         )}
                         {msg.content}
                       </div>
-                      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                      <div className="hm-chat-reply-actions">
                         <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
-                        {msg.messageId ? (
-                          <span className="hm-chat-feedback" role="group" aria-label={lang==="el"?"Αξιολόγηση απάντησης":"Rate reply"}>
-                            <button
-                              type="button"
-                              className={`hm-chat-feedback-btn${msg.feedback==="up"?" is-active is-up":""}`}
-                              aria-pressed={msg.feedback==="up"}
-                              aria-label={lang==="el"?"Χρήσιμη":"Helpful"}
-                              onClick={()=>void rateAssistantReply(i,"up")}
-                            >
-                              👍
-                            </button>
-                            <button
-                              type="button"
-                              className={`hm-chat-feedback-btn${msg.feedback==="down"?" is-active is-down":""}`}
-                              aria-pressed={msg.feedback==="down"}
-                              aria-label={lang==="el"?"Όχι χρήσιμη":"Not helpful"}
-                              onClick={()=>void rateAssistantReply(i,"down")}
-                            >
-                              👎
-                            </button>
-                          </span>
-                        ) : null}
+                        <span className="hm-chat-feedback" role="group" aria-label={lang==="el"?"Αξιολόγηση απάντησης":"Rate reply"}>
+                          <button
+                            type="button"
+                            className={`hm-chat-feedback-btn is-up${msg.feedback==="up"?" is-active":""}`}
+                            aria-pressed={msg.feedback==="up"}
+                            aria-label={lang==="el"?"Χρήσιμη":"Helpful"}
+                            onClick={()=>void rateAssistantReply(i,"up")}
+                          >
+                            <IconThumbUp size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className={`hm-chat-feedback-btn is-down${msg.feedback==="down"?" is-active":""}`}
+                            aria-pressed={msg.feedback==="down"}
+                            aria-label={lang==="el"?"Όχι χρήσιμη":"Not helpful"}
+                            onClick={()=>void rateAssistantReply(i,"down")}
+                          >
+                            <IconThumbDown size={15} />
+                          </button>
+                        </span>
                       </div>
                     </div>
                   </div>

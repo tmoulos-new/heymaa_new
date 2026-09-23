@@ -65,3 +65,29 @@ export function IconShare({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
+export function IconThumbUp({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M7 11v9H4.8A1.8 1.8 0 0 1 3 18.2V12.8A1.8 1.8 0 0 1 4.8 11H7zm0 0l2.2-5.2A2.4 2.4 0 0 1 11.4 4.2c.9 0 1.6.7 1.6 1.6V9h5.1a2 2 0 0 1 2 2.3l-1.1 7.2a2 2 0 0 1-2 1.7H7"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconThumbDown({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M17 13V4h2.2A1.8 1.8 0 0 1 21 5.8v5.4A1.8 1.8 0 0 1 19.2 13H17zm0 0l-2.2 5.2a2.4 2.4 0 0 1-2.2 1.6c-.9 0-1.6-.7-1.6-1.6V15H5.9a2 2 0 0 1-2-2.3l1.1-7.2a2 2 0 0 1 2-1.7H17"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

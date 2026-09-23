@@ -1,4 +1,4 @@
-﻿{
+{
   "label": "FAQ",
   "title": "",
   "landingItems": [
@@ -198,6 +198,137 @@
   ],
   "items": [
     {
+      "question": "What does the free trial include?",
+      "answer": "14 days to try everything. No credit card required.",
+      "sections": [
+        {
+          "title": "Included",
+          "bullets": [
+            "Unlimited chat",
+            "50 Listen playbacks / month",
+            "Daily memory",
+            "Document & album preview",
+            "3 archived conversations",
+            "Family tree, milestones, memory notes & photos"
+          ]
+        }
+      ],
+      "group": "Plans & billing"
+    },
+    {
+      "question": "What happens when the trial ends?",
+      "answer": "Without an upgrade, access stops at the end of 14 days.",
+      "sections": [
+        {
+          "title": "Before expiry",
+          "bullets": [
+            "In-app reminder",
+            "Plan access from Settings → Subscription"
+          ]
+        },
+        {
+          "title": "After expiry",
+          "bullets": [
+            "Main content won't open without an active plan",
+            "Your data is not deleted automatically"
+          ]
+        },
+        {
+          "title": "Contact",
+          "bullets": [
+            "info@heymaa.ai",
+            "+30 2109287420 (Mon–Fri 09:00–17:00)"
+          ]
+        }
+      ],
+      "group": "Plans & billing"
+    },
+    {
+      "question": "What's the difference between plans?",
+      "answer": "All plans include unlimited chat. Everything else varies by plan.",
+      "sections": [
+        {
+          "title": "Free trial",
+          "bullets": [
+            "50 voice replies, Daily memory",
+            "Docs/album: organize in-app (download from Premium)",
+            "3 archived"
+          ]
+        },
+        {
+          "title": "Starter (€19/month)",
+          "bullets": [
+            "150 voice replies, Basic memory",
+            "Document Archive & Album, memory videos",
+            "45 archived, email support"
+          ]
+        },
+        {
+          "title": "Premium (€39/month)",
+          "bullets": [
+            "400 voice replies, Full memory",
+            "Download & share",
+            "90 archived, phone support"
+          ]
+        },
+        {
+          "title": "Annual Premium (€199/year)",
+          "bullets": [
+            "700 voice replies, Full memory",
+            "All Premium benefits + priority support"
+          ]
+        },
+        {
+          "title": "Tip",
+          "intro": "Tap (i) next to lines that have it. When a higher plan is needed, you'll see Upgrade."
+        }
+      ],
+      "group": "Plans & billing"
+    },
+    {
+      "question": "How do I upgrade my subscription?",
+      "answer": "When you need a higher-plan feature, the app guides you.",
+      "sections": [
+        {
+          "title": "From an Upgrade prompt",
+          "bullets": [
+            "Appears when you tap a feature your plan doesn't cover",
+            "Opens the plan comparison screen"
+          ]
+        },
+        {
+          "title": "Manually",
+          "bullets": [
+            "Settings → Subscription",
+            "Bell icon (notifications) at the top"
+          ]
+        }
+      ],
+      "group": "Plans & billing"
+    },
+    {
+      "question": "How do I cancel my subscription?",
+      "answer": "Inside the app — Settings → Subscription → Cancel subscription.",
+      "sections": [
+        {
+          "title": "After cancelling",
+          "bullets": [
+            "Access until the end of the paid period",
+            "No automatic charge",
+            "You can restore until expiry"
+          ]
+        },
+        {
+          "title": "Help",
+          "bullets": [
+            "info@heymaa.ai",
+            "+30 2109287420 (Mon–Fri 09:00–17:00)"
+          ]
+        }
+      ],
+      "group": "Plans & billing"
+    },
+    {
       "question": "What is HeyMaa?",
       "answer": "HeyMaa is your helper through motherhood — one app for support, organization, and memories.",
       "sections": [
@@ -216,7 +347,8 @@
           "title": "Important",
           "intro": "Does not replace a doctor or pharmacist. For health matters, always consult a professional."
         }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "What can I do in the app?",
@@ -262,51 +394,8 @@
             "Subscription, language, privacy & data export"
           ]
         }
-      ]
-    },
-    {
-      "question": "What does the free trial include?",
-      "answer": "14 days to try everything. No credit card required.",
-      "sections": [
-        {
-          "title": "Included",
-          "bullets": [
-            "Unlimited chat",
-            "50 Listen playbacks / month",
-            "Daily memory",
-            "Document & album preview",
-            "3 archived conversations",
-            "Family tree, milestones, memory notes & photos"
-          ]
-        }
-      ]
-    },
-    {
-      "question": "What happens when the trial ends?",
-      "answer": "Without an upgrade, access stops at the end of 14 days.",
-      "sections": [
-        {
-          "title": "Before expiry",
-          "bullets": [
-            "In-app reminder",
-            "Plan access from Settings → Subscription"
-          ]
-        },
-        {
-          "title": "After expiry",
-          "bullets": [
-            "Main content won't open without an active plan",
-            "Your data is not deleted automatically"
-          ]
-        },
-        {
-          "title": "Contact",
-          "bullets": [
-            "info@heymaa.ai",
-            "+30 2109287420 (Mon–Fri 09:00–17:00)"
-          ]
-        }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "How do voice messages work?",
@@ -333,48 +422,8 @@
           "title": "What doesn't count",
           "intro": "Speaking in chat (microphone → text) does not use your monthly Listen quota. Only playback of HeyMaa's reply counts."
         }
-      ]
-    },
-    {
-      "question": "What's the difference between plans?",
-      "answer": "All plans include unlimited chat. Everything else varies by plan.",
-      "sections": [
-        {
-          "title": "Free trial",
-          "bullets": [
-            "50 voice replies, Daily memory",
-            "Docs/album: organize in-app (download from Premium)",
-            "3 archived"
-          ]
-        },
-        {
-          "title": "Starter (€19/month)",
-          "bullets": [
-            "150 voice replies, Basic memory",
-            "Document Archive & Album, memory videos",
-            "45 archived, email support"
-          ]
-        },
-        {
-          "title": "Premium (€39/month)",
-          "bullets": [
-            "400 voice replies, Full memory",
-            "Download & share",
-            "90 archived, phone support"
-          ]
-        },
-        {
-          "title": "Annual Premium (€199/year)",
-          "bullets": [
-            "700 voice replies, Full memory",
-            "All Premium benefits + priority support"
-          ]
-        },
-        {
-          "title": "Tip",
-          "intro": "Tap (i) next to lines that have it. When a higher plan is needed, you'll see Upgrade."
-        }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "What is Daily, Basic, and Full memory?",
@@ -406,7 +455,8 @@
             "Memory is not unlimited history — it's a smart window for better replies"
           ]
         }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "How do milestones work?",
@@ -429,7 +479,8 @@
             "Unticking removes points (once)"
           ]
         }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "What is the Document Archive?",
@@ -451,7 +502,8 @@
             "Premium+: download & share files"
           ]
         }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "What is the family tree?",
@@ -469,21 +521,8 @@
           "title": "Linked to memories",
           "intro": "Each member's memory count appears as a badge on their card."
         }
-      ]
-    },
-    {
-      "question": "Does HeyMaa give medical advice?",
-      "answer": "No — HeyMaa does not replace a healthcare professional.",
-      "sections": [
-        {
-          "title": "What it offers",
-          "intro": "General information, organization, and emotional support — not diagnosis or treatment."
-        },
-        {
-          "title": "What to do",
-          "intro": "For any health concern — yours or your child's — consult a doctor, pediatrician, or pharmacist."
-        }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
       "question": "Which languages are supported?",
@@ -500,48 +539,23 @@
           "title": "How to change language",
           "intro": "Settings → Language. Applies to screens, chat, and notifications."
         }
-      ]
+      ],
+      "group": "Using the app"
     },
     {
-      "question": "How do I upgrade my subscription?",
-      "answer": "When you need a higher-plan feature, the app guides you.",
+      "question": "Does HeyMaa give medical advice?",
+      "answer": "No — HeyMaa does not replace a healthcare professional.",
       "sections": [
         {
-          "title": "From an Upgrade prompt",
-          "bullets": [
-            "Appears when you tap a feature your plan doesn't cover",
-            "Opens the plan comparison screen"
-          ]
+          "title": "What it offers",
+          "intro": "General information, organization, and emotional support — not diagnosis or treatment."
         },
         {
-          "title": "Manually",
-          "bullets": [
-            "Settings → Subscription",
-            "Bell icon (notifications) at the top"
-          ]
+          "title": "What to do",
+          "intro": "For any health concern — yours or your child's — consult a doctor, pediatrician, or pharmacist."
         }
-      ]
-    },
-    {
-      "question": "How do I cancel my subscription?",
-      "answer": "Inside the app — Settings → Subscription → Cancel subscription.",
-      "sections": [
-        {
-          "title": "After cancelling",
-          "bullets": [
-            "Access until the end of the paid period",
-            "No automatic charge",
-            "You can restore until expiry"
-          ]
-        },
-        {
-          "title": "Help",
-          "bullets": [
-            "info@heymaa.ai",
-            "+30 2109287420 (Mon–Fri 09:00–17:00)"
-          ]
-        }
-      ]
+      ],
+      "group": "Account & privacy"
     },
     {
       "question": "I forgot my password",
@@ -559,7 +573,8 @@
           "title": "Didn't get the email?",
           "intro": "Check spam/promotions. If it persists, email info@heymaa.ai."
         }
-      ]
+      ],
+      "group": "Account & privacy"
     },
     {
       "question": "Do I need an invite code?",
@@ -577,7 +592,8 @@
             "Earn +40 points when a friend signs up with your code"
           ]
         }
-      ]
+      ],
+      "group": "Account & privacy"
     },
     {
       "question": "Is my data safe?",
@@ -595,7 +611,8 @@
           "title": "What is stored",
           "intro": "Chat, memories, family, milestones, documents — linked to your account, not public."
         }
-      ]
+      ],
+      "group": "Account & privacy"
     }
   ]
 }

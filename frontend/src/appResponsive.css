@@ -18,7 +18,11 @@
   --hm-desktop-content-max: 1000px;
   --hm-dialog-pad: 16px;
   --hm-body-pad-x: 16px;
+  --hm-body-pad-y: 16px;
   --hm-body-pad: 16px;
+  --hm-scrollbar-size: 4px;
+  --hm-scrollbar-thumb: rgba(43, 58, 103, 0.28);
+  --hm-scrollbar-thumb-hover: rgba(43, 58, 103, 0.42);
   --hm-tab-pad: 4px 0 max(8px, env(safe-area-inset-bottom, 0px));
   --hm-composer-pad: 10px max(16px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   --hm-sheet-max: 100%;
@@ -78,6 +82,7 @@
   :root {
     --hm-dialog-pad: 24px;
     --hm-body-pad-x: 28px;
+    --hm-body-pad-y: 24px;
     --hm-body-pad: 24px 28px;
     --hm-tab-pad: 6px 0 max(10px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 12px 24px 14px;
@@ -94,6 +99,7 @@
   :root {
     --hm-dialog-pad: 32px;
     --hm-body-pad-x: 40px;
+    --hm-body-pad-y: 28px;
     --hm-body-pad: 28px 40px;
     --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 40px 16px;
@@ -106,6 +112,7 @@
 @media (min-width: 1400px) {
   :root {
     --hm-body-pad-x: 56px;
+    --hm-body-pad-y: 32px;
     --hm-body-pad: 32px 56px;
     --hm-tab-pad: 6px 0 max(12px, env(safe-area-inset-bottom, 0px));
     --hm-composer-pad: 14px 56px 16px;
@@ -142,14 +149,107 @@ body.hm-app-active #root {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-x: none;
-  padding: var(--hm-body-pad);
-  padding-left: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-right, 0px));
+  /* Horizontal padding lives on the inner column so the scrollbar sits flush right */
+  padding: var(--hm-body-pad-y, 16px) 0;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+/* Thin light scrollbars — main app + dialogs / sheets / popup lists */
+.hm-app-body,
+.hm-dialog,
+.hm-dialog-panel,
+.hm-sheet-panel,
+.hm-sheet-panel--scroll,
+.hm-add-child-sheet__body,
+.hm-faq-list,
+.hm-faq-dialog__scroll,
+.hm-threads-sheet,
+.hm-tree-edit-panel,
+.hm-chat-search-list,
+.hm-chat-library,
+.hm-notif-list,
+.hm-memory-modal__panel,
+.hm-memory-album-modal__panel {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hm-scrollbar-thumb) transparent;
+}
+
+.hm-app-body::-webkit-scrollbar,
+.hm-dialog::-webkit-scrollbar,
+.hm-dialog-panel::-webkit-scrollbar,
+.hm-sheet-panel::-webkit-scrollbar,
+.hm-sheet-panel--scroll::-webkit-scrollbar,
+.hm-add-child-sheet__body::-webkit-scrollbar,
+.hm-faq-list::-webkit-scrollbar,
+.hm-faq-dialog__scroll::-webkit-scrollbar,
+.hm-threads-sheet::-webkit-scrollbar,
+.hm-tree-edit-panel::-webkit-scrollbar,
+.hm-chat-search-list::-webkit-scrollbar,
+.hm-chat-library::-webkit-scrollbar,
+.hm-notif-list::-webkit-scrollbar,
+.hm-memory-modal__panel::-webkit-scrollbar,
+.hm-memory-album-modal__panel::-webkit-scrollbar {
+  width: var(--hm-scrollbar-size);
+  height: var(--hm-scrollbar-size);
+}
+
+.hm-app-body::-webkit-scrollbar-track,
+.hm-dialog::-webkit-scrollbar-track,
+.hm-dialog-panel::-webkit-scrollbar-track,
+.hm-sheet-panel::-webkit-scrollbar-track,
+.hm-sheet-panel--scroll::-webkit-scrollbar-track,
+.hm-add-child-sheet__body::-webkit-scrollbar-track,
+.hm-faq-list::-webkit-scrollbar-track,
+.hm-faq-dialog__scroll::-webkit-scrollbar-track,
+.hm-threads-sheet::-webkit-scrollbar-track,
+.hm-tree-edit-panel::-webkit-scrollbar-track,
+.hm-chat-search-list::-webkit-scrollbar-track,
+.hm-chat-library::-webkit-scrollbar-track,
+.hm-notif-list::-webkit-scrollbar-track,
+.hm-memory-modal__panel::-webkit-scrollbar-track,
+.hm-memory-album-modal__panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hm-app-body::-webkit-scrollbar-thumb,
+.hm-dialog::-webkit-scrollbar-thumb,
+.hm-dialog-panel::-webkit-scrollbar-thumb,
+.hm-sheet-panel::-webkit-scrollbar-thumb,
+.hm-sheet-panel--scroll::-webkit-scrollbar-thumb,
+.hm-add-child-sheet__body::-webkit-scrollbar-thumb,
+.hm-faq-list::-webkit-scrollbar-thumb,
+.hm-faq-dialog__scroll::-webkit-scrollbar-thumb,
+.hm-threads-sheet::-webkit-scrollbar-thumb,
+.hm-tree-edit-panel::-webkit-scrollbar-thumb,
+.hm-chat-search-list::-webkit-scrollbar-thumb,
+.hm-chat-library::-webkit-scrollbar-thumb,
+.hm-notif-list::-webkit-scrollbar-thumb,
+.hm-memory-modal__panel::-webkit-scrollbar-thumb,
+.hm-memory-album-modal__panel::-webkit-scrollbar-thumb {
+  background: var(--hm-scrollbar-thumb);
+  border-radius: var(--hm-scrollbar-size);
+}
+
+.hm-app-body::-webkit-scrollbar-thumb:hover,
+.hm-dialog::-webkit-scrollbar-thumb:hover,
+.hm-dialog-panel::-webkit-scrollbar-thumb:hover,
+.hm-sheet-panel::-webkit-scrollbar-thumb:hover,
+.hm-sheet-panel--scroll::-webkit-scrollbar-thumb:hover,
+.hm-add-child-sheet__body::-webkit-scrollbar-thumb:hover,
+.hm-faq-list::-webkit-scrollbar-thumb:hover,
+.hm-faq-dialog__scroll::-webkit-scrollbar-thumb:hover,
+.hm-threads-sheet::-webkit-scrollbar-thumb:hover,
+.hm-tree-edit-panel::-webkit-scrollbar-thumb:hover,
+.hm-chat-search-list::-webkit-scrollbar-thumb:hover,
+.hm-chat-library::-webkit-scrollbar-thumb:hover,
+.hm-notif-list::-webkit-scrollbar-thumb:hover,
+.hm-memory-modal__panel::-webkit-scrollbar-thumb:hover,
+.hm-memory-album-modal__panel::-webkit-scrollbar-thumb:hover {
+  background: var(--hm-scrollbar-thumb-hover);
 }
 
 /* Readable inner column — body scrolls full width; content caps on desktop */
@@ -160,6 +260,12 @@ body.hm-app-active #root {
   margin-left: auto;
   margin-right: auto;
   box-sizing: border-box;
+}
+
+.hm-app-body-inner {
+  padding-left: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--hm-body-pad-x, 16px), env(safe-area-inset-right, 0px));
+  padding-bottom: 4px;
 }
 
 .hm-app-header-inner {
@@ -449,69 +555,8 @@ body.hm-app-active #root {
 
   .hm-faq-dialog.hm-dialog,
   .hm-faq-dialog.hm-dialog--lg {
-    max-width: min(960px, calc(100% - 40px));
-    overflow: hidden;
-  }
-
-  .hm-faq-dialog .hm-dialog-panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-    padding: 12px 16px 14px;
-  }
-
-  .hm-faq-dialog .hm-sheet-header {
-    margin-bottom: 8px;
-    flex-shrink: 0;
-  }
-
-  .hm-faq-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 10px;
-    align-items: start;
-    margin-bottom: 8px;
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-y: auto;
-  }
-
-  .hm-faq-dialog .hm-faq-item {
-    min-height: min-content;
-    height: max-content;
-  }
-
-  .hm-faq-dialog .hm-faq-item--open {
-    grid-column: 1 / -1;
-  }
-
-  .hm-faq-dialog .hm-faq-trigger {
-    padding: 7px 12px;
-  }
-
-  .hm-faq-dialog .hm-faq-trigger__q {
-    font-size: 13px;
-  }
-
-  .hm-faq-dialog .hm-faq-answer {
-    padding: 0 12px 10px;
-    font-size: 12px;
-    line-height: 1.45;
-  }
-
-  .hm-faq-dialog .hm-faq-answer__intro {
-    margin-bottom: 8px;
-  }
-
-  .hm-faq-dialog .hm-faq-answer__section + .hm-faq-answer__section {
-    margin-top: 8px;
-    padding-top: 8px;
-  }
-
-  .hm-faq-dialog .hm-btn--block {
-    flex-shrink: 0;
-    margin-top: 8px;
+    width: min(560px, calc(100% - 40px));
+    max-width: min(560px, calc(100% - 40px));
   }
 
   .hm-privacy-dialog.hm-dialog,
@@ -1033,6 +1078,10 @@ body.hm-app-active #root {
   background: #fff;
 }
 
+.hm-dialog-panel--pad-none {
+  padding: 0;
+}
+
 .hm-dialog-panel--pad-md {
   padding: 16px 16px 20px;
 }
@@ -1497,6 +1546,267 @@ body.hm-app-active #root {
   overflow-anchor: none;
 }
 
+/* ——— FAQ dialog (readable popup) ——— */
+.hm-faq-dialog.hm-dialog {
+  width: min(560px, calc(100% - 24px));
+  max-height: min(90vh, 90dvh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+}
+
+.hm-faq-dialog__panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(90vh, 90dvh);
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.hm-faq-dialog__head {
+  flex-shrink: 0;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(43, 58, 103, 0.08);
+  background: linear-gradient(180deg, #eef2f7 0%, var(--hm-cream) 100%);
+}
+
+.hm-faq-dialog__head .hm-sheet-header {
+  margin-bottom: 0;
+}
+
+.hm-faq-dialog__head .hm-dialog-title {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.hm-faq-dialog__head .hm-dialog-subtitle {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(43, 58, 103, 0.58);
+}
+
+.hm-faq-dialog__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hm-scrollbar-thumb, rgba(43, 58, 103, 0.28)) transparent;
+}
+
+.hm-faq-dialog__scroll::-webkit-scrollbar {
+  width: var(--hm-scrollbar-size, 4px);
+}
+
+.hm-faq-dialog__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hm-faq-dialog__scroll::-webkit-scrollbar-thumb {
+  background: var(--hm-scrollbar-thumb, rgba(43, 58, 103, 0.28));
+  border-radius: 4px;
+}
+
+.hm-faq-dialog__foot {
+  flex-shrink: 0;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(43, 58, 103, 0.08);
+  background: #fff;
+}
+
+.hm-faq-dialog__foot-hint {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-faq-list--dialog {
+  gap: 18px;
+  margin-bottom: 4px;
+  overflow: visible;
+  min-height: 0;
+  flex: none;
+}
+
+.hm-faq-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hm-faq-group__label {
+  margin: 0 4px;
+  font-family: var(--hm-font-sans, 'DM Sans', sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.5);
+  line-height: 1.3;
+}
+
+.hm-faq-group__card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(43, 58, 103, 0.08);
+  box-shadow: 0 1px 3px rgba(43, 58, 103, 0.04);
+  overflow: hidden;
+}
+
+.hm-faq-list--dialog .hm-faq-item {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hm-faq-list--dialog .hm-faq-item + .hm-faq-item {
+  border-top: 1px solid rgba(43, 58, 103, 0.07);
+}
+
+.hm-faq-list--dialog .hm-faq-item--open {
+  border-color: transparent;
+  box-shadow: none;
+  background: rgba(74, 190, 170, 0.06);
+}
+
+.hm-faq-list--dialog .hm-faq-item + .hm-faq-item.hm-faq-item--open,
+.hm-faq-list--dialog .hm-faq-item--open + .hm-faq-item {
+  border-top-color: rgba(43, 58, 103, 0.07);
+}
+
+.hm-faq-list--dialog .hm-faq-trigger {
+  padding: 14px 16px;
+  background: transparent;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.hm-faq-list--dialog .hm-faq-trigger:hover {
+  background: rgba(43, 58, 103, 0.03);
+}
+
+.hm-faq-list--dialog .hm-faq-item--open .hm-faq-trigger {
+  background: transparent;
+}
+
+.hm-faq-list--dialog .hm-faq-trigger__q {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--hm-navy);
+}
+
+.hm-faq-list--dialog .hm-faq-trigger__chevron {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(43, 58, 103, 0.06);
+  color: rgba(43, 58, 103, 0.45);
+  font-size: 18px;
+}
+
+.hm-faq-list--dialog .hm-faq-item--open .hm-faq-trigger__chevron {
+  background: rgba(74, 190, 170, 0.18);
+  color: var(--hm-navy);
+}
+
+.hm-faq-list--dialog .hm-faq-answer {
+  padding: 0 16px 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(43, 58, 103, 0.72);
+}
+
+.hm-faq-list--dialog .hm-faq-answer__intro {
+  margin: 0 0 12px;
+  color: rgba(43, 58, 103, 0.78);
+}
+
+.hm-faq-list--dialog .hm-faq-answer__section-title {
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.55);
+}
+
+.hm-faq-list--dialog .hm-faq-answer__list {
+  margin: 0;
+  padding-left: 1.15em;
+}
+
+.hm-faq-list--dialog .hm-faq-answer__list li + li {
+  margin-top: 6px;
+}
+
+@media (max-width: 480px) {
+  .hm-faq-dialog.hm-dialog {
+    width: calc(100% - 16px);
+    max-height: min(92vh, 92dvh);
+    border-radius: 18px;
+  }
+
+  .hm-faq-dialog__panel {
+    max-height: min(92vh, 92dvh);
+  }
+
+  .hm-faq-dialog__head {
+    padding: 12px 14px 10px;
+  }
+
+  .hm-faq-dialog__scroll {
+    padding: 12px 12px 6px;
+  }
+
+  .hm-faq-dialog__foot {
+    padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .hm-faq-list--dialog {
+    gap: 14px;
+  }
+
+  .hm-faq-group__card {
+    border-radius: 14px;
+  }
+
+  .hm-faq-list--dialog .hm-faq-trigger {
+    padding: 13px 14px;
+    min-height: 48px;
+  }
+
+  .hm-faq-list--dialog .hm-faq-answer {
+    padding: 0 14px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+.hm-faq-group-label {
+  margin: 10px 2px 0;
+  font-family: var(--hm-font-sans, 'DM Sans', sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.55);
+  line-height: 1.3;
+}
+
+.hm-faq-list > .hm-faq-group-label:first-child {
+  margin-top: 0;
+}
+
 .hm-faq-trigger {
   width: 100%;
   display: flex;
@@ -1812,12 +2122,54 @@ body.hm-app-active #root {
   box-sizing: border-box;
 }
 
-/* Align rail + chat with the centered header column on desktop */
+/*
+ * Chat scrollbar must sit on the far right of the viewport (same as other tabs).
+ * Do NOT max-width/center the scroll stage — that insets the scrollbar.
+ * Instead, inset only the left so the rail aligns with the header column.
+ */
 @media (min-width: 700px) {
   .hm-chat-workspace--rail .hm-chat-workspace__stage {
-    max-width: var(--hm-bar-content-max);
-    margin-left: auto;
+    max-width: none;
+    margin: 0;
+    padding-left: max(0px, calc((100% - var(--hm-bar-content-max)) / 2));
+  }
+
+  /* Keep messages as one column under the header; empty space + scrollbar on the right */
+  .hm-app-shell.hm-tab-chat .hm-app-body-inner {
+    max-width: calc(var(--hm-bar-content-max) - 52px);
+    width: 100%;
+    margin-left: 0;
     margin-right: auto;
+    /* Rail already provides the left gutter; avoid double-padding */
+    padding-left: max(8px, env(safe-area-inset-left, 0px));
+  }
+
+  /* Composer lives outside the stage — mirror the same left inset + rail offset */
+  .hm-app-shell.hm-tab-chat .hm-app-composer {
+    padding-left: max(0px, calc((100% - var(--hm-bar-content-max)) / 2));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .hm-app-shell.hm-tab-chat .hm-app-composer-inner.hm-app-bar-inner,
+  .hm-app-shell.hm-tab-chat .hm-chat-context-bar.hm-app-bar-inner,
+  .hm-app-shell.hm-tab-chat .hm-chat-attach-preview.hm-app-bar-inner {
+    max-width: calc(var(--hm-bar-content-max) - 52px);
+    width: 100%;
+    margin-left: 52px;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hm-app-shell.hm-tab-chat .hm-app-composer {
+    padding-right: max(40px, env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (min-width: 1400px) {
+  .hm-app-shell.hm-tab-chat .hm-app-composer {
+    padding-right: max(56px, env(safe-area-inset-right, 0px));
   }
 }
 
@@ -2623,41 +2975,64 @@ body.hm-app-active #root {
   font-family: inherit;
 }
 
+.hm-chat-reply-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .hm-chat-feedback {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  margin-left: 4px;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(43, 58, 103, 0.05);
+  border: 1px solid rgba(43, 58, 103, 0.08);
 }
 
 .hm-chat-feedback-btn {
-  background: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #fff;
+  border: 1px solid rgba(43, 58, 103, 0.1);
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 8px;
-  opacity: 0.55;
-  transition: opacity 0.15s, background 0.15s, transform 0.12s;
+  color: rgba(43, 58, 103, 0.55);
+  padding: 0;
+  border-radius: 999px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.12s;
 }
 
 .hm-chat-feedback-btn:hover {
-  opacity: 0.9;
-  background: rgba(43, 58, 103, 0.06);
+  color: var(--hm-navy);
+  background: #fff;
+  border-color: rgba(43, 58, 103, 0.22);
 }
 
 .hm-chat-feedback-btn.is-active {
-  opacity: 1;
-  transform: scale(1.08);
+  transform: scale(1.04);
 }
 
 .hm-chat-feedback-btn.is-up.is-active {
-  background: rgba(45, 158, 107, 0.14);
+  color: #1f7a4d;
+  background: rgba(45, 158, 107, 0.16);
+  border-color: rgba(45, 158, 107, 0.35);
 }
 
 .hm-chat-feedback-btn.is-down.is-active {
+  color: #b45309;
   background: rgba(196, 91, 40, 0.14);
+  border-color: rgba(196, 91, 40, 0.32);
+}
+
+.hm-chat-feedback-btn:focus-visible {
+  outline: 2px solid rgba(74, 190, 170, 0.55);
+  outline-offset: 1px;
 }
 
 .hm-chat-memory-suggestion {
@@ -4837,20 +5212,6 @@ button.hm-ms-ref-chip {
   gap: 8px;
 }
 
-.hm-profile-gamification-card__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(222, 90, 158, 0.08);
-  color: var(--hm-navy);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .hm-profile-gamification-card__grant {
   margin: 0;
   padding: 10px 12px;
@@ -4897,23 +5258,32 @@ button.hm-ms-ref-chip {
 .hm-profile-gamification-card__faq-link {
   display: inline-flex;
   align-items: center;
-  height: 32px;
+  height: 34px;
   margin: 0;
-  padding: 0 12px;
-  border: none;
+  padding: 0 14px;
+  border: 1px solid rgba(43, 58, 103, 0.16);
   border-radius: 999px;
-  background: none;
+  background: #fff;
+  box-shadow: none;
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
-  color: #de5a9e;
+  color: var(--hm-navy);
   line-height: 1;
   white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .hm-profile-gamification-card__faq-link:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  border-color: rgba(43, 58, 103, 0.32);
+  background: rgba(43, 58, 103, 0.04);
+  color: var(--hm-navy);
+}
+
+.hm-profile-gamification-card__faq-link:active {
+  background: rgba(43, 58, 103, 0.07);
 }
 
 .hm-profile-gamification-card__referral {
@@ -7815,19 +8185,8 @@ button.hm-ms-ref-chip {
 
   .hm-faq-dialog.hm-dialog,
   .hm-faq-dialog.hm-dialog--lg {
-    max-width: min(960px, calc(100% - 40px));
-    overflow: hidden;
-  }
-
-  .hm-faq-dialog .hm-dialog-panel {
-    overflow: hidden;
-  }
-
-  .hm-faq-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 10px;
-    align-items: start;
+    width: min(560px, calc(100% - 40px));
+    max-width: min(560px, calc(100% - 40px));
   }
 
   .hm-tree-edit-panel {
