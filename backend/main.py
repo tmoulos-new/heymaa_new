@@ -2048,6 +2048,10 @@ _CONVERSATION_STYLE_RULE = (
     "If the user only greets or asks how you are (e.g. τι κάνεις, πώς είσαι, γεια, how are you), "
     "answer as a short social greeting. Do not introduce your role, do not list topics or capabilities, "
     "and do not mention nutrition, sleep, development, or a child's name unless the user asked. "
+    "When the user already shared news or a day update (school run, started work, how the morning went), "
+    "do NOT open with a greeting — respond to what they said with warmth or empathy. "
+    "In Greek: never use «Χαίρετε» (formal plural hello). To express gladness use «Χαίρομαι…», "
+    "«Ωραία που…», or «Καλά που…». Address the mother with singular εσύ, never formal plural σας/Χαίρετε. "
     "English topic labels in the instructions (sleep, nutrition, development, breastfeeding) are for you only. "
     "In the user-facing reply always use native words of the user's language "
     "(Greek: ύπνος, διατροφή, ανάπτυξη, θηλασμός). Never mix languages or leave English fragments "
@@ -2661,6 +2665,9 @@ _EL_AGE_GARBLES = (
     (_re.compile(r"(\d+)μης(?:\s+ηλικίας)?", _re.I | _re.U), r"\1 μηνών"),
 )
 
+# Formal plural hello — models confuse it with «Χαίρομαι» (I'm glad).
+_EL_FORMAL_GREETING_OPEN = _re.compile(r"(?i)^\s*χαίρετε\b")
+
 
 def _scrub_language_leaks(text: str, lang: str) -> str:
     """Fix English topic leaks and common broken Greek age phrases in replies."""
@@ -2673,6 +2680,7 @@ def _scrub_language_leaks(text: str, lang: str) -> str:
         out = rx.sub(repl, out)
     for rx, repl in _EL_AGE_GARBLES:
         out = rx.sub(repl, out)
+    out = _EL_FORMAL_GREETING_OPEN.sub("Χαίρομαι", out, count=1)
     return out
 
 
@@ -4329,7 +4337,11 @@ async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
         spoken = prepare_tts_text(req.text, req.lang)
     if not spoken:
         raise HTTPException(status_code=400, detail="Nothing to read")
-    utterances = split_tts_utterances(spoken)
+    # First hop: tiny clip so Listen starts fast. Resume: large clip while the
+    # client is already playing — avoids many 90-char round-trips on long replies.
+    utterances = split_tts_utterances(
+        spoken, first_chars=70 if not req.resume else 700
+    )
     if not utterances:
         raise HTTPException(status_code=400, detail="Nothing to read")
     first = utterances[0]

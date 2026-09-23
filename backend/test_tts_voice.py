@@ -17,10 +17,10 @@ class TtsVoiceTests(unittest.TestCase):
     def test_greek_uses_native_athina(self):
         self.assertEqual(tts_voice("el"), "el-GR-AthinaNeural")
 
-    def test_greek_is_slower_and_slightly_higher(self):
+    def test_greek_is_slightly_slower_and_higher(self):
         p = tts_prosody("el")
-        self.assertEqual(p["rate"], "-20%")
-        self.assertEqual(p["pitch"], "+6Hz")
+        self.assertEqual(p["rate"], "-3%")
+        self.assertEqual(p["pitch"], "+3Hz")
 
     def test_strips_emoji_so_voice_stays_greek(self):
         out = prepare_tts_text("Γεια σου ❤️ μαμά!", "el")
@@ -37,16 +37,26 @@ class TtsVoiceTests(unittest.TestCase):
     def test_split_keeps_short_text_whole(self):
         self.assertEqual(split_tts_utterances("Γεια σου μαμά."), ["Γεια σου μαμά."])
 
-    def test_split_starts_with_first_sentences(self):
+    def test_split_starts_with_first_sentence_quickly(self):
         text = (
             "Πρώτη φράση αρκετά μεγάλη για να πιάσει το όριο. "
             "Δεύτερη φράση που μένει για μετά. "
             "Και μια τρίτη για το υπόλοιπο κείμενο."
         )
-        parts = split_tts_utterances(text, first_chars=40)
+        parts = split_tts_utterances(text, first_chars=70)
         self.assertEqual(len(parts), 2)
         self.assertTrue(parts[0].startswith("Πρώτη"))
+        self.assertLessEqual(len(parts[0]), 100)
         self.assertIn("Δεύτερη", parts[1])
+
+    def test_split_prefers_early_sentence_end(self):
+        text = (
+            "Γεια σου μαμά. "
+            "Συνεχίζουμε με μια πιο μεγάλη δεύτερη πρόταση για το υπόλοιπο του μηνύματος της HeyMaa."
+        )
+        parts = split_tts_utterances(text, first_chars=70)
+        self.assertEqual(parts[0], "Γεια σου μαμά.")
+        self.assertTrue(parts[1].startswith("Συνεχίζουμε"))
 
     def test_resume_roundtrip(self):
         secret = b"test-secret"

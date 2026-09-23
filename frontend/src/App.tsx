@@ -3547,19 +3547,42 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (!fetching) setPlayingIndex(null);
         return;
       }
-      const audio = new Audio(`data:audio/mp3;base64,${next}`);
+      let objectUrl: string | null = null;
+      try {
+        const binary = atob(next);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
+      } catch {
+        objectUrl = `data:audio/mpeg;base64,${next}`;
+      }
+      const audio = new Audio(objectUrl);
+      audio.preload = "auto";
       audioRef.current = audio;
+      const release = () => {
+        if (objectUrl && objectUrl.startsWith("blob:")) URL.revokeObjectURL(objectUrl);
+      };
       audio.onended = () => {
+        release();
         audioRef.current = null;
         playNext();
       };
-      void audio.play();
+      void audio.play().catch(() => {
+        release();
+        audioRef.current = null;
+        playNext();
+      });
     };
     try {
+      // First short clip plays ASAP; resume fetches large continuations while it plays.
       let body: { text?: string; lang: string; resume?: string } = { text: stripMd(text), lang };
       while (true) {
         if (ttsSessionRef.current !== session) return;
-        const res = await axios.post(`${API}/tts`, body, { headers: { "x-token": token }, signal: ac.signal });
+        const res = await axios.post(`${API}/tts`, body, {
+          headers: { "x-token": token },
+          signal: ac.signal,
+          timeout: 45000,
+        });
         if (ttsSessionRef.current !== session) return;
         if (res.data?.voice_quota) setVoiceQuota(res.data.voice_quota);
         if (res.data?.audio) {

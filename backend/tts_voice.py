@@ -36,10 +36,10 @@ VOICE_MAP = {
     "te": "te-IN-ShrutiNeural",
 }
 
-# AthinaNeural is native Greek; default speed (~156 wpm) sounds rushed for a companion.
+# Near-natural pace so long replies finish sooner; pitch stays slightly warm.
 _PROSODY = {
-    "el": {"rate": "-20%", "pitch": "+6Hz", "volume": "+0%"},
-    "default": {"rate": "-10%", "pitch": "+3Hz", "volume": "+0%"},
+    "el": {"rate": "-3%", "pitch": "+3Hz", "volume": "+0%"},
+    "default": {"rate": "0%", "pitch": "+2Hz", "volume": "+0%"},
 }
 
 _EMOJI_RE = re.compile(
@@ -81,21 +81,31 @@ def prepare_tts_text(text: str, lang: str = "el") -> str:
     return t
 
 
-def split_tts_utterances(text: str, first_chars: int = 180) -> list[str]:
-    """First clip is short enough to start Listen quickly; the rest follows in a second clip."""
+def split_tts_utterances(text: str, first_chars: int = 70) -> list[str]:
+    """Split so the first clip is short (fast Listen start); remainder follows via resume.
+
+    Prefers ending at the first real sentence within ``first_chars`` so edge-tts
+    synthesizes less before the client can play audio. Callers use a larger
+    ``first_chars`` on resume so long messages need fewer round-trips.
+    """
     t = (text or "").strip()
     if not t:
         return []
     if len(t) <= first_chars:
         return [t]
-    cut = None
+    min_sentence = 12
+    sentence_cut = None
     for match in re.finditer(r"[\.!?…;:](?:\s+|$)", t):
-        cut = match.end()
-        if match.end() >= first_chars:
-            break
-    if cut is None or cut < 40:
-        sp = t.rfind(" ", 0, min(len(t), first_chars + 40))
-        cut = sp if sp >= 40 else first_chars
+        end = match.end()
+        if end < min_sentence:
+            continue
+        sentence_cut = end
+        break
+    if sentence_cut is not None and sentence_cut <= first_chars:
+        cut = sentence_cut
+    else:
+        sp = t.rfind(" ", 0, min(len(t), first_chars + 20))
+        cut = sp if sp >= min_sentence else first_chars
     first, rest = t[:cut].strip(), t[cut:].strip()
     if not rest:
         return [first]
