@@ -7,6 +7,8 @@ const ADMIN_API_EXACT = new Set([
   '/admin/health',
   '/admin/me',
   '/admin/usage',
+  '/admin/insights',
+  '/admin/chat-quality',
   '/admin/credits',
   '/admin/llm_transactions',
   '/admin/invite_tester',
@@ -35,6 +37,8 @@ const ADMIN_API_PREFIXES = [
 
 const ADMIN_UI_GET_PATHS = new Set([
   '/admin',
+  '/admin/insights',
+  '/admin/quality',
   '/admin/testers',
   '/admin/invite-codes',
   '/admin/regions',
@@ -48,6 +52,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/user-activity',
   '/admin/chat-prompt',
   '/admin/llm-transactions',
+  '/admin/user-financials',
   '/admin/tools',
   '/admin/activity-log',
 ])

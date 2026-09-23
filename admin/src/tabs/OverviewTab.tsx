@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
   BarChart3,
+  CheckCircle2,
+  ClipboardList,
   ExternalLink,
   Gauge,
   RefreshCw,
@@ -13,6 +15,17 @@ import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { pathForTab } from '../lib/constants'
 import type { ProviderStatus } from '../lib/types'
+
+type AttentionSeverity = 'action' | 'alert'
+
+type AttentionItem = {
+  id: string
+  severity: AttentionSeverity
+  title: string
+  detail: string
+  cta: string
+  onOpen: () => void
+}
 
 type ProviderBalance = {
   provider?: string
@@ -120,8 +133,25 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const [monthlyInput, setMonthlyInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [balancesLoading, setBalancesLoading] = useState(false)
+  const [pendingCancels, setPendingCancels] = useState<number | null>(null)
+  const [ragErrorCount, setRagErrorCount] = useState<number | null>(null)
+  const [snapshot, setSnapshot] = useState<{
+    new_users_7d?: number
+    paying_active?: number
+    recognized_mrr_eur?: number
+    llm_cost_usd_mtd?: number
+    projected_llm_cost_usd_month?: number
+    cash_revenue_eur?: number
+  } | null>(null)
 
   const goToTransactions = () => navigate(pathForTab('llmtransactions'))
+  const goToCancellations = () => navigate(pathForTab('cancellations'))
+  const goToSources = () => navigate(pathForTab('sources'))
+  const goToInsights = () => navigate(pathForTab('insights'))
+
+  const scrollToId = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const loadHealth = useCallback(async () => {
     setHealthErr(false)
@@ -149,10 +179,50 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
     }
   }, [adminFetch])
 
+  const loadPendingCancels = useCallback(async () => {
+    try {
+      const d = await adminFetch('/admin/subscription-cancellations?status=pending')
+      setPendingCancels(((d.requests as unknown[]) || []).length)
+    } catch {
+      setPendingCancels(null)
+    }
+  }, [adminFetch])
+
+  const loadRagErrors = useCallback(async () => {
+    try {
+      const d = await adminFetch('/admin/rag_sources')
+      const sources = (d.sources as { status?: string }[]) || []
+      setRagErrorCount(sources.filter((s) => String(s.status || '').toLowerCase() === 'error').length)
+    } catch {
+      setRagErrorCount(null)
+    }
+  }, [adminFetch])
+
+  const loadSnapshot = useCallback(async () => {
+    try {
+      const d = (await adminFetch('/admin/insights?days=30')) as {
+        kpis?: {
+          new_users_7d?: number
+          paying_active?: number
+          recognized_mrr_eur?: number
+          llm_cost_usd_mtd?: number
+          projected_llm_cost_usd_month?: number
+          cash_revenue_eur?: number
+        }
+      }
+      setSnapshot(d.kpis || null)
+    } catch {
+      setSnapshot(null)
+    }
+  }, [adminFetch])
+
   useEffect(() => {
     void loadHealth()
     void loadUsage()
-  }, [loadHealth, loadUsage])
+    void loadPendingCancels()
+    void loadRagErrors()
+    void loadSnapshot()
+  }, [loadHealth, loadUsage, loadPendingCancels, loadRagErrors, loadSnapshot])
 
   const saveCaps = async () => {
     const threshold = Number(thresholdInput || 5)
@@ -190,8 +260,192 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
       : usage?.estimated_cost_usd
   const balances = usage?.provider_balances?.providers || {}
 
+  const unhealthyProviders = useMemo(() => {
+    if (!health) return [] as string[]
+    return PROVIDER_ORDER.filter((p) => {
+      const s = asStatus(health[p])
+      if (/idle|not used|not required/i.test(s.msg || '')) return false
+      return !s.ok
+    }).map((p) => PROVIDER_LABEL[p] || p)
+  }, [health])
+
+  const attentionItems = useMemo((): AttentionItem[] => {
+    const items: AttentionItem[] = []
+
+    if ((pendingCancels || 0) > 0) {
+      items.push({
+        id: 'pending-cancels',
+        severity: 'action',
+        title: 'Pending cancellations',
+        detail: `${pendingCancels} subscription cancel request${pendingCancels === 1 ? '' : 's'} awaiting review.`,
+        cta: 'Review queue',
+        onOpen: goToCancellations,
+      })
+    }
+
+    if (reloadNeeded) {
+      items.push({
+        id: 'spend-cap',
+        severity: 'alert',
+        title: 'Spend cap alert',
+        detail:
+          usage?.last_error_kind === 'credit_exhausted'
+            ? 'A chat provider blocked new work — check vendor billing below.'
+            : `Remaining vs your cap is ${money(remainingVsCap)} (at or below alert).`,
+        cta: 'View caps',
+        onOpen: () => scrollToId('overview-spend-caps'),
+      })
+    }
+
+    if (healthErr) {
+      items.push({
+        id: 'health-load',
+        severity: 'alert',
+        title: 'Provider status unavailable',
+        detail: 'Could not load health checks. Refresh Overview and verify the API.',
+        cta: 'Retry',
+        onOpen: () => {
+          scrollToId('overview-provider-status')
+          void loadHealth()
+        },
+      })
+    } else if (unhealthyProviders.length > 0) {
+      items.push({
+        id: 'unhealthy-providers',
+        severity: 'alert',
+        title: 'Providers unhealthy',
+        detail: `${unhealthyProviders.join(', ')} reported offline or misconfigured.`,
+        cta: 'View status',
+        onOpen: () => scrollToId('overview-provider-status'),
+      })
+    }
+
+    if ((ragErrorCount || 0) > 0) {
+      items.push({
+        id: 'rag-errors',
+        severity: 'alert',
+        title: 'RAG sources failed',
+        detail: `${ragErrorCount} source${ragErrorCount === 1 ? '' : 's'} in error status.`,
+        cta: 'Open Sources',
+        onOpen: goToSources,
+      })
+    }
+
+    return items
+  }, [
+    pendingCancels,
+    reloadNeeded,
+    usage?.last_error_kind,
+    remainingVsCap,
+    healthErr,
+    unhealthyProviders,
+    ragErrorCount,
+    loadHealth,
+  ])
+
   return (
     <>
+      <div className="card">
+        <div className="card-head">
+          <h2>
+            <ClipboardList size={16} className="h-icon" /> Needs attention
+          </h2>
+          <button
+            type="button"
+            className="sec sm"
+            onClick={() => {
+              void loadHealth()
+              void loadUsage()
+              void loadPendingCancels()
+              void loadRagErrors()
+            }}
+          >
+            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+          </button>
+        </div>
+        <p className="card-desc">
+          Admin to-dos and operational alerts in one place. Click a row to jump to the right screen.
+        </p>
+        {attentionItems.length === 0 ? (
+          <div className="attention-empty">
+            <CheckCircle2 size={16} />
+            <div>Nothing needs attention right now.</div>
+          </div>
+        ) : (
+          <ul className="attention-list">
+            {attentionItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={`attention-row attention-row-${item.severity}`}
+                  onClick={item.onOpen}
+                >
+                  <div className="attention-row-body">
+                    <div className="attention-row-title">{item.title}</div>
+                    <div className="attention-row-detail">{item.detail}</div>
+                  </div>
+                  <span className="attention-row-cta">{item.cta} →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2>
+            <BarChart3 size={16} className="h-icon" /> Business snapshot
+          </h2>
+          <button type="button" className="sec sm" onClick={goToInsights}>
+            Open Insights →
+          </button>
+        </div>
+        <p className="card-desc">
+          Growth, projected MRR, cash, and LLM run-rate. Full charts live on Insights.
+        </p>
+        <div className="grid-3">
+          <div className="stat teal">
+            <div className="n">{snapshot?.new_users_7d ?? '—'}</div>
+            <div className="l">New users (7d)</div>
+          </div>
+          <div className="stat">
+            <div className="n">{snapshot?.paying_active ?? '—'}</div>
+            <div className="l">Paying active</div>
+          </div>
+          <div className="stat green">
+            <div className="n">
+              {snapshot?.recognized_mrr_eur != null
+                ? `€${Number(snapshot.recognized_mrr_eur).toFixed(0)}`
+                : '—'}
+            </div>
+            <div className="l">Projected MRR</div>
+          </div>
+          <div className="stat">
+            <div className="n">
+              {snapshot?.cash_revenue_eur != null
+                ? `€${Number(snapshot.cash_revenue_eur).toFixed(0)}`
+                : '—'}
+            </div>
+            <div className="l">Cash (30d)</div>
+          </div>
+          <div className="stat coral">
+            <div className="n">
+              {snapshot?.llm_cost_usd_mtd != null
+                ? `$${Number(snapshot.llm_cost_usd_mtd).toFixed(2)}`
+                : '—'}
+            </div>
+            <div className="l">LLM cost MTD</div>
+            <div className="meta">
+              Proj.{' '}
+              {snapshot?.projected_llm_cost_usd_month != null
+                ? `$${Number(snapshot.projected_llm_cost_usd_month).toFixed(2)}`
+                : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {reloadNeeded && (
         <div className="msg err" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <AlertTriangle size={16} style={{ marginTop: 2, flexShrink: 0 }} />
@@ -209,11 +463,32 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           <div className="n">{userCount ?? '—'}</div>
           <div className="l">Total users</div>
         </div>
+        <div
+          className={`stat ${(pendingCancels || 0) > 0 ? 'coral' : ''}`}
+          role="button"
+          tabIndex={0}
+          onClick={goToCancellations}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              goToCancellations()
+            }
+          }}
+          style={{ cursor: 'pointer' }}
+          title="Open Cancellations"
+        >
+          <div className="n">{pendingCancels ?? '—'}</div>
+          <div className="l">Pending cancellations</div>
+          <div className="meta">Click to review queue</div>
+        </div>
         <div className="stat coral">
           <div className="n">{money(usage?.day_cost_usd, 3)}</div>
           <div className="l">Chat spend today</div>
           <div className="meta">{usage?.day_calls ?? 0} calls · HeyMaa tracked</div>
         </div>
+      </div>
+
+      <div className="grid-3" style={{ marginTop: 12 }}>
         <div className={`stat ${remainingClass}`}>
           <div className="n">{money(usage?.month_cost_usd, 3)}</div>
           <div className="l">Chat spend this month</div>
@@ -224,7 +499,6 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </div>
         </div>
       </div>
-
       <div className="card">
         <div className="card-head">
           <h2>
@@ -296,7 +570,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
       </div>
 
       <div className="grid-2">
-        <div className="card">
+        <div className="card" id="overview-provider-status">
           <div className="card-head">
             <h2>
               <Activity size={16} className="h-icon" /> Provider status
@@ -401,7 +675,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" id="overview-spend-caps">
         <div className="card-head">
           <h2>
             <AlertTriangle size={16} className="h-icon" /> Internal spend caps

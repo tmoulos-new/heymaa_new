@@ -6,6 +6,8 @@ export const BADGE_COLORS: Record<string, string> = {
 
 export const TAB_TITLES: Record<string, string> = {
   overview: 'Overview',
+  insights: 'Insights',
+  quality: 'Quality',
   testers: 'Testers',
   invites: 'Invite Codes',
   regions: 'Regions',
@@ -24,11 +26,47 @@ export const TAB_TITLES: Record<string, string> = {
   activity: 'Admin Activity',
 }
 
+export const TAB_SUBTITLES: Record<string, string> = {
+  overview: 'Attention, health, and a quick business snapshot',
+  insights: 'Growth, revenue model, spend, and behaviour',
+  quality: 'Reply health, thumbs, and fix proposals',
+  testers: 'Invite and provision tester accounts',
+  invites: 'Manage invite codes and access',
+  regions: 'Geo targeting for offers and promos',
+  points: 'Gamification rules and level gifts',
+  plans: 'Catalog, quotas, and plan copy',
+  content: 'Offers and sponsored promotions',
+  sources: 'RAG documents and ingest status',
+  users: 'Accounts, plans, and support actions',
+  cancellations: 'Review and approve cancel requests',
+  userdata: 'Inspect stored family, chat, and memories',
+  useractivity: 'In-app clicks, views, and navigation',
+  chatprompt: 'System instructions for HeyMaa chat',
+  llmtransactions: 'Per-call LLM cost ledger',
+  userfinancials: 'Usage vs plan limits per user',
+  tools: 'Seeding and maintenance utilities',
+  activity: 'Admin audit trail',
+}
+
 export type TabId = keyof typeof TAB_TITLES
+
+/** Sidebar information architecture — groups keep the long nav scannable. */
+export const NAV_GROUPS: { label: string; ids: TabId[] }[] = [
+  { label: 'Home', ids: ['overview', 'insights', 'quality'] },
+  { label: 'People', ids: ['users', 'cancellations', 'testers', 'invites'] },
+  { label: 'Product', ids: ['plans', 'points', 'content', 'regions', 'sources'] },
+  {
+    label: 'Intelligence',
+    ids: ['chatprompt', 'llmtransactions', 'userfinancials', 'userdata', 'useractivity'],
+  },
+  { label: 'System', ids: ['activity', 'tools'] },
+]
 
 /** URL segment under /admin (empty string = overview at /admin). */
 export const TAB_PATHS: Record<TabId, string> = {
   overview: '',
+  insights: 'insights',
+  quality: 'quality',
   testers: 'testers',
   invites: 'invite-codes',
   regions: 'regions',

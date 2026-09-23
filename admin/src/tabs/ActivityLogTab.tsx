@@ -17,7 +17,11 @@ const ACTION_OPTIONS = [
   { value: 'seed', label: 'Seed' },
   { value: 'invite_tester', label: 'Invite tester' },
   { value: 'set_role', label: 'Set role' },
+  { value: 'set_trial_expiry', label: 'Set trial expiry' },
   { value: 'reset_password', label: 'Reset password' },
+  { value: 'approve_subscription_cancel', label: 'Approve cancel' },
+  { value: 'dismiss_subscription_cancel', label: 'Dismiss cancel' },
+  { value: 'restore_subscription_cancel', label: 'Restore cancel' },
   { value: 'delete_all', label: 'Delete all' },
 ]
 

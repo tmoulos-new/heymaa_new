@@ -2097,6 +2097,15 @@ _APP_NAV_RULE = (
     "when a name is on file."
 )
 
+_LOCAL_HELP_RULE = (
+    "\n\n--- Local professional search (always follow) ---\n"
+    "If the user asks to find a pediatrician, doctor, midwife, pharmacy, or clinic near a place, "
+    "this is NOT medical advice. Do not invent names, phones, or addresses. Do not refuse with "
+    "nonsense referrals. Give brief practical next steps (Maps/search for specialty + area, "
+    "ΕΟΠΥΥ or local networks when relevant, ask midwife/GP for a referral) and one short line "
+    "that HeyMaa does not replace a doctor."
+)
+
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
@@ -2104,6 +2113,7 @@ def build_system_prompt(rag_context, family_context="", memories_context="", doc
     prompt += _GREEK_NAME_CASE_RULE
     prompt += _GREEK_AGE_PHRASE_RULE
     prompt += _APP_NAV_RULE
+    prompt += _LOCAL_HELP_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
     if memories_context:
@@ -3765,6 +3775,16 @@ def cancel_subscription_request(x_token: Optional[str] = Header(None)):
         "subscription_ends_at": row.get("subscription_ends_at"),
     }
     upsert_cancel_record(sb, user_id, cancel_payload)
+    try:
+        _log_user_activity(
+            auth,
+            "click",
+            "/subscription/cancel-request",
+            label="Subscription cancel requested",
+            details={"plan": plan, "status": "pending"},
+        )
+    except Exception:
+        pass
     if RESEND_API_KEY:
         try:
             try:
@@ -4166,11 +4186,53 @@ async def _run_chat_core(
             memory_suggestion = None
         timing["post_ms"] = round((_time.perf_counter() - t_post0) * 1000, 1)
         timing["total_ms"] = round((_time.perf_counter() - t_total0) * 1000, 1)
+        message_id = request_id
+        # Quality loop: persist turn + rules (+ LLM judge when weak).
+        try:
+            try:
+                from .chat_quality import persist_turn, review_and_store
+            except ImportError:
+                from chat_quality import persist_turn, review_and_store
+
+            groq_key = (_llm_api_keys().get("groq") or "").strip()
+
+            def _quality_job():
+                ok = persist_turn(
+                    sb,
+                    message_id=message_id,
+                    user_id=user_id,
+                    user_message=req.message or "",
+                    assistant_reply=reply or "",
+                    lang=msg_lang or profile_lang or "",
+                    provider=provider,
+                    needs_rag=needs_rag,
+                    request_id=request_id,
+                    meta={"greeting_only": bool(greeting_only)},
+                )
+                if ok and not greeting_only:
+                    review_and_store(
+                        sb,
+                        {
+                            "message_id": message_id,
+                            "user_message": req.message or "",
+                            "assistant_reply": reply or "",
+                        },
+                        use_llm=True,
+                        groq_api_key=groq_key or None,
+                    )
+
+            try:
+                asyncio.get_running_loop().run_in_executor(None, _quality_job)
+            except Exception:
+                _quality_job()
+        except Exception:
+            pass
         out = {
             "reply": reply,
             "provider": provider,
             "promo": promo_data,
             "memory_suggestion": memory_suggestion,
+            "message_id": message_id,
         }
         if include_debug:
             out["timing"] = {
@@ -4300,6 +4362,142 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
+
+
+class ChatFeedbackRequest(BaseModel):
+    message_id: str
+    vote: str
+    reason: Optional[str] = None
+
+
+@app.post("/chat/feedback")
+async def chat_feedback(req: ChatFeedbackRequest, x_token: Optional[str] = Header(None)):
+    """User thumb up/down on an assistant reply (message_id from /chat)."""
+    auth = resolve_auth(x_token)
+    if auth.get("kind") == "invite" and not auth.get("user_id"):
+        # Invite-only sessions may still vote anonymously keyed by token hash — skip user_id
+        user_id = None
+    else:
+        user_id = auth.get("user_id")
+    try:
+        try:
+            from .chat_quality import upsert_feedback
+        except ImportError:
+            from chat_quality import upsert_feedback
+        return upsert_feedback(
+            sb,
+            message_id=(req.message_id or "").strip(),
+            user_id=user_id,
+            vote=req.vote,
+            reason=req.reason,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/admin/chat-quality")
+async def admin_chat_quality(
+    days: int = 30,
+    x_token: Optional[str] = Header(None),
+):
+    verify_admin(x_token)
+    try:
+        from .chat_quality import build_quality_dashboard
+    except ImportError:
+        from chat_quality import build_quality_dashboard
+    return build_quality_dashboard(sb, days=days)
+
+
+class ChatQualityReviewUpdate(BaseModel):
+    status: str
+    admin_note: Optional[str] = None
+
+
+@app.patch("/admin/chat-quality/reviews/{review_id}")
+async def admin_chat_quality_review_update(
+    review_id: str,
+    req: ChatQualityReviewUpdate,
+    x_token: Optional[str] = Header(None),
+):
+    verify_admin(x_token)
+    try:
+        try:
+            from .chat_quality import update_review_status
+        except ImportError:
+            from chat_quality import update_review_status
+        return update_review_status(
+            sb, review_id, status=req.status, admin_note=req.admin_note
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/admin/chat-quality/reviews/{review_id}/rejudge")
+async def admin_chat_quality_rejudge(
+    review_id: str,
+    x_token: Optional[str] = Header(None),
+):
+    verify_admin(x_token)
+    try:
+        try:
+            from .chat_quality import rejudge_message
+        except ImportError:
+            from chat_quality import rejudge_message
+        row = (
+            sb.table("chat_quality_reviews")
+            .select("message_id")
+            .eq("id", review_id)
+            .limit(1)
+            .execute()
+        )
+        if not row.data:
+            raise HTTPException(status_code=404, detail="Review not found")
+        mid = row.data[0].get("message_id")
+        groq_key = (_llm_api_keys().get("groq") or "").strip() or None
+        return rejudge_message(sb, mid, groq_api_key=groq_key)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/admin/chat-quality/golden")
+async def admin_chat_quality_golden(x_token: Optional[str] = Header(None)):
+    """Run regression pack (rule-based) — should stay green after prompt fixes."""
+    verify_admin(x_token)
+    try:
+        from .chat_quality_golden import run_golden_suite
+    except ImportError:
+        from chat_quality_golden import run_golden_suite
+    return run_golden_suite()
+
+
+@app.get("/admin/chat-quality/preferences")
+async def admin_chat_quality_preferences(
+    days: int = 30,
+    limit: int = 500,
+    x_token: Optional[str] = Header(None),
+):
+    """Export thumbs pairs for future preference / fine-tune work (Phase 3 scaffold)."""
+    verify_admin(x_token)
+    try:
+        from .chat_quality import build_preference_export
+    except ImportError:
+        from chat_quality import build_preference_export
+    return build_preference_export(sb, days=days, limit=limit)
+
 
 @app.post("/tts")
 async def tts(req: TTSRequest, x_token: Optional[str] = Header(None)):
@@ -4580,6 +4778,20 @@ async def admin_health(x_token: Optional[str] = Header(None)):
     else:
         status["resend"] = {"ok": False, "msg": "no key"}
     return status
+
+
+@app.get("/admin/insights")
+async def admin_insights(
+    days: int = 30,
+    x_token: Optional[str] = Header(None),
+):
+    """Business KPIs: growth, plan mix, modelled MRR, cash revenue, LLM run-rate."""
+    verify_admin(x_token)
+    try:
+        from .admin_insights import build_insights
+    except ImportError:
+        from admin_insights import build_insights
+    return build_insights(sb, days=days)
 
 
 class SendEmailSamplesRequest(BaseModel):
@@ -5603,6 +5815,24 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
             u["llm_cost_remaining_usd"] = (
                 round(max(0.0, float(cost_limit) - used_cost), 6) if cost_limit is not None else None
             )
+        cancel_by_user: dict = {}
+        try:
+            try:
+                from .subscription_cancel import cancel_snapshots_for_users, pending_cancel_count
+            except ImportError:
+                from subscription_cancel import cancel_snapshots_for_users, pending_cancel_count
+            cancel_by_user = cancel_snapshots_for_users(sb, [str(i) for i in user_ids if i])
+            pending_cancels = pending_cancel_count(sb)
+        except Exception:
+            pending_cancels = 0
+        for u in merged:
+            uid = str(u.get("id") or "")
+            snap = cancel_by_user.get(uid) or {}
+            u["cancel_requested"] = bool(snap.get("cancel_requested"))
+            u["cancel_status"] = snap.get("cancel_status")
+            u["cancel_access_until"] = snap.get("cancel_access_until") or u.get("subscription_ends_at")
+            u["cancel_note"] = snap.get("cancel_note")
+            u["cancel_admin_initiated"] = bool(snap.get("cancel_admin_initiated"))
         _attach_user_points_summary(merged)
         return {
             "users": merged,
@@ -5611,6 +5841,7 @@ async def admin_list_users(x_token: Optional[str] = Header(None)):
             "invite_only_count": invite_only_count,
             "llm_total_cost_usd": llm_total_cost,
             "llm_table_ready": llm_table_ready,
+            "pending_cancel_count": pending_cancels,
         }
     except Exception as e:
         return {"users": [], "error": str(e)}
@@ -7642,6 +7873,73 @@ async def admin_dismiss_subscription_cancel(
         value_after={"status": "dismissed"},
     )
     return {"ok": True, "cancel_status": "dismissed"}
+
+
+@app.post("/admin/users/{user_id}/subscription-cancel/restore")
+async def admin_restore_subscription_cancel(
+    user_id: str,
+    body: Optional[SubscriptionCancelAction] = None,
+    x_token: Optional[str] = Header(None),
+):
+    """Undo a period-end cancellation so the paid plan continues."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    body = body or SubscriptionCancelAction()
+    try:
+        from .subscription_cancel import get_cancel_row, delete_cancel_record, upsert_cancel_record
+    except ImportError:
+        from subscription_cancel import get_cancel_row, delete_cancel_record, upsert_cancel_record
+    from datetime import datetime, timezone
+
+    ures = (
+        sb.table("users")
+        .select("id,subscription_status,subscription_ends_at,plan,plan_id")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not ures.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = ures.data[0]
+    status = (user.get("subscription_status") or "").lower()
+    cancel_row = get_cancel_row(sb, user_id)
+    if not cancel_row and status != "cancelled":
+        raise HTTPException(status_code=404, detail="No cancellation to restore")
+
+    before_snap = _user_log_snapshot(user_id)
+    now = datetime.now(timezone.utc).isoformat()
+    updates = {}
+    if status == "cancelled":
+        updates["subscription_status"] = "active"
+    if updates:
+        sb.table("users").update(updates).eq("id", user_id).execute()
+
+    if cancel_row:
+        record = dict(cancel_row.get("record") or {})
+        record.update(
+            {
+                "status": "dismissed",
+                "restored_at": now,
+                "restored_by": admin_id,
+                "note": (body.note or "").strip() or record.get("note"),
+            }
+        )
+        upsert_cancel_record(sb, user_id, record)
+        delete_cancel_record(sb, user_id)
+
+    after_snap = _user_log_snapshot(user_id)
+    _log_activity(
+        admin_id,
+        "restore_subscription_cancel",
+        "user",
+        user_id,
+        details={"note": body.note},
+        value_before=before_snap,
+        value_after=after_snap,
+    )
+    return {"ok": True, "cancel_status": None, "subscription_status": updates.get("subscription_status") or status}
+
 
 @app.patch("/admin/users/{user_id}/role")
 async def admin_set_user_role(user_id: str, body: UserRoleUpdate, x_token: Optional[str] = Header(None)):

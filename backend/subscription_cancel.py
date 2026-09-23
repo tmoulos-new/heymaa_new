@@ -176,12 +176,57 @@ def list_cancel_requests(sb, *, status_filter: Optional[str] = "pending") -> lis
                 "access_until": record.get("access_until")
                 or user.get("subscription_ends_at"),
                 "immediate": bool(record.get("immediate")),
+                "admin_initiated": bool(record.get("admin_initiated")),
+                "approved_by": record.get("approved_by"),
+                "dismissed_by": record.get("dismissed_by"),
+                "note": record.get("note"),
                 "updated_at": r.get("updated_at"),
                 "record": record,
             }
         )
     out.sort(key=lambda x: x.get("requested_at") or x.get("updated_at") or "", reverse=True)
     return out
+
+
+def cancel_snapshots_for_users(sb, user_ids: list[str]) -> dict[str, dict]:
+    """Map user_id → cancel_snapshot_fields for admin user lists."""
+    out: dict[str, dict] = {}
+    if not sb or not user_ids:
+        return out
+    try:
+        res = (
+            sb.table("user_data")
+            .select("user_id,value")
+            .eq("key", SUBSCRIPTION_CANCEL_KEY)
+            .in_("user_id", user_ids)
+            .execute()
+        )
+    except Exception:
+        return out
+    for row in res.data or []:
+        uid = str(row.get("user_id") or "")
+        if not uid:
+            continue
+        record = normalize_cancel_record(row.get("value"))
+        if not record:
+            continue
+        snap = cancel_snapshot_fields({"record": record})
+        snap["cancel_requested_at"] = record.get("requested_at")
+        snap["cancel_approved_at"] = record.get("approved_at")
+        snap["cancel_admin_initiated"] = bool(record.get("admin_initiated"))
+        snap["cancel_note"] = record.get("note")
+        out[uid] = snap
+    return out
+
+
+def pending_cancel_count(sb) -> int:
+    if not sb:
+        return 0
+    try:
+        rows = list_cancel_requests(sb, status_filter="pending")
+        return len(rows)
+    except Exception:
+        return 0
 
 
 def ensure_subscription_ends_at(sb, user_id: str, plan: Optional[str]) -> Optional[str]:

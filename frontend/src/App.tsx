@@ -351,6 +351,9 @@ interface Message {
   replyTo?: { role: "user" | "assistant"; content: string } | null;
   promo?: { title: string; body: string; link?: string | null; badge?: string; cta?: string | null } | null;
   memorySuggestion?: MemorySuggestion | null;
+  /** Server id for thumbs / quality loop (from /chat message_id). */
+  messageId?: string;
+  feedback?: "up" | "down" | null;
 }
 interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
 
@@ -3239,6 +3242,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           content: res.data.reply,
           promo: res.data.promo || null,
           memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
+          messageId: typeof res.data?.message_id === "string" ? res.data.message_id : undefined,
+          feedback: null,
         },
       ]);
     } catch (err: any) {
@@ -3274,6 +3279,34 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const rateAssistantReply = async (index: number, vote: "up" | "down") => {
+    const msg = messages[index];
+    if (!msg || msg.role !== "assistant" || !msg.messageId || !token) return;
+    if (msg.feedback === vote) return;
+    setMessages((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, feedback: vote } : m)),
+    );
+    try {
+      await axios.post(
+        `${API}/chat/feedback`,
+        {
+          message_id: msg.messageId,
+          vote,
+          reason: vote === "down" ? "thumbs_down" : undefined,
+        },
+        { headers: { "x-token": token }, timeout: 15000 },
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m, i) => (i === index ? { ...m, feedback: msg.feedback ?? null } : m)),
+      );
+      showToast(
+        lang === "el" ? "Δεν αποθηκεύτηκε η αξιολόγηση." : "Could not save your rating.",
+        "err",
+      );
     }
   };
 
@@ -6404,8 +6437,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                         )}
                         {msg.content}
                       </div>
-                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                         <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
+                        {msg.messageId ? (
+                          <span className="hm-chat-feedback" role="group" aria-label={lang==="el"?"Αξιολόγηση απάντησης":"Rate reply"}>
+                            <button
+                              type="button"
+                              className={`hm-chat-feedback-btn${msg.feedback==="up"?" is-active is-up":""}`}
+                              aria-pressed={msg.feedback==="up"}
+                              aria-label={lang==="el"?"Χρήσιμη":"Helpful"}
+                              onClick={()=>void rateAssistantReply(i,"up")}
+                            >
+                              👍
+                            </button>
+                            <button
+                              type="button"
+                              className={`hm-chat-feedback-btn${msg.feedback==="down"?" is-active is-down":""}`}
+                              aria-pressed={msg.feedback==="down"}
+                              aria-label={lang==="el"?"Όχι χρήσιμη":"Not helpful"}
+                              onClick={()=>void rateAssistantReply(i,"down")}
+                            >
+                              👎
+                            </button>
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

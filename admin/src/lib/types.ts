@@ -137,6 +137,11 @@ export interface UserRow {
   llm_cost_limit_usd?: number | null
   llm_tx_remaining?: number | null
   llm_cost_remaining_usd?: number | null
+  cancel_requested?: boolean
+  cancel_status?: string | null
+  cancel_access_until?: string | null
+  cancel_note?: string | null
+  cancel_admin_initiated?: boolean
 }
 
 export interface PlanGrantRow {

@@ -2623,6 +2623,43 @@ body.hm-app-active #root {
   font-family: inherit;
 }
 
+.hm-chat-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.hm-chat-feedback-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s, transform 0.12s;
+}
+
+.hm-chat-feedback-btn:hover {
+  opacity: 0.9;
+  background: rgba(43, 58, 103, 0.06);
+}
+
+.hm-chat-feedback-btn.is-active {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.hm-chat-feedback-btn.is-up.is-active {
+  background: rgba(45, 158, 107, 0.14);
+}
+
+.hm-chat-feedback-btn.is-down.is-active {
+  background: rgba(196, 91, 40, 0.14);
+}
+
 .hm-chat-memory-suggestion {
   margin: 6px 0 10px 36px;
   max-width: 88%;

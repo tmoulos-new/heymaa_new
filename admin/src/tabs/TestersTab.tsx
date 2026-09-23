@@ -20,6 +20,7 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
   const [requirePasswordChange, setRequirePasswordChange] = useState(true)
   const [sending, setSending] = useState(false)
   const [inviteCodes, setInviteCodes] = useState<string[]>(TESTER_CODES)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
   const loadInviteCodes = useCallback(async () => {
     try {
@@ -98,15 +99,19 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
   }
 
   const deleteAll = async () => {
-    if (!confirm('ΠΡΟΣΟΧΗ: Θα διαγραφούν ΟΛΟΙ οι χρήστες. Συνέχεια;')) return
-    if (!confirm('Είσαι απολύτως σίγουρος; Αυτό δεν αναστρέφεται.')) return
+    if (deleteConfirm.trim() !== 'DELETE ALL') {
+      show('Type DELETE ALL to confirm', 'err')
+      return
+    }
+    if (!confirm('Final confirmation: delete ALL users? This cannot be undone.')) return
     try {
       const d = await adminFetch('/admin/users/delete_all', { method: 'DELETE' })
       if (d.ok) {
-        show(`Διαγράφηκαν ${d.deleted} χρήστες`, 'ok')
+        show(`Deleted ${d.deleted} users`, 'ok')
+        setDeleteConfirm('')
         onUsersChanged()
       } else {
-        show(apiDetail(d) || 'Αποτυχία', 'err')
+        show(apiDetail(d) || 'Failed', 'err')
       }
     } catch (e) {
       show(e instanceof Error ? e.message : 'Network error', 'err')
@@ -219,10 +224,24 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
           <AlertTriangle size={14} style={{ verticalAlign: -2, marginRight: 5 }} /> Danger zone
         </h3>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
-          Διαγράφει όλους τους χρήστες από τη βάση. Μη αναστρέψιμη ενέργεια.
+          Deletes every user from the database. Irreversible. Type <strong>DELETE ALL</strong> to enable.
         </p>
-        <button type="button" className="del" style={{ width: '100%', padding: 11 }} onClick={() => void deleteAll()}>
-          Διαγραφή Όλων των Χρηστών
+        <input
+          type="text"
+          value={deleteConfirm}
+          onChange={(e) => setDeleteConfirm(e.target.value)}
+          placeholder="DELETE ALL"
+          autoComplete="off"
+          style={{ marginBottom: 10, width: '100%' }}
+        />
+        <button
+          type="button"
+          className="del"
+          style={{ width: '100%', padding: 11 }}
+          disabled={deleteConfirm.trim() !== 'DELETE ALL'}
+          onClick={() => void deleteAll()}
+        >
+          Delete all users
         </button>
       </div>
     </div>

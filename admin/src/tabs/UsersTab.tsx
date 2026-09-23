@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react'
-import { ChevronRight, CalendarClock, MessageCircle, RefreshCw, Search, Shield, ShieldOff, Star, Users, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import {
+  Ban,
+  ChevronRight,
+  CalendarClock,
+  MessageCircle,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  Shield,
+  ShieldOff,
+  Star,
+  Users,
+  X,
+} from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ChatAsUserModal } from '../components/ChatAsUserModal'
@@ -72,12 +85,71 @@ function formatTrialExpiry(iso?: string): string {
   return d.toLocaleString()
 }
 
+function canAdminCancelPlan(u: UserRow): boolean {
+  if (u.account_kind === 'auth_only' || u.subscription_status === 'auth_only') return false
+  const status = (u.subscription_status || '').toLowerCase()
+  if (status === 'cancelled' || status === 'trial' || !status) return false
+  if (status === 'active') return true
+  const plan = (u.package || u.plan_id || u.plan || '').toLowerCase()
+  return plan === 'starter' || plan === 'premium' || plan === 'annual' || plan.includes('annual')
+}
+
+function showCancelAction(u: UserRow): boolean {
+  return canAdminCancelPlan(u) || u.cancel_status === 'pending' || u.cancel_status === 'approved'
+}
+
+const PAGE_SIZE = 30
+
+function UsersMoreMenu({
+  open,
+  onToggle,
+  onClose,
+  children,
+}: {
+  open: boolean
+  onToggle: () => void
+  onClose: () => void
+  children: ReactNode
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: Event) => {
+      if (!rootRef.current?.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
+
+  return (
+    <div className="users-more" ref={rootRef}>
+      <button type="button" className="sec sm" onClick={onToggle} aria-expanded={open} aria-haspopup="menu">
+        <MoreHorizontal size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+        More
+      </button>
+      {open ? (
+        <div className="users-more-menu" role="menu">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
   const { adminFetch } = useAdmin()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { show, Message } = useFlashMessage()
   const [allUsers, setAllUsers] = useState<UserRow[]>([])
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(false)
   const [apiError, setApiError] = useState('')
@@ -94,7 +166,19 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
   const [trialTarget, setTrialTarget] = useState<UserRow | null>(null)
   const [trialEndsInput, setTrialEndsInput] = useState('')
   const [savingTrial, setSavingTrial] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<UserRow | null>(null)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelNote, setCancelNote] = useState('')
   const [chatAsTarget, setChatAsTarget] = useState<UserRow | null>(null)
+  const [planFilter, setPlanFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [moreOpenId, setMoreOpenId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q) setQuery(q)
+  }, [searchParams])
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -120,13 +204,50 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
     void loadUsers()
   }, [loadUsers])
 
-  const filtered = query.trim()
-    ? allUsers.filter(
-        (u) =>
-          (u.email || '').toLowerCase().includes(query.trim().toLowerCase()) ||
-          (u.name || '').toLowerCase().includes(query.trim().toLowerCase()),
-      )
-    : allUsers
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    return allUsers.filter((u) => {
+      if (needle) {
+        const hay = `${u.email || ''} ${u.name || ''}`.toLowerCase()
+        if (!hay.includes(needle)) return false
+      }
+      if (planFilter) {
+        const pkg = (u.package || u.plan_id || u.plan || 'trial').toString().toLowerCase()
+        if (pkg !== planFilter) return false
+      }
+      if (statusFilter === 'admin') {
+        if (u.role !== 'admin') return false
+      } else if (statusFilter === 'cancel_pending') {
+        if (u.cancel_status !== 'pending') return false
+      } else if (statusFilter === 'cancel_approved') {
+        if (u.cancel_status !== 'approved') return false
+      } else if (statusFilter) {
+        const st = (u.subscription_status || '').toLowerCase()
+        if (st !== statusFilter) return false
+      }
+      return true
+    })
+  }, [allUsers, query, planFilter, statusFilter])
+
+  const planOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const u of allUsers) {
+      const p = (u.package || u.plan_id || u.plan || '').toString().toLowerCase()
+      if (p) set.add(p)
+    }
+    return Array.from(set).sort()
+  }, [allUsers])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const pageSafe = Math.min(page, totalPages)
+  const paged = useMemo(() => {
+    const start = (pageSafe - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, pageSafe])
+
+  useEffect(() => {
+    setPage(1)
+  }, [query, planFilter, statusFilter])
 
   const delUser = async (id: string) => {
     if (!confirm('Delete this user and their data? This cannot be undone.')) return
@@ -240,6 +361,64 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
     setSavingTrial(false)
   }
 
+  const closeCancelModal = () => {
+    if (cancelBusy) return
+    setCancelTarget(null)
+    setCancelNote('')
+  }
+
+  const submitAdminCancel = async (mode: 'period_end' | 'immediate') => {
+    if (!cancelTarget) return
+    setCancelBusy(true)
+    try {
+      const d = await adminFetch(`/admin/users/${cancelTarget.id}/subscription-cancel/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, note: cancelNote.trim() || null }),
+      })
+      if (d.ok) {
+        show(
+          mode === 'immediate'
+            ? 'Subscription ended immediately ✓'
+            : 'Cancellation scheduled at period end ✓',
+        )
+        setCancelTarget(null)
+        setCancelNote('')
+        void loadUsers()
+      } else {
+        show(apiDetail(d) || 'Cancel failed', 'err')
+      }
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Network error', 'err')
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
+  const submitAdminRestore = async () => {
+    if (!cancelTarget) return
+    setCancelBusy(true)
+    try {
+      const d = await adminFetch(`/admin/users/${cancelTarget.id}/subscription-cancel/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: cancelNote.trim() || null }),
+      })
+      if (d.ok) {
+        show('Subscription restored ✓')
+        setCancelTarget(null)
+        setCancelNote('')
+        void loadUsers()
+      } else {
+        show(apiDetail(d) || 'Restore failed', 'err')
+      }
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Network error', 'err')
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
   const submitTrialExpiry = async () => {
     if (!trialTarget || !trialEndsInput) {
       show('Choose an expiration date and time', 'err')
@@ -339,21 +518,55 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
           {inviteOnlyCount === 1 ? 'profile' : 'profiles'} (no email account) — not listed here.
         </div>
       )}
-      <div className="search-wrap">
-        <Search className="search-icon" size={16} />
-        <input
-          type="search"
-          placeholder="Search by email or name…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+      <div className="users-toolbar">
+        <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
+          <Search className="search-icon" size={16} />
+          <input
+            type="search"
+            placeholder="Search by email or name…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value)}
+          aria-label="Filter by plan"
+        >
+          <option value="">All plans</option>
+          {planOptions.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filter by status"
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="trial">Trial</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="auth_only">Auth only</option>
+          <option value="admin">Admins</option>
+          <option value="cancel_pending">Cancel pending</option>
+          <option value="cancel_approved">Cancel scheduled</option>
+        </select>
       </div>
       {loading && <div className="empty">Loading…</div>}
       {err && <div className="msg err">Failed to load</div>}
       {!loading && !err && filtered.length === 0 && <div className="empty">No users found.</div>}
+      {!loading && !err && filtered.length > 0 && (
+        <div className="meta" style={{ marginBottom: 10 }}>
+          Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of{' '}
+          {filtered.length}
+        </div>
+      )}
       {!loading &&
         !err &&
-        filtered.map((u) => {
+        paged.map((u) => {
           const since = u.created_at ? new Date(u.created_at).toLocaleDateString() : '?'
           const last = u.last_login ? new Date(u.last_login).toLocaleDateString() : 'never'
           const trialEnd = u.trial_ends_at ? new Date(u.trial_ends_at).toLocaleDateString() : ''
@@ -368,11 +581,13 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                 : '#2D9E6B'
           const statusInfo = isAuthOnly
             ? 'auth account only (no app user row)'
-            : u.subscription_status === 'trial' && trialEnd
-              ? `trial (ends ${trialEnd})`
-              : u.subscription_status === 'active' && u.subscription_ends_at
-                ? `active (renews/ends ${new Date(u.subscription_ends_at).toLocaleDateString()})`
-                : u.subscription_status || '?'
+            : u.cancel_status === 'approved' && u.cancel_access_until
+              ? `active · access until ${new Date(u.cancel_access_until).toLocaleDateString()}`
+              : u.subscription_status === 'trial' && trialEnd
+                ? `trial (ends ${trialEnd})`
+                : u.subscription_status === 'active' && u.subscription_ends_at
+                  ? `active (period ends ${new Date(u.subscription_ends_at).toLocaleDateString()})`
+                  : u.subscription_status || '?'
           const grantSummary =
             (u.active_grants?.length || 0) > 0
               ? u.active_grants!
@@ -390,20 +605,13 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
           const llmCostRemaining = u.llm_cost_remaining_usd
           const llmTxLimit = u.llm_tx_limit
           const llmCostLimit = u.llm_cost_limit_usd
+          const openCancel = () => {
+            setCancelNote(u.cancel_note || '')
+            setCancelTarget(u)
+            setMoreOpenId(null)
+          }
           return (
-            <div
-              key={u.id}
-              className="list-item list-item-clickable"
-              role="button"
-              tabIndex={0}
-              onClick={() => openUserData(u.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  openUserData(u.id)
-                }
-              }}
-            >
+            <div key={u.id} className="list-item">
               <div className="t">
                 <span className="badge" style={{ background: planBadge }}>
                   {isAuthOnly ? 'auth only' : packageName}
@@ -418,12 +626,23 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                     must change pw
                   </span>
                 )}
+                {u.cancel_status === 'pending' && (
+                  <span className="badge badge-warn" style={{ marginLeft: 6 }}>
+                    cancel pending
+                  </span>
+                )}
+                {u.cancel_status === 'approved' && (
+                  <span className="badge badge-ok" style={{ marginLeft: 6 }}>
+                    cancel scheduled
+                    {u.cancel_access_until
+                      ? ` · ends ${new Date(u.cancel_access_until).toLocaleDateString()}`
+                      : ''}
+                  </span>
+                )}
                 {u.email}
               </div>
               <div className="b">
                 {u.name ? `${u.name} · ` : ''}
-                Package: <strong style={{ textTransform: 'capitalize' }}>{isAuthOnly ? '—' : packageName}</strong>
-                {' · '}
                 {statusInfo} · joined {since} · last login {last}
                 {grantSummary ? ` · grants: ${grantSummary}` : ''}
                 {(u.pending_rewards || 0) > 0 ? ` · ${u.pending_rewards} gift(s) pending` : ''}
@@ -438,9 +657,18 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                   {!isAuthOnly && (
                     <span
                       className="list-item-stat llm-cost"
-                      title="Total LLM cost for this user"
+                      title="LLM usage and remaining quotas"
                     >
                       {llmTx} txs · ${Number(llmCost).toFixed(4)}
+                      {' · '}rem{' '}
+                      {llmTxRemaining == null ? '∞' : llmTxRemaining}
+                      {' txs / '}
+                      {llmCostRemaining == null ? '∞' : `$${Number(llmCostRemaining).toFixed(2)}`}
+                      {llmTxLimit != null || llmCostLimit != null
+                        ? ` (lim ${llmTxLimit ?? '∞'} / ${
+                            llmCostLimit != null ? `$${Number(llmCostLimit).toFixed(2)}` : '∞'
+                          })`
+                        : ''}
                     </span>
                   )}
                   {summaryItems.map((item) => {
@@ -472,116 +700,108 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
                   No saved app data yet
                 </div>
               )}
-              {!isAuthOnly && (
-                <div className="user-llm-total-cost">
-                  Used <strong>${Number(llmCost).toFixed(4)}</strong>
-                  <span className="muted"> · {llmTx} LLM transaction{llmTx === 1 ? '' : 's'}</span>
-                  <span className="user-llm-remaining">
-                    {' · '}Remaining txs:{' '}
-                    <strong>
-                      {llmTxRemaining == null
-                        ? '∞'
-                        : `${llmTxRemaining}${llmTxLimit != null ? ` / ${llmTxLimit}` : ''}`}
-                    </strong>
-                    {' · '}Remaining cost:{' '}
-                    <strong>
-                      {llmCostRemaining == null
-                        ? '∞'
-                        : `$${Number(llmCostRemaining).toFixed(4)}${
-                            llmCostLimit != null ? ` / $${Number(llmCostLimit).toFixed(4)}` : ''
-                          }`}
-                    </strong>
-                  </span>
-                </div>
-              )}
               <div className="foot">
                 <button
                   type="button"
                   className="ghost sm list-item-data-link"
-                  onClick={(e) => {
-                    stopRowClick(e)
-                    openUserData(u.id)
-                  }}
+                  onClick={() => openUserData(u.id)}
                 >
                   View user data
                   <ChevronRight size={14} />
                 </button>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={stopRowClick}>
-                  {!isAuthOnly && (
-                    <button
-                      type="button"
-                      className="sec sm"
-                      onClick={() =>
-                        navigate(`${pathForTab('llmtransactions')}?user_id=${encodeURIComponent(u.id)}`)
-                      }
-                    >
-                      LLM txs ({llmTx})
+                <div className="users-row-actions" onClick={stopRowClick}>
+                  {showCancelAction(u) && (
+                    <button type="button" className="sec sm" onClick={openCancel}>
+                      <Ban size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                      {u.cancel_status === 'approved' || u.cancel_status === 'pending'
+                        ? 'Manage cancel'
+                        : 'Cancel plan'}
                     </button>
                   )}
                   {!isAuthOnly && (
-                    <button
-                      type="button"
-                      className="sec sm"
-                      onClick={() => setChatAsTarget(u)}
+                    <UsersMoreMenu
+                      open={moreOpenId === u.id}
+                      onToggle={() => setMoreOpenId((id) => (id === u.id ? null : u.id))}
+                      onClose={() => setMoreOpenId(null)}
                     >
-                      <MessageCircle size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                      Chat like user
-                    </button>
-                  )}
-                  {!isAuthOnly && (
-                    <button
-                      type="button"
-                      className="sec sm"
-                      onClick={() => void openPointsModal(u)}
-                    >
-                      <Star size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                      Points
-                    </button>
-                  )}
-                  {!isAuthOnly && (
-                    <button
-                      type="button"
-                      className="sec sm"
-                      onClick={() => openTrialModal(u)}
-                    >
-                      <CalendarClock size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                      Trial expiry
-                    </button>
-                  )}
-                  {!isAuthOnly && (
-                    <button
-                      type="button"
-                      className="sec sm"
-                      onClick={() => {
-                        setPasswordTarget(u)
-                        setTempPassword('')
-                        setRequirePasswordChange(true)
-                      }}
-                    >
-                      Set temp password
-                    </button>
-                  )}
-                  {!isAuthOnly &&
-                    (isAdmin ? (
                       <button
                         type="button"
-                        className="sec sm"
-                        onClick={() => void setRole(u.id, null)}
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpenId(null)
+                          navigate(`${pathForTab('llmtransactions')}?user_id=${encodeURIComponent(u.id)}`)
+                        }}
                       >
-                        <ShieldOff size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                        Remove admin
+                        LLM txs ({llmTx})
                       </button>
-                    ) : (
                       <button
                         type="button"
-                        className="sec sm"
-                        onClick={() => void setRole(u.id, 'admin')}
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpenId(null)
+                          setChatAsTarget(u)
+                        }}
                       >
-                        <Shield size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                        Make admin
+                        <MessageCircle size={14} /> Chat like user
                       </button>
-                    ))}
-                  <button type="button" className="del" onClick={() => void delUser(u.id)}>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpenId(null)
+                          void openPointsModal(u)
+                        }}
+                      >
+                        <Star size={14} /> Points
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpenId(null)
+                          openTrialModal(u)
+                        }}
+                      >
+                        <CalendarClock size={14} /> Trial expiry
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpenId(null)
+                          setPasswordTarget(u)
+                          setTempPassword('')
+                          setRequirePasswordChange(true)
+                        }}
+                      >
+                        Set temp password
+                      </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreOpenId(null)
+                            void setRole(u.id, null)
+                          }}
+                        >
+                          <ShieldOff size={14} /> Remove admin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreOpenId(null)
+                            void setRole(u.id, 'admin')
+                          }}
+                        >
+                          <Shield size={14} /> Make admin
+                        </button>
+                      )}
+                    </UsersMoreMenu>
+                  )}
+                  <button type="button" className="del sm" onClick={() => void delUser(u.id)}>
                     Delete
                   </button>
                 </div>
@@ -589,6 +809,29 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             </div>
           )
         })}
+      {!loading && !err && filtered.length > PAGE_SIZE && (
+        <div className="users-pagination">
+          <button
+            type="button"
+            className="ghost sm"
+            disabled={pageSafe <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <span className="meta">
+            Page {pageSafe} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="ghost sm"
+            disabled={pageSafe >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      )}
       {passwordTarget && (
         <Modal title="Set temporary password" onClose={closePasswordModal}>
           <p className="card-desc" style={{ marginTop: 0 }}>
@@ -656,6 +899,79 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             </button>
             <button type="button" onClick={() => void submitTrialExpiry()} disabled={savingTrial || !trialEndsInput}>
               {savingTrial ? 'Saving…' : 'Save expiration'}
+            </button>
+          </div>
+        </Modal>
+      )}
+      {cancelTarget && (
+        <Modal title="Cancel subscription" onClose={closeCancelModal}>
+          <p className="card-desc" style={{ marginTop: 0 }}>
+            For <strong>{cancelTarget.email}</strong>
+            {cancelTarget.name ? ` · ${cancelTarget.name}` : ''}
+          </p>
+          <p className="card-desc" style={{ marginTop: 0 }}>
+            Plan: <strong>{(cancelTarget.package || cancelTarget.plan || '—').toString()}</strong>
+            {' · '}
+            Status: <strong>{cancelTarget.subscription_status || '—'}</strong>
+            {cancelTarget.cancel_status ? (
+              <>
+                {' · '}Cancel: <strong>{cancelTarget.cancel_status}</strong>
+              </>
+            ) : null}
+            {(cancelTarget.cancel_access_until || cancelTarget.subscription_ends_at) && (
+              <>
+                {' · '}Access until:{' '}
+                <strong>
+                  {new Date(
+                    cancelTarget.cancel_access_until || cancelTarget.subscription_ends_at || '',
+                  ).toLocaleString()}
+                </strong>
+              </>
+            )}
+          </p>
+          <FieldLabel>Note (optional)</FieldLabel>
+          <input
+            type="text"
+            value={cancelNote}
+            onChange={(e) => setCancelNote(e.target.value)}
+            placeholder="e.g. refund via Viva #…"
+            disabled={cancelBusy}
+          />
+          <p className="card-desc">
+            Refunds are handled outside the app. End now cuts access immediately; period end keeps
+            access until the date above.
+          </p>
+          <div className="modal-foot" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <button type="button" className="ghost" onClick={closeCancelModal} disabled={cancelBusy}>
+              Close
+            </button>
+            {cancelTarget.cancel_status === 'approved' && (
+              <button
+                type="button"
+                className="sec"
+                disabled={cancelBusy}
+                onClick={() => void submitAdminRestore()}
+              >
+                Restore plan
+              </button>
+            )}
+            {cancelTarget.cancel_status !== 'approved' && (
+              <button
+                type="button"
+                className="sec"
+                disabled={cancelBusy}
+                onClick={() => void submitAdminCancel('period_end')}
+              >
+                {cancelBusy ? 'Working…' : 'Cancel at period end'}
+              </button>
+            )}
+            <button
+              type="button"
+              className="del"
+              disabled={cancelBusy}
+              onClick={() => void submitAdminCancel('immediate')}
+            >
+              End access now
             </button>
           </div>
         </Modal>

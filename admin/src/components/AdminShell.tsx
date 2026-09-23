@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ChevronsLeft,
   CreditCard,
@@ -13,7 +13,9 @@ import {
   MousePointerClick,
   Bot,
   Ban,
+  BarChart3,
   BookOpen,
+  MessageSquareWarning,
   Receipt,
   RefreshCw,
   ScrollText,
@@ -25,8 +27,17 @@ import {
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useAdmin } from '../context/AdminContext'
 import { AdminBrandLogo } from './AdminBrandLogo'
-import { pathForTab, TAB_TITLES, tabIdFromLocation, type TabId } from '../lib/constants'
+import {
+  NAV_GROUPS,
+  pathForTab,
+  TAB_SUBTITLES,
+  TAB_TITLES,
+  tabIdFromLocation,
+  type TabId,
+} from '../lib/constants'
 import { OverviewTab } from '../tabs/OverviewTab'
+import { InsightsTab } from '../tabs/InsightsTab'
+import { QualityTab } from '../tabs/QualityTab'
 import { TestersTab } from '../tabs/TestersTab'
 import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
@@ -45,28 +56,30 @@ import { LlmTransactionsTab } from '../tabs/LlmTransactionsTab'
 import { UserFinancialsTab } from '../tabs/UserFinancialsTab'
 import { SidebarUser } from './SidebarUser'
 
-const NAV: { id: TabId; icon: typeof LayoutDashboard; tip: string }[] = [
-  { id: 'overview', icon: LayoutDashboard, tip: 'Overview' },
-  { id: 'testers', icon: MailPlus, tip: 'Testers' },
-  { id: 'invites', icon: KeyRound, tip: 'Invite Codes' },
-  { id: 'regions', icon: Globe2, tip: 'Regions' },
-  { id: 'points', icon: Trophy, tip: 'Points & Levels' },
-  { id: 'plans', icon: CreditCard, tip: 'Plans' },
-  { id: 'content', icon: Megaphone, tip: 'Offers & Promos' },
-  { id: 'sources', icon: BookOpen, tip: 'RAG Sources' },
-  { id: 'users', icon: Users, tip: 'Users' },
-  { id: 'cancellations', icon: Ban, tip: 'Cancellations' },
-  { id: 'userdata', icon: Database, tip: 'User Data' },
-  { id: 'useractivity', icon: MousePointerClick, tip: 'User Activity' },
-  { id: 'chatprompt', icon: Bot, tip: 'Chat Prompt' },
-  { id: 'llmtransactions', icon: Receipt, tip: 'LLM Transactions' },
-  { id: 'userfinancials', icon: Wallet, tip: 'User Financials' },
-  { id: 'activity', icon: ScrollText, tip: 'Admin Activity' },
-  { id: 'tools', icon: Wrench, tip: 'Tools' },
-]
+const NAV_ICONS: Record<TabId, typeof LayoutDashboard> = {
+  overview: LayoutDashboard,
+  insights: BarChart3,
+  quality: MessageSquareWarning,
+  testers: MailPlus,
+  invites: KeyRound,
+  regions: Globe2,
+  points: Trophy,
+  plans: CreditCard,
+  content: Megaphone,
+  sources: BookOpen,
+  users: Users,
+  cancellations: Ban,
+  userdata: Database,
+  useractivity: MousePointerClick,
+  chatprompt: Bot,
+  llmtransactions: Receipt,
+  userfinancials: Wallet,
+  activity: ScrollText,
+  tools: Wrench,
+}
 
 export function AdminShell() {
-  const { logout } = useAdmin()
+  const { logout, adminFetch } = useAdmin()
   const navigate = useNavigate()
   const location = useLocation()
   const tab = tabIdFromLocation(location.pathname)
@@ -76,6 +89,7 @@ export function AdminShell() {
   )
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userCount, setUserCount] = useState<number | null>(null)
+  const [pendingCancels, setPendingCancels] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const switchTab = (id: TabId) => {
@@ -99,8 +113,43 @@ export function AdminShell() {
   const onUserCount = useCallback((n: number) => setUserCount(n), [])
 
   useEffect(() => {
+    let cancelled = false
+    adminFetch('/admin/subscription-cancellations?status=pending')
+      .then((d) => {
+        if (cancelled) return
+        const list = (d.requests as unknown[]) || []
+        setPendingCancels(list.length)
+      })
+      .catch(() => {
+        if (!cancelled) setPendingCancels(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [adminFetch, refreshKey])
+
+  // Lightweight user total for Overview without requiring a visit to Users.
+  useEffect(() => {
+    let cancelled = false
+    adminFetch('/admin/insights?days=14')
+      .then((d) => {
+        if (cancelled) return
+        const n = (d.kpis as { total_users?: number } | undefined)?.total_users
+        if (typeof n === 'number') setUserCount(n)
+      })
+      .catch(() => {
+        /* Overview can still show — from Users tab later */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [adminFetch, refreshKey])
+
+  useEffect(() => {
     if (collapsed && window.innerWidth <= 768) setCollapsed(false)
   }, [collapsed])
+
+  const subtitle = useMemo(() => TAB_SUBTITLES[tab] || '', [tab])
 
   return (
     <div className="shell">
@@ -127,19 +176,36 @@ export function AdminShell() {
           </button>
         </div>
 
-        <nav className="sidebar-nav">
-          {NAV.map(({ id, icon: Icon, tip }) => (
-            <button
-              key={id}
-              type="button"
-              className={tab === id ? 'active' : ''}
-              data-tab={id}
-              data-tip={tip}
-              onClick={() => switchTab(id)}
-            >
-              <Icon className="nav-icon" size={18} strokeWidth={2} />
-              <span className="nav-label">{TAB_TITLES[id]}</span>
-            </button>
+        <nav className="sidebar-nav" aria-label="Admin">
+          {NAV_GROUPS.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label" aria-hidden={collapsed}>
+                {group.label}
+              </div>
+              {group.ids.map((id) => {
+                const Icon = NAV_ICONS[id]
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={tab === id ? 'active' : ''}
+                    data-tab={id}
+                    data-tip={TAB_TITLES[id]}
+                    onClick={() => switchTab(id)}
+                  >
+                    <Icon className="nav-icon" size={18} strokeWidth={2} />
+                    <span className="nav-label">
+                      {TAB_TITLES[id]}
+                      {id === 'cancellations' && pendingCancels != null && pendingCancels > 0 ? (
+                        <span className="nav-badge" aria-label={`${pendingCancels} pending`}>
+                          {pendingCancels > 99 ? '99+' : pendingCancels}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           ))}
         </nav>
 
@@ -158,7 +224,7 @@ export function AdminShell() {
 
       <div className="content-wrap">
         <header className="content-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="content-header-lead">
             <button
               type="button"
               className="menu-toggle"
@@ -167,16 +233,25 @@ export function AdminShell() {
             >
               <Menu size={20} />
             </button>
-            <h1>{TAB_TITLES[tab]}</h1>
+            <div className="content-header-titles">
+              <h1>{TAB_TITLES[tab]}</h1>
+              {subtitle ? <p className="content-header-sub">{subtitle}</p> : null}
+            </div>
           </div>
         </header>
 
-        <main className={`main${tab === 'activity' || tab === 'userdata' || tab === 'useractivity' || tab === 'chatprompt' || tab === 'llmtransactions' || tab === 'userfinancials' || tab === 'cancellations' ? ' main-wide' : ''}`}>
+        <main
+          className={`main${
+            tab === 'testers' || tab === 'chatprompt' ? ' main-narrow' : ''
+          }`}
+        >
           <Routes>
             <Route
               index
               element={<OverviewTab key={`ov-${refreshKey}`} userCount={userCount} />}
             />
+            <Route path="insights" element={<InsightsTab key={`in-${refreshKey}`} />} />
+            <Route path="quality" element={<QualityTab key={`ql-${refreshKey}`} />} />
             <Route
               path="testers"
               element={<TestersTab key={`te-${refreshKey}`} onUsersChanged={refreshAll} />}
