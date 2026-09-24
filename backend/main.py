@@ -99,7 +99,22 @@ if not os.getenv("VERCEL"):
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+
+def _gemini_api_key() -> str:
+    """Prefer HeyMaa-specific Vercel secret, then legacy GEMINI_API_KEY."""
+    for name in (
+        "Gemini_Heymaa_API_Key",
+        "GEMINI_HEYMAA_API_KEY",
+        "GEMINI_API_KEY",
+    ):
+        val = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if val:
+            return val
+    return ""
+
+
+GEMINI_API_KEY = _gemini_api_key()
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 
 def _supabase_credentials():
@@ -139,7 +154,15 @@ import requests
 from supabase import create_client
 
 SUPABASE_URL, SUPABASE_KEY = _supabase_credentials()
-EMBED_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GEMINI_API_KEY}"
+EMBED_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-embedding-001:embedContent"
+)
+
+
+def _gemini_embed_url() -> str:
+    key = _gemini_api_key()
+    return f"{EMBED_URL}?key={key}" if key else EMBED_URL
 
 sb = None
 try:
@@ -1707,7 +1730,7 @@ def get_embedding(text):
     values = None
     try:
         r = requests.post(
-            EMBED_URL,
+            _gemini_embed_url(),
             json={"model": "models/gemini-embedding-001", "content": {"parts": [{"text": snippet}]}},
             timeout=5,
         )
@@ -3430,7 +3453,7 @@ def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
         "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
-        "gemini": (os.getenv("GEMINI_API_KEY") or "").strip(),
+        "gemini": _gemini_api_key(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
     }
     db_keys = _llm_secrets_from_db()

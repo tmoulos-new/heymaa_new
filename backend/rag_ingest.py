@@ -17,7 +17,16 @@ ALLOWED_EXTENSIONS = {".txt", ".md", ".markdown", ".pdf"}
 
 
 def _gemini_api_key() -> str:
-    return (os.getenv("GEMINI_API_KEY") or "").strip()
+    for name in (
+        "Gemini_Heymaa_API_Key",
+        "GEMINI_HEYMAA_API_KEY",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+    ):
+        val = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if val:
+            return val
+    return ""
 
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
