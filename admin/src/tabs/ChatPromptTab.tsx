@@ -127,6 +127,7 @@ export function ChatPromptTab() {
     try {
       const d = (await adminFetch('/admin/llm_routing')) as {
         routing?: RoutingConfig
+        defaults?: RoutingConfig
         updated_at?: string | null
         updated_by_name?: string | null
         source?: string
@@ -136,9 +137,10 @@ export function ChatPromptTab() {
         show(`Routing error: ${apiDetail(d) || d.error}`, 'err')
         return
       }
-      const r = d.routing
+      const r = d.routing || d.defaults
       if (!r) {
-        show('Routing config missing', 'err')
+        // Dev proxy may return empty JSON if Vite wasn't restarted after adding the route.
+        show('Routing API unavailable — restart admin (npm run dev) or check /admin/llm_routing', 'err')
         return
       }
       const normalized: RoutingConfig = {
@@ -157,10 +159,10 @@ export function ChatPromptTab() {
       setRoutingMeta({
         updated_at: d.updated_at,
         updated_by_name: d.updated_by_name,
-        source: d.source,
+        source: d.source || (d.routing ? 'db' : 'defaults'),
       })
-    } catch {
-      show('Failed to load LLM routing', 'err')
+    } catch (e) {
+      show((e instanceof Error && e.message) || 'Failed to load LLM routing', 'err')
     } finally {
       setRoutingLoading(false)
     }
