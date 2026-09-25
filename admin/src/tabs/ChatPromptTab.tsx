@@ -49,6 +49,49 @@ function normalizeOrder(order: string[] | undefined): ProviderId[] {
   return out
 }
 
+const DEFAULT_ROUTING: RoutingConfig = {
+  default_order: ['grok', 'gemini', 'claude'],
+  image_order: ['gemini', 'claude', 'grok'],
+  gemini_first_langs: ['ar', 'zh', 'ja', 'hi', 'ur', 'bn', 'mr', 'te', 'fil', 'sw'],
+  gemini_first_order: ['gemini', 'grok', 'claude'],
+  complex_order: ['grok', 'gemini', 'claude'],
+  complex_keywords: [
+    'diagnosis',
+    'symptoms',
+    'emergency',
+    'medication',
+    'fever',
+    'hospital',
+    'allergy',
+    'depression',
+    'anxiety',
+  ],
+  complex_min_chars: 300,
+}
+
+function applyRoutingState(
+  r: RoutingConfig,
+  setRouting: (r: RoutingConfig) => void,
+  setSavedRouting: (r: RoutingConfig) => void,
+  setLangsText: (s: string) => void,
+  setKeywordsText: (s: string) => void,
+) {
+  const normalized: RoutingConfig = {
+    default_order: normalizeOrder(r.default_order),
+    image_order: normalizeOrder(r.image_order),
+    gemini_first_order: normalizeOrder(r.gemini_first_order),
+    complex_order: normalizeOrder(r.complex_order),
+    gemini_first_langs: [...(r.gemini_first_langs || [])],
+    complex_keywords: [...(r.complex_keywords || [])],
+    complex_min_chars: Number(r.complex_min_chars) || 300,
+  }
+  setRouting(normalized)
+  setSavedRouting(normalized)
+  setLangsText((normalized.gemini_first_langs || []).join(', '))
+  setKeywordsText((normalized.complex_keywords || []).join('\n'))
+  return normalized
+}
+
 function OrderEditor({
   value,
   onChange,
@@ -135,34 +178,21 @@ export function ChatPromptTab() {
       }
       if (d.error) {
         show(`Routing error: ${apiDetail(d) || d.error}`, 'err')
+        applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText)
+        setRoutingMeta({ source: 'defaults' })
         return
       }
-      const r = d.routing || d.defaults
-      if (!r) {
-        // Dev proxy may return empty JSON if Vite wasn't restarted after adding the route.
-        show('Routing API unavailable — restart admin (npm run dev) or check /admin/llm_routing', 'err')
-        return
-      }
-      const normalized: RoutingConfig = {
-        default_order: normalizeOrder(r.default_order),
-        image_order: normalizeOrder(r.image_order),
-        gemini_first_order: normalizeOrder(r.gemini_first_order),
-        complex_order: normalizeOrder(r.complex_order),
-        gemini_first_langs: [...(r.gemini_first_langs || [])],
-        complex_keywords: [...(r.complex_keywords || [])],
-        complex_min_chars: Number(r.complex_min_chars) || 300,
-      }
-      setRouting(normalized)
-      setSavedRouting(normalized)
-      setLangsText((normalized.gemini_first_langs || []).join(', '))
-      setKeywordsText((normalized.complex_keywords || []).join('\n'))
+      const r = d.routing || d.defaults || DEFAULT_ROUTING
+      applyRoutingState(r, setRouting, setSavedRouting, setLangsText, setKeywordsText)
       setRoutingMeta({
         updated_at: d.updated_at,
         updated_by_name: d.updated_by_name,
         source: d.source || (d.routing ? 'db' : 'defaults'),
       })
     } catch (e) {
-      show((e instanceof Error && e.message) || 'Failed to load LLM routing', 'err')
+      applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText)
+      setRoutingMeta({ source: 'defaults' })
+      show((e instanceof Error && e.message) || 'Failed to load LLM routing — showing defaults', 'err')
     } finally {
       setRoutingLoading(false)
     }
