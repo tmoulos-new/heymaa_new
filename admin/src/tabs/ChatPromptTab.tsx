@@ -92,6 +92,90 @@ function applyRoutingState(
   return normalized
 }
 
+function providerLabel(id: ProviderId): string {
+  return PROVIDERS.find((p) => p.id === id)?.label || id
+}
+
+function formatOrder(order: ProviderId[]): string {
+  return order.map((id) => providerLabel(id).replace(/ \(xAI\)/, '')).join(' → ')
+}
+
+function RoutingFlowChart({
+  routing,
+  langsText,
+  keywordsText,
+}: {
+  routing: RoutingConfig
+  langsText: string
+  keywordsText: string
+}) {
+  const langs = langsText
+    .split(/[,\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+  const kwCount = keywordsText
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean).length
+  const langPreview =
+    langs.length === 0
+      ? 'none'
+      : langs.length <= 6
+        ? langs.join(', ')
+        : `${langs.slice(0, 5).join(', ')} +${langs.length - 5}`
+
+  return (
+    <div className="routing-flow" aria-label="LLM routing flowchart">
+      <div className="routing-flow-title">How a chat picks a model</div>
+      <div className="routing-flow-start">Chat request</div>
+      <div className="routing-flow-arrow" aria-hidden>
+        ↓
+      </div>
+      <div className="routing-flow-decision">Has image / photo?</div>
+      <div className="routing-flow-branches">
+        <div className="routing-flow-branch">
+          <span className="routing-flow-edge yes">Yes</span>
+          <div className="routing-flow-order">{formatOrder(routing.image_order)}</div>
+          <p className="routing-flow-note">Vision-capable models first</p>
+        </div>
+        <div className="routing-flow-branch">
+          <span className="routing-flow-edge no">No</span>
+          <div className="routing-flow-decision sm">Language in Gemini-first list?</div>
+          <p className="routing-flow-note">Codes: {langPreview}</p>
+          <div className="routing-flow-branches nested">
+            <div className="routing-flow-branch">
+              <span className="routing-flow-edge yes">Yes</span>
+              <div className="routing-flow-order">{formatOrder(routing.gemini_first_order)}</div>
+            </div>
+            <div className="routing-flow-branch">
+              <span className="routing-flow-edge no">No</span>
+              <div className="routing-flow-decision sm">Complex query?</div>
+              <p className="routing-flow-note">
+                {kwCount} keyword{kwCount === 1 ? '' : 's'} or message longer than{' '}
+                {routing.complex_min_chars} chars
+              </p>
+              <div className="routing-flow-branches nested">
+                <div className="routing-flow-branch">
+                  <span className="routing-flow-edge yes">Yes</span>
+                  <div className="routing-flow-order">{formatOrder(routing.complex_order)}</div>
+                </div>
+                <div className="routing-flow-branch">
+                  <span className="routing-flow-edge no">No</span>
+                  <div className="routing-flow-order">{formatOrder(routing.default_order)}</div>
+                  <p className="routing-flow-note">Default text chat</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p className="routing-flow-footer">
+        Each step tries the first model with a key configured, then failovers down the arrow.
+      </p>
+    </div>
+  )
+}
+
 function OrderEditor({
   value,
   onChange,
@@ -370,6 +454,8 @@ export function ChatPromptTab() {
           <p className="muted">Loading…</p>
         ) : (
           <>
+            <RoutingFlowChart routing={routing} langsText={langsText} keywordsText={keywordsText} />
+
             {ORDER_FIELDS.map((field) => (
               <div key={field.key} style={{ marginBottom: 18 }}>
                 <FieldLabel>{field.label}</FieldLabel>
