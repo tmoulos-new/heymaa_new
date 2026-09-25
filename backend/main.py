@@ -98,7 +98,21 @@ if not os.getenv("VERCEL"):
     _load_dotenv_file(os.path.abspath(os.path.join(os.getcwd(), "..", ".env")))
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+
+def _groq_api_key() -> str:
+    """Prefer HeyMaa-specific Vercel secret, then legacy GROQ_API_KEY."""
+    for name in (
+        "Grok_Heymaa_API_key",
+        "Grok_Heymaa_API_Key",
+        "GROK_HEYMAA_API_KEY",
+        "GROK_Heymaa_Key",
+        "GROQ_API_KEY",
+    ):
+        val = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if val:
+            return val
+    return ""
 
 
 def _gemini_api_key() -> str:
@@ -114,6 +128,7 @@ def _gemini_api_key() -> str:
     return ""
 
 
+GROQ_API_KEY = _groq_api_key()
 GEMINI_API_KEY = _gemini_api_key()
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 
@@ -3452,7 +3467,7 @@ def _credit_scope_identity() -> dict:
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
-        "groq": (os.getenv("GROQ_API_KEY") or "").strip(),
+        "groq": _groq_api_key(),
         "gemini": _gemini_api_key(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
     }
