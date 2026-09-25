@@ -101,11 +101,12 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 
 def _groq_api_key() -> str:
-    """Prefer HeyMaa-specific Vercel secret, then legacy GROQ_API_KEY."""
+    """Prefer HeyMaa xAI Grok secret, then legacy GROQ_API_KEY."""
     for name in (
         "Grok_Heymaa_API_key",
         "Grok_Heymaa_API_Key",
         "GROK_HEYMAA_API_KEY",
+        "XAI_API_KEY",
         "GROK_Heymaa_Key",
         "GROQ_API_KEY",
     ):
@@ -2926,52 +2927,86 @@ def _build_attachment_context(message: str, attachments) -> str:
 
 
 async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
-    from groq import Groq
-    # Groq retired llama-3.3-70b-versatile / llama-3.1-8b-instant on 16 Aug 2026.
+    """Primary chat via xAI Grok (OpenAI-compatible). Provider id stays `groq` for usage logs."""
+    # Prefer fast non-reasoning Grok; fall back across current xAI catalog ids.
     model_candidates = (
-        "openai/gpt-oss-20b",
-        "openai/gpt-oss-120b",
-        "qwen/qwen3.6-27b",
+        "grok-4.3",
+        "grok-4.5",
+        "grok-4.20-0309-non-reasoning",
+        "grok-2-latest",
     )
-
-    def _message_text(choice_message) -> str:
-        text = (getattr(choice_message, "content", None) or "").strip()
-        if text:
-            return text
-        return (getattr(choice_message, "reasoning", None) or "").strip()
+    chat_url = "https://api.x.ai/v1/chat/completions"
 
     def _run():
-        client = Groq(api_key=api_key)
         limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
         messages = [{"role": "system", "content": system_prompt}]
         for h in (history or [])[-limit:]:
             messages.append({"role": h["role"], "content": (h.get("content") or "")[:1500]})
         messages.append({"role": "user", "content": (message or "")[:2000]})
         last_err = None
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
         for model_name in model_candidates:
             try:
-                kwargs = {
-                    "model": model_name,
-                    "messages": messages,
-                    "max_tokens": _CHAT_MAX_TOKENS,
-                    "temperature": 0.6,
-                }
-                if model_name.startswith("openai/gpt-oss"):
-                    kwargs["reasoning_effort"] = "low"
-                response = client.chat.completions.create(**kwargs)
-                text = _message_text(response.choices[0].message)
+                r = requests.post(
+                    chat_url,
+                    headers=headers,
+                    json={
+                        "model": model_name,
+                        "messages": messages,
+                        "max_tokens": _CHAT_MAX_TOKENS,
+                        "temperature": 0.6,
+                    },
+                    timeout=60,
+                )
+                if r.status_code >= 400:
+                    err_txt = (r.text or f"HTTP {r.status_code}")[:300]
+                    last_err = RuntimeError(f"{model_name}: {err_txt}")
+                    low = err_txt.lower()
+                    if any(
+                        x in low
+                        for x in (
+                            "404",
+                            "not found",
+                            "does not exist",
+                            "decommission",
+                            "no longer supported",
+                            "model",
+                            "invalid",
+                        )
+                    ):
+                        continue
+                    if any(x in low for x in ("429", "quota", "rate limit")):
+                        continue
+                    raise last_err
+                payload = r.json()
+                text = (
+                    ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+                ).strip()
                 if text:
                     return text
                 last_err = RuntimeError(f"{model_name}: empty reply")
             except Exception as e:
                 last_err = e
                 msg = str(e).lower()
-                if any(x in msg for x in ("404", "not found", "decommission", "no longer supported", "model", "unexpected keyword")):
+                if any(
+                    x in msg
+                    for x in (
+                        "404",
+                        "not found",
+                        "decommission",
+                        "no longer supported",
+                        "model",
+                        "invalid",
+                    )
+                ):
                     continue
                 if any(x in msg for x in ("429", "quota", "rate limit")):
                     continue
                 raise
-        raise RuntimeError(f"groq all models failed: {last_err}")
+        raise RuntimeError(f"xAI Grok all models failed: {last_err}")
 
     return await asyncio.to_thread(_run)
 
@@ -3421,7 +3456,7 @@ def match_promotion(token: str):
     except Exception:
         return None
     return None
-# Routes — chat is Groq → Gemini → Claude only (direct APIs).
+# Routes — chat is Grok (xAI) → Gemini → Claude only (direct APIs).
 _LLM_SECRET_KEYS = {
     "groq": "llm_groq",
     "gemini": "llm_gemini",
@@ -3513,14 +3548,14 @@ def _probe_llm_providers() -> dict:
             continue
         try:
             if name == "groq":
-                from groq import Groq
-                Groq(api_key=key).chat.completions.create(
-                    model="openai/gpt-oss-20b",
-                    messages=[{"role": "user", "content": "hi"}],
-                    max_tokens=16,
-                    reasoning_effort="low",
+                r = requests.get(
+                    "https://api.x.ai/v1/models",
+                    headers={"Authorization": f"Bearer {key}"},
+                    timeout=12,
                 )
-                out[name] = {"ok": True, "msg": "online · primary chat"}
+                if not r.ok:
+                    raise RuntimeError((r.text or f"HTTP {r.status_code}")[:120])
+                out[name] = {"ok": True, "msg": "online · primary chat (xAI Grok)"}
             else:
                 import anthropic
                 anthropic.Anthropic(api_key=key).messages.create(
@@ -4381,7 +4416,7 @@ async def _run_chat_core(
     if not providers:
         raise HTTPException(
             status_code=503,
-            detail="No LLM providers configured (set GROQ_API_KEY, GEMINI_API_KEY, and/or ANTHROPIC_API_KEY).",
+            detail="No LLM providers configured (set Grok_Heymaa_API_key / GROQ_API_KEY, Gemini_Heymaa_API_Key, and/or ANTHROPIC_API_KEY).",
         )
     for provider in providers:
         try:

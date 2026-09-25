@@ -45,7 +45,7 @@ const PAGE_SIZE = 25
 
 const PROVIDER_OPTIONS = [
   { value: '', label: 'All providers' },
-  { value: 'groq', label: 'Groq' },
+  { value: 'groq', label: 'Grok' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'claude', label: 'Claude' },
   { value: 'gemini_embed', label: 'Gemini embed' },

@@ -17,8 +17,9 @@ class GroqLimitsTests(unittest.TestCase):
             "x-ratelimit-limit-tokens": "10000",
         }
         resp.text = "{}"
+        resp.json.return_value = {"data": [{"id": "grok-4.3"}]}
         get.return_value = resp
-        out = probe_groq_limits("gsk_test")
+        out = probe_groq_limits("xai_test")
         self.assertTrue(out["ok"])
         self.assertEqual(out["remaining_requests"], 100)
         self.assertEqual(out["limit_requests"], 200)

@@ -81,14 +81,14 @@ type UsageState = {
 const PROVIDER_ORDER = ['groq', 'gemini', 'claude', 'resend'] as const
 
 const PROVIDER_LABEL: Record<string, string> = {
-  groq: 'Groq',
+  groq: 'Grok',
   gemini: 'Gemini',
   claude: 'Claude',
   resend: 'Resend',
 }
 
 const SPEND_ROWS: { key: string; label: string; hint: string }[] = [
-  { key: 'groq', label: 'Groq', hint: 'Primary chat' },
+  { key: 'groq', label: 'Grok', hint: 'Primary chat (xAI)' },
   { key: 'gemini', label: 'Gemini', hint: 'Chat + vision' },
   { key: 'claude', label: 'Claude', hint: 'Chat fallback' },
   { key: 'gemini_embed', label: 'Embeddings', hint: 'RAG only' },
@@ -555,8 +555,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </button>
         </div>
         <p className="card-desc">
-          Groq, Gemini, and Claude <strong>do not expose prepaid $ balance</strong> on the chat API
-          key. This panel shows live rate-limit remaining (Groq), Admin month spend when configured
+          Grok, Gemini, and Claude <strong>do not expose prepaid $ balance</strong> on the chat API
+          key. This panel shows online status (Grok/xAI), Admin month spend when configured
           (Claude), and HeyMaa-tracked spend + billing links (Gemini).
         </p>
         {usage?.provider_balances?.error ? (
@@ -625,7 +625,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             </button>
           </div>
           <p className="card-desc">
-            Chat order is <strong>Groq → Gemini → Claude</strong>. Photos and some languages try
+            Chat order is <strong>Grok (xAI) → Gemini → Claude</strong>. Photos and some languages try
             Gemini first. Resend is email only.
           </p>
           <div className="prov-grid">

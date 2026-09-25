@@ -83,11 +83,11 @@ class LlmUsageTests(unittest.TestCase):
         snap = usage_snapshot(empty_state(), provider_mode="legacy")
         self.assertEqual(snap["provider_mode"], "legacy")
         self.assertEqual(snap["credit_scope"], "legacy")
-        self.assertIn("Groq", snap["note"])
+        self.assertIn("Grok", snap["note"])
         self.assertNotIn("billing_url", snap)
         self.assertFalse(snap["reload_needed"])
         labels = [row["label"] for row in snap["chat_models"]]
-        self.assertEqual(labels, ["Groq", "Gemini", "Claude Haiku"])
+        self.assertEqual(labels, ["Grok", "Gemini", "Claude Haiku"])
         self.assertTrue(all(row["calls"] == 0 for row in snap["chat_models"]))
 
     def test_embed_does_not_spend_chat_budget(self):
@@ -98,7 +98,7 @@ class LlmUsageTests(unittest.TestCase):
         state = apply_usage_event(state, provider="groq", ok=True, cost_usd=0.4, model="groq")
         self.assertAlmostEqual(state["spent_since_sync_usd"], 0.4, places=3)
         snap = usage_snapshot(state)
-        groq = next(row for row in snap["chat_models"] if row["label"] == "Groq")
+        groq = next(row for row in snap["chat_models"] if row["label"] == "Grok")
         self.assertEqual(groq["calls"], 1)
 
     def test_token_mask_hides_secret(self):

@@ -1,6 +1,6 @@
 """Persist LLM spend and optional prepaid-budget tracking for the admin panel.
 
-Chat uses Groq → Gemini → Claude (direct APIs). Admins can paste an optional
+Chat uses Grok (xAI) → Gemini → Claude (direct APIs). Admins can paste an optional
 prepaid/budget remaining number; HeyMaa subtracts chat spend (groq/gemini/claude)
 and emails when remaining is low. Gemini RAG embeddings are tracked separately
 and do not count against the chat budget pot.
@@ -44,7 +44,7 @@ COST_PER_CALL_USD: dict[str, float] = {
 }
 
 CHAT_MODEL_LABELS: tuple[tuple[str, str], ...] = (
-    ("groq", "Groq"),
+    ("groq", "Grok"),
     ("gemini", "Gemini"),
     ("claude-haiku-4-5-20251001", "Claude Haiku"),
 )
@@ -310,7 +310,7 @@ def _rollover_periods(state: dict[str, Any], now: datetime) -> None:
 
 
 def chat_model_stats(state: dict[str, Any]) -> list[dict[str, Any]]:
-    """Always return Groq / Gemini / Claude rows so admin can see the split at zero."""
+    """Always return Grok / Gemini / Claude rows so admin can see the split at zero."""
     models = state.get("models") if isinstance(state.get("models"), dict) else {}
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -376,7 +376,7 @@ def apply_usage_event(
     out["calls"][provider] = int(out["calls"].get(provider) or 0) + 1
     out["cost_usd"][provider] = round(float(out["cost_usd"].get(provider) or 0) + cost, 6)
     if ok:
-        # Chat budget counts Groq / Gemini / Claude — not RAG embeddings or historical Replicate.
+        # Chat budget counts Grok / Gemini / Claude — not RAG embeddings or historical Replicate.
         if provider in CHAT_SPEND_PROVIDERS:
             out["spent_since_sync_usd"] = round(float(out.get("spent_since_sync_usd") or 0) + cost, 6)
             out["calls_since_sync"] = int(out.get("calls_since_sync") or 0) + 1
@@ -518,7 +518,7 @@ def usage_snapshot(state: dict[str, Any], *, provider_mode: str = "legacy") -> d
         "key_rotated": bool(state.get("key_rotated")),
         "key_rotated_at": state.get("key_rotated_at"),
         "note": (
-            "Chat uses Groq → Gemini → Claude. Remaining is the budget number last "
+            "Chat uses Grok (xAI) → Gemini → Claude. Remaining is the budget number last "
             "pasted here, minus chat spend since then. Gemini RAG embeddings are tracked "
             "separately and do not drain this pot."
         ),

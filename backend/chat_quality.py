@@ -412,9 +412,9 @@ def judge_via_groq_sync(
     user_message: str,
     assistant_reply: str,
     *,
-    model: str = "llama-3.1-8b-instant",
+    model: str = "grok-4.3",
 ) -> Optional[dict]:
-    """Synchronous Groq JSON judge (best-effort)."""
+    """Synchronous xAI Grok JSON judge (best-effort)."""
     if not api_key:
         return None
     try:
@@ -439,7 +439,7 @@ def judge_via_groq_sync(
     try:
         with httpx.Client(timeout=20.0) as client:
             res = client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                "https://api.x.ai/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",

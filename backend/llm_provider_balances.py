@@ -1,9 +1,9 @@
 """Live provider headroom / spend signals for the admin Overview.
 
-None of Groq, Gemini (API key), or Claude (standard key) expose a prepaid
+None of Grok (xAI), Gemini (API key), or Claude (standard key) expose a prepaid
 dollar balance. This module returns the best live signals each vendor allows:
 
-- Groq: rate-limit remaining from response headers (RPD / TPM)
+- Grok (xAI): online check via models list (no rate-limit headers like Groq)
 - Claude: month-to-date cost via Admin Cost API when ANTHROPIC_ADMIN_API_KEY is set;
   otherwise only key-present / online status
 - Gemini: no balance API — report HeyMaa-tracked spend and a billing console link
@@ -15,8 +15,8 @@ from typing import Any, Optional
 
 import requests
 
-GROQ_BILLING_URL = "https://console.groq.com/settings/billing"
-GROQ_USAGE_URL = "https://console.groq.com/settings/usage"
+XAI_BILLING_URL = "https://console.x.ai/"
+XAI_USAGE_URL = "https://console.x.ai/"
 CLAUDE_BILLING_URL = "https://console.anthropic.com/settings/billing"
 CLAUDE_USAGE_URL = "https://console.anthropic.com/settings/usage"
 GEMINI_BILLING_URL = "https://aistudio.google.com/billing"
@@ -55,14 +55,15 @@ def _header(headers: Any, *names: str) -> Optional[str]:
 
 
 def probe_groq_limits(api_key: str) -> dict[str, Any]:
+    """Probe primary chat provider (xAI Grok). Provider id remains `groq` for logs."""
     out: dict[str, Any] = {
         "provider": "groq",
         "ok": False,
-        "label": "Groq",
-        "kind": "rate_limits",
-        "billing_url": GROQ_BILLING_URL,
-        "usage_url": GROQ_USAGE_URL,
-        "note": "Groq does not expose prepaid $ balance via API — showing live rate-limit remaining.",
+        "label": "Grok",
+        "kind": "online",
+        "billing_url": XAI_BILLING_URL,
+        "usage_url": XAI_USAGE_URL,
+        "note": "xAI Grok does not expose prepaid $ balance via API — showing online status.",
     }
     key = (api_key or "").strip()
     if not key:
@@ -70,7 +71,7 @@ def probe_groq_limits(api_key: str) -> dict[str, Any]:
         return out
     try:
         r = requests.get(
-            "https://api.groq.com/openai/v1/models",
+            "https://api.x.ai/v1/models",
             headers={"Authorization": f"Bearer {key}"},
             timeout=12,
         )
@@ -96,11 +97,21 @@ def probe_groq_limits(api_key: str) -> dict[str, Any]:
             out["tokens_pct_left"] = round(100.0 * rem_tok / lim_tok, 1)
         parts = []
         if rem_req is not None and lim_req is not None:
-            parts.append(f"{int(rem_req):,}/{int(lim_req):,} req left today")
+            parts.append(f"{int(rem_req):,}/{int(lim_req):,} req left")
         if rem_tok is not None and lim_tok is not None:
-            parts.append(f"{int(rem_tok):,}/{int(lim_tok):,} TPM left")
-        out["summary"] = " · ".join(parts) if parts else "online (no rate-limit headers)"
-        out["msg"] = out["summary"]
+            parts.append(f"{int(rem_tok):,}/{int(lim_tok):,} tok left")
+        models = r.json().get("data") if isinstance(r.json(), dict) else None
+        n_models = len(models) if isinstance(models, list) else None
+        if parts:
+            out["summary"] = " · ".join(parts)
+            out["msg"] = out["summary"]
+            out["kind"] = "rate_limits"
+        elif n_models:
+            out["summary"] = f"online · {n_models} models"
+            out["msg"] = out["summary"]
+        else:
+            out["summary"] = "online"
+            out["msg"] = "online"
         return out
     except Exception as e:
         out["msg"] = str(e)[:160]
@@ -274,7 +285,7 @@ def collect_provider_balances(
         },
         "disclaimer": (
             "None of these vendors expose prepaid dollar balance on the chat API key. "
-            "Groq shows live rate-limit remaining; Claude can show Admin month spend; "
+            "Grok (xAI) shows online status; Claude can show Admin month spend; "
             "Gemini prepaid is only in AI Studio Billing."
         ),
     }
