@@ -29,7 +29,7 @@ class InsertTransactionTests(unittest.TestCase):
         tid = insert_llm_transaction(
             sb,
             purpose="chat",
-            provider="groq",
+            provider="grok",
             model="openai/gpt-oss-20b",
             ok=True,
             cost_usd=0.0123,
@@ -42,13 +42,13 @@ class InsertTransactionTests(unittest.TestCase):
         self.assertIsNotNone(tid)
         sb.table.assert_called_with("llm_transactions")
         row = table.insert.call_args[0][0]
-        self.assertEqual(row["provider"], "groq")
+        self.assertEqual(row["provider"], "grok")
         self.assertEqual(row["cost_usd"], 0.0123)
         self.assertEqual(row["purpose"], "chat")
         self.assertEqual(row["predict_time_ms"], 1500)
 
     def test_no_sb_returns_none(self):
-        self.assertIsNone(insert_llm_transaction(None, purpose="chat", provider="groq"))
+        self.assertIsNone(insert_llm_transaction(None, purpose="chat", provider="grok"))
 
 
 class WrapperInvokeTests(unittest.IsolatedAsyncioTestCase):
@@ -71,12 +71,12 @@ class WrapperInvokeTests(unittest.IsolatedAsyncioTestCase):
         async def _call():
             return "ok reply", "openai/gpt-oss-20b", {"predict_time_s": 2.0}
 
-        result = await wrapper.chat("groq", _call, request_id="r1", input_chars=10)
+        result = await wrapper.chat("grok", _call, request_id="r1", input_chars=10)
         self.assertTrue(result.ok)
         self.assertEqual(result.text, "ok reply")
         self.assertGreater(result.cost_usd, 0)
         expected = estimate_event_cost(
-            "groq", model="openai/gpt-oss-20b", predict_time_s=2.0, ok=True
+            "grok", model="openai/gpt-oss-20b", predict_time_s=2.0, ok=True
         )
         self.assertEqual(result.cost_usd, expected)
         self.assertEqual(len(seen), 1)
@@ -97,7 +97,7 @@ class WrapperInvokeTests(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("429 rate limit")
 
         with self.assertRaises(RuntimeError):
-            await wrapper.chat("groq", _boom)
+            await wrapper.chat("grok", _boom)
         self.assertTrue(any(c.args and c.args[0] == "llm_transactions" for c in sb.table.call_args_list))
 
     def test_record_embed_sync(self):

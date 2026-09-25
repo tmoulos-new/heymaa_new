@@ -1,7 +1,7 @@
 """Persist LLM spend and optional prepaid-budget tracking for the admin panel.
 
 Chat uses Grok (xAI) → Gemini → Claude (direct APIs). Admins can paste an optional
-prepaid/budget remaining number; HeyMaa subtracts chat spend (groq/gemini/claude)
+prepaid/budget remaining number; HeyMaa subtracts chat spend (grok/gemini/claude)
 and emails when remaining is low. Gemini RAG embeddings are tracked separately
 and do not count against the chat budget pot.
 """
@@ -31,12 +31,13 @@ def take_embed_calls() -> int:
 
 CREDITS_SETTINGS_KEY = "llm_credits"
 
-# Historical provider kept so old llm_transactions / credits JSON still normalize.
-PROVIDERS = ("groq", "gemini", "claude", "gemini_embed", "replicate")
-CHAT_SPEND_PROVIDERS = frozenset({"groq", "gemini", "claude"})
+# Historical "groq" rows fold into "grok" (naming mistake — never Groq Cloud).
+PROVIDERS = ("grok", "gemini", "claude", "gemini_embed", "replicate")
+CHAT_SPEND_PROVIDERS = frozenset({"grok", "gemini", "claude"})
+_LEGACY_PROVIDER_ALIASES = {"groq": "grok"}
 
 COST_PER_CALL_USD: dict[str, float] = {
-    "groq": 0.0002,
+    "grok": 0.0002,
     "gemini": 0.002,
     "claude": 0.0025,
     "gemini_embed": 0.00003,
@@ -44,7 +45,7 @@ COST_PER_CALL_USD: dict[str, float] = {
 }
 
 CHAT_MODEL_LABELS: tuple[tuple[str, str], ...] = (
-    ("groq", "Grok"),
+    ("grok", "Grok"),
     ("gemini", "Gemini"),
     ("claude-haiku-4-5-20251001", "Claude Haiku"),
 )
@@ -106,6 +107,12 @@ def empty_state() -> dict[str, Any]:
     }
 
 
+def canonicalize_provider(provider: str) -> str:
+    p = (provider or "").strip().lower()
+    p = _LEGACY_PROVIDER_ALIASES.get(p, p)
+    return p if p in PROVIDERS else "grok"
+
+
 def normalize_state(raw: Any) -> dict[str, Any]:
     base = empty_state()
     if not isinstance(raw, dict):
@@ -144,6 +151,17 @@ def normalize_state(raw: Any) -> dict[str, Any]:
             base["cost_usd"][p] = float(cost.get(p, 0) or 0)
         except (TypeError, ValueError):
             base["cost_usd"][p] = 0.0
+    # Fold legacy misnamed "groq" counters into grok.
+    try:
+        base["calls"]["grok"] = int(base["calls"].get("grok") or 0) + int(calls.get("groq", 0) or 0)
+    except (TypeError, ValueError):
+        pass
+    try:
+        base["cost_usd"]["grok"] = float(base["cost_usd"].get("grok") or 0) + float(
+            cost.get("groq", 0) or 0
+        )
+    except (TypeError, ValueError):
+        pass
     models = raw.get("models")
     if isinstance(models, dict):
         base["models"] = models
@@ -218,7 +236,7 @@ def mask_replicate_token(token: str) -> str:
 
 
 def credit_scope_identity(source: str = "legacy") -> dict[str, str]:
-    return {"fingerprint": "legacy-chat", "mask": "groq/gemini/claude", "source": source or "legacy"}
+    return {"fingerprint": "legacy-chat", "mask": "grok/gemini/claude", "source": source or "legacy"}
 
 
 def replicate_token_identity(token: str, source: str = "") -> dict[str, str]:
@@ -294,6 +312,7 @@ def estimate_event_cost(
 ) -> float:
     if not ok:
         return 0.0
+    provider = canonicalize_provider(provider)
     return float(COST_PER_CALL_USD.get(provider, 0.0))
 
 
@@ -371,7 +390,7 @@ def apply_usage_event(
     out = normalize_state(state)
     stamp = now or utc_now()
     _rollover_periods(out, stamp)
-    provider = provider if provider in PROVIDERS else "groq"
+    provider = canonicalize_provider(provider)
     cost = max(0.0, float(cost_usd or 0))
     out["calls"][provider] = int(out["calls"].get(provider) or 0) + 1
     out["cost_usd"][provider] = round(float(out["cost_usd"].get(provider) or 0) + cost, 6)

@@ -100,15 +100,13 @@ if not os.getenv("VERCEL"):
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 
-def _groq_api_key() -> str:
-    """Prefer HeyMaa xAI Grok secret, then legacy GROQ_API_KEY."""
+def _grok_api_key() -> str:
+    """Prefer HeyMaa xAI Grok secret, then XAI_API_KEY."""
     for name in (
         "Grok_Heymaa_API_key",
         "Grok_Heymaa_API_Key",
         "GROK_HEYMAA_API_KEY",
         "XAI_API_KEY",
-        "GROK_Heymaa_Key",
-        "GROQ_API_KEY",
     ):
         val = (os.getenv(name) or "").strip().strip('"').strip("'")
         if val:
@@ -129,7 +127,7 @@ def _gemini_api_key() -> str:
     return ""
 
 
-GROQ_API_KEY = _groq_api_key()
+GROK_API_KEY = _grok_api_key()
 GEMINI_API_KEY = _gemini_api_key()
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 
@@ -2926,8 +2924,8 @@ def _build_attachment_context(message: str, attachments) -> str:
     return out
 
 
-async def call_groq(message, history, system_prompt, api_key: str, history_limit: int = 6):
-    """Primary chat via xAI Grok (OpenAI-compatible). Provider id stays `groq` for usage logs."""
+async def call_grok(message, history, system_prompt, api_key: str, history_limit: int = 6):
+    """Primary chat via xAI Grok (OpenAI-compatible). Provider id is `grok`."""
     # Prefer fast non-reasoning Grok; fall back across current xAI catalog ids.
     model_candidates = (
         "grok-4.3",
@@ -3458,7 +3456,7 @@ def match_promotion(token: str):
     return None
 # Routes — chat is Grok (xAI) → Gemini → Claude only (direct APIs).
 _LLM_SECRET_KEYS = {
-    "groq": "llm_groq",
+    "grok": "llm_grok",
     "gemini": "llm_gemini",
     "claude": "llm_claude",
 }
@@ -3472,12 +3470,12 @@ def _llm_secrets_from_db() -> dict:
     now = _t.time()
     if _llm_secret_cache is not None and (now - _llm_secret_cache_at) < 60:
         return _llm_secret_cache
-    out = {"groq": "", "gemini": "", "claude": ""}
+    out = {"grok": "", "gemini": "", "claude": ""}
     client = ensure_supabase()
     if not client:
         return out
     try:
-        keys = list(_LLM_SECRET_KEYS.values())
+        keys = list(_LLM_SECRET_KEYS.values()) + ["llm_groq"]  # legacy misnamed row
         res = (
             client.table(CHAT_PROMPT_SETTINGS_TABLE)
             .select("key,content")
@@ -3487,6 +3485,8 @@ def _llm_secrets_from_db() -> dict:
         by_key = {row.get("key"): (row.get("content") or "").strip() for row in (res.data or [])}
         for provider, setting_key in _LLM_SECRET_KEYS.items():
             out[provider] = by_key.get(setting_key, "")
+        if not out.get("grok"):
+            out["grok"] = by_key.get("llm_groq", "")
     except Exception:
         pass
     _llm_secret_cache = out
@@ -3496,13 +3496,13 @@ def _llm_secrets_from_db() -> dict:
 
 def _credit_scope_identity() -> dict:
     """Stable scope for admin LLM spend tracking (not tied to a vendor token)."""
-    return {"fingerprint": "legacy-chat", "mask": "groq/gemini/claude", "source": "legacy"}
+    return {"fingerprint": "legacy-chat", "mask": "grok/gemini/claude", "source": "legacy"}
 
 
 def _llm_api_keys():
     """Env first (Vercel), then Supabase llm_* rows so www can run without dashboard access."""
     env_keys = {
-        "groq": _groq_api_key(),
+        "grok": _grok_api_key(),
         "gemini": _gemini_api_key(),
         "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
     }
@@ -3541,13 +3541,13 @@ def _probe_llm_providers() -> dict:
     else:
         out["gemini"] = {"ok": False, "msg": "no key"}
 
-    for name in ("groq", "claude"):
+    for name in ("grok", "claude"):
         key = keys.get(name) or ""
         if not key:
             out[name] = {"ok": False, "msg": "no key"}
             continue
         try:
-            if name == "groq":
+            if name == "grok":
                 r = requests.get(
                     "https://api.x.ai/v1/models",
                     headers={"Authorization": f"Bearer {key}"},
@@ -4336,7 +4336,7 @@ async def _run_chat_core(
             except ImportError:
                 from chat_quality import persist_turn, review_and_store
 
-            groq_key = (_llm_api_keys().get("groq") or "").strip()
+            grok_key = (_llm_api_keys().get("grok") or "").strip()
 
             def _quality_job():
                 ok = persist_turn(
@@ -4360,7 +4360,7 @@ async def _run_chat_core(
                             "assistant_reply": reply or "",
                         },
                         use_llm=True,
-                        groq_api_key=groq_key or None,
+                        grok_api_key=grok_key or None,
                     )
 
             try:
@@ -4401,13 +4401,13 @@ async def _run_chat_core(
         return out
 
     if image_parts:
-        providers = ["gemini", "claude", "groq"]
+        providers = ["gemini", "claude", "grok"]
     elif msg_lang in GEMINI_FIRST_LANGS:
-        providers = ["gemini", "groq", "claude"]
+        providers = ["gemini", "grok", "claude"]
     elif complex_query:
-        providers = ["groq", "gemini", "claude"]
+        providers = ["grok", "gemini", "claude"]
     else:
-        providers = ["groq", "gemini", "claude"]
+        providers = ["grok", "gemini", "claude"]
     providers = [p for p in providers if _prov_keys.get(p)]
     if image_parts and not any(p in providers for p in ("gemini", "claude")):
         message_for_llm = (message_for_llm or "").strip()
@@ -4416,18 +4416,18 @@ async def _run_chat_core(
     if not providers:
         raise HTTPException(
             status_code=503,
-            detail="No LLM providers configured (set Grok_Heymaa_API_key / GROQ_API_KEY, Gemini_Heymaa_API_Key, and/or ANTHROPIC_API_KEY).",
+            detail="No LLM providers configured (set Grok_Heymaa_API_key, Gemini_Heymaa_API_Key, and/or ANTHROPIC_API_KEY).",
         )
     for provider in providers:
         try:
             key = _prov_keys[provider]
 
             async def _legacy_call(p=provider, k=key):
-                if p == "groq":
-                    reply = await call_groq(
+                if p == "grok":
+                    reply = await call_grok(
                         message_for_llm, llm_history, system_prompt, k, history_limit=chat_context_limit
                     )
-                    model = "groq"
+                    model = "grok"
                 elif p == "gemini":
                     reply = await call_gemini(
                         message_for_llm,
@@ -4607,8 +4607,8 @@ async def admin_chat_quality_rejudge(
         if not row.data:
             raise HTTPException(status_code=404, detail="Review not found")
         mid = row.data[0].get("message_id")
-        groq_key = (_llm_api_keys().get("groq") or "").strip() or None
-        return rejudge_message(sb, mid, groq_api_key=groq_key)
+        grok_key = (_llm_api_keys().get("grok") or "").strip() or None
+        return rejudge_message(sb, mid, grok_api_key=grok_key)
     except HTTPException:
         raise
     except ValueError as e:
@@ -4812,8 +4812,8 @@ async def admin_panel():
     return FileResponse(_admin_index_path(), media_type="text/html")
 
 import time as _time
-USAGE_LOG = {"groq": 0, "gemini": 0, "claude": 0, "gemini_embed": 0, "since": _time.time()}
-COST_PER_CALL = {"groq": 0.0002, "gemini": 0.002, "claude": 0.0025}
+USAGE_LOG = {"grok": 0, "gemini": 0, "claude": 0, "gemini_embed": 0, "since": _time.time()}
+COST_PER_CALL = {"grok": 0.0002, "gemini": 0.002, "claude": 0.0025}
 
 
 def _get_llm_wrapper():
@@ -5077,7 +5077,7 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
         state = load_credits_state(sb, _credit_scope_identity())
         snap = usage_snapshot(state, provider_mode="legacy")
         snap["process_calls"] = {
-            "groq": USAGE_LOG["groq"],
+            "grok": USAGE_LOG["grok"],
             "gemini": USAGE_LOG["gemini"],
             "claude": USAGE_LOG["claude"],
             "gemini_embed": USAGE_LOG["gemini_embed"],
@@ -5111,7 +5111,7 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
                 keys,
                 tracked_cost_usd={
                     "gemini": float(cost_by.get("gemini") or 0) + float(cost_by.get("gemini_embed") or 0),
-                    "groq": float(cost_by.get("groq") or 0),
+                    "grok": float(cost_by.get("grok") or 0),
                     "claude": float(cost_by.get("claude") or 0),
                 },
             )
@@ -5124,11 +5124,11 @@ async def admin_usage(x_token: Optional[str] = Header(None)):
             }
         return snap
     except Exception:
-        est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("groq", "gemini", "claude"))
+        est_cost = sum(USAGE_LOG[p] * COST_PER_CALL.get(p, 0) for p in ("grok", "gemini", "claude"))
         days = max(1, (_time.time() - USAGE_LOG["since"]) / 86400)
         return {
             "calls": {
-                "groq": USAGE_LOG["groq"],
+                "grok": USAGE_LOG["grok"],
                 "gemini": USAGE_LOG["gemini"],
                 "claude": USAGE_LOG["claude"],
                 "gemini_embed": USAGE_LOG["gemini_embed"],

@@ -78,23 +78,23 @@ type UsageState = {
   }
 }
 
-const PROVIDER_ORDER = ['groq', 'gemini', 'claude', 'resend'] as const
+const PROVIDER_ORDER = ['grok', 'gemini', 'claude', 'resend'] as const
 
 const PROVIDER_LABEL: Record<string, string> = {
-  groq: 'Grok',
+  grok: 'Grok',
   gemini: 'Gemini',
   claude: 'Claude',
   resend: 'Resend',
 }
 
 const SPEND_ROWS: { key: string; label: string; hint: string }[] = [
-  { key: 'groq', label: 'Grok', hint: 'Primary chat (xAI)' },
+  { key: 'grok', label: 'Grok', hint: 'Primary chat (xAI)' },
   { key: 'gemini', label: 'Gemini', hint: 'Chat + vision' },
   { key: 'claude', label: 'Claude', hint: 'Chat fallback' },
   { key: 'gemini_embed', label: 'Embeddings', hint: 'RAG only' },
 ]
 
-const BALANCE_ORDER = ['groq', 'gemini', 'claude'] as const
+const BALANCE_ORDER = ['grok', 'gemini', 'claude'] as const
 
 function money(value: number | null | undefined, digits = 2) {
   if (value == null || Number.isNaN(Number(value))) return '—'
@@ -607,7 +607,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             {usage.provider_balances.disclaimer}
           </p>
         ) : null}
-        {balances.claude?.note || balances.gemini?.note || balances.groq?.note ? (
+        {balances.claude?.note || balances.gemini?.note || balances.grok?.note ? (
           <p className="meta">
             Tip: set <code>ANTHROPIC_ADMIN_API_KEY</code> (sk-ant-admin…) for Claude month-to-date $.
           </p>

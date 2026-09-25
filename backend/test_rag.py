@@ -18,7 +18,12 @@ from supabase import create_client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-GROQ_KEY = os.getenv("GROQ_API_KEY")
+GROK_KEY = (
+    os.getenv("Grok_Heymaa_API_key")
+    or os.getenv("XAI_API_KEY")
+    or os.getenv("GROK_API_KEY")
+    or ""
+)
 
 EMBED_MODEL = "models/gemini-embedding-001"
 
@@ -75,15 +80,15 @@ Respond in the same language as the question."""
 
 Mother's question: {query}"""
 
-    # Use Groq for fast response
+    # Use xAI Grok for response
     resp = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
+        "https://api.x.ai/v1/chat/completions",
         headers={
-            "Authorization": f"Bearer {GROQ_KEY}",
+            "Authorization": f"Bearer {GROK_KEY}",
             "Content-Type": "application/json"
         },
         json={
-            "model": "llama-3.3-70b-versatile",
+            "model": "grok-4.3",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}

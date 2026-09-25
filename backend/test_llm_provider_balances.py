@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from llm_provider_balances import collect_provider_balances, probe_groq_limits, probe_claude_spend
+from llm_provider_balances import collect_provider_balances, probe_grok_status, probe_claude_spend
 
 
-class GroqLimitsTests(unittest.TestCase):
+class GrokStatusTests(unittest.TestCase):
     @patch("llm_provider_balances.requests.get")
     def test_parses_rate_limit_headers(self, get):
         resp = MagicMock()
@@ -19,8 +19,9 @@ class GroqLimitsTests(unittest.TestCase):
         resp.text = "{}"
         resp.json.return_value = {"data": [{"id": "grok-4.3"}]}
         get.return_value = resp
-        out = probe_groq_limits("xai_test")
+        out = probe_grok_status("xai_test")
         self.assertTrue(out["ok"])
+        self.assertEqual(out["provider"], "grok")
         self.assertEqual(out["remaining_requests"], 100)
         self.assertEqual(out["limit_requests"], 200)
         self.assertIn("100/200", out["summary"].replace(",", ""))
@@ -41,11 +42,12 @@ class ClaudeSpendTests(unittest.TestCase):
 class CollectTests(unittest.TestCase):
     @patch("llm_provider_balances.probe_claude_spend", return_value={"ok": True, "provider": "claude"})
     @patch("llm_provider_balances.probe_gemini_headroom", return_value={"ok": True, "provider": "gemini"})
-    @patch("llm_provider_balances.probe_groq_limits", return_value={"ok": True, "provider": "groq"})
+    @patch("llm_provider_balances.probe_grok_status", return_value={"ok": True, "provider": "grok"})
     def test_collect(self, *_mocks):
-        out = collect_provider_balances({"groq": "a", "gemini": "b", "claude": "c"})
-        self.assertIn("providers", out)
-        self.assertIn("disclaimer", out)
+        out = collect_provider_balances({"grok": "a", "gemini": "b", "claude": "c"})
+        self.assertIn("grok", out["providers"])
+        self.assertIn("gemini", out["providers"])
+        self.assertIn("claude", out["providers"])
 
 
 if __name__ == "__main__":

@@ -5,7 +5,12 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-GROQ_KEY = os.getenv("GROQ_API_KEY")
+GROK_KEY = (
+    os.getenv("Grok_Heymaa_API_key")
+    or os.getenv("XAI_API_KEY")
+    or os.getenv("GROK_API_KEY")
+    or ""
+)
 EMBED_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={GEMINI_KEY}"
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -19,9 +24,9 @@ def search(query, top_k=5):
 
 def answer(query, chunks):
     ctx = "\n---\n".join([f"[{c.get('metadata',{}).get('title','?')}]\n{c['content']}" for c in chunks])
-    r = requests.post("https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization":f"Bearer {GROQ_KEY}","Content-Type":"application/json"},
-        json={"model":"llama-3.3-70b-versatile","messages":[
+    r = requests.post("https://api.x.ai/v1/chat/completions",
+        headers={"Authorization":f"Bearer {GROK_KEY}","Content-Type":"application/json"},
+        json={"model":"grok-4.3","messages":[
             {"role":"system","content":"You are HeyMaa, a warm supportive AI friend for mothers. NEVER give medical advice - redirect to doctor. Use the knowledge excerpts naturally. Respond in the same language as the question."},
             {"role":"user","content":f"Knowledge:\n{ctx}\n---\nQuestion: {query}"}
         ],"temperature":0.7,"max_tokens":800})

@@ -407,7 +407,7 @@ def merge_reviews(rules: dict, llm: Optional[dict]) -> dict:
     return out
 
 
-def judge_via_groq_sync(
+def judge_via_grok_sync(
     api_key: str,
     user_message: str,
     assistant_reply: str,
@@ -475,20 +475,20 @@ def review_and_store(
     *,
     force_open: bool = False,
     use_llm: bool = True,
-    groq_api_key: Optional[str] = None,
+    grok_api_key: Optional[str] = None,
 ) -> dict:
     """Rules first; LLM judge when score looks weak or use_llm forced on fails."""
     rules = rule_based_review(turn.get("user_message") or "", turn.get("assistant_reply") or "")
     llm = None
-    if use_llm and groq_api_key and (
+    if use_llm and grok_api_key and (
         force_open or int(rules.get("score") or 100) < 85 or "good" not in (rules.get("tags") or [])
     ):
         # Skip LLM for clearly good short greetings
         if "good" in (rules.get("tags") or []) and int(rules.get("score") or 0) >= 85:
             llm = None
         else:
-            llm = judge_via_groq_sync(
-                groq_api_key,
+            llm = judge_via_grok_sync(
+                grok_api_key,
                 turn.get("user_message") or "",
                 turn.get("assistant_reply") or "",
             )
@@ -520,7 +520,7 @@ def review_turn_rules_and_maybe_store(sb, turn: dict, *, force_open: bool = Fals
     return review_and_store(sb, turn, force_open=force_open, use_llm=False)
 
 
-def rejudge_message(sb, message_id: str, *, groq_api_key: Optional[str] = None) -> dict:
+def rejudge_message(sb, message_id: str, *, grok_api_key: Optional[str] = None) -> dict:
     if not sb or not message_id:
         raise ValueError("message_id required")
     try:
@@ -539,7 +539,7 @@ def rejudge_message(sb, message_id: str, *, groq_api_key: Optional[str] = None) 
         raise ValueError("turn not found")
     turn = res.data[0]
     return review_and_store(
-        sb, turn, force_open=True, use_llm=True, groq_api_key=groq_api_key
+        sb, turn, force_open=True, use_llm=True, grok_api_key=grok_api_key
     )
 
 

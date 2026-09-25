@@ -33,12 +33,12 @@ class LlmUsageTests(unittest.TestCase):
         self.assertAlmostEqual(cost, 0.002, places=4)
 
     def test_provider_per_call(self):
-        self.assertAlmostEqual(estimate_event_cost("groq", ok=True), 0.0002, places=5)
+        self.assertAlmostEqual(estimate_event_cost("grok", ok=True), 0.0002, places=5)
         self.assertAlmostEqual(estimate_event_cost("gemini", ok=True), 0.002, places=4)
 
     def test_remaining_and_reload(self):
         state = apply_credit_sync(empty_state(), replicate_balance_usd=10.0, alert_threshold_usd=3.0)
-        state = apply_usage_event(state, provider="groq", ok=True, cost_usd=7.5, model="groq")
+        state = apply_usage_event(state, provider="grok", ok=True, cost_usd=7.5, model="grok")
         self.assertAlmostEqual(remaining_credit_usd(state) or 0, 2.5, places=3)
         self.assertTrue(reload_needed(state))
 
@@ -53,7 +53,7 @@ class LlmUsageTests(unittest.TestCase):
         state = apply_credit_sync(empty_state(), replicate_balance_usd=5.0)
         state = apply_usage_event(
             state,
-            provider="groq",
+            provider="grok",
             ok=False,
             cost_usd=0.0,
             error_kind="credit_exhausted",
@@ -95,11 +95,11 @@ class LlmUsageTests(unittest.TestCase):
         state = apply_usage_event(state, provider="gemini_embed", ok=True, cost_usd=0.5)
         self.assertEqual(state["spent_since_sync_usd"], 0.0)
         self.assertAlmostEqual(remaining_credit_usd(state) or 0, 10.0, places=3)
-        state = apply_usage_event(state, provider="groq", ok=True, cost_usd=0.4, model="groq")
+        state = apply_usage_event(state, provider="grok", ok=True, cost_usd=0.4, model="grok")
         self.assertAlmostEqual(state["spent_since_sync_usd"], 0.4, places=3)
         snap = usage_snapshot(state)
-        groq = next(row for row in snap["chat_models"] if row["label"] == "Grok")
-        self.assertEqual(groq["calls"], 1)
+        grok = next(row for row in snap["chat_models"] if row["label"] == "Grok")
+        self.assertEqual(grok["calls"], 1)
 
     def test_token_mask_hides_secret(self):
         token = "r8_abcdefghijklmnopqrstuvwxyz"
@@ -117,7 +117,7 @@ class LlmUsageTests(unittest.TestCase):
             replicate_balance_usd=20.0,
             key_identity=a,
         )
-        state = apply_usage_event(state, provider="groq", ok=True, cost_usd=5.0)
+        state = apply_usage_event(state, provider="grok", ok=True, cost_usd=5.0)
         self.assertAlmostEqual(remaining_credit_usd(state) or 0, 15.0, places=3)
         rotated = bind_state_to_key(state, fingerprint=b["fingerprint"], mask=b["mask"], source=b["source"])
         self.assertTrue(rotated["key_rotated"])

@@ -101,6 +101,11 @@ def insert_llm_transaction(
     """Insert one row into llm_transactions. Returns the row id, or None on failure."""
     if not sb:
         return None
+    try:
+        from .llm_usage import canonicalize_provider
+    except ImportError:
+        from llm_usage import canonicalize_provider
+    provider = canonicalize_provider(provider)
     tid = transaction_id or str(uuid.uuid4())
     row: dict[str, Any] = {
         "id": tid,

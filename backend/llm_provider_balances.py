@@ -3,7 +3,7 @@
 None of Grok (xAI), Gemini (API key), or Claude (standard key) expose a prepaid
 dollar balance. This module returns the best live signals each vendor allows:
 
-- Grok (xAI): online check via models list (no rate-limit headers like Groq)
+- Grok (xAI): online check via models list (no prepaid balance API)
 - Claude: month-to-date cost via Admin Cost API when ANTHROPIC_ADMIN_API_KEY is set;
   otherwise only key-present / online status
 - Gemini: no balance API — report HeyMaa-tracked spend and a billing console link
@@ -54,10 +54,10 @@ def _header(headers: Any, *names: str) -> Optional[str]:
     return None
 
 
-def probe_groq_limits(api_key: str) -> dict[str, Any]:
-    """Probe primary chat provider (xAI Grok). Provider id remains `groq` for logs."""
+def probe_grok_status(api_key: str) -> dict[str, Any]:
+    """Probe primary chat provider (xAI Grok)."""
     out: dict[str, Any] = {
-        "provider": "groq",
+        "provider": "grok",
         "ok": False,
         "label": "Grok",
         "kind": "online",
@@ -273,13 +273,13 @@ def collect_provider_balances(
     tracked_cost_usd: Optional[dict[str, float]] = None,
 ) -> dict[str, Any]:
     tracked = tracked_cost_usd or {}
-    groq = probe_groq_limits(keys.get("groq") or "")
+    grok = probe_grok_status(keys.get("grok") or "")
     gemini = probe_gemini_headroom(keys.get("gemini") or "", float(tracked.get("gemini") or 0))
     claude = probe_claude_spend(keys.get("claude") or "")
     return {
         "fetched_at": datetime.now(timezone.utc).isoformat(),
         "providers": {
-            "groq": groq,
+            "grok": grok,
             "gemini": gemini,
             "claude": claude,
         },
