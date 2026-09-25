@@ -41,7 +41,7 @@ export const TAB_SUBTITLES: Record<string, string> = {
   cancellations: 'Review and approve cancel requests',
   userdata: 'Inspect stored family, chat, and memories',
   useractivity: 'In-app clicks, views, and navigation',
-  chatprompt: 'System instructions for HeyMaa chat',
+  chatprompt: 'System prompt + LLM routing (Grok / Gemini / Claude)',
   llmtransactions: 'Per-call LLM cost ledger',
   userfinancials: 'Usage vs plan limits per user',
   tools: 'Seeding and maintenance utilities',

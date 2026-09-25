@@ -236,7 +236,9 @@ POINT_RULES_TABLE = "point_rules"
 POINT_SETTINGS_TABLE = "point_settings"
 CHAT_PROMPT_SETTINGS_TABLE = "chat_prompt_settings"
 CHAT_PROMPT_KEY = "system"
+LLM_ROUTING_KEY = "llm_routing"
 _system_prompt_cache: Optional[str] = None
+_llm_routing_cache: Optional[dict] = None
 USER_ACTIVITY_ACTIONS = frozenset({
     "view", "click", "navigate", "submit", "open", "close", "change",
 })
@@ -2123,14 +2125,20 @@ def invalidate_system_prompt_cache():
     global _system_prompt_cache
     _system_prompt_cache = None
 
-def _fetch_chat_prompt_row():
+
+def invalidate_llm_routing_cache():
+    global _llm_routing_cache
+    _llm_routing_cache = None
+
+
+def _fetch_chat_prompt_row(key: str = CHAT_PROMPT_KEY):
     if not sb:
         return None
     try:
         res = (
             sb.table(CHAT_PROMPT_SETTINGS_TABLE)
             .select("content,updated_at,updated_by")
-            .eq("key", CHAT_PROMPT_KEY)
+            .eq("key", key)
             .limit(1)
             .execute()
         )
@@ -2138,6 +2146,45 @@ def _fetch_chat_prompt_row():
         return rows[0] if rows else None
     except Exception:
         return None
+
+
+def get_llm_routing() -> dict:
+    """Admin-editable failover rules; falls back to code defaults."""
+    global _llm_routing_cache
+    if _llm_routing_cache is not None:
+        return _llm_routing_cache
+    try:
+        try:
+            from .llm_routing import DEFAULT_LLM_ROUTING, parse_routing_json
+        except ImportError:
+            from llm_routing import DEFAULT_LLM_ROUTING, parse_routing_json
+    except Exception:
+        _llm_routing_cache = {
+            "default_order": ["grok", "gemini", "claude"],
+            "image_order": ["gemini", "claude", "grok"],
+            "gemini_first_langs": ["ar", "zh", "ja", "hi", "ur", "bn", "mr", "te", "fil", "sw"],
+            "gemini_first_order": ["gemini", "grok", "claude"],
+            "complex_order": ["grok", "gemini", "claude"],
+            "complex_keywords": [
+                "diagnosis",
+                "symptoms",
+                "emergency",
+                "medication",
+                "fever",
+                "hospital",
+                "allergy",
+                "depression",
+                "anxiety",
+            ],
+            "complex_min_chars": 300,
+        }
+        return _llm_routing_cache
+    row = _fetch_chat_prompt_row(LLM_ROUTING_KEY)
+    if row and (row.get("content") or "").strip():
+        _llm_routing_cache = parse_routing_json(row["content"])
+    else:
+        _llm_routing_cache = parse_routing_json("{}")
+    return _llm_routing_cache
 
 _MAX_SYSTEM_PROMPT_CHARS = 12000
 
@@ -2280,7 +2327,14 @@ def detect_msg_lang(message: str, profile_lang: str = "") -> str:
     return profile_lang or "en"
 
 def is_complex(message):
-    return any(kw in message.lower() for kw in COMPLEX_KEYWORDS) or len(message) > 300
+    try:
+        try:
+            from .llm_routing import is_complex_message
+        except ImportError:
+            from llm_routing import is_complex_message
+        return is_complex_message(message, get_llm_routing())
+    except Exception:
+        return any(kw in (message or "").lower() for kw in COMPLEX_KEYWORDS) or len(message or "") > 300
 
 def _api_error(
     status_code: int,
@@ -3233,6 +3287,10 @@ class UserActivityRequest(BaseModel):
 
 class ChatPromptUpdate(BaseModel):
     content: str
+
+
+class LlmRoutingUpdate(BaseModel):
+    routing: dict
 
 class OfferCreate(BaseModel):
     title: str
@@ -4437,13 +4495,33 @@ async def _run_chat_core(
         return out
 
     if image_parts:
-        providers = ["gemini", "claude", "grok"]
-    elif msg_lang in GEMINI_FIRST_LANGS:
-        providers = ["gemini", "grok", "claude"]
-    elif complex_query:
-        providers = ["grok", "gemini", "claude"]
+        try:
+            try:
+                from .llm_routing import resolve_provider_order
+            except ImportError:
+                from llm_routing import resolve_provider_order
+            providers = resolve_provider_order(
+                has_image=True,
+                msg_lang=msg_lang or "",
+                complex_query=complex_query,
+                routing=get_llm_routing(),
+            )
+        except Exception:
+            providers = ["gemini", "claude", "grok"]
     else:
-        providers = ["grok", "gemini", "claude"]
+        try:
+            try:
+                from .llm_routing import resolve_provider_order
+            except ImportError:
+                from llm_routing import resolve_provider_order
+            providers = resolve_provider_order(
+                has_image=False,
+                msg_lang=msg_lang or "",
+                complex_query=complex_query,
+                routing=get_llm_routing(),
+            )
+        except Exception:
+            providers = ["grok", "gemini", "claude"]
     providers = [p for p in providers if _prov_keys.get(p)]
     if image_parts and not any(p in providers for p in ("gemini", "claude")):
         message_for_llm = (message_for_llm or "").strip()
@@ -5414,6 +5492,70 @@ async def admin_update_chat_prompt(body: ChatPromptUpdate, x_token: Optional[str
     return {
         "ok": True,
         "content": content,
+        "updated_at": now,
+        "updated_by_name": updated_by_name,
+    }
+
+@app.get("/admin/llm_routing")
+async def admin_get_llm_routing(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    try:
+        try:
+            from .llm_routing import DEFAULT_LLM_ROUTING
+        except ImportError:
+            from llm_routing import DEFAULT_LLM_ROUTING
+    except Exception:
+        DEFAULT_LLM_ROUTING = {}
+    row = _fetch_chat_prompt_row(LLM_ROUTING_KEY)
+    routing = get_llm_routing()
+    updated_at = row.get("updated_at") if row else None
+    updated_by = row.get("updated_by") if row else None
+    updated_by_name = None
+    if updated_by:
+        updated_by_name = _creator_name_map([updated_by]).get(str(updated_by))
+    return {
+        "routing": routing,
+        "defaults": DEFAULT_LLM_ROUTING,
+        "updated_at": updated_at,
+        "updated_by_name": updated_by_name,
+        "source": "db" if row and (row.get("content") or "").strip() else "defaults",
+    }
+
+@app.put("/admin/llm_routing")
+async def admin_update_llm_routing(body: LlmRoutingUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    try:
+        try:
+            from .llm_routing import normalize_llm_routing
+        except ImportError:
+            from llm_routing import normalize_llm_routing
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Routing module unavailable: {e}")
+    routing = normalize_llm_routing(body.routing or {})
+    import json as _json
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    content = _json.dumps(routing, ensure_ascii=False)
+    try:
+        sb.table(CHAT_PROMPT_SETTINGS_TABLE).upsert({
+            "key": LLM_ROUTING_KEY,
+            "content": content,
+            "updated_at": now,
+            "updated_by": admin_id,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    invalidate_llm_routing_cache()
+    updated_by_name = _creator_name_map([admin_id]).get(str(admin_id))
+    _log_activity(
+        admin_id, "update", "llm_routing", LLM_ROUTING_KEY,
+        value_after={"default_order": routing.get("default_order")},
+    )
+    return {
+        "ok": True,
+        "routing": routing,
         "updated_at": now,
         "updated_by_name": updated_by_name,
     }
@@ -8840,7 +8982,7 @@ _API_PATH_PREFIXES = (
     "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "gamification/", "webhooks/", "checkout/",
     "admin/health", "admin/usage", "admin/credits", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
-    "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt",
+    "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing",
     "public/offers", "public/promotions", "healthz", "functions/",
 )
 

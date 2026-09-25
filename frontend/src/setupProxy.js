@@ -33,6 +33,7 @@ const ADMIN_API_PREFIXES = [
   '/admin/users',
   '/admin/profiles/',
   '/admin/chat_prompt',
+  '/admin/llm_routing',
 ]
 
 const ADMIN_UI_GET_PATHS = new Set([
