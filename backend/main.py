@@ -114,6 +114,19 @@ def _claude_api_key() -> str:
     return ""
 
 
+def _claude_workspace_id() -> str:
+    """Optional workspace for multi-workspace / identity-linked Anthropic keys."""
+    for name in (
+        "Claude_Heymaa_Workspace_ID",
+        "CLAUDE_HEYMAA_WORKSPACE_ID",
+        "ANTHROPIC_WORKSPACE_ID",
+    ):
+        val = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if val:
+            return val
+    return ""
+
+
 def _grok_api_key() -> str:
     """Prefer HeyMaa xAI Grok secret, then XAI_API_KEY."""
     for name in (
@@ -3113,7 +3126,11 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
 async def call_claude(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
     import anthropic
     def _run():
-        client = anthropic.Anthropic(api_key=api_key)
+        ws = _claude_workspace_id()
+        kwargs = {"api_key": api_key}
+        if ws:
+            kwargs["default_headers"] = {"anthropic-workspace-id": ws}
+        client = anthropic.Anthropic(**kwargs)
         limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
         messages = [
             {"role": h["role"], "content": (h.get("content") or "")[:1500]}
@@ -3573,7 +3590,11 @@ def _probe_llm_providers() -> dict:
                 out[name] = {"ok": True, "msg": "online · primary chat (xAI Grok)"}
             else:
                 import anthropic
-                anthropic.Anthropic(api_key=key).messages.create(
+                ws = _claude_workspace_id()
+                client_kwargs = {"api_key": key}
+                if ws:
+                    client_kwargs["default_headers"] = {"anthropic-workspace-id": ws}
+                anthropic.Anthropic(**client_kwargs).messages.create(
                     model="claude-haiku-4-5-20251001",
                     max_tokens=8,
                     messages=[{"role": "user", "content": "hi"}],
