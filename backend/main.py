@@ -97,7 +97,21 @@ if not os.getenv("VERCEL"):
     _load_dotenv_file(os.path.join(os.getcwd(), ".env"))
     _load_dotenv_file(os.path.abspath(os.path.join(os.getcwd(), "..", ".env")))
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = ""  # set below via _claude_api_key()
+
+
+def _claude_api_key() -> str:
+    """Prefer HeyMaa Claude secret, then legacy ANTHROPIC_API_KEY."""
+    for name in (
+        "Claude_Heymaa_API_key",
+        "Claude_Heymaa_API_Key",
+        "CLAUDE_HEYMAA_API_KEY",
+        "ANTHROPIC_API_KEY",
+    ):
+        val = (os.getenv(name) or "").strip().strip('"').strip("'")
+        if val:
+            return val
+    return ""
 
 
 def _grok_api_key() -> str:
@@ -129,6 +143,7 @@ def _gemini_api_key() -> str:
 
 GROK_API_KEY = _grok_api_key()
 GEMINI_API_KEY = _gemini_api_key()
+ANTHROPIC_API_KEY = _claude_api_key()
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 
 def _supabase_credentials():
@@ -3504,7 +3519,7 @@ def _llm_api_keys():
     env_keys = {
         "grok": _grok_api_key(),
         "gemini": _gemini_api_key(),
-        "claude": (os.getenv("ANTHROPIC_API_KEY") or "").strip(),
+        "claude": _claude_api_key(),
     }
     db_keys = _llm_secrets_from_db()
     return {
@@ -4416,7 +4431,7 @@ async def _run_chat_core(
     if not providers:
         raise HTTPException(
             status_code=503,
-            detail="No LLM providers configured (set Grok_Heymaa_API_key, Gemini_Heymaa_API_Key, and/or ANTHROPIC_API_KEY).",
+            detail="No LLM providers configured (set Grok_Heymaa_API_key, Gemini_Heymaa_API_Key, and/or Claude_Heymaa_API_key).",
         )
     for provider in providers:
         try:
