@@ -17,9 +17,9 @@ import { EyeIcon, EyeOffIcon } from './passwordVisibilityIcons'
 import { useStableMobileViewport } from '../lib/useStableMobileViewport'
 import './appAuth.css'
 
-/** Auth copy is el/en only — do not overwrite a user's full app language preference. */
+/** Auth copy is el/en only — follow the home/app language preference (Greek-first). */
 function authUiLangFromStored(): AuthLang {
-  return normalizeAppLang(readStoredAppLang('en')) === 'el' ? 'el' : 'en'
+  return normalizeAppLang(readStoredAppLang('el'), 'el') === 'el' ? 'el' : 'en'
 }
 
 type Mode = 'signup' | 'login'

@@ -180,8 +180,14 @@ export function SubscriptionPage() {
     [i18n],
   )
 
-  const goApp = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
-  const goLogin = () => navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth?mode=login`)
+  const goApp = () => {
+    writeStoredAppLang(preferredLang)
+    navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth`)
+  }
+  const goLogin = () => {
+    writeStoredAppLang(preferredLang)
+    navigate(token ? APP_ROUTE : `${APP_ROUTE}/auth?mode=login`)
+  }
 
   return (
     <div className="subscription-page">

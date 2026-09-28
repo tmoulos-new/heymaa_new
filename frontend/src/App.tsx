@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Navigate, Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -87,6 +87,7 @@ import {
   threadsForStorage,
   type ChatAttachment,
 } from "./lib/chatAttachments";
+import { titleFromConversation } from "./lib/chatThreadTitle";
 import {
   collectPersistableMedia,
   hydrateMessageAttachments,
@@ -136,8 +137,12 @@ import {
   APP_TOUR_STEPS,
   clearJustOnboarded,
   hasCompletedAppTour,
+  hasCompletedFirstChatGuide,
+  isFirstChatGuidePending,
   isJustOnboarded,
   markAppTourCompleted,
+  markFirstChatGuideCompleted,
+  markFirstChatGuidePending,
   markJustOnboarded,
 } from "./lib/appTour";
 import { AppTrialBanner } from "./components/AppTrialBanner";
@@ -2181,6 +2186,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [messages, setMessages] = useState<Message[]>(() => (bootLocalScan(token).chat as Message[]) || []);
   /** When set, live `messages` belong to this archived thread (kept in sync). */
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const messagesRef = useRef(messages);
+  const threadsRef = useRef(threads);
+  const activeThreadIdRef = useRef(activeThreadId);
+  const planEntitlementsRef = useRef(planEntitlements);
+  const subSnapshotRef = useRef(subSnapshot);
+  const langRef = useRef(lang);
+  const sessionEndArchivedRef = useRef(false);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
+  useEffect(() => { activeThreadIdRef.current = activeThreadId; }, [activeThreadId]);
+  useEffect(() => { planEntitlementsRef.current = planEntitlements; }, [planEntitlements]);
+  useEffect(() => { subSnapshotRef.current = subSnapshot; }, [subSnapshot]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
   const [showThreads, setShowThreads] = useState(false);
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
@@ -2303,6 +2321,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [showAddFirstChildPrompt, setShowAddFirstChildPrompt] = useState(false);
+  const [showStartFirstChatPrompt, setShowStartFirstChatPrompt] = useState(false);
+  const awaitingFirstChatAfterChildRef = useRef(false);
   const tourWasFirstRunRef = useRef(false);
   const tourAutoStartedForTokenRef = useRef<string | null>(null);
   const [showAccountPrivacy, setShowAccountPrivacy] = useState(false);
@@ -2711,7 +2731,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         }
         const mediaMap = await loadChatMediaMap(token);
         if (cancelled) return;
-        if (local.chat.length) {
+        const liveClearedEarly = localStorage.getItem(sk(token, "chat_live_cleared")) === "1";
+        if (liveClearedEarly) {
+          setMessages([]);
+        } else if (local.chat.length) {
           setMessages(hydrateMessageAttachments(local.chat as Message[], mediaMap));
         }
         if (local.threads.length) {
@@ -2747,7 +2770,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         ) as Memory[];
         setMemories(finalMemories);
         setFamilyData(ensureFamilyMemberIds(merged.family));
-        if (merged.chat.length) {
+        // After browser-close archive, keep live chat empty even if cloud still has stale messages.
+        const liveCleared = localStorage.getItem(sk(token, "chat_live_cleared")) === "1";
+        if (liveCleared) {
+          setMessages([]);
+          safeLocalSet(sk(token, "chat"), "[]");
+        } else if (merged.chat.length) {
           setMessages(hydrateMessageAttachments(merged.chat as Message[], mediaMap));
         }
         if (merged.threads.length) {
@@ -2868,6 +2896,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   useEffect(()=>{ if (!cloudReady) return; void sbSave("chat", messages); },[messages, sbSave, cloudReady]);
   useEffect(()=>{ if (!cloudReady) return; void sbSave("threads", threads); },[threads, sbSave, cloudReady]);
+  // Finish clearing cloud live-chat after a browser-close archive.
+  useEffect(() => {
+    if (!cloudReady || !token) return;
+    if (localStorage.getItem(sk(token, "chat_live_cleared")) !== "1") return;
+    void (async () => {
+      try {
+        await axios.post(`${API}/userdata`, { key: "chat", value: [] }, { headers: { "x-token": token } });
+        localStorage.removeItem(sk(token, "chat_live_cleared"));
+      } catch {
+        /* keep marker; retry next session */
+      }
+    })();
+  }, [cloudReady, token]);
   // Persist chat Library blobs (images/videos/files) in IndexedDB so they survive reload.
   useEffect(() => {
     if (!cloudReady || !token) return;
@@ -3335,10 +3376,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   };
 
   const titleOfMessages = useCallback((msgs: Message[], fallback: string) => {
-    const first = msgs.find((m) => m.role === "user" && (m.content || "").trim()) || msgs[0];
-    const text = (first?.content || fallback).replace(/\s+/g, " ").trim();
-    if (!text) return fallback;
-    return text.length > 64 ? `${text.slice(0, 64)}…` : text;
+    return titleFromConversation(msgs, fallback);
   }, []);
 
   const wipeLiveChat = useCallback(() => {
@@ -3369,7 +3407,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           ? {
               ...th,
               messages: msgs,
-              title: th.title || titleOfMessages(msgs, titleFallback),
+              title: titleOfMessages(msgs, titleFallback),
             }
           : th,
       ),
@@ -3413,6 +3451,104 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     token,
     upsertThreadMessages,
   ]);
+
+  /** Sync archive + empty live chat on tab/browser close (survives reopen). */
+  const archiveLiveChatOnSessionEnd = useCallback(() => {
+    if (sessionEndArchivedRef.current) return;
+    const msgs = messagesRef.current;
+    const threadId = activeThreadIdRef.current;
+    let nextThreads = threadsRef.current;
+    const curLang = langRef.current;
+    const titleFallback = t("pastthreads", curLang);
+
+    if (!msgs.length) return;
+
+    if (threadId) {
+      nextThreads = nextThreads.map((th) =>
+        th.id === threadId
+          ? {
+              ...th,
+              messages: msgs.map((m) => ({ ...m })),
+                title: titleOfMessages(msgs, titleFallback),
+              }
+            : th,
+        );
+      } else if (
+      canArchiveAnotherThread(
+        planEntitlementsRef.current,
+        subSnapshotRef.current,
+        nextThreads.length,
+      )
+    ) {
+      const id = String(Date.now());
+      const locale = curLang === "el" ? "el-GR" : "en-GB";
+      const date = new Date().toLocaleDateString(locale, { day: "numeric", month: "short" });
+      nextThreads = [
+        {
+          id,
+          title: titleOfMessages(msgs, titleFallback),
+          date,
+          messages: msgs.map((m) => ({ ...m })),
+        },
+        ...nextThreads,
+      ];
+    } else {
+      // At archive cap — keep live chat so the conversation is not lost on close.
+      return;
+    }
+
+    sessionEndArchivedRef.current = true;
+    const threadsPayload = threadsForStorage(nextThreads);
+    const chatPayload = chatMessagesForStorage([]);
+    try {
+      safeLocalSet(sk(token, "threads"), JSON.stringify(threadsPayload));
+      safeLocalSet(sk(token, "chat"), JSON.stringify(chatPayload));
+      safeLocalSet(sk(token, "chat_live_cleared"), "1");
+    } catch {
+      /* ignore quota */
+    }
+
+    const keepalivePost = (key: string, value: unknown) => {
+      try {
+        void fetch(`${API}/userdata`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-token": token,
+          },
+          body: JSON.stringify({ key, value }),
+          keepalive: true,
+        });
+      } catch {
+        /* unload — best effort */
+      }
+    };
+    keepalivePost("threads", threadsPayload);
+    keepalivePost("chat", chatPayload);
+
+    threadsRef.current = nextThreads;
+    messagesRef.current = [];
+    activeThreadIdRef.current = null;
+    setThreads(nextThreads);
+    wipeLiveChat();
+  }, [titleOfMessages, token, wipeLiveChat]);
+
+  useEffect(() => {
+    const onPageHide = (event: PageTransitionEvent) => {
+      // Skip bfcache (app switch / back-forward) so mid-session chat stays open.
+      if (event.persisted) return;
+      archiveLiveChatOnSessionEnd();
+    };
+    const onBeforeUnload = () => {
+      archiveLiveChatOnSessionEnd();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [archiveLiveChatOnSessionEnd]);
 
   const requestNewThread = () => {
     if (!messages.length && !input.trim() && !chatPendingAttachments.length) return;
@@ -3478,7 +3614,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       next[idx] = {
         ...next[idx],
         messages,
-        title: next[idx].title || titleOfMessages(messages, t("pastthreads", lang)),
+        title: titleOfMessages(messages, t("pastthreads", lang)),
       };
       return next;
     });
@@ -3522,7 +3658,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         const idTs = Number(th.id);
         hits.push({
           id: th.id,
-          title: th.title || titleOfMessages(th.messages || [], t("pastthreads", lang)),
+          title: titleOfMessages(th.messages || [], th.title || t("pastthreads", lang)),
           dateLabel: Number.isFinite(idTs) ? dateLabel(idTs) : (th.date || dateLabel(null)),
           thread: th,
         });
@@ -4126,6 +4262,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       showToast(lang==="el"?"Επίλεξε φύλο.":"Select gender.", "err");
       return;
     }
+    const wasFirstChild = familyChildren.length === 0;
     track("click", appPath("family", "add-child"), "Add child");
     const updatedChildren = [...familyChildren, {
       name: newChildName.trim(),
@@ -4146,6 +4283,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     void syncProfileInBackground({ ...updatedProfile, consentMarketing: profile.consentMarketing });
     setNewChildName(""); setNewChildBirthDate(""); setNewChildGender(""); setNewChildDateMode("birth"); setShowAddChild(false);
     showToast(lang==="el"?"Το παιδί προστέθηκε":"Child added", "ok");
+    if (
+      wasFirstChild &&
+      (awaitingFirstChatAfterChildRef.current || isFirstChatGuidePending(token)) &&
+      !hasCompletedFirstChatGuide(token)
+    ) {
+      awaitingFirstChatAfterChildRef.current = false;
+      window.setTimeout(() => setShowStartFirstChatPrompt(true), 420);
+    }
   };
 
   const deleteFamilyMember = (index: number) => {
@@ -4603,8 +4748,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [goToTourStep]);
 
   useEffect(() => {
-    const firstVisit = isJustOnboarded() || !hasCompletedAppTour(token);
-    if (!firstVisit) return;
+    // Only after registration onboarding — never on every login.
+    if (!isJustOnboarded()) return;
+    if (hasCompletedAppTour(token)) {
+      clearJustOnboarded();
+      return;
+    }
     if (tourAutoStartedForTokenRef.current === token) return;
     tourWasFirstRunRef.current = true;
     const t = window.setTimeout(() => {
@@ -4629,7 +4778,13 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     clearJustOnboarded();
     setTourOpen(false);
     if (!wasFirst) return;
-    if (familyChildren.length > 0) return;
+    if (hasCompletedFirstChatGuide(token)) return;
+    if (familyChildren.length > 0) {
+      window.setTimeout(() => setShowStartFirstChatPrompt(true), 280);
+      return;
+    }
+    awaitingFirstChatAfterChildRef.current = true;
+    markFirstChatGuidePending(token);
     window.setTimeout(() => setShowAddFirstChildPrompt(true), 280);
   }, [token, familyChildren.length]);
 
@@ -4650,11 +4805,26 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     finishAppTour();
   }, [finishAppTour]);
 
+  const dismissStartFirstChatPrompt = useCallback(() => {
+    markFirstChatGuideCompleted(token);
+    setShowStartFirstChatPrompt(false);
+  }, [token]);
+
+  const openFirstChatFromPrompt = useCallback(() => {
+    markFirstChatGuideCompleted(token);
+    setShowStartFirstChatPrompt(false);
+    showTabBar();
+    setTab("chat");
+    window.setTimeout(() => inputRef.current?.focus(), 120);
+  }, [token, showTabBar]);
+
   const openFirstChildFromPrompt = useCallback(() => {
+    awaitingFirstChatAfterChildRef.current = true;
+    markFirstChatGuidePending(token);
     setShowAddFirstChildPrompt(false);
     setTab("family");
     openAddChildForm();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     showTabBar();
@@ -5666,7 +5836,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 className="hm-thread-item__main"
                 onClick={() => openConversation(th.id)}
               >
-                <div className="hm-thread-item__title">{th.title}</div>
+                <div className="hm-thread-item__title">
+                  {titleOfMessages(th.messages || [], th.title || t("pastthreads", lang))}
+                </div>
                 <div className="hm-thread-item__meta">
                   {th.date} · {th.messages.length} {lang === "el" ? "μηνύματα" : "messages"}
                 </div>
@@ -7306,6 +7478,50 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             type="button"
             className="hm-btn hm-btn--ghost hm-btn--block"
             onClick={() => setShowAddFirstChildPrompt(false)}
+          >
+            {lang === "el" ? "Αργότερα" : "Later"}
+          </button>
+        </div>
+      </div>
+    </AppDialog>
+    <AppDialog
+      open={showStartFirstChatPrompt}
+      onClose={dismissStartFirstChatPrompt}
+      size="sm"
+      ariaLabel={lang === "el" ? "Ξεκίνα την πρώτη σου συνομιλία" : "Start your first chat"}
+    >
+      <div className="hm-confirm-dialog hm-first-child-prompt">
+        <div className="hm-first-child-prompt__icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6A2.5 2.5 0 0 1 16.5 15H11l-3.8 3.2c-.55.46-1.4.07-1.4-.64V15H7.5A2.5 2.5 0 0 1 5 12.5v-6Z"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinejoin="round"
+            />
+            <path d="M9 9h6M9 12h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div className="hm-confirm-dialog__title">
+          {lang === "el" ? "Ξεκίνα την πρώτη σου συνομιλία" : "Start your first chat with HeyMaa"}
+        </div>
+        <p className="hm-confirm-dialog__message">
+          {lang === "el"
+            ? "Ρώτησε ό,τι σε απασχολεί — ύπνο, διατροφή, ανάπτυξη ή την ημέρα σου. Η HeyMaa απαντά με βάση το προφίλ της οικογένειάς σου."
+            : "Ask anything on your mind — sleep, feeding, development, or your day. HeyMaa answers with your family profile in mind."}
+        </p>
+        <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
+          <button
+            type="button"
+            className="hm-btn hm-btn--primary hm-btn--block"
+            onClick={openFirstChatFromPrompt}
+          >
+            {lang === "el" ? "Άνοιξε το chat" : "Open chat"}
+          </button>
+          <button
+            type="button"
+            className="hm-btn hm-btn--ghost hm-btn--block"
+            onClick={dismissStartFirstChatPrompt}
           >
             {lang === "el" ? "Αργότερα" : "Later"}
           </button>

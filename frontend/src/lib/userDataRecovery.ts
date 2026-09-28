@@ -427,11 +427,20 @@ export function clearBootLocalScanCache(): void {
   _bootScanCache = null;
 }
 
-/** Keys that may survive permanent account deletion (prefs only — never user content). */
+/** Prefs that may survive logout / account wipe (never user content). */
 const LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE = new Set([
   "hm_cookie_consent_v1",
   "hm_pre_lang",
 ]);
+
+/** User-scoped onboarding flags — safe across logout (keyed by user id, not JWT). */
+function shouldKeepOnboardingPrefKey(key: string): boolean {
+  return (
+    key.startsWith("hm_app_tour_v1_") ||
+    key.startsWith("hm_first_chat_guide_v1_") ||
+    key.startsWith("hm_first_chat_guide_pending_v1_")
+  );
+}
 
 function clearHeymaaIndexedDb(): Promise<void> {
   return new Promise((resolve) => {
@@ -459,6 +468,7 @@ export async function purgeLocalAppData(): Promise<void> {
       const key = localStorage.key(i);
       if (!key || !key.startsWith("hm_")) continue;
       if (LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE.has(key)) continue;
+      if (shouldKeepOnboardingPrefKey(key)) continue;
       toRemove.push(key);
     }
     for (const key of toRemove) {

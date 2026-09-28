@@ -168,6 +168,7 @@ export function resetAppTour(token: string): void {
 }
 
 const JUST_ONBOARDED_KEY = 'hm_just_onboarded'
+const FIRST_CHAT_GUIDE_SUFFIX = 'first_chat_guide_v1'
 
 /** Set when onboarding finishes so the first in-app visit always runs the full tour. */
 export function markJustOnboarded(): void {
@@ -191,6 +192,44 @@ export function clearJustOnboarded(): void {
     sessionStorage.removeItem(JUST_ONBOARDED_KEY)
   } catch {
     /* ignore */
+  }
+}
+
+export function firstChatGuideStorageKey(token: string): string {
+  return stableSk(token, FIRST_CHAT_GUIDE_SUFFIX)
+}
+
+export function hasCompletedFirstChatGuide(token: string): boolean {
+  try {
+    return localStorage.getItem(firstChatGuideStorageKey(token)) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markFirstChatGuideCompleted(token: string): void {
+  try {
+    localStorage.setItem(firstChatGuideStorageKey(token), '1')
+    localStorage.removeItem(stableSk(token, 'first_chat_guide_pending_v1'))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function markFirstChatGuidePending(token: string): void {
+  try {
+    if (hasCompletedFirstChatGuide(token)) return
+    localStorage.setItem(stableSk(token, 'first_chat_guide_pending_v1'), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isFirstChatGuidePending(token: string): boolean {
+  try {
+    return localStorage.getItem(stableSk(token, 'first_chat_guide_pending_v1')) === '1'
+  } catch {
+    return false
   }
 }
 

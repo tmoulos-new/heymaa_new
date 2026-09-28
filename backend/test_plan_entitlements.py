@@ -5,6 +5,7 @@ import unittest
 
 from plan_entitlements import (
     current_billing_period,
+    memory_continuity_snapshot,
     plan_entitlements,
     resolve_plan_slot,
     validate_docs_payload,
@@ -130,6 +131,17 @@ class PlanEntitlementsTests(unittest.TestCase):
         snap = voice_quota_snapshot({"period": "2026-08", "used": 12}, 50)
         self.assertEqual(snap["remaining"], 38)
         self.assertEqual(snap["limit"], 50)
+
+    def test_memory_continuity_snapshot_structure(self):
+        snap = memory_continuity_snapshot()
+        self.assertEqual(len(snap["plans"]), 4)
+        slots = [p["plan_slot"] for p in snap["plans"]]
+        self.assertEqual(slots, ["trial", "starter", "premium", "annual"])
+        trial = snap["plans"][0]
+        self.assertEqual(trial["memory_context_count"], 10)
+        self.assertFalse(trial["memory_video"])
+        self.assertIn("saved_memories", [s["id"] for s in snap["sections"]])
+        self.assertTrue(len(snap["runtime_rules"]) >= 1)
 
 
 if __name__ == "__main__":

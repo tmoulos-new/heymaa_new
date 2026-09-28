@@ -109,34 +109,44 @@ def resolve_plan_tx_limits(
     return out_tx, round(out_cost, 6)
 
 
+# Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts
+CHAT_CONTEXT_BY_PLAN: dict[str, int] = {
+    "trial": 20,
+    "starter": 32,
+    "premium": 64,
+    "annual": 64,
+}
+MEMORY_CONTEXT_BY_PLAN: dict[str, int] = {
+    "trial": 10,
+    "starter": 24,
+    "premium": 45,
+    "annual": 50,
+}
+# Ticked development milestones sent to the LLM — same depth as saved memories
+MILESTONE_CONTEXT_BY_PLAN: dict[str, int] = {
+    "trial": 10,
+    "starter": 24,
+    "premium": 45,
+    "annual": 50,
+}
+ARCHIVED_THREADS_BY_PLAN: dict[str, int] = {
+    "trial": 3,
+    "starter": 45,
+    "premium": 90,
+    "annual": 90,
+}
+
+# Marketing labels used in FAQ / pricing (Ημερήσια / Βασική / Πλήρης)
+MEMORY_PLAN_LABELS: dict[str, dict[str, str]] = {
+    "trial": {"el": "Ημερήσια μνήμη", "en": "Daily memory"},
+    "starter": {"el": "Βασική μνήμη", "en": "Basic memory"},
+    "premium": {"el": "Πλήρης μνήμη", "en": "Full memory"},
+    "annual": {"el": "Πλήρης μνήμη (ετήσιο)", "en": "Full memory (annual)"},
+}
+
+
 def plan_entitlements(plan_slot: str) -> dict[str, Any]:
     quota = VOICE_LISTEN_QUOTA_BY_PLAN.get(plan_slot, VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
-    # Chat context depth (messages sent to LLM) — keep in sync with frontend planEntitlements.ts
-    chat_context_by_plan: dict[str, int] = {
-        "trial": 20,
-        "starter": 32,
-        "premium": 64,
-        "annual": 64,
-    }
-    memory_context_by_plan: dict[str, int] = {
-        "trial": 10,
-        "starter": 24,
-        "premium": 45,
-        "annual": 50,
-    }
-    # Ticked development milestones sent to the LLM — same depth as saved memories
-    milestone_context_by_plan: dict[str, int] = {
-        "trial": 10,
-        "starter": 24,
-        "premium": 45,
-        "annual": 50,
-    }
-    archived_threads_by_plan: dict[str, int] = {
-        "trial": 3,
-        "starter": 45,
-        "premium": 90,
-        "annual": 90,
-    }
     export_enabled = plan_slot in ("premium", "annual")
     return {
         "plan_slot": plan_slot,
@@ -148,10 +158,69 @@ def plan_entitlements(plan_slot: str) -> dict[str, Any]:
         "document_archive": True,
         "document_upload": True,
         "export_enabled": export_enabled,
-        "chat_context_messages": chat_context_by_plan.get(plan_slot, 20),
-        "memory_context_count": memory_context_by_plan.get(plan_slot, 10),
-        "milestone_context_count": milestone_context_by_plan.get(plan_slot, 10),
-        "archived_threads_limit": archived_threads_by_plan.get(plan_slot, 3),
+        "chat_context_messages": CHAT_CONTEXT_BY_PLAN.get(plan_slot, 20),
+        "memory_context_count": MEMORY_CONTEXT_BY_PLAN.get(plan_slot, 10),
+        "milestone_context_count": MILESTONE_CONTEXT_BY_PLAN.get(plan_slot, 10),
+        "archived_threads_limit": ARCHIVED_THREADS_BY_PLAN.get(plan_slot, 3),
+    }
+
+
+def memory_continuity_snapshot() -> dict[str, Any]:
+    """Admin-facing structure of how friendship/continuity memory is assembled per plan."""
+    plans = []
+    for slot in ("trial", "starter", "premium", "annual"):
+        labels = MEMORY_PLAN_LABELS.get(slot, {})
+        plans.append(
+            {
+                "plan_slot": slot,
+                "label_el": labels.get("el") or slot,
+                "label_en": labels.get("en") or slot,
+                "chat_context_messages": CHAT_CONTEXT_BY_PLAN.get(slot, 20),
+                "memory_context_count": MEMORY_CONTEXT_BY_PLAN.get(slot, 10),
+                "milestone_context_count": MILESTONE_CONTEXT_BY_PLAN.get(slot, 10),
+                "memory_video": slot != "trial",
+            }
+        )
+    return {
+        "plans": plans,
+        "sections": [
+            {
+                "id": "chat_history",
+                "title": "Recent chat messages",
+                "what": "Last N user/assistant turns from the open conversation, sent as chat history to the LLM.",
+                "limit_field": "chat_context_messages",
+            },
+            {
+                "id": "saved_memories",
+                "title": "Saved memories (notes / photos / videos metadata)",
+                "what": "Recent items the mother saved in Memories. Injected into the system prompt under a dedicated section.",
+                "limit_field": "memory_context_count",
+            },
+            {
+                "id": "milestones",
+                "title": "Ticked development milestones",
+                "what": "Milestones the user checked off. Injected like memories so replies feel personal to the child's age/progress.",
+                "limit_field": "milestone_context_count",
+            },
+            {
+                "id": "family_profile",
+                "title": "Family profile",
+                "what": "Name, children, pregnancy, family members — always included (except pure greetings still keep name).",
+                "limit_field": None,
+            },
+            {
+                "id": "documents",
+                "title": "Document archive metadata",
+                "what": "Titles/dates/categories from Family → Documents — not file contents.",
+                "limit_field": None,
+            },
+        ],
+        "runtime_rules": [
+            "Pure greetings skip heavy context (memories, milestones, docs, RAG) for speed; profile name stays.",
+            "Saved memories are never listed all at once — the model must use them naturally when relevant.",
+            "This is a rolling window, not a full transcript archive — larger plans = wider window.",
+            "Video memory attachments are allowed from Starter upward; trial is notes/photos only.",
+        ],
     }
 
 

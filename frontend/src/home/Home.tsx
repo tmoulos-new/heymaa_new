@@ -114,15 +114,22 @@ export default function Home() {
   const [staticHero] = useState(() => prefersStaticHeroMedia());
   const token = getAuthToken();
 
+  // Persist the language the home page is showing so signup/login inherit it.
+  useEffect(() => {
+    writeStoredAppLang(contentLang);
+  }, [contentLang]);
+
   const goToApp = useCallback(() => {
+    writeStoredAppLang(contentLang);
     if (hasAuthToken()) navigate(APP_ROUTE);
     else navigate(`${APP_ROUTE}/auth`);
-  }, [navigate]);
+  }, [navigate, contentLang]);
 
   const goToLogin = useCallback(() => {
+    writeStoredAppLang(contentLang);
     if (hasAuthToken()) navigate(APP_ROUTE);
     else navigate(`${APP_ROUTE}/auth?mode=login`);
-  }, [navigate]);
+  }, [navigate, contentLang]);
 
   const howItems = asObjectArray<HomeHowItem>(
     t("how.items", { returnObjects: true })

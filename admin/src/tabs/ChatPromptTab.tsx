@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bot, GitBranch, RefreshCw, Save } from 'lucide-react'
+import { Bot, Brain, GitBranch, RefreshCw, Save } from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { apiDetail } from '../lib/api'
@@ -23,6 +23,27 @@ type RoutingConfig = {
   complex_min_chars: number
 }
 
+type MemoryContinuity = {
+  memories_instruction: string
+  milestones_instruction: string
+}
+
+type MemoryPlanRow = {
+  plan_slot: string
+  label_el: string
+  label_en: string
+  chat_context_messages: number
+  memory_context_count: number
+  milestone_context_count: number
+  memory_video: boolean
+}
+
+type MemoryStructure = {
+  plans: MemoryPlanRow[]
+  sections: { id: string; title: string; what: string; limit_field: string | null }[]
+  runtime_rules: string[]
+}
+
 const PROVIDERS: { id: ProviderId; label: string }[] = [
   { id: 'grok', label: 'Grok (xAI)' },
   { id: 'gemini', label: 'Gemini' },
@@ -35,6 +56,13 @@ const ORDER_FIELDS: { key: keyof Pick<RoutingConfig, 'default_order' | 'image_or
   { key: 'gemini_first_order', label: 'Gemini-first language order', hint: 'When message language is in the list below' },
   { key: 'complex_order', label: 'Complex query order', hint: 'Medical keywords or long messages' },
 ]
+
+const DEFAULT_MEMORY: MemoryContinuity = {
+  memories_instruction:
+    'Recent memories this user has saved (use naturally if relevant, never list them all at once)',
+  milestones_instruction:
+    'Development milestones this user has ticked (use naturally if relevant to age or progress, never list them all)',
+}
 
 function normalizeOrder(order: string[] | undefined): ProviderId[] {
   const allowed = new Set<ProviderId>(['grok', 'gemini', 'claude'])
@@ -98,6 +126,35 @@ function providerLabel(id: ProviderId): string {
 
 function formatOrder(order: ProviderId[]): string {
   return order.map((id) => providerLabel(id).replace(/ \(xAI\)/, '')).join(' → ')
+}
+
+function MemoryContinuityFlow() {
+  const steps = [
+    { label: 'Chat request', muted: true },
+    { label: 'Pure greeting?', muted: true },
+    { label: 'Family profile', muted: false },
+    { label: 'Saved memories (plan N)', muted: false },
+    { label: 'Milestones (plan N)', muted: false },
+    { label: 'Documents', muted: false },
+    { label: 'System prompt → LLM', muted: true },
+  ]
+  return (
+    <div className="memory-flow" aria-label="Memory continuity flow">
+      <div className="memory-flow-title">How continuity reaches the model</div>
+      <div className="memory-flow-steps">
+        {steps.map((s, i) => (
+          <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {i > 0 ? <span className="memory-flow-arrow" aria-hidden>→</span> : null}
+            <span className={`memory-flow-step${s.muted ? ' muted-step' : ''}`}>{s.label}</span>
+          </span>
+        ))}
+      </div>
+      <p className="memory-flow-footer">
+        Greetings keep the mother&apos;s name only. Everything else is a rolling window sized by plan —
+        not a full archive — so replies feel personal without dumping every saved note.
+      </p>
+    </div>
+  )
 }
 
 function RoutingFlowChart({
@@ -231,6 +288,17 @@ export function ChatPromptTab() {
   const [langsText, setLangsText] = useState('')
   const [keywordsText, setKeywordsText] = useState('')
 
+  const [memory, setMemory] = useState<MemoryContinuity | null>(null)
+  const [savedMemory, setSavedMemory] = useState<MemoryContinuity | null>(null)
+  const [memoryStructure, setMemoryStructure] = useState<MemoryStructure | null>(null)
+  const [memoryMeta, setMemoryMeta] = useState<{
+    updated_at?: string | null
+    updated_by_name?: string | null
+    source?: string
+  }>({})
+  const [memoryLoading, setMemoryLoading] = useState(true)
+  const [memorySaving, setMemorySaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -282,10 +350,54 @@ export function ChatPromptTab() {
     }
   }, [adminFetch, show])
 
+  const loadMemory = useCallback(async () => {
+    setMemoryLoading(true)
+    try {
+      const d = (await adminFetch('/admin/chat_memory')) as {
+        continuity?: MemoryContinuity
+        defaults?: MemoryContinuity
+        structure?: MemoryStructure
+        updated_at?: string | null
+        updated_by_name?: string | null
+        source?: string
+        error?: string
+      }
+      if (d.error) {
+        show(`Memory error: ${apiDetail(d) || d.error}`, 'err')
+        setMemory(DEFAULT_MEMORY)
+        setSavedMemory(DEFAULT_MEMORY)
+        setMemoryMeta({ source: 'defaults' })
+        return
+      }
+      const c: MemoryContinuity = {
+        memories_instruction:
+          (d.continuity?.memories_instruction || d.defaults?.memories_instruction || DEFAULT_MEMORY.memories_instruction).trim(),
+        milestones_instruction:
+          (d.continuity?.milestones_instruction || d.defaults?.milestones_instruction || DEFAULT_MEMORY.milestones_instruction).trim(),
+      }
+      setMemory(c)
+      setSavedMemory(c)
+      setMemoryStructure(d.structure || null)
+      setMemoryMeta({
+        updated_at: d.updated_at,
+        updated_by_name: d.updated_by_name,
+        source: d.source || (d.continuity ? 'db' : 'defaults'),
+      })
+    } catch (e) {
+      setMemory(DEFAULT_MEMORY)
+      setSavedMemory(DEFAULT_MEMORY)
+      setMemoryMeta({ source: 'defaults' })
+      show((e instanceof Error && e.message) || 'Failed to load memory continuity — showing defaults', 'err')
+    } finally {
+      setMemoryLoading(false)
+    }
+  }, [adminFetch, show])
+
   useEffect(() => {
     void load()
     void loadRouting()
-  }, [load, loadRouting])
+    void loadMemory()
+  }, [load, loadRouting, loadMemory])
 
   const save = async () => {
     const trimmed = content.trim()
@@ -368,6 +480,50 @@ export function ChatPromptTab() {
     }
   }
 
+  const saveMemory = async () => {
+    if (!memory) return
+    const memories_instruction = memory.memories_instruction.trim()
+    const milestones_instruction = memory.milestones_instruction.trim()
+    if (!memories_instruction || !milestones_instruction) {
+      show('Both memory section instructions are required', 'err')
+      return
+    }
+    setMemorySaving(true)
+    try {
+      const d = (await adminFetch('/admin/chat_memory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memories_instruction, milestones_instruction }),
+      })) as {
+        ok?: boolean
+        continuity?: MemoryContinuity
+        updated_at?: string
+        updated_by_name?: string
+        error?: string
+      }
+      if (!d.ok || !d.continuity) {
+        show(`Error: ${apiDetail(d) || d.error || 'Save failed'}`, 'err')
+        return
+      }
+      const c: MemoryContinuity = {
+        memories_instruction: (d.continuity.memories_instruction || '').trim(),
+        milestones_instruction: (d.continuity.milestones_instruction || '').trim(),
+      }
+      setMemory(c)
+      setSavedMemory(c)
+      setMemoryMeta({
+        updated_at: d.updated_at,
+        updated_by_name: d.updated_by_name,
+        source: 'db',
+      })
+      show('Memory continuity instructions saved. New chats will use them.', 'ok')
+    } catch {
+      show('Network error while saving memory continuity', 'err')
+    } finally {
+      setMemorySaving(false)
+    }
+  }
+
   const dirty = content !== savedContent
   const routingDirty =
     !!routing &&
@@ -384,9 +540,15 @@ export function ChatPromptTab() {
         .filter(Boolean),
     }) !==
       JSON.stringify(savedRouting))
+  const memoryDirty =
+    !!memory &&
+    !!savedMemory &&
+    (memory.memories_instruction !== savedMemory.memories_instruction ||
+      memory.milestones_instruction !== savedMemory.milestones_instruction)
 
   return (
     <div style={{ display: 'grid', gap: 20, maxWidth: 960 }}>
+      {Message}
       <div className="card">
         <div className="card-head">
           <h2>
@@ -401,7 +563,6 @@ export function ChatPromptTab() {
           Shared personality instructions sent to <strong>Grok, Gemini, and Claude</strong> on every chat.
           Family, memories, documents, promotions, and RAG context are still appended automatically.
         </p>
-        {Message}
         {loading ? (
           <p className="muted">Loading…</p>
         ) : (
@@ -430,6 +591,146 @@ export function ChatPromptTab() {
               <button type="button" className="teal" disabled={saving || !dirty} onClick={() => void save()}>
                 <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
                 {saving ? 'Saving…' : 'Save prompt'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2>
+            <Brain size={16} className="h-icon" /> Memory &amp; continuity
+          </h2>
+          <button type="button" className="sec sm" onClick={() => void loadMemory()} disabled={memoryLoading}>
+            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+            Reload
+          </button>
+        </div>
+        <p className="card-desc">
+          How HeyMaa keeps a personal thread with each mother: what is injected into the system prompt,
+          how much of it each plan sends, and the instructions that tell the model to use those notes
+          naturally (the continuity / friendship layer).
+          {memoryMeta.source === 'defaults' ? ' Section headers are currently using built-in defaults.' : ''}
+        </p>
+        {memoryLoading || !memory ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <>
+            <MemoryContinuityFlow />
+
+            <FieldLabel>What gets assembled</FieldLabel>
+            <ul className="memory-section-list">
+              {(memoryStructure?.sections || []).map((s) => (
+                <li key={s.id}>
+                  <strong>{s.title}</strong>
+                  <span>
+                    {s.what}
+                    {s.limit_field ? ` Limit field: ${s.limit_field}.` : ' No plan cap (always included when present).'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <FieldLabel>Per-plan window</FieldLabel>
+            <p className="muted" style={{ fontSize: 12, margin: '2px 0 8px' }}>
+              Marketing labels match FAQ / pricing (Ημερήσια / Βασική / Πλήρης). Limits live in code
+              (<code>plan_entitlements</code>) — change them there if product needs a different window.
+            </p>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="memory-plan-table">
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Label</th>
+                    <th>Chat msgs</th>
+                    <th>Memories</th>
+                    <th>Milestones</th>
+                    <th>Video</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(memoryStructure?.plans || []).map((p) => (
+                    <tr key={p.plan_slot}>
+                      <td><code>{p.plan_slot}</code></td>
+                      <td>
+                        {p.label_el}
+                        <div className="muted" style={{ fontSize: 11 }}>{p.label_en}</div>
+                      </td>
+                      <td className="num">{p.chat_context_messages}</td>
+                      <td className="num">{p.memory_context_count}</td>
+                      <td className="num">{p.milestone_context_count}</td>
+                      <td>{p.memory_video ? 'Yes' : 'Notes/photos only'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {(memoryStructure?.runtime_rules || []).length > 0 ? (
+              <>
+                <FieldLabel>Runtime rules</FieldLabel>
+                <ul className="memory-rules">
+                  {memoryStructure!.runtime_rules.map((rule) => (
+                    <li key={rule}>{rule}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+
+            <FieldLabel>Memories section instruction</FieldLabel>
+            <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
+              Becomes the <code>--- … ---</code> header above the mother&apos;s saved notes in the system prompt.
+            </p>
+            <textarea
+              value={memory.memories_instruction}
+              onChange={(e) => setMemory({ ...memory, memories_instruction: e.target.value })}
+              rows={3}
+              spellCheck={false}
+              style={{
+                width: '100%',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontSize: 13,
+                lineHeight: 1.5,
+                resize: 'vertical',
+              }}
+            />
+
+            <div style={{ marginTop: 14 }}>
+              <FieldLabel>Milestones section instruction</FieldLabel>
+              <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
+                Same pattern for ticked development milestones.
+              </p>
+              <textarea
+                value={memory.milestones_instruction}
+                onChange={(e) => setMemory({ ...memory, milestones_instruction: e.target.value })}
+                rows={3}
+                spellCheck={false}
+                style={{
+                  width: '100%',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {memoryMeta.updated_at
+                  ? `Last saved ${new Date(memoryMeta.updated_at).toLocaleString()}${memoryMeta.updated_by_name ? ` by ${memoryMeta.updated_by_name}` : ''}`
+                  : 'Using defaults until saved'}
+                {memoryDirty ? ' · unsaved changes' : ''}
+              </span>
+              <button
+                type="button"
+                className="teal"
+                disabled={memorySaving || !memoryDirty}
+                onClick={() => void saveMemory()}
+              >
+                <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
+                {memorySaving ? 'Saving…' : 'Save memory instructions'}
               </button>
             </div>
           </>

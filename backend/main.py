@@ -11,9 +11,9 @@ from dotenv import dotenv_values
 from typing import Optional, List
 
 try:
-    from .chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
+    from .chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT, DEFAULT_MEMORY_CONTINUITY
 except ImportError:
-    from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT
+    from chat_prompt_defaults import DEFAULT_SYSTEM_PROMPT, DEFAULT_MEMORY_CONTINUITY
 
 try:
     from .auth_session import (
@@ -237,8 +237,10 @@ POINT_SETTINGS_TABLE = "point_settings"
 CHAT_PROMPT_SETTINGS_TABLE = "chat_prompt_settings"
 CHAT_PROMPT_KEY = "system"
 LLM_ROUTING_KEY = "llm_routing"
+MEMORY_CONTINUITY_KEY = "memory_continuity"
 _system_prompt_cache: Optional[str] = None
 _llm_routing_cache: Optional[dict] = None
+_memory_continuity_cache: Optional[dict] = None
 USER_ACTIVITY_ACTIONS = frozenset({
     "view", "click", "navigate", "submit", "open", "close", "change",
 })
@@ -2131,6 +2133,43 @@ def invalidate_llm_routing_cache():
     _llm_routing_cache = None
 
 
+def invalidate_memory_continuity_cache():
+    global _memory_continuity_cache
+    _memory_continuity_cache = None
+
+
+def normalize_memory_continuity(raw) -> dict:
+    """Keep memories/milestones section instructions; fall back to defaults."""
+    base = dict(DEFAULT_MEMORY_CONTINUITY)
+    if not isinstance(raw, dict):
+        return base
+    mem = (raw.get("memories_instruction") or "").strip()
+    ms = (raw.get("milestones_instruction") or "").strip()
+    if mem:
+        base["memories_instruction"] = mem[:2000]
+    if ms:
+        base["milestones_instruction"] = ms[:2000]
+    return base
+
+
+def get_memory_continuity() -> dict:
+    """Editable headers that wrap personal memories/milestones in the system prompt."""
+    global _memory_continuity_cache
+    if _memory_continuity_cache is not None:
+        return _memory_continuity_cache
+    row = _fetch_chat_prompt_row(MEMORY_CONTINUITY_KEY)
+    if row and (row.get("content") or "").strip():
+        import json as _json
+        try:
+            parsed = _json.loads(row["content"])
+        except Exception:
+            parsed = {}
+        _memory_continuity_cache = normalize_memory_continuity(parsed)
+    else:
+        _memory_continuity_cache = normalize_memory_continuity({})
+    return _memory_continuity_cache
+
+
 def _fetch_chat_prompt_row(key: str = CHAT_PROMPT_KEY):
     if not sb:
         return None
@@ -2285,10 +2324,13 @@ def build_system_prompt(rag_context, family_context="", memories_context="", doc
     prompt += _LOCAL_HELP_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
+    continuity = get_memory_continuity()
     if memories_context:
-        prompt += f"\n\n--- Recent memories this user has saved (use naturally if relevant, never list them all at once) ---\n{memories_context}"
+        mem_hdr = continuity.get("memories_instruction") or DEFAULT_MEMORY_CONTINUITY["memories_instruction"]
+        prompt += f"\n\n--- {mem_hdr} ---\n{memories_context}"
     if milestones_context:
-        prompt += f"\n\n--- Development milestones this user has ticked (use naturally if relevant to age or progress, never list them all) ---\n{milestones_context}"
+        ms_hdr = continuity.get("milestones_instruction") or DEFAULT_MEMORY_CONTINUITY["milestones_instruction"]
+        prompt += f"\n\n--- {ms_hdr} ---\n{milestones_context}"
     if docs_context:
         prompt += (
             "\n\n--- Document archive (Family → Document Archive) ---\n"
@@ -3291,6 +3333,11 @@ class ChatPromptUpdate(BaseModel):
 
 class LlmRoutingUpdate(BaseModel):
     routing: dict
+
+
+class ChatMemoryUpdate(BaseModel):
+    memories_instruction: Optional[str] = None
+    milestones_instruction: Optional[str] = None
 
 class OfferCreate(BaseModel):
     title: str
@@ -5559,6 +5606,76 @@ async def admin_update_llm_routing(body: LlmRoutingUpdate, x_token: Optional[str
         "updated_at": now,
         "updated_by_name": updated_by_name,
     }
+
+
+@app.get("/admin/chat_memory")
+async def admin_get_chat_memory(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    try:
+        try:
+            from .plan_entitlements import memory_continuity_snapshot
+        except ImportError:
+            from plan_entitlements import memory_continuity_snapshot
+        snapshot = memory_continuity_snapshot()
+    except Exception as e:
+        snapshot = {"plans": [], "sections": [], "runtime_rules": [], "error": str(e)}
+    row = _fetch_chat_prompt_row(MEMORY_CONTINUITY_KEY)
+    continuity = get_memory_continuity()
+    updated_at = row.get("updated_at") if row else None
+    updated_by = row.get("updated_by") if row else None
+    updated_by_name = None
+    if updated_by:
+        updated_by_name = _creator_name_map([updated_by]).get(str(updated_by))
+    return {
+        "continuity": continuity,
+        "defaults": DEFAULT_MEMORY_CONTINUITY,
+        "structure": snapshot,
+        "updated_at": updated_at,
+        "updated_by_name": updated_by_name,
+        "source": "db" if row and (row.get("content") or "").strip() else "defaults",
+    }
+
+
+@app.put("/admin/chat_memory")
+async def admin_update_chat_memory(body: ChatMemoryUpdate, x_token: Optional[str] = Header(None)):
+    admin_id = verify_admin(x_token)
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    continuity = normalize_memory_continuity(
+        {
+            "memories_instruction": body.memories_instruction,
+            "milestones_instruction": body.milestones_instruction,
+        }
+    )
+    import json as _json
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    content = _json.dumps(continuity, ensure_ascii=False)
+    try:
+        sb.table(CHAT_PROMPT_SETTINGS_TABLE).upsert({
+            "key": MEMORY_CONTINUITY_KEY,
+            "content": content,
+            "updated_at": now,
+            "updated_by": admin_id,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    invalidate_memory_continuity_cache()
+    updated_by_name = _creator_name_map([admin_id]).get(str(admin_id))
+    _log_activity(
+        admin_id, "update", "chat_memory", MEMORY_CONTINUITY_KEY,
+        value_after={
+            "memories_chars": len(continuity.get("memories_instruction") or ""),
+            "milestones_chars": len(continuity.get("milestones_instruction") or ""),
+        },
+    )
+    return {
+        "ok": True,
+        "continuity": continuity,
+        "updated_at": now,
+        "updated_by_name": updated_by_name,
+    }
+
 
 @app.post("/admin/upload/{bucket}")
 async def admin_upload_image(

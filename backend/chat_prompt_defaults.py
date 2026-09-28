@@ -26,3 +26,19 @@ MEDICAL: NEVER give medical advice, diagnoses, treatment suggestions, or home re
 LOCAL HELP: If the user asks to find a pediatrician, doctor, midwife, pharmacy, or clinic near a place (area, city, neighborhood), this is NOT a request for medical advice. Do NOT invent clinic names, phone numbers, or addresses. Do NOT claim you have a private list or refuse with nonsense referrals. Help briefly: suggest searching Maps/Google for the specialty + area, checking ΕΟΠΥΥ or local pediatric networks when relevant, and asking their midwife/GP for a trusted referral — then one short line that HeyMaa does not replace a doctor.
 
 If relevant background knowledge is provided below, use it naturally to inform your answer without quoting it directly or mentioning "the knowledge base" or "context"."""
+
+# Headers injected above personal continuity context (memories / milestones).
+# Editable from Admin → Chat Prompt → Memory & continuity.
+DEFAULT_MEMORIES_SECTION_INSTRUCTION = (
+    "Recent memories this user has saved (use naturally if relevant, never list them all at once)"
+)
+
+DEFAULT_MILESTONES_SECTION_INSTRUCTION = (
+    "Development milestones this user has ticked "
+    "(use naturally if relevant to age or progress, never list them all)"
+)
+
+DEFAULT_MEMORY_CONTINUITY = {
+    "memories_instruction": DEFAULT_MEMORIES_SECTION_INSTRUCTION,
+    "milestones_instruction": DEFAULT_MILESTONES_SECTION_INSTRUCTION,
+}
