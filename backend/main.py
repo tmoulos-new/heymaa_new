@@ -2333,6 +2333,15 @@ _MAPS_GROUNDED_RULE = (
     "Note briefly that listings can change — HeyMaa does not replace a doctor."
 )
 
+_PLACE_RESULTS_RULE = (
+    "\n\n--- Local recommendations (this turn) ---\n"
+    "Place search results are provided below. Recommend ONLY from those results "
+    "(3–6 best matches). Use names/addresses/ratings exactly as given. "
+    "Do NOT say you lack lists. Do NOT only tell her to search Google Maps. "
+    "Directory help is not medical advice. Confirm hours may change. "
+    "Reply in the user's language."
+)
+
 def build_system_prompt(
     rag_context,
     family_context="",
@@ -2342,6 +2351,7 @@ def build_system_prompt(
     milestones_context="",
     *,
     places_query: bool = False,
+    places_context: str = "",
 ):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
@@ -2349,8 +2359,11 @@ def build_system_prompt(
     prompt += _GREEK_NAME_CASE_RULE
     prompt += _GREEK_AGE_PHRASE_RULE
     prompt += _APP_NAV_RULE
-    # Places turns use Maps grounding — do not inject the "tell user to search Maps" rule.
-    if places_query:
+    # Places turns: prefer injected Places API results; else Maps grounding tool rule.
+    places_ctx = (places_context or "").strip()
+    if places_query and places_ctx:
+        prompt += _PLACE_RESULTS_RULE
+    elif places_query:
         prompt += _MAPS_GROUNDED_RULE
     else:
         prompt += _LOCAL_HELP_RULE
@@ -2363,6 +2376,8 @@ def build_system_prompt(
     if milestones_context:
         ms_hdr = continuity.get("milestones_instruction") or DEFAULT_MEMORY_CONTINUITY["milestones_instruction"]
         prompt += f"\n\n--- {ms_hdr} ---\n{milestones_context}"
+    if places_ctx:
+        prompt += f"\n\n--- Place search results ---\n{places_ctx}"
     if docs_context:
         prompt += (
             "\n\n--- Document archive (Family → Document Archive) ---\n"
@@ -4592,6 +4607,41 @@ async def _run_chat_core(
             promotion_context = promo.get("body", "") or ""
             if promo.get("link"):
                 promotion_context += f" {promo['link']}"
+    places_context = ""
+    places_results_count = 0
+    if places_query:
+        try:
+            try:
+                from .places_search import (
+                    build_places_search_query,
+                    format_places_for_prompt,
+                    google_maps_api_key,
+                    search_places_text,
+                )
+            except ImportError:
+                from places_search import (
+                    build_places_search_query,
+                    format_places_for_prompt,
+                    google_maps_api_key,
+                    search_places_text,
+                )
+            if google_maps_api_key():
+                loc_hint = _places_location_hint(req.profile)
+                q = build_places_search_query(req.message or "", location_hint=loc_hint)
+                lang_code = (detect_msg_lang(req.message or "", (req.profile.lang if req.profile else "") or "") or "el")[:8]
+                found = search_places_text(
+                    q,
+                    language_code=lang_code if lang_code in ("el", "en") else "el",
+                    max_results=8,
+                    latitude=req.latitude,
+                    longitude=req.longitude,
+                )
+                places_results_count = len(found)
+                places_context = format_places_for_prompt(found)
+                timing["places_search_count"] = places_results_count
+        except Exception as e:
+            timing["places_search_error"] = str(e)[:160]
+
     system_prompt = build_system_prompt(
         rag_context,
         family_context,
@@ -4600,17 +4650,26 @@ async def _run_chat_core(
         promotion_context,
         milestones_context,
         places_query=places_query,
+        places_context=places_context,
     )
     timing["context_build_ms"] = round((_time.perf_counter() - t_ctx0) * 1000, 1)
     profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
     message_for_llm = _build_attachment_context(req.message, req.attachments)
     msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
     if places_query:
-        message_for_llm = _prepare_places_user_message(
-            message_for_llm or req.message,
-            msg_lang=msg_lang or profile_lang or "en",
-            location_hint=_places_location_hint(req.profile),
-        )
+        # With Places API results in the prompt, keep the user message natural.
+        if places_context:
+            if _places_location_hint(req.profile):
+                message_for_llm = (
+                    f"{(message_for_llm or req.message or '').strip()}\n\n"
+                    f"(User area from profile: {_places_location_hint(req.profile)})"
+                )
+        else:
+            message_for_llm = _prepare_places_user_message(
+                message_for_llm or req.message,
+                msg_lang=msg_lang or profile_lang or "en",
+                location_hint=_places_location_hint(req.profile),
+            )
         # Prior "search Maps yourself" turns poison the model — don't replay them.
         llm_history = []
     image_parts = _attachment_image_parts(req.attachments)
@@ -4707,6 +4766,7 @@ async def _run_chat_core(
             out["debug"] = {
                 "complex_query": complex_query,
                 "places_query": places_query,
+                "places_results_count": places_results_count,
                 "msg_lang": msg_lang or profile_lang or "",
                 "history_len": len(req.history or []),
                 "llm_history_len": len(llm_history),
@@ -4778,7 +4838,7 @@ async def _run_chat_core(
                         k,
                         image_parts=image_parts or None,
                         history_limit=chat_context_limit,
-                        maps_grounding=bool(places_query) and not image_parts,
+                        maps_grounding=bool(places_query) and not image_parts and not places_context,
                         latitude=req.latitude,
                         longitude=req.longitude,
                     )
