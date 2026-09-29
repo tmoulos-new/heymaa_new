@@ -2333,14 +2333,27 @@ _MAPS_GROUNDED_RULE = (
     "Note briefly that listings can change — HeyMaa does not replace a doctor."
 )
 
-def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
+def build_system_prompt(
+    rag_context,
+    family_context="",
+    memories_context="",
+    docs_context="",
+    promotion_context="",
+    milestones_context="",
+    *,
+    places_query: bool = False,
+):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
     prompt += _CONVERSATION_STYLE_RULE
     prompt += _GREEK_NAME_CASE_RULE
     prompt += _GREEK_AGE_PHRASE_RULE
     prompt += _APP_NAV_RULE
-    prompt += _LOCAL_HELP_RULE
+    # Places turns use Maps grounding — do not inject the "tell user to search Maps" rule.
+    if places_query:
+        prompt += _MAPS_GROUNDED_RULE
+    else:
+        prompt += _LOCAL_HELP_RULE
     if family_context:
         prompt += f"\n\n--- About this user ---\n{family_context}"
     continuity = get_memory_continuity()
@@ -3028,6 +3041,25 @@ def prepare_llm_history(message: str, history: list | None) -> list:
     return cleaned
 
 
+def _is_places_refuse_reply(text: str) -> bool:
+    """Catch the old LOCAL HELP script that tells the user to search Maps themselves."""
+    low = (text or "").lower()
+    markers = (
+        "ψάξε στο google maps",
+        "ψαξε στο google maps",
+        "search on google maps",
+        "search google maps",
+        "δεν έχω ενημερωμένες λίστες",
+        "δεν εχω ενημερωμενες λιστες",
+        "δεν έχω λίστες",
+        "δεν εχω λιστες",
+        "i don't keep a verified",
+        "i do not have updated lists",
+        "i don't have updated lists",
+    )
+    return any(m in low for m in markers)
+
+
 def _is_usable_reply(text: str) -> bool:
     """Reject empty, truncated, or instruction-leakage replies. Allow markdown (*bold*)."""
     t = (text or "").strip()
@@ -3285,9 +3317,12 @@ async def call_gemini(
                 uri = (maps.get("uri") or "").strip()
                 if title and uri and f"{title}: {uri}" not in sources:
                     sources.append(f"{title}: {uri}")
-            if sources:
-                # Required Maps attribution surface for grounded place answers.
-                text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(sources[:4])
+            if not sources:
+                raise RuntimeError("gemini maps grounding returned no place sources")
+            if _is_places_refuse_reply(text):
+                raise RuntimeError("gemini maps reply refused to list places")
+            # Required Maps attribution surface for grounded place answers.
+            text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(sources[:4])
         return text
 
     def _generation_config():
@@ -4564,9 +4599,8 @@ async def _run_chat_core(
         docs_context,
         promotion_context,
         milestones_context,
+        places_query=places_query,
     )
-    if places_query:
-        system_prompt += _MAPS_GROUNDED_RULE
     timing["context_build_ms"] = round((_time.perf_counter() - t_ctx0) * 1000, 1)
     profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
     message_for_llm = _build_attachment_context(req.message, req.attachments)
@@ -4577,6 +4611,8 @@ async def _run_chat_core(
             msg_lang=msg_lang or profile_lang or "en",
             location_hint=_places_location_hint(req.profile),
         )
+        # Prior "search Maps yourself" turns poison the model — don't replay them.
+        llm_history = []
     image_parts = _attachment_image_parts(req.attachments)
     errors = []
     _prov_keys = _llm_api_keys()
@@ -4759,6 +4795,8 @@ async def _run_chat_core(
                     model = "claude-haiku-4-5-20251001"
                 if not reply:
                     raise RuntimeError(f"{p} returned empty reply")
+                if places_query and _is_places_refuse_reply(reply):
+                    raise RuntimeError(f"{p} refused places list: {reply[:80]!r}")
                 if not _is_usable_reply(reply):
                     raise RuntimeError(f"{p} returned unusable reply: {reply[:80]!r}")
                 return reply, model, {}
