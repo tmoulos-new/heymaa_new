@@ -21,6 +21,8 @@ type RoutingConfig = {
   complex_order: ProviderId[]
   complex_keywords: string[]
   complex_min_chars: number
+  places_order: ProviderId[]
+  places_keywords: string[]
 }
 
 type MemoryContinuity = {
@@ -50,9 +52,10 @@ const PROVIDERS: { id: ProviderId; label: string }[] = [
   { id: 'claude', label: 'Claude' },
 ]
 
-const ORDER_FIELDS: { key: keyof Pick<RoutingConfig, 'default_order' | 'image_order' | 'gemini_first_order' | 'complex_order'>; label: string; hint: string }[] = [
+const ORDER_FIELDS: { key: keyof Pick<RoutingConfig, 'default_order' | 'image_order' | 'gemini_first_order' | 'complex_order' | 'places_order'>; label: string; hint: string }[] = [
   { key: 'default_order', label: 'Default order', hint: 'Normal text chats' },
   { key: 'image_order', label: 'Image / photo order', hint: 'When the user sends an image' },
+  { key: 'places_order', label: 'Places / nearby order', hint: 'When the user asks for nearby places (Maps grounding on Gemini)' },
   { key: 'gemini_first_order', label: 'Gemini-first language order', hint: 'When message language is in the list below' },
   { key: 'complex_order', label: 'Complex query order', hint: 'Medical keywords or long messages' },
 ]
@@ -95,6 +98,30 @@ const DEFAULT_ROUTING: RoutingConfig = {
     'anxiety',
   ],
   complex_min_chars: 300,
+  places_order: ['gemini', 'grok', 'claude'],
+  places_keywords: [
+    'near me',
+    'nearby',
+    'find me a',
+    'find a doctor',
+    'find a pediatrician',
+    'list of doctors',
+    'list of pediatricians',
+    'doctors near',
+    'doctors in ',
+    'pediatrician near',
+    'pharmacy near',
+    'κοντά μου',
+    'βρες μου',
+    'βρες γιατρό',
+    'λίστα γιατρών',
+    'λίστα παιδιάτρων',
+    'παιδίατρο κοντά',
+    'φαρμακείο κοντά',
+    'πού να βρω γιατρό',
+    'πού να βρω παιδίατρο',
+    'παιδική χαρά',
+  ],
 }
 
 function applyRoutingState(
@@ -103,20 +130,24 @@ function applyRoutingState(
   setSavedRouting: (r: RoutingConfig) => void,
   setLangsText: (s: string) => void,
   setKeywordsText: (s: string) => void,
+  setPlacesKeywordsText: (s: string) => void,
 ) {
   const normalized: RoutingConfig = {
     default_order: normalizeOrder(r.default_order),
     image_order: normalizeOrder(r.image_order),
     gemini_first_order: normalizeOrder(r.gemini_first_order),
     complex_order: normalizeOrder(r.complex_order),
+    places_order: normalizeOrder(r.places_order || DEFAULT_ROUTING.places_order),
     gemini_first_langs: [...(r.gemini_first_langs || [])],
     complex_keywords: [...(r.complex_keywords || [])],
+    places_keywords: [...(r.places_keywords || DEFAULT_ROUTING.places_keywords)],
     complex_min_chars: Number(r.complex_min_chars) || 300,
   }
   setRouting(normalized)
   setSavedRouting(normalized)
   setLangsText((normalized.gemini_first_langs || []).join(', '))
   setKeywordsText((normalized.complex_keywords || []).join('\n'))
+  setPlacesKeywordsText((normalized.places_keywords || []).join('\n'))
   return normalized
 }
 
@@ -161,16 +192,22 @@ function RoutingFlowChart({
   routing,
   langsText,
   keywordsText,
+  placesKeywordsText,
 }: {
   routing: RoutingConfig
   langsText: string
   keywordsText: string
+  placesKeywordsText: string
 }) {
   const langs = langsText
     .split(/[,\s]+/)
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
   const kwCount = keywordsText
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean).length
+  const placesKwCount = placesKeywordsText
     .split(/[\n,]+/)
     .map((s) => s.trim())
     .filter(Boolean).length
@@ -197,29 +234,43 @@ function RoutingFlowChart({
         </div>
         <div className="routing-flow-branch">
           <span className="routing-flow-edge no">No</span>
-          <div className="routing-flow-decision sm">Language in Gemini-first list?</div>
-          <p className="routing-flow-note">Codes: {langPreview}</p>
+          <div className="routing-flow-decision sm">Places / nearby question?</div>
+          <p className="routing-flow-note">
+            {placesKwCount} keyword{placesKwCount === 1 ? '' : 's'} (EN + EL). Gemini uses Maps grounding;
+            Greek replies via EN search bridge.
+          </p>
           <div className="routing-flow-branches nested">
             <div className="routing-flow-branch">
               <span className="routing-flow-edge yes">Yes</span>
-              <div className="routing-flow-order">{formatOrder(routing.gemini_first_order)}</div>
+              <div className="routing-flow-order">{formatOrder(routing.places_order)}</div>
             </div>
             <div className="routing-flow-branch">
               <span className="routing-flow-edge no">No</span>
-              <div className="routing-flow-decision sm">Complex query?</div>
-              <p className="routing-flow-note">
-                {kwCount} keyword{kwCount === 1 ? '' : 's'} or message longer than{' '}
-                {routing.complex_min_chars} chars
-              </p>
+              <div className="routing-flow-decision sm">Language in Gemini-first list?</div>
+              <p className="routing-flow-note">Codes: {langPreview}</p>
               <div className="routing-flow-branches nested">
                 <div className="routing-flow-branch">
                   <span className="routing-flow-edge yes">Yes</span>
-                  <div className="routing-flow-order">{formatOrder(routing.complex_order)}</div>
+                  <div className="routing-flow-order">{formatOrder(routing.gemini_first_order)}</div>
                 </div>
                 <div className="routing-flow-branch">
                   <span className="routing-flow-edge no">No</span>
-                  <div className="routing-flow-order">{formatOrder(routing.default_order)}</div>
-                  <p className="routing-flow-note">Default text chat</p>
+                  <div className="routing-flow-decision sm">Complex query?</div>
+                  <p className="routing-flow-note">
+                    {kwCount} keyword{kwCount === 1 ? '' : 's'} or message longer than{' '}
+                    {routing.complex_min_chars} chars
+                  </p>
+                  <div className="routing-flow-branches nested">
+                    <div className="routing-flow-branch">
+                      <span className="routing-flow-edge yes">Yes</span>
+                      <div className="routing-flow-order">{formatOrder(routing.complex_order)}</div>
+                    </div>
+                    <div className="routing-flow-branch">
+                      <span className="routing-flow-edge no">No</span>
+                      <div className="routing-flow-order">{formatOrder(routing.default_order)}</div>
+                      <p className="routing-flow-note">Default text chat</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -287,6 +338,7 @@ export function ChatPromptTab() {
   const [routingSaving, setRoutingSaving] = useState(false)
   const [langsText, setLangsText] = useState('')
   const [keywordsText, setKeywordsText] = useState('')
+  const [placesKeywordsText, setPlacesKeywordsText] = useState('')
 
   const [memory, setMemory] = useState<MemoryContinuity | null>(null)
   const [savedMemory, setSavedMemory] = useState<MemoryContinuity | null>(null)
@@ -330,19 +382,19 @@ export function ChatPromptTab() {
       }
       if (d.error) {
         show(`Routing error: ${apiDetail(d) || d.error}`, 'err')
-        applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText)
+        applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText, setPlacesKeywordsText)
         setRoutingMeta({ source: 'defaults' })
         return
       }
       const r = d.routing || d.defaults || DEFAULT_ROUTING
-      applyRoutingState(r, setRouting, setSavedRouting, setLangsText, setKeywordsText)
+      applyRoutingState(r, setRouting, setSavedRouting, setLangsText, setKeywordsText, setPlacesKeywordsText)
       setRoutingMeta({
         updated_at: d.updated_at,
         updated_by_name: d.updated_by_name,
         source: d.source || (d.routing ? 'db' : 'defaults'),
       })
     } catch (e) {
-      applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText)
+      applyRoutingState(DEFAULT_ROUTING, setRouting, setSavedRouting, setLangsText, setKeywordsText, setPlacesKeywordsText)
       setRoutingMeta({ source: 'defaults' })
       show((e instanceof Error && e.message) || 'Failed to load LLM routing — showing defaults', 'err')
     } finally {
@@ -437,10 +489,16 @@ export function ChatPromptTab() {
       .split(/[\n,]+/)
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean)
+    const placesKeywords = placesKeywordsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
     const payload: RoutingConfig = {
       ...routing,
+      places_order: normalizeOrder(routing.places_order || DEFAULT_ROUTING.places_order),
       gemini_first_langs: langs,
       complex_keywords: keywords,
+      places_keywords: placesKeywords,
       complex_min_chars: Math.max(50, Math.min(Number(routing.complex_min_chars) || 300, 5000)),
     }
     setRoutingSaving(true)
@@ -459,14 +517,17 @@ export function ChatPromptTab() {
         image_order: normalizeOrder(d.routing.image_order),
         gemini_first_order: normalizeOrder(d.routing.gemini_first_order),
         complex_order: normalizeOrder(d.routing.complex_order),
+        places_order: normalizeOrder(d.routing.places_order || DEFAULT_ROUTING.places_order),
         gemini_first_langs: [...(d.routing.gemini_first_langs || [])],
         complex_keywords: [...(d.routing.complex_keywords || [])],
+        places_keywords: [...(d.routing.places_keywords || DEFAULT_ROUTING.places_keywords)],
         complex_min_chars: Number(d.routing.complex_min_chars) || 300,
       }
       setRouting(normalized)
       setSavedRouting(normalized)
       setLangsText(normalized.gemini_first_langs.join(', '))
       setKeywordsText(normalized.complex_keywords.join('\n'))
+      setPlacesKeywordsText(normalized.places_keywords.join('\n'))
       setRoutingMeta({
         updated_at: d.updated_at,
         updated_by_name: d.updated_by_name,
@@ -530,6 +591,7 @@ export function ChatPromptTab() {
     !!savedRouting &&
     (JSON.stringify({
       ...routing,
+      places_order: normalizeOrder(routing.places_order || DEFAULT_ROUTING.places_order),
       gemini_first_langs: langsText
         .split(/[,\s]+/)
         .map((s) => s.trim().toLowerCase())
@@ -538,8 +600,15 @@ export function ChatPromptTab() {
         .split(/[\n,]+/)
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
+      places_keywords: placesKeywordsText
+        .split(/[\n,]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
     }) !==
-      JSON.stringify(savedRouting))
+      JSON.stringify({
+        ...savedRouting,
+        places_order: normalizeOrder(savedRouting.places_order || DEFAULT_ROUTING.places_order),
+      }))
   const memoryDirty =
     !!memory &&
     !!savedMemory &&
@@ -755,7 +824,12 @@ export function ChatPromptTab() {
           <p className="muted">Loading…</p>
         ) : (
           <>
-            <RoutingFlowChart routing={routing} langsText={langsText} keywordsText={keywordsText} />
+            <RoutingFlowChart
+              routing={routing}
+              langsText={langsText}
+              keywordsText={keywordsText}
+              placesKeywordsText={placesKeywordsText}
+            />
 
             {ORDER_FIELDS.map((field) => (
               <div key={field.key} style={{ marginBottom: 18 }}>
@@ -778,6 +852,26 @@ export function ChatPromptTab() {
               onChange={(e) => setLangsText(e.target.value)}
               style={{ width: '100%' }}
             />
+
+            <div style={{ marginTop: 16 }}>
+              <FieldLabel>Places / nearby keywords</FieldLabel>
+              <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
+                One per line (EN + Greek). Triggers Gemini-first routing with Google Maps grounding.
+                Non-English replies use an English Maps search bridge, then answer in the user language.
+              </p>
+              <textarea
+                value={placesKeywordsText}
+                onChange={(e) => setPlacesKeywordsText(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                style={{
+                  width: '100%',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 13,
+                  resize: 'vertical',
+                }}
+              />
+            </div>
 
             <div style={{ marginTop: 16 }}>
               <FieldLabel>Complex query keywords</FieldLabel>

@@ -28,6 +28,95 @@ DEFAULT_LLM_ROUTING: dict[str, Any] = {
         "anxiety",
     ],
     "complex_min_chars": 300,
+    # Nearby / places questions → Gemini first (Maps grounding on Gemini path).
+    "places_order": ["gemini", "grok", "claude"],
+    "places_keywords": [
+        "near me",
+        "nearby",
+        "near by",
+        "close to me",
+        "around here",
+        "in my area",
+        "find me a",
+        "find a pediatrician",
+        "find a doctor",
+        "find a pharmacy",
+        "find a midwife",
+        "find doctors",
+        "find pediatricians",
+        "list of doctors",
+        "list of pediatricians",
+        "list of pharmacies",
+        "doctors near",
+        "doctors in ",
+        "pediatricians near",
+        "pediatricians in ",
+        "pharmacies near",
+        "pharmacies in ",
+        "pediatrician near",
+        "pharmacy near",
+        "doctor near",
+        "doctors list",
+        "clinic near",
+        "hospital near",
+        "playground near",
+        "park near",
+        "nearest",
+        "recommend a doctor",
+        "recommend a pediatrician",
+        "suggest a doctor",
+        "suggest a pediatrician",
+        "where can i find a doctor",
+        "where can i find a pediatrician",
+        "where can i find a pharmacy",
+        "κοντά μου",
+        "κοντά στην",
+        "κοντά στο",
+        "κοντά μας",
+        "βρες μου",
+        "βρες έναν",
+        "βρες μία",
+        "βρες μια",
+        "βρες γιατρό",
+        "βρες γιατρο",
+        "βρες παιδίατρο",
+        "βρες παιδιατρο",
+        "βρες φαρμακείο",
+        "βρες φαρμακειο",
+        "λίστα γιατρών",
+        "λιστα γιατρων",
+        "λίστα παιδιάτρων",
+        "λιστα παιδιατρων",
+        "λίστα φαρμακείων",
+        "γιατρούς κοντά",
+        "γιατρους κοντα",
+        "γιατρούς στην",
+        "γιατρους στην",
+        "παιδιάτρους κοντά",
+        "παιδιατρους κοντα",
+        "παιδίατρο κοντά",
+        "παιδιατρο κοντα",
+        "φαρμακείο κοντά",
+        "φαρμακειο κοντα",
+        "φαρμακεία κοντά",
+        "παιδική χαρά",
+        "παιδικη χαρα",
+        "πάρκο κοντά",
+        "παρκο κοντα",
+        "μαία κοντά",
+        "μαια κοντα",
+        "κλινική κοντά",
+        "νοσοκομείο κοντά",
+        "πού να βρω γιατρό",
+        "που να βρω γιατρο",
+        "πού να βρω παιδίατρο",
+        "που να βρω παιδιατρο",
+        "πού να βρω φαρμακείο",
+        "που να βρω φαρμακειο",
+        "πρότεινέ μου γιατρό",
+        "προτεινε μου γιατρο",
+        "πρότεινέ μου παιδίατρο",
+    ],
 }
 
 LLM_ROUTING_KEY = "llm_routing"
@@ -79,12 +168,24 @@ def normalize_llm_routing(raw: Any) -> dict[str, Any]:
         raw.get("gemini_first_order"), base["gemini_first_order"]
     )
     base["complex_order"] = _clean_order(raw.get("complex_order"), base["complex_order"])
+    base["places_order"] = _clean_order(raw.get("places_order"), base["places_order"])
     base["gemini_first_langs"] = _clean_langs(
         raw.get("gemini_first_langs"), base["gemini_first_langs"]
     )
     base["complex_keywords"] = _clean_keywords(
         raw.get("complex_keywords"), base["complex_keywords"]
     )
+    base["places_keywords"] = _clean_keywords(
+        raw.get("places_keywords"), base["places_keywords"]
+    )
+    # Always keep built-in place triggers; admin may add extras on top.
+    if isinstance(raw, dict) and "places_keywords" in raw:
+        extras = _clean_keywords(raw.get("places_keywords"), [])
+        merged: list[str] = []
+        for kw in list(DEFAULT_LLM_ROUTING["places_keywords"]) + extras:
+            if kw not in merged:
+                merged.append(kw)
+        base["places_keywords"] = merged
     try:
         n = int(raw.get("complex_min_chars", base["complex_min_chars"]))
         base["complex_min_chars"] = max(50, min(n, 5000))
@@ -113,11 +214,22 @@ def is_complex_message(message: str, routing: Optional[dict[str, Any]] = None) -
     return len(message or "") > min_chars
 
 
+def is_places_message(message: str, routing: Optional[dict[str, Any]] = None) -> bool:
+    """Detect nearby / local-places intent (EN + EL keywords by default)."""
+    cfg = normalize_llm_routing(routing) if routing is not None else deepcopy(DEFAULT_LLM_ROUTING)
+    text = (message or "").lower()
+    if not text.strip():
+        return False
+    keywords = cfg.get("places_keywords") or []
+    return any(kw in text for kw in keywords)
+
+
 def resolve_provider_order(
     *,
     has_image: bool,
     msg_lang: str,
     complex_query: bool,
+    places_query: bool = False,
     routing: Optional[dict[str, Any]] = None,
 ) -> list[str]:
     cfg = normalize_llm_routing(routing) if routing is not None else deepcopy(DEFAULT_LLM_ROUTING)
@@ -125,6 +237,9 @@ def resolve_provider_order(
     gemini_langs = {str(x).lower() for x in (cfg.get("gemini_first_langs") or [])}
     if has_image:
         return list(cfg["image_order"])
+    # Places before complex: "hospital near me" is local search, not medical advice dump.
+    if places_query:
+        return list(cfg["places_order"])
     if lang in gemini_langs:
         return list(cfg["gemini_first_order"])
     if complex_query:

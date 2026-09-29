@@ -2216,6 +2216,15 @@ def get_llm_routing() -> dict:
                 "anxiety",
             ],
             "complex_min_chars": 300,
+            "places_order": ["gemini", "grok", "claude"],
+            "places_keywords": [
+                "near me",
+                "nearby",
+                "κοντά μου",
+                "βρες μου",
+                "παιδίατρο",
+                "φαρμακείο",
+            ],
         }
         return _llm_routing_cache
     row = _fetch_chat_prompt_row(LLM_ROUTING_KEY)
@@ -2314,6 +2323,14 @@ _LOCAL_HELP_RULE = (
     "that HeyMaa does not replace a doctor."
 )
 
+_MAPS_GROUNDED_RULE = (
+    "\n\n--- Google Maps places (this turn) ---\n"
+    "Google Maps grounding may supply real places for this reply. Prefer those results: "
+    "use real names/areas from Maps only. Do not invent phone numbers or addresses. "
+    "Finding a nearby professional or place is NOT medical advice. Keep the reply brief, "
+    "in the user's language, and note that listings can change — HeyMaa does not replace a doctor."
+)
+
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
@@ -2377,6 +2394,65 @@ def is_complex(message):
         return is_complex_message(message, get_llm_routing())
     except Exception:
         return any(kw in (message or "").lower() for kw in COMPLEX_KEYWORDS) or len(message or "") > 300
+
+
+def is_places_query(message: str) -> bool:
+    try:
+        try:
+            from .llm_routing import is_places_message
+        except ImportError:
+            from llm_routing import is_places_message
+        return is_places_message(message, get_llm_routing())
+    except Exception:
+        text = (message or "").lower()
+        return any(
+            kw in text
+            for kw in (
+                "near me",
+                "nearby",
+                "κοντά μου",
+                "βρες μου",
+                "παιδίατρο",
+                "φαρμακείο",
+            )
+        )
+
+
+def _places_location_hint(profile: Optional["ProfileContext"] = None) -> str:
+    if not profile:
+        return ""
+    city = (getattr(profile, "city", None) or "").strip()
+    country = (getattr(profile, "country", None) or "").strip()
+    if city and country:
+        return f"{city}, {country}"
+    return city or country or ""
+
+
+def _prepare_places_user_message(
+    message: str,
+    *,
+    msg_lang: str,
+    location_hint: str = "",
+) -> str:
+    """Bridge non-English place questions for Maps grounding (EN search, native reply)."""
+    lang = (msg_lang or "en").strip().lower() or "en"
+    parts: list[str] = []
+    if location_hint:
+        parts.append(f"User area (from profile): {location_hint}. Prefer places near this area.")
+    if lang != "en":
+        parts.append(
+            "Google Maps grounding works best in English. Internally paraphrase the user's "
+            f"request into English place-search terms (e.g. pediatrician, pharmacy, playground), "
+            f"use Maps results, then write the FINAL reply entirely in language code '{lang}' "
+            "(natural native phrasing — for el use Greek). Do not leave the answer in English "
+            "unless the user wrote in English. Do not invent places not returned by Maps."
+        )
+    else:
+        parts.append(
+            "Use Google Maps grounding for real nearby places. Do not invent clinics or phones."
+        )
+    parts.append(f"User message:\n{(message or '').strip()}")
+    return "\n\n".join(parts)
 
 def _api_error(
     status_code: int,
@@ -3132,13 +3208,35 @@ async def call_grok(message, history, system_prompt, api_key: str, history_limit
 
     return await asyncio.to_thread(_run)
 
-async def call_gemini(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
+async def call_gemini(
+    message,
+    history,
+    system_prompt,
+    api_key: str,
+    image_parts=None,
+    history_limit: int = 6,
+    *,
+    maps_grounding: bool = False,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+):
     # Gemini 2.x / early 2.5 IDs are unavailable to new keys; prefer 3.x flash family.
+    # Maps grounding: prefer models documented for Google Maps tool.
     model_candidates = (
-        "gemini-3.5-flash-lite",
-        "gemini-3.6-flash",
-        "gemini-3.5-flash",
-        "gemini-flash-latest",
+        (
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-flash-latest",
+        )
+        if maps_grounding
+        else (
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-flash-latest",
+        )
     )
 
     def _contents():
@@ -3155,7 +3253,7 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
         user_parts = []
         for ip in image_parts or []:
             user_parts.append({"inline_data": {"mime_type": ip["mime_type"], "data": ip["data"]}})
-        user_parts.append({"text": (message or "")[:2000]})
+        user_parts.append({"text": (message or "")[:3500 if maps_grounding else 2000]})
         items.append({"role": "user", "parts": user_parts})
         return items
 
@@ -3172,6 +3270,20 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
         ).strip()
         if not text:
             raise RuntimeError(f"gemini empty text: {cands[0].get('finishReason')}")
+        if maps_grounding:
+            gm = (cands[0] or {}).get("groundingMetadata") or {}
+            sources: list[str] = []
+            for chunk in gm.get("groundingChunks") or []:
+                if not isinstance(chunk, dict):
+                    continue
+                maps = chunk.get("maps") or {}
+                title = (maps.get("title") or "").strip()
+                uri = (maps.get("uri") or "").strip()
+                if title and uri and f"{title}: {uri}" not in sources:
+                    sources.append(f"{title}: {uri}")
+            if sources:
+                # Required Maps attribution surface for grounded place answers.
+                text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(sources[:4])
         return text
 
     def _generation_config():
@@ -3183,11 +3295,25 @@ async def call_gemini(message, history, system_prompt, api_key: str, image_parts
 
     def _run():
         last_err = None
-        body = {
+        body: dict = {
             "system_instruction": {"parts": [{"text": system_prompt or ""}]},
             "contents": _contents(),
             "generationConfig": _generation_config(),
         }
+        if maps_grounding:
+            body["tools"] = [{"googleMaps": {}}]
+            if latitude is not None and longitude is not None:
+                try:
+                    body["toolConfig"] = {
+                        "retrievalConfig": {
+                            "latLng": {
+                                "latitude": float(latitude),
+                                "longitude": float(longitude),
+                            }
+                        }
+                    }
+                except (TypeError, ValueError):
+                    pass
         for model_name in model_candidates:
             url = (
                 "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -3315,6 +3441,9 @@ class ChatRequest(BaseModel):
     recentMilestones: Optional[list[MilestoneContext]] = None
     recentDocs: Optional[list[DocContext]] = None
     attachments: Optional[list[ChatAttachmentIn]] = None
+    # Optional device location for Maps grounding ("near me").
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class TTSRequest(BaseModel):
     text: str = ""
@@ -4321,6 +4450,7 @@ async def _run_chat_core(
     except Exception:
         pass
     complex_query = is_complex(req.message)
+    places_query = is_places_query(req.message)
     try:
         try:
             from .evaluator import evaluate_rag_need
@@ -4431,10 +4561,18 @@ async def _run_chat_core(
         promotion_context,
         milestones_context,
     )
+    if places_query:
+        system_prompt += _MAPS_GROUNDED_RULE
     timing["context_build_ms"] = round((_time.perf_counter() - t_ctx0) * 1000, 1)
     profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
     message_for_llm = _build_attachment_context(req.message, req.attachments)
     msg_lang = detect_msg_lang(message_for_llm or req.message, profile_lang)
+    if places_query:
+        message_for_llm = _prepare_places_user_message(
+            message_for_llm or req.message,
+            msg_lang=msg_lang or profile_lang or "en",
+            location_hint=_places_location_hint(req.profile),
+        )
     image_parts = _attachment_image_parts(req.attachments)
     errors = []
     _prov_keys = _llm_api_keys()
@@ -4528,6 +4666,7 @@ async def _run_chat_core(
             out["evaluator"] = evaluator
             out["debug"] = {
                 "complex_query": complex_query,
+                "places_query": places_query,
                 "msg_lang": msg_lang or profile_lang or "",
                 "history_len": len(req.history or []),
                 "llm_history_len": len(llm_history),
@@ -4551,6 +4690,7 @@ async def _run_chat_core(
                 has_image=True,
                 msg_lang=msg_lang or "",
                 complex_query=complex_query,
+                places_query=places_query,
                 routing=get_llm_routing(),
             )
         except Exception:
@@ -4565,10 +4705,11 @@ async def _run_chat_core(
                 has_image=False,
                 msg_lang=msg_lang or "",
                 complex_query=complex_query,
+                places_query=places_query,
                 routing=get_llm_routing(),
             )
         except Exception:
-            providers = ["grok", "gemini", "claude"]
+            providers = ["gemini", "grok", "claude"] if places_query else ["grok", "gemini", "claude"]
     providers = [p for p in providers if _prov_keys.get(p)]
     if image_parts and not any(p in providers for p in ("gemini", "claude")):
         message_for_llm = (message_for_llm or "").strip()
@@ -4597,6 +4738,9 @@ async def _run_chat_core(
                         k,
                         image_parts=image_parts or None,
                         history_limit=chat_context_limit,
+                        maps_grounding=bool(places_query) and not image_parts,
+                        latitude=req.latitude,
+                        longitude=req.longitude,
                     )
                     model = "gemini"
                 else:
