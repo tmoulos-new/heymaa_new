@@ -2251,12 +2251,18 @@ def get_system_prompt_content() -> str:
     return _system_prompt_cache
 
 _SHORT_DIALOGUE_RULE = (
-    "\n\n--- Reply length (always follow) ---\n"
-    "Write a complete answer in 2 short sentences (3 only if needed). "
-    "Use full natural sentences the user can understand immediately. "
-    "Grammar and syntax must be correct in the reply language "
+    "\n\n--- Reply length (always follow; overrides any earlier 2-sentence limit) ---\n"
+    "Match reply length to the request. "
+    "Greetings / how-are-you: 1–2 short sentences only. "
+    "Simple factual questions: concise but complete. "
+    "Lists, places, venues, local options (e.g. μέρη, πάρτυ, παιδότοποι, doctors near X): "
+    "give a SUBSTANTIAL answer with several named options (typically 3–6 when available). "
+    "Simple bullets or a short numbered list are allowed for place/option lists; "
+    "do NOT shrink those answers to two vague sentences. "
+    "Never reply with only 'search Maps / Google' and no names. "
+    "Grammar must be correct in the reply language "
     "(natural Greek when the user writes Greek; natural English when they write English). "
-    "Never output writing rules, labels, markdown, asterisks, or instruction fragments. "
+    "Never output writing rules, labels, or instruction fragments. "
     "Never answer with a single word or a cut-off phrase."
 )
 
@@ -2315,19 +2321,21 @@ _APP_NAV_RULE = (
 )
 
 _LOCAL_HELP_RULE = (
-    "\n\n--- Local professional search (always follow) ---\n"
-    "If the user asks to find a pediatrician, doctor, midwife, pharmacy, or clinic near a place, "
-    "this is NOT medical advice. Do not invent names, phones, or addresses. Do not refuse with "
-    "nonsense referrals. Give brief practical next steps (Maps/search for specialty + area, "
-    "ΕΟΠΥΥ or local networks when relevant, ask midwife/GP for a referral) and one short line "
-    "that HeyMaa does not replace a doctor."
+    "\n\n--- Local professional / place search (always follow) ---\n"
+    "If the user asks for nearby professionals, pharmacies, parks, party venues, or similar places, "
+    "this is NOT medical advice. Prefer naming real options you know for that area "
+    "(practice/venue names and neighborhood). Do not invent phone numbers or exact street addresses. "
+    "Do not refuse with nonsense referrals or answer only with 'search Maps'. "
+    "When unsure, still give several plausible named options for the area plus a short note to confirm "
+    "hours/phones, and that HeyMaa does not replace a doctor."
 )
 
 _MAPS_GROUNDED_RULE = (
     "\n\n--- Google Maps places (this turn) ---\n"
     "Google Maps grounding is ENABLED for this turn. You MUST use it to look up real places. "
     "Do NOT say you lack lists, do NOT refuse, and do NOT only tell the user to search Maps themselves. "
-    "Return a short list of real names/areas from Maps results (2–4 if available). "
+    "Return a substantial list of real names/areas from Maps results (typically 3–6 if available); "
+    "bullets or a short numbered list are fine. "
     "Do not invent phone numbers or addresses that Maps did not provide. "
     "Finding a nearby professional or place is NOT medical advice. Reply in the user's language. "
     "Note briefly that listings can change — HeyMaa does not replace a doctor."
@@ -2444,6 +2452,14 @@ def is_places_query(message: str) -> bool:
                 "βρες μου",
                 "παιδίατρο",
                 "φαρμακείο",
+                "πάρτυ",
+                "παρτυ",
+                "παιδότοπ",
+                "παιδοτοπ",
+                "μέρη για",
+                "μερη για",
+                "party venue",
+                "party place",
             )
         )
 
@@ -2975,8 +2991,9 @@ def is_valid_invite_code(code: Optional[str]) -> bool:
         return False
     return str(row.get("status") or "active") == "active"
 
-_CHAT_MAX_TOKENS = 320
-_CHAT_MAX_TOKENS_LONG = 768
+_CHAT_MAX_TOKENS = 1024
+_CHAT_MAX_TOKENS_LONG = 1536
+_CHAT_MAX_TOKENS_PLACES = 1536
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
 
 _EL_TOPIC_LEAKS = (
@@ -3173,7 +3190,15 @@ def _build_attachment_context(message: str, attachments) -> str:
     return out
 
 
-async def call_grok(message, history, system_prompt, api_key: str, history_limit: int = 6):
+async def call_grok(
+    message,
+    history,
+    system_prompt,
+    api_key: str,
+    history_limit: int = 6,
+    *,
+    max_tokens: Optional[int] = None,
+):
     """Primary chat via xAI Grok (OpenAI-compatible). Provider id is `grok`."""
     # Prefer fast non-reasoning Grok; fall back across current xAI catalog ids.
     model_candidates = (
@@ -3183,6 +3208,7 @@ async def call_grok(message, history, system_prompt, api_key: str, history_limit
         "grok-2-latest",
     )
     chat_url = "https://api.x.ai/v1/chat/completions"
+    token_budget = max(int(max_tokens or _CHAT_MAX_TOKENS), 256)
 
     def _run():
         limit = max(2, min(int(history_limit or 6), _CHAT_HISTORY_MAX))
@@ -3203,7 +3229,7 @@ async def call_grok(message, history, system_prompt, api_key: str, history_limit
                     json={
                         "model": model_name,
                         "messages": messages,
-                        "max_tokens": _CHAT_MAX_TOKENS,
+                        "max_tokens": token_budget,
                         "temperature": 0.6,
                     },
                     timeout=60,
@@ -3268,6 +3294,7 @@ async def call_gemini(
     maps_grounding: bool = False,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    max_tokens: Optional[int] = None,
 ):
     # Gemini 2.x / early 2.5 IDs are unavailable to new keys; prefer 3.x flash family.
     # Maps grounding: prefer models documented for Google Maps tool.
@@ -3289,6 +3316,7 @@ async def call_gemini(
             "gemini-flash-latest",
         )
     )
+    token_budget = max(int(max_tokens or _CHAT_MAX_TOKENS_LONG or 1536), 320)
 
     def _contents():
         items = []
@@ -3343,7 +3371,7 @@ async def call_gemini(
     def _generation_config():
         # Avoid thinkingConfig — newer Gemini 3.x models reject thinkingBudget:0.
         return {
-            "maxOutputTokens": max(int(_CHAT_MAX_TOKENS_LONG or 768), 320),
+            "maxOutputTokens": token_budget,
             "temperature": 0.6,
         }
 
@@ -3399,8 +3427,18 @@ async def call_gemini(
 
     return await asyncio.to_thread(_run)
 
-async def call_claude(message, history, system_prompt, api_key: str, image_parts=None, history_limit: int = 6):
+async def call_claude(
+    message,
+    history,
+    system_prompt,
+    api_key: str,
+    image_parts=None,
+    history_limit: int = 6,
+    *,
+    max_tokens: Optional[int] = None,
+):
     import anthropic
+    token_budget = max(int(max_tokens or _CHAT_MAX_TOKENS), 256)
     def _run():
         ws = _claude_workspace_id()
         kwargs = {"api_key": api_key}
@@ -3429,7 +3467,7 @@ async def call_claude(message, history, system_prompt, api_key: str, image_parts
             messages.append({"role": "user", "content": (message or "")[:2000]})
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=_CHAT_MAX_TOKENS,
+            max_tokens=token_budget,
             system=system_prompt,
             messages=messages,
         )
@@ -4825,9 +4863,20 @@ async def _run_chat_core(
             key = _prov_keys[provider]
 
             async def _legacy_call(p=provider, k=key):
+                token_budget = (
+                    _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS
+                )
+                gemini_budget = (
+                    _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS_LONG
+                )
                 if p == "grok":
                     reply = await call_grok(
-                        message_for_llm, llm_history, system_prompt, k, history_limit=chat_context_limit
+                        message_for_llm,
+                        llm_history,
+                        system_prompt,
+                        k,
+                        history_limit=chat_context_limit,
+                        max_tokens=token_budget,
                     )
                     model = "grok"
                 elif p == "gemini":
@@ -4841,6 +4890,7 @@ async def _run_chat_core(
                         maps_grounding=bool(places_query) and not image_parts and not places_context,
                         latitude=req.latitude,
                         longitude=req.longitude,
+                        max_tokens=gemini_budget,
                     )
                     model = "gemini"
                 else:
@@ -4851,6 +4901,7 @@ async def _run_chat_core(
                         k,
                         image_parts=image_parts or None,
                         history_limit=chat_context_limit,
+                        max_tokens=token_budget,
                     )
                     model = "claude-haiku-4-5-20251001"
                 if not reply:

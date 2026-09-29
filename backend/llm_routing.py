@@ -131,6 +131,42 @@ DEFAULT_LLM_ROUTING: dict[str, Any] = {
         "γιατρούς στη",
         "φαρμακεια στη",
         "φαρμακεία στη",
+        # Party / venue / place-list asks (Greek + English)
+        "πάρτυ",
+        "παρτυ",
+        "party",
+        "παιδότοπ",
+        "παιδοτοπ",
+        "παιδοτοπος",
+        "παιδότοπος",
+        "μέρη για",
+        "μερη για",
+        "ορισμένα μέρη",
+        "ορισμενα μερη",
+        "χώροι πάρτυ",
+        "χωροι παρτυ",
+        "χώρο για πάρτυ",
+        "χωρο για παρτυ",
+        "δώσε μου μέρη",
+        "δωσε μου μερη",
+        "πεσ μου μέρη",
+        "πεσ μου μερη",
+        "πεσ μου ορισμένα μέρη",
+        "πεσ μου ορισμενα μερη",
+        "πες μου μέρη",
+        "πες μου μερη",
+        "πες μου ορισμένα μέρη",
+        "πες μου ορισμενα μερη",
+        "venues for",
+        "party venue",
+        "party place",
+        "birthday party",
+        "kids party",
+        "children's party",
+        "childrens party",
+        "indoor playground",
+        "play cafe",
+        "playcafé",
     ],
 }
 
@@ -239,12 +275,16 @@ def _fold_places_text(message: str) -> str:
 # Find-local intent: (find verb) + (place type) + (location cue), accent-insensitive.
 _PLACES_FIND_RE = re.compile(
     r"(βρ(?:εσ|εισ|ω|ειτε)|ψαξ(?:ε|ω|τε)|find(?:\s+me)?|looking\s+for|recommend|suggest|"
-    r"λιστα|list\s+of|που\s+να\s+βρω|where\s+can\s+i\s+find)",
+    r"λιστα|list\s+of|που\s+να\s+βρω|where\s+can\s+i\s+find|"
+    r"πεσ\s+μου|πες\s+μου|δωσε\s+μου|προτεινε|"
+    r"ορισμεν[αη]\s+μερη|μερη\s+για)",
     re.I,
 )
 _PLACES_TYPE_RE = re.compile(
     r"(παιδιατρ|γιατρ|φαρμακει|μαια|μαιευ|κλινικ|νοσοκομει|"
-    r"παιδικη\s+χαρα|παρκο|pediatrician|doctor|pharmacy|midwife|clinic|hospital|playground|park)",
+    r"παιδικη\s+χαρα|παρκο|παιδοτοπ|παρτυ|χωρ(?:οσ|οι|ουσ)?\s+για\s+παρτυ|"
+    r"pediatrician|doctor|pharmacy|midwife|clinic|hospital|playground|park|"
+    r"party\s+(?:venue|place|room)|birthday\s+party|kids?\s+party|indoor\s+playground)",
     re.I,
 )
 _PLACES_LOC_RE = re.compile(
