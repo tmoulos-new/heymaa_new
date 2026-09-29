@@ -3222,17 +3222,19 @@ async def call_gemini(
 ):
     # Gemini 2.x / early 2.5 IDs are unavailable to new keys; prefer 3.x flash family.
     # Maps grounding: prefer models documented for Google Maps tool.
+    # gemini-2.5-flash is unavailable to many new API keys (404).
     model_candidates = (
         (
-            "gemini-3.5-flash",
+            "gemini-3.8-flash",
             "gemini-3.6-flash",
+            "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
-            "gemini-2.5-flash",
             "gemini-flash-latest",
         )
         if maps_grounding
         else (
             "gemini-3.5-flash-lite",
+            "gemini-3.8-flash",
             "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-flash-latest",
