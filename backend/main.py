@@ -2325,10 +2325,12 @@ _LOCAL_HELP_RULE = (
 
 _MAPS_GROUNDED_RULE = (
     "\n\n--- Google Maps places (this turn) ---\n"
-    "Google Maps grounding may supply real places for this reply. Prefer those results: "
-    "use real names/areas from Maps only. Do not invent phone numbers or addresses. "
-    "Finding a nearby professional or place is NOT medical advice. Keep the reply brief, "
-    "in the user's language, and note that listings can change — HeyMaa does not replace a doctor."
+    "Google Maps grounding is ENABLED for this turn. You MUST use it to look up real places. "
+    "Do NOT say you lack lists, do NOT refuse, and do NOT only tell the user to search Maps themselves. "
+    "Return a short list of real names/areas from Maps results (2–4 if available). "
+    "Do not invent phone numbers or addresses that Maps did not provide. "
+    "Finding a nearby professional or place is NOT medical advice. Reply in the user's language. "
+    "Note briefly that listings can change — HeyMaa does not replace a doctor."
 )
 
 def build_system_prompt(rag_context, family_context="", memories_context="", docs_context="", promotion_context="", milestones_context=""):

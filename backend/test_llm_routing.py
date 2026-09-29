@@ -95,6 +95,9 @@ class PlacesTests(unittest.TestCase):
         self.assertTrue(is_places_message("Υπάρχει φαρμακείο κοντά μου;"))
         self.assertTrue(is_places_message("Θέλω λίστα γιατρών στην Αθήνα"))
         self.assertTrue(is_places_message("Πού να βρω παιδίατρο;"))
+        self.assertTrue(
+            is_places_message("καλησπέρα μπορείς να μου βρεις παιδιατρους στη ηλιουπολή;")
+        )
         self.assertFalse(is_places_message("Ο παιδίατρος είπε να κοιμάται περισσότερο"))
 
     def test_non_places(self):

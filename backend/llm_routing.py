@@ -5,6 +5,8 @@ Stored as JSON in chat_prompt_settings under key ``llm_routing``.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from copy import deepcopy
 from typing import Any, Optional
 
@@ -116,6 +118,19 @@ DEFAULT_LLM_ROUTING: dict[str, Any] = {
         "πρότεινέ μου γιατρό",
         "προτεινε μου γιατρο",
         "πρότεινέ μου παιδίατρο",
+        # Natural Greek word-order variants («να μου βρεις … στη …»)
+        "να μου βρεις",
+        "μου βρεις",
+        "μου βρες",
+        "βρεις ",
+        "παιδιατρους στη",
+        "παιδιάτρους στη",
+        "παιδιατρους στην",
+        "παιδιάτρους στην",
+        "γιατρους στη",
+        "γιατρούς στη",
+        "φαρμακεια στη",
+        "φαρμακεία στη",
     ],
 }
 
@@ -214,14 +229,45 @@ def is_complex_message(message: str, routing: Optional[dict[str, Any]] = None) -
     return len(message or "") > min_chars
 
 
+def _fold_places_text(message: str) -> str:
+    """Lowercase + strip combining accents so στη/στήν and παιδίατρο/παιδιατρο match."""
+    text = (message or "").lower().replace("ς", "σ")
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+
+# Find-local intent: (find verb) + (place type) + (location cue), accent-insensitive.
+_PLACES_FIND_RE = re.compile(
+    r"(βρ(?:εσ|εισ|ω|ειτε)|ψαξ(?:ε|ω|τε)|find(?:\s+me)?|looking\s+for|recommend|suggest|"
+    r"λιστα|list\s+of|που\s+να\s+βρω|where\s+can\s+i\s+find)",
+    re.I,
+)
+_PLACES_TYPE_RE = re.compile(
+    r"(παιδιατρ|γιατρ|φαρμακει|μαια|μαιευ|κλινικ|νοσοκομει|"
+    r"παιδικη\s+χαρα|παρκο|pediatrician|doctor|pharmacy|midwife|clinic|hospital|playground|park)",
+    re.I,
+)
+_PLACES_LOC_RE = re.compile(
+    r"(κοντα|στην|στη|στον|στο|σε\s+περιοχη|near|nearby|around|in\s+my\s+area|\bin\s+[a-zα-ω]{3,})",
+    re.I,
+)
+
+
 def is_places_message(message: str, routing: Optional[dict[str, Any]] = None) -> bool:
-    """Detect nearby / local-places intent (EN + EL keywords by default)."""
+    """Detect nearby / local-places intent (EN + EL keywords + structural patterns)."""
     cfg = normalize_llm_routing(routing) if routing is not None else deepcopy(DEFAULT_LLM_ROUTING)
-    text = (message or "").lower()
-    if not text.strip():
+    raw = (message or "").strip()
+    if not raw:
         return False
+    folded = _fold_places_text(raw)
     keywords = cfg.get("places_keywords") or []
-    return any(kw in text for kw in keywords)
+    for kw in keywords:
+        if _fold_places_text(str(kw)) and _fold_places_text(str(kw)) in folded:
+            return True
+    # «μπορείς να μου βρεις παιδιάτρους στη Ηλιούπολη» etc.
+    if _PLACES_FIND_RE.search(folded) and _PLACES_TYPE_RE.search(folded) and _PLACES_LOC_RE.search(folded):
+        return True
+    return False
 
 
 def resolve_provider_order(
