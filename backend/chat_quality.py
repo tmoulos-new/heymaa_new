@@ -644,7 +644,7 @@ def _paginate_since(sb, table: str, columns: str, since_iso: str, *, order_col: 
 
 
 def _admin_user_ids(sb) -> set[str]:
-    """Ids of users.role = admin (excluded from quality KPIs)."""
+    """Ids of users.role = admin (chat turns excluded from quality sample)."""
     out: set[str] = set()
     if not sb:
         return out
@@ -700,20 +700,14 @@ def build_quality_dashboard(sb, *, days: int = 30) -> dict:
         ]
 
     try:
+        # Count every thumb, including admin tests — otherwise Quality always
+        # shows 0 while the team rates replies from an admin account.
         feedback = _paginate_since(
             sb, FEEDBACK_TABLE, "message_id,vote,reason,created_at,user_id", since
         )
     except Exception as e:
         notes.append(f"feedback: {e}")
         feedback = []
-
-    if admin_ids:
-        feedback = [
-            f
-            for f in feedback
-            if str(f.get("user_id") or "") not in admin_ids
-            and str(f.get("message_id") or "") not in admin_message_ids
-        ]
 
     try:
         reviews = _paginate_since(

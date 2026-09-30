@@ -240,6 +240,7 @@ export function QualityTab() {
           <div className="l">Logged turns</div>
           <div className="meta">
             👍 {loading ? '…' : (k?.thumbs_up ?? 0)} · 👎 {loading ? '…' : (k?.thumbs_down ?? 0)}
+            <span style={{ opacity: 0.75 }}> (includes admin)</span>
           </div>
         </div>
         <div className={`stat ${(k?.open_bad || 0) > 0 ? 'coral' : 'green'}`}>
