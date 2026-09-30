@@ -27,7 +27,12 @@ from url_acquire import SEED_SOURCES, discover_source_urls
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ingest parenthood seed URLs into RAG")
-    parser.add_argument("--max-per-source", type=int, default=20)
+    parser.add_argument(
+        "--max-per-source",
+        type=int,
+        default=200,
+        help="Max URLs to discover/ingest per source (Babyspace paginates last since_years).",
+    )
     parser.add_argument(
         "--source",
         action="append",
@@ -52,7 +57,7 @@ def main() -> int:
 
     sb = create_client(url, key)
     wanted = set(args.sources or [])
-    max_per = max(1, min(args.max_per_source, 50))
+    max_per = max(1, min(args.max_per_source, 500))
 
     ok = 0
     fail = 0
@@ -67,6 +72,7 @@ def main() -> int:
             listing_paths=src.get("listing_paths"),
             source_key=src.get("source_key"),
             max_urls=max_per,
+            since_years=src.get("since_years"),
         )
         print(f"Discovered {len(urls)} URLs (cap={max_per})")
         for i, u in enumerate(urls, 1):

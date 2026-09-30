@@ -382,33 +382,109 @@ def build_feed(
 
 def discover_babyspace_article_urls(
     *,
-    max_urls: int = 25,
+    max_urls: int = 200,
     listing_paths: Optional[list[str]] = None,
+    since_years: Optional[float] = 5.0,
+    per_page: int = 30,
+    max_pages: int = 250,
 ) -> list[str]:
-    """Scrape Babyspace listing pages and return unique article URLs (newest first)."""
-    paths = listing_paths or [
-        DEFAULT_LISTING_PATH,
-        "/el/articles?page=2&per=30",
-    ]
+    """
+    Discover Babyspace article URLs, newest first.
+
+    By default walks /el/articles pagination until:
+    - max_urls is reached, or
+    - articles fall outside since_years (when dates are present), or
+    - max_pages is reached.
+
+    If listing_paths is provided, only those pages are scraped (legacy/manual).
+    """
+    cutoff: Optional[datetime] = None
+    if since_years is not None and float(since_years) > 0:
+        from datetime import timedelta
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=int(365.25 * float(since_years)))
+
+    def _aware(dt: Optional[datetime]) -> Optional[datetime]:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    def _too_old(it: FeedItem) -> bool:
+        if cutoff is None:
+            return False
+        pub = _aware(it.pub_date)
+        if pub is None:
+            return False
+        return pub < cutoff
+
     seen: set[str] = set()
     out: list[str] = []
-    for path in paths:
-        if len(out) >= max_urls:
-            break
-        try:
-            html = fetch_listing_html(path)
-        except Exception:
-            continue
-        for it in parse_listing(html):
-            # Prefer datePublished when present so newest articles lead the seed
+
+    def _consume(items: list[FeedItem]) -> tuple[int, int]:
+        """Returns (added, old_with_date)."""
+        added = 0
+        old = 0
+        for it in items:
+            if _too_old(it):
+                old += 1
+                continue
             key = it.link.split("?")[0]
             if key in seen:
                 continue
             seen.add(key)
             out.append(it.link)
+            added += 1
             if len(out) >= max_urls:
                 break
-    return out
+        return added, old
+
+    # Manual listing paths (tests / tag pages)
+    if listing_paths:
+        for path in listing_paths:
+            if len(out) >= max_urls:
+                break
+            try:
+                html = fetch_listing_html(path)
+            except Exception:
+                continue
+            _consume(parse_listing(html))
+        return out[:max_urls]
+
+    # Auto-paginate newest → older
+    per = max(10, min(int(per_page or 30), 50))
+    pages = max(1, min(int(max_pages or 250), 400))
+    stale_pages = 0
+    for page in range(1, pages + 1):
+        if len(out) >= max_urls:
+            break
+        path = (
+            DEFAULT_LISTING_PATH
+            if page == 1
+            else f"{DEFAULT_LISTING_PATH}?page={page}&per={per}"
+        )
+        try:
+            html = fetch_listing_html(path)
+        except Exception:
+            break
+        items = parse_listing(html)
+        if not items:
+            break
+        before = len(out)
+        _added, old = _consume(items)
+        # Listing is newest-first: stop after a couple of fully-old pages
+        dated = sum(1 for it in items if it.pub_date is not None)
+        if cutoff is not None and dated > 0 and old >= dated and _added == 0 and len(out) == before:
+            stale_pages += 1
+            if stale_pages >= 2:
+                break
+        else:
+            stale_pages = 0
+        # No progress and page looked empty of new links
+        if _added == 0 and old == 0 and len(items) < 3:
+            break
+    return out[:max_urls]
 
 
 def parse_rss_links(xml_text: str) -> list[str]:

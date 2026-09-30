@@ -304,8 +304,10 @@ def discover_source_urls(
     listing_paths: Optional[list[str]] = None,
     source_key: Optional[str] = None,
     max_urls: int = 40,
+    since_years: Optional[float] = None,
 ) -> list[str]:
     urls: list[str] = []
+    key = (source_key or "").lower()
     # 1) Explicit RSS feed (our unofficial Babyspace feed, or any other)
     if rss_url:
         try:
@@ -318,17 +320,19 @@ def discover_source_urls(
             urls = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 3, 80))
         except Exception:
             urls = []
-    # 3) Babyspace listing scrape (same logic as unofficial RSS builder)
-    if len(urls) < 5 and (listing_paths or (source_key or "").lower() == "babyspace"):
+    # 3) Babyspace listing scrape (paginated, newest first; optional year window)
+    if len(urls) < 5 and (listing_paths or key == "babyspace"):
         try:
             from .babyspace_feed import discover_babyspace_article_urls
         except ImportError:
             from babyspace_feed import discover_babyspace_article_urls
 
         try:
+            years = since_years if since_years is not None else (5.0 if key == "babyspace" else None)
             listed = discover_babyspace_article_urls(
-                max_urls=max(max_urls * 2, 40),
+                max_urls=max(max_urls, 40),
                 listing_paths=listing_paths,
+                since_years=years,
             )
             for u in listed:
                 if u not in urls:
@@ -367,6 +371,19 @@ def discover_source_urls(
         if any(x in path for x in ("/cart", "/checkout", "/account", "/login", "/wp-admin", "/tag/", "/author/")):
             return False
         return True
+
+    # Babyspace discovery is already newest-first — keep that order
+    if key == "babyspace":
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for u in urls:
+            if not usable(u) or u in seen:
+                continue
+            seen.add(u)
+            cleaned.append(u)
+            if len(cleaned) >= max_urls:
+                break
+        return cleaned
 
     # Prefer article-like paths for parenting blogs
     def score(u: str) -> int:
@@ -410,16 +427,15 @@ SEED_SOURCES = [
         "source_key": "babyspace",
         "name": "Babyspace",
         "base_url": "https://www.babyspace.gr/",
-        # No official RSS/sitemap — we scrape public /el listing pages (same as
-        # GET /public/babyspace-rss) then full-page ingest for chunks.
+        # No official RSS/sitemap — paginate /el/articles (newest first) for the
+        # last N years, then full-page ingest for chunks. Admin seed runs in
+        # batches; already-ready URLs are skipped so you can click again.
         "sitemap_url": None,
         "rss_url": None,
-        "listing_paths": [
-            "/el/articles",
-            "/el/articles?page=2&per=30",
-        ],
+        "listing_paths": None,
+        "since_years": 5,
         "language": "el",
-        "max_urls": 25,
+        "max_urls": 200,
     },
     {
         "source_key": "myparenthood",
@@ -428,7 +444,7 @@ SEED_SOURCES = [
         "sitemap_url": "https://myparenthood.gr/post-sitemap.xml",
         "rss_url": None,
         "language": "el",
-        "max_urls": 40,
+        "max_urls": 80,
     },
 ]
 
@@ -443,6 +459,7 @@ def iter_seed_page_plans(max_per_source: Optional[int] = None) -> Iterable[dict]
             listing_paths=src.get("listing_paths"),
             source_key=src.get("source_key"),
             max_urls=limit,
+            since_years=src.get("since_years"),
         )
         for u in urls:
             yield {

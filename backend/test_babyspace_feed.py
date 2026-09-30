@@ -81,6 +81,32 @@ class BabyspaceFeedTests(unittest.TestCase):
         links = parse_rss_links(xml)
         self.assertEqual(links, ["https://www.babyspace.gr/el/test-article"])
 
+    def test_discover_filters_old_articles_when_since_years_set(self):
+        from datetime import datetime, timezone, timedelta
+        from unittest.mock import patch
+
+        import babyspace_feed as bf
+
+        now = datetime.now(timezone.utc)
+        recent = FeedItem(
+            title="Recent",
+            link="https://www.babyspace.gr/el/recent-article",
+            pub_date=now - timedelta(days=30),
+        )
+        old = FeedItem(
+            title="Old",
+            link="https://www.babyspace.gr/el/old-article",
+            pub_date=now - timedelta(days=365 * 6),
+        )
+        with patch.object(bf, "fetch_listing_html", return_value="<html></html>"):
+            with patch.object(bf, "parse_listing", return_value=[recent, old]):
+                urls = bf.discover_babyspace_article_urls(
+                    max_urls=50,
+                    listing_paths=["/el/articles"],
+                    since_years=5,
+                )
+        self.assertEqual(urls, ["https://www.babyspace.gr/el/recent-article"])
+
 
 if __name__ == "__main__":
     unittest.main()

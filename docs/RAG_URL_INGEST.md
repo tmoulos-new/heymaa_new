@@ -24,8 +24,22 @@ Run `backend/migrations/rag_url_sources.sql` to add:
 
 Until that migration runs, ingest still works using `origin` + `source_type='url'` and stores provenance in chunk `metadata`.
 
-## Re-seed
+## Re-seed (CLI)
 
 ```bash
-.\.venv\Scripts\python.exe backend\ingest_parenthood_urls.py --max-per-source 20
+.\.venv\Scripts\python.exe backend\ingest_parenthood_urls.py --source babyspace --max-per-source 500
 ```
+
+## No-timeout admin seed jobs (Babyspace last 5 years)
+
+1. Run `backend/migrations/rag_seed_jobs.sql` in the Supabase SQL editor (once).
+2. In Admin → RAG Sources → **Start Babyspace (last 5 years)**.
+3. The UI creates a job and repeatedly calls `/tick` (a few listing pages or ~5 URL ingests each time), so each request stays under Vercel’s timeout.
+4. Leave the tab open until status is `completed`, or click **Cancel**.
+
+APIs:
+
+- `POST /admin/rag_sources/seed_jobs` — start
+- `POST /admin/rag_sources/seed_jobs/{id}/tick` — one safe step
+- `GET /admin/rag_sources/seed_jobs/{id}` — status
+- `POST /admin/rag_sources/seed_jobs/{id}/cancel` — stop

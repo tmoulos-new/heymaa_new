@@ -7572,11 +7572,13 @@ class RagUrlIngestRequest(BaseModel):
 
 
 class RagSeedIngestRequest(BaseModel):
-    max_per_source: int = 20
+    max_per_source: int = 100
     source_keys: Optional[List[str]] = None
     # False (default): skip pages already ingested OK, so re-pressing the button
     # only retries failed/missing pages. True: re-ingest everything.
     force: bool = False
+    # Babyspace only: keep articles newer than this many years (listing is newest-first).
+    since_years: Optional[float] = 5.0
 
 
 class RagWebsiteSeedRequest(BaseModel):
@@ -7650,12 +7652,14 @@ async def admin_seed_parenthood_sources(
         from url_acquire import SEED_SOURCES, discover_source_urls
         from rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
 
-    max_per = max(1, min(int(req.max_per_source or 20), 50))
+    max_per = max(1, min(int(req.max_per_source or 100), 200))
     wanted = set(req.source_keys or [])
+    since_years = req.since_years
     results = []
     for src in SEED_SOURCES:
         if wanted and src["source_key"] not in wanted:
             continue
+        src_years = since_years if since_years is not None else src.get("since_years")
         urls = discover_source_urls(
             base_url=src["base_url"],
             sitemap_url=src.get("sitemap_url"),
@@ -7663,6 +7667,7 @@ async def admin_seed_parenthood_sources(
             listing_paths=src.get("listing_paths"),
             source_key=src.get("source_key"),
             max_urls=max_per,
+            since_years=src_years,
         )
         for u in urls:
             if not req.force and url_already_ingested(sb, u):
@@ -7695,7 +7700,9 @@ async def admin_seed_parenthood_sources(
                         "error": str(e),
                     }
                 )
-    ok_n = sum(1 for r in results if r.get("ok"))
+    ok_n = sum(1 for r in results if r.get("ok") and not r.get("skipped"))
+    skip_n = sum(1 for r in results if r.get("skipped"))
+    fail_n = sum(1 for r in results if not r.get("ok"))
     _log_activity(
         admin_id,
         "seed",
@@ -7703,12 +7710,134 @@ async def admin_seed_parenthood_sources(
         "parenthood_seeds",
         details={
             "ok": ok_n,
+            "skipped": skip_n,
+            "failed": fail_n,
             "total": len(results),
             "max_per_source": max_per,
+            "since_years": since_years,
             "source_keys": sorted(wanted) if wanted else [s["source_key"] for s in SEED_SOURCES],
         },
     )
-    return {"ok": True, "ingested": ok_n, "total": len(results), "results": results}
+    return {
+        "ok": True,
+        "ingested": ok_n,
+        "skipped": skip_n,
+        "failed": fail_n,
+        "total": len(results),
+        "results": results,
+    }
+
+
+class RagSeedJobCreateRequest(BaseModel):
+    source_key: str
+    since_years: Optional[float] = 5.0
+    batch_size: int = 5
+    max_discover_pages: int = 250
+
+
+@app.post("/admin/rag_sources/seed_jobs")
+async def admin_create_rag_seed_job(
+    req: RagSeedJobCreateRequest,
+    x_token: Optional[str] = Header(None),
+):
+    """Start a durable seed job (Babyspace last N years, etc.). Does not ingest yet — call /tick."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import create_seed_job, job_public
+    except ImportError:
+        from rag_seed_jobs import create_seed_job, job_public
+    try:
+        row = create_seed_job(
+            sb,
+            source_key=req.source_key,
+            since_years=req.since_years,
+            batch_size=req.batch_size,
+            max_discover_pages=req.max_discover_pages,
+            created_by=str(admin_id) if admin_id is not None else None,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    _log_activity(
+        admin_id,
+        "seed_job_create",
+        "rag_seed_job",
+        str(row.get("id")),
+        details={"source_key": row.get("source_key"), "since_years": row.get("since_years")},
+    )
+    return {"ok": True, "job": job_public(row)}
+
+
+@app.get("/admin/rag_sources/seed_jobs")
+async def admin_list_rag_seed_jobs(x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import job_public, list_seed_jobs
+    except ImportError:
+        from rag_seed_jobs import job_public, list_seed_jobs
+    try:
+        rows = list_seed_jobs(sb)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"rag_seed_jobs unavailable. Run migrations/rag_seed_jobs.sql. ({e})",
+        )
+    return {"ok": True, "jobs": [job_public(r) for r in rows]}
+
+
+@app.get("/admin/rag_sources/seed_jobs/{job_id}")
+async def admin_get_rag_seed_job(job_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import get_seed_job, job_public
+    except ImportError:
+        from rag_seed_jobs import get_seed_job, job_public
+    row = get_seed_job(sb, job_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"ok": True, "job": job_public(row)}
+
+
+@app.post("/admin/rag_sources/seed_jobs/{job_id}/tick")
+async def admin_tick_rag_seed_job(job_id: str, x_token: Optional[str] = Header(None)):
+    """Advance one small step (a few listing pages or a few URL ingests). Safe under Vercel timeout."""
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import job_public, tick_seed_job
+    except ImportError:
+        from rag_seed_jobs import job_public, tick_seed_job
+    try:
+        row = tick_seed_job(sb, job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"ok": True, "job": job_public(row)}
+
+
+@app.post("/admin/rag_sources/seed_jobs/{job_id}/cancel")
+async def admin_cancel_rag_seed_job(job_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import cancel_seed_job, job_public
+    except ImportError:
+        from rag_seed_jobs import cancel_seed_job, job_public
+    try:
+        row = cancel_seed_job(sb, job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"ok": True, "job": job_public(row)}
 
 
 @app.post("/admin/rag_sources/seed_website")

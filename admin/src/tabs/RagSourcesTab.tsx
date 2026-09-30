@@ -124,18 +124,41 @@ function siteLabel(key: string): string {
   return key
 }
 
-const PRESET_SEEDS = [
+const PRESET_SEEDS: {
+  key: string
+  name: string
+  blurb: string
+  sinceYears?: number
+}[] = [
   {
     key: 'babyspace',
     name: 'Babyspace',
-    blurb: 'Scrapes /el/articles listings, then full-page chunks each article.',
+    blurb:
+      'Background job: discovers last 5 years newest-first, then ingests a few pages per tick so it never times out. Leave this tab open; click Cancel to stop.',
+    sinceYears: 5,
   },
   {
     key: 'myparenthood',
     name: 'My Parenthood',
-    blurb: 'Uses their post sitemap, then full-page chunks each article.',
+    blurb:
+      'Background job from their post sitemap. Ingests in small batches (no timeout). Already-ready URLs are skipped.',
   },
-] as const
+]
+
+type SeedJobPublic = {
+  id: string
+  source_key: string
+  status: string
+  discovered?: number
+  queued?: number
+  ingested?: number
+  skipped?: number
+  failed?: number
+  discover_page?: number
+  cursor_idx?: number
+  last_error?: string | null
+  done?: boolean
+}
 
 
 export function RagSourcesTab() {
@@ -155,6 +178,8 @@ export function RagSourcesTab() {
   const [urlTitle, setUrlTitle] = useState('')
   const [urlIngesting, setUrlIngesting] = useState(false)
   const [seedingKey, setSeedingKey] = useState<string | null>(null)
+  const [seedJob, setSeedJob] = useState<SeedJobPublic | null>(null)
+  const seedAbortRef = useRef(false)
 
   const [siteName, setSiteName] = useState('')
   const [siteBaseUrl, setSiteBaseUrl] = useState('')
@@ -316,21 +341,61 @@ export function RagSourcesTab() {
     }
   }
 
-  const seedSite = async (sourceKey: string, label: string) => {
+  const seedSite = async (sourceKey: string, label: string, opts?: { sinceYears?: number }) => {
     setSeedingKey(sourceKey)
+    seedAbortRef.current = false
+    setSeedJob(null)
     try {
-      const d = await adminFetch('/admin/rag_sources/seed_parenthood', {
+      const created = await adminFetch('/admin/rag_sources/seed_jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_per_source: 20, source_keys: [sourceKey] }),
+        body: JSON.stringify({
+          source_key: sourceKey,
+          since_years: opts?.sinceYears ?? (sourceKey === 'babyspace' ? 5 : undefined),
+          batch_size: 5,
+        }),
       })
-      show(`Seeded ${label} — ${d.ingested}/${d.total} pages`, 'ok')
+      let job = (created.job || {}) as SeedJobPublic
+      setSeedJob(job)
+      show(`Started ${label} seed job — running in small steps…`, 'ok')
+
+      while (job?.id && !job.done && !seedAbortRef.current) {
+        const tick = await adminFetch(`/admin/rag_sources/seed_jobs/${job.id}/tick`, {
+          method: 'POST',
+        })
+        job = (tick.job || job) as SeedJobPublic
+        setSeedJob({ ...job })
+        if (job.done) break
+        // Brief pause so the UI can paint and the API can breathe
+        await new Promise((r) => setTimeout(r, 400))
+      }
+
+      if (seedAbortRef.current && job?.id && !job.done) {
+        const cancelled = await adminFetch(`/admin/rag_sources/seed_jobs/${job.id}/cancel`, {
+          method: 'POST',
+        })
+        job = (cancelled.job || job) as SeedJobPublic
+        setSeedJob(job)
+        show(`${label} seed cancelled`, 'ok')
+      } else if (job?.status === 'failed') {
+        show(job.last_error || `${label} seed failed`, 'err')
+      } else if (job?.status === 'completed') {
+        show(
+          `${label} done — ${job.ingested || 0} new, ${job.skipped || 0} skipped, ${job.failed || 0} failed (${job.discovered || 0} queued)`,
+          'ok',
+        )
+      }
       await loadSources()
     } catch (e) {
       show(e instanceof Error ? e.message : `Seed ${label} failed`, 'err')
     } finally {
       setSeedingKey(null)
+      seedAbortRef.current = false
     }
+  }
+
+  const cancelSeedJob = () => {
+    seedAbortRef.current = true
   }
 
   const seedCustomWebsite = async () => {
@@ -595,18 +660,52 @@ export function RagSourcesTab() {
                 <div key={site.key} className="rag-seed-preset">
                   <strong>{site.name}</strong>
                   <p>{site.blurb}</p>
-                  <button
-                    type="button"
-                    className="sec"
-                    onClick={() => void seedSite(site.key, site.name)}
-                    disabled={seedingKey !== null || siteSeeding}
-                  >
-                    <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-                    {seedingKey === site.key ? `Seeding ${site.name}…` : `Seed ${site.name}`}
-                  </button>
+                  <div className="rag-seed-preset-actions">
+                    <button
+                      type="button"
+                      className="sec"
+                      onClick={() =>
+                        void seedSite(site.key, site.name, { sinceYears: site.sinceYears })
+                      }
+                      disabled={seedingKey !== null || siteSeeding}
+                    >
+                      <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                      {seedingKey === site.key
+                        ? `Running ${site.name}…`
+                        : site.key === 'babyspace'
+                          ? `Start ${site.name} (last 5 years)`
+                          : `Start ${site.name}`}
+                    </button>
+                    {seedingKey === site.key ? (
+                      <button type="button" className="ghost sm" onClick={cancelSeedJob}>
+                        Cancel
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
+            {seedJob ? (
+              <div className="rag-seed-progress" aria-live="polite">
+                <strong>
+                  Job {seedJob.status}
+                  {seedJob.source_key ? ` · ${seedJob.source_key}` : ''}
+                </strong>
+                <span>
+                  Queued {seedJob.discovered ?? seedJob.queued ?? 0} · ingested {seedJob.ingested ?? 0} ·
+                  skipped {seedJob.skipped ?? 0} · failed {seedJob.failed ?? 0}
+                  {seedJob.status === 'discovering'
+                    ? ` · listing page ${seedJob.discover_page ?? 1}`
+                    : ''}
+                  {seedJob.status === 'running'
+                    ? ` · cursor ${seedJob.cursor_idx ?? 0}/${seedJob.queued ?? seedJob.discovered ?? 0}`
+                    : ''}
+                </span>
+                {seedJob.last_error ? (
+                  <span className="rag-seed-progress-err">{seedJob.last_error}</span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="rag-seed-custom">

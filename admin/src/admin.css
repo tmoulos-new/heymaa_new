@@ -593,6 +593,13 @@ textarea{min-height:80px;resize:vertical}
 .rag-seed-preset strong{font-size:13px;color:var(--navy)}
 .rag-seed-preset p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
 .rag-seed-preset button{align-self:flex-start;margin-top:4px}
+.rag-seed-preset-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.rag-seed-progress{
+  margin-top:12px;padding:10px 12px;border-radius:10px;border:.5px solid rgba(74,190,170,.28);
+  background:rgba(74,190,170,.08);display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.45;
+}
+.rag-seed-progress strong{font-size:13px;color:var(--navy)}
+.rag-seed-progress-err{color:#8B2E2E;font-weight:600}
 .rag-seed-custom{
   padding-top:16px;border-top:.5px solid var(--border);
 }
