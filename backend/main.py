@@ -3962,6 +3962,54 @@ def _probe_llm_providers() -> dict:
     _llm_probe_cache_at = now
     return out
 
+@app.get("/public/places_map.png")
+async def public_places_map_png(
+    markers: str = Query(..., description="lat,lng|lat,lng|..."),
+):
+    """Proxy a Google Static Map with place pins (keeps the API key off the client)."""
+    try:
+        from .places_search import google_maps_api_key
+    except ImportError:
+        from places_search import google_maps_api_key
+
+    key = google_maps_api_key()
+    if not key:
+        raise HTTPException(status_code=404, detail="Maps API not configured")
+    raw = (markers or "").strip()
+    parts: list[str] = []
+    for bit in raw.split("|"):
+        bit = bit.strip()
+        m = _re.match(r"^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$", bit)
+        if not m:
+            continue
+        lat, lng = float(m.group(1)), float(m.group(2))
+        if abs(lat) > 90 or abs(lng) > 180:
+            continue
+        parts.append(f"{lat},{lng}")
+        if len(parts) >= 8:
+            break
+    if not parts:
+        raise HTTPException(status_code=400, detail="Invalid markers")
+    marker_param = "%7C".join(parts)
+    url = (
+        "https://maps.googleapis.com/maps/api/staticmap"
+        f"?size=640x360&scale=2&maptype=roadmap"
+        f"&markers=color:0x2B8A7A%7Csize:mid%7C{marker_param}"
+        f"&key={key}"
+    )
+    try:
+        r = requests.get(url, timeout=15)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Map fetch failed: {e}") from e
+    if not r.ok or not (r.headers.get("content-type") or "").startswith("image"):
+        raise HTTPException(status_code=502, detail="Static map unavailable")
+    return Response(
+        content=r.content,
+        media_type=r.headers.get("content-type") or "image/png",
+        headers={"Cache-Control": "public, max-age=600"},
+    )
+
+
 @app.get("/public/babyspace-rss")
 @app.get("/babyspace-rss")
 async def public_babyspace_rss(
@@ -4712,6 +4760,7 @@ async def _run_chat_core(
                 promotion_context += f" {promo['link']}"
     places_context = ""
     places_results_count = 0
+    places_for_ui: list = []
     if places_query:
         try:
             try:
@@ -4719,6 +4768,7 @@ async def _run_chat_core(
                     build_places_search_query,
                     format_places_for_prompt,
                     google_maps_api_key,
+                    places_for_client,
                     search_places_text,
                 )
             except ImportError:
@@ -4726,6 +4776,7 @@ async def _run_chat_core(
                     build_places_search_query,
                     format_places_for_prompt,
                     google_maps_api_key,
+                    places_for_client,
                     search_places_text,
                 )
             if google_maps_api_key():
@@ -4741,6 +4792,7 @@ async def _run_chat_core(
                 )
                 places_results_count = len(found)
                 places_context = format_places_for_prompt(found)
+                places_for_ui = places_for_client(found)
                 timing["places_search_count"] = places_results_count
         except Exception as e:
             timing["places_search_error"] = str(e)[:160]
@@ -4787,6 +4839,15 @@ async def _run_chat_core(
     def _chat_success(reply: str, provider: str):
         t_post0 = _time.perf_counter()
         reply = _scrub_language_leaks(reply, msg_lang or profile_lang or "")
+        if places_for_ui:
+            try:
+                try:
+                    from .places_search import rewrite_reply_place_links
+                except ImportError:
+                    from places_search import rewrite_reply_place_links
+                reply = rewrite_reply_place_links(reply, places_for_ui)
+            except Exception:
+                pass
         promo_data = None
         if promo:
             promo_data = {
@@ -4857,6 +4918,8 @@ async def _run_chat_core(
             "memory_suggestion": memory_suggestion,
             "message_id": message_id,
         }
+        if places_for_ui:
+            out["places"] = places_for_ui
         if include_debug:
             out["timing"] = {
                 **timing,

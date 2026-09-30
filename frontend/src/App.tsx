@@ -50,6 +50,7 @@ import {
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ChatRichText } from "./components/ChatRichText";
+import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
 import "./appResponsive.css";
 
 import { useTranslation } from "react-i18next";
@@ -357,6 +358,8 @@ interface Message {
   replyTo?: { role: "user" | "assistant"; content: string } | null;
   promo?: { title: string; body: string; link?: string | null; badge?: string; cta?: string | null } | null;
   memorySuggestion?: MemorySuggestion | null;
+  /** Place pins for map embed (from Places API). */
+  places?: ChatPlacePin[] | null;
   /** Server id for thumbs / quality loop (from /chat message_id). */
   messageId?: string;
   feedback?: "up" | "down" | null;
@@ -3284,6 +3287,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           content: res.data.reply,
           promo: res.data.promo || null,
           memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
+          places: Array.isArray(res.data?.places) ? res.data.places : null,
           messageId: (() => {
             const raw = res.data?.message_id;
             if (typeof raw === "string" && raw.trim()) return raw.trim();
@@ -6648,6 +6652,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                           </div>
                         )}
                         <ChatRichText text={msg.content} />
+                        {msg.places && msg.places.length > 0 ? (
+                          <ChatPlacesMap places={msg.places} apiBase={API} />
+                        ) : null}
                       </div>
                       <div className="hm-chat-reply-actions">
                         <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>

@@ -2421,6 +2421,103 @@ body.hm-app-active #root {
   color: inherit;
 }
 
+.hm-chat-map {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.hm-chat-map__frame {
+  width: 100%;
+  min-width: 220px;
+  max-width: 420px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 0.5px solid rgba(43, 58, 103, 0.12);
+  background: #e8eef2;
+  aspect-ratio: 16 / 10;
+}
+
+.hm-chat-map__iframe,
+.hm-chat-map__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+.hm-chat-map__static-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hm-chat-map__pins {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hm-chat-map__pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(74, 190, 170, 0.08);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.hm-chat-map__pin:hover {
+  background: rgba(74, 190, 170, 0.16);
+}
+
+.hm-chat-map__pin-idx {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4abeaa;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-chat-map__pin-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hm-chat-map__pin-rating {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B5344;
+}
+
+.hm-chat-map__open {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 650;
+  color: #2B8A7A;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+
 .hm-chat-bubble--typing {
   display: flex;
   align-items: center;
