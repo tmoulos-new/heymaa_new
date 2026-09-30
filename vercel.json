@@ -10,13 +10,11 @@
     {
       "source": "/admin",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
-      "missing": [{ "type": "header", "key": "content-type", "value": ".*json.*" }],
       "destination": "/admin/index.html"
     },
     {
-      "source": "/admin/:path*",
+      "source": "/admin/(insights|quality|testers|invite-codes|regions|levels|plans|points|content|sources|users|user-data|user-activity|tools|activity-log|chat-prompt|llm-transactions|user-financials|cancellations|support)",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
-      "missing": [{ "type": "header", "key": "content-type", "value": ".*json.*" }],
       "destination": "/admin/index.html"
     },
     {

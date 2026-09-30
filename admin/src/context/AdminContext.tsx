@@ -46,16 +46,22 @@ export function AdminProvider({
   const adminFetch = useCallback(
     async (path: string, opts: RequestInit = {}) => {
       const headers: Record<string, string> = {
-        Accept: 'application/json',
         ...(opts.headers as Record<string, string>),
+        Accept: 'application/json',
         'x-token': token,
       }
       const r = await fetch(`${api}${path}`, { ...opts, headers })
+      const contentType = (r.headers.get('content-type') || '').toLowerCase()
       let d: Record<string, unknown> = {}
       try {
         d = (await r.json()) as Record<string, unknown>
       } catch {
         /* empty */
+      }
+      if (contentType.includes('text/html')) {
+        throw new Error(
+          'Admin API returned HTML instead of JSON — check Vercel rewrites for this path.',
+        )
       }
       if (!r.ok) {
         const msg = apiDetail(d) || `HTTP ${r.status}`
