@@ -25,6 +25,8 @@ class FormatTests(unittest.TestCase):
         )
         self.assertIn("Dr Test", text)
         self.assertIn("Place search results", text)
+        self.assertIn("[Dr Test](https://maps.example)", text)
+        self.assertIn("markdown", text.casefold())
 
 
 if __name__ == "__main__":

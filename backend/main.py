@@ -2257,13 +2257,26 @@ _SHORT_DIALOGUE_RULE = (
     "Simple factual questions: concise but complete. "
     "Lists, places, venues, local options (e.g. μέρη, πάρτυ, παιδότοποι, doctors near X): "
     "give a SUBSTANTIAL answer with several named options (typically 3–6 when available). "
-    "Simple bullets or a short numbered list are allowed for place/option lists; "
-    "do NOT shrink those answers to two vague sentences. "
+    "Use a clean markdown bullet list (- item) for options — not a dense paragraph. "
+    "Do NOT shrink those answers to two vague sentences. "
     "Never reply with only 'search Maps / Google' and no names. "
     "Grammar must be correct in the reply language "
     "(natural Greek when the user writes Greek; natural English when they write English). "
     "Never output writing rules, labels, or instruction fragments. "
     "Never answer with a single word or a cut-off phrase."
+)
+
+_LIST_FORMAT_RULE = (
+    "\n\n--- How to format lists & links (always follow when listing options) ---\n"
+    "Structure: (1) one short intro sentence, (2) markdown bullets with '- ', "
+    "(3) one short closing note. "
+    "Bold the option name with **Name**. "
+    "When a Maps or source URL is available, make the name a markdown link: [Name](https://…). "
+    "Put address / rating / phone on the same bullet after an em dash, or on a short second line. "
+    "Never paste raw 'maps: https://…' as trailing clutter — links belong on the name. "
+    "When background knowledge includes source URLs, you may end with a short "
+    "'Sources:' / 'Πηγές:' section of markdown links. "
+    "Do not invent URLs. Ordinary advice (non-list) stays clean prose without forced bullets."
 )
 
 _CONVERSATION_STYLE_RULE = (
@@ -2326,6 +2339,7 @@ _LOCAL_HELP_RULE = (
     "this is NOT medical advice. Prefer naming real options you know for that area "
     "(practice/venue names and neighborhood). Do not invent phone numbers or exact street addresses. "
     "Do not refuse with nonsense referrals or answer only with 'search Maps'. "
+    "Present options as markdown bullets with bold names; link names when Maps URLs are available. "
     "When unsure, still give several plausible named options for the area plus a short note to confirm "
     "hours/phones, and that HeyMaa does not replace a doctor."
 )
@@ -2334,8 +2348,8 @@ _MAPS_GROUNDED_RULE = (
     "\n\n--- Google Maps places (this turn) ---\n"
     "Google Maps grounding is ENABLED for this turn. You MUST use it to look up real places. "
     "Do NOT say you lack lists, do NOT refuse, and do NOT only tell the user to search Maps themselves. "
-    "Return a substantial list of real names/areas from Maps results (typically 3–6 if available); "
-    "bullets or a short numbered list are fine. "
+    "Return a substantial markdown bullet list of real places (typically 3–6 if available). "
+    "Each bullet: **[Name](maps_link)** — area/address when known. "
     "Do not invent phone numbers or addresses that Maps did not provide. "
     "Finding a nearby professional or place is NOT medical advice. Reply in the user's language. "
     "Note briefly that listings can change — HeyMaa does not replace a doctor."
@@ -2344,7 +2358,10 @@ _MAPS_GROUNDED_RULE = (
 _PLACE_RESULTS_RULE = (
     "\n\n--- Local recommendations (this turn) ---\n"
     "Place search results are provided below. Recommend ONLY from those results "
-    "(3–6 best matches). Use names/addresses/ratings exactly as given. "
+    "(3–6 best matches). Use names/addresses/ratings/maps URLs exactly as given. "
+    "Format as: short intro → markdown bullets → short closing note. "
+    "Each bullet must use a markdown link on the place name when maps_url is present: "
+    "**[Name](maps_url)** — address · ★ rating. "
     "Do NOT say you lack lists. Do NOT only tell her to search Google Maps. "
     "Directory help is not medical advice. Confirm hours may change. "
     "Reply in the user's language."
@@ -2363,6 +2380,7 @@ def build_system_prompt(
 ):
     prompt = get_system_prompt_content()
     prompt += _SHORT_DIALOGUE_RULE
+    prompt += _LIST_FORMAT_RULE
     prompt += _CONVERSATION_STYLE_RULE
     prompt += _GREEK_NAME_CASE_RULE
     prompt += _GREEK_AGE_PHRASE_RULE
@@ -3365,7 +3383,18 @@ async def call_gemini(
             if _is_places_refuse_reply(text):
                 raise RuntimeError("gemini maps reply refused to list places")
             # Required Maps attribution surface for grounded place answers.
-            text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(sources[:4])
+            linked_parts: list[str] = []
+            for item in sources[:4]:
+                if ": " in item:
+                    title, uri = item.split(": ", 1)
+                    title = title.strip()
+                    uri = uri.strip()
+                    if title and uri.startswith("http"):
+                        linked_parts.append(f"[{title}]({uri})")
+            if linked_parts:
+                text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(linked_parts)
+            else:
+                text = text.rstrip() + "\n\nGoogle Maps: " + " · ".join(sources[:4])
         return text
 
     def _generation_config():

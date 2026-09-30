@@ -49,6 +49,7 @@ import {
 } from "./lib/milestoneTimeline";
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { ChatRichText } from "./components/ChatRichText";
 import "./appResponsive.css";
 
 import { useTranslation } from "react-i18next";
@@ -6646,7 +6647,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             <span className="hm-chat-bubble__quote-text">{msg.replyTo.content}</span>
                           </div>
                         )}
-                        {msg.content}
+                        <ChatRichText text={msg.content} />
                       </div>
                       <div className="hm-chat-reply-actions">
                         <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>

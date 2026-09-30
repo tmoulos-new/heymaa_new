@@ -2371,6 +2371,54 @@ body.hm-app-active #root {
 
 .hm-chat-bubble--assistant {
   border-radius: 0 12px 12px 12px;
+  white-space: normal;
+}
+
+.hm-chat-rich {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+}
+
+.hm-chat-rich .hm-chat-p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.hm-chat-list {
+  margin: 0.15em 0 0.25em;
+  padding-left: 1.15em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+}
+
+.hm-chat-list li {
+  margin: 0;
+  padding-left: 0.15em;
+  line-height: 1.5;
+}
+
+.hm-chat-list li::marker {
+  color: #4ABEAA;
+  font-weight: 700;
+}
+
+.hm-chat-link {
+  color: #2B8A7A;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.hm-chat-link:hover {
+  color: #1A5C52;
+}
+
+.hm-chat-rich strong {
+  font-weight: 700;
+  color: inherit;
 }
 
 .hm-chat-bubble--typing {

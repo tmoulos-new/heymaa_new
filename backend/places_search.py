@@ -147,22 +147,37 @@ def format_places_for_prompt(places: list[dict[str, Any]]) -> str:
         return ""
     lines = [
         "Place search results from Google Places (recommend ONLY from this list; "
-        "do not invent places, ratings, phones, or addresses):"
+        "do not invent places, ratings, phones, or addresses):",
+        "",
+        "Format your reply like this (markdown — the app renders it):",
+        "1) One short intro sentence.",
+        "2) A bullet list (- ), one place per bullet.",
+        "3) Each bullet: **[Name](maps_url)** — address · ★ rating (N reviews) when available.",
+        "   If maps_url is missing, still bold the name: **Name** — address …",
+        "4) One short closing note (hours may change; not medical advice when relevant).",
+        "Do not dump raw 'maps: https://…' text — always use markdown links on the name.",
+        "",
+        "Results:",
     ]
     for i, p in enumerate(places, 1):
-        bit = f"{i}. {p.get('name') or 'Place'}"
+        name = p.get("name") or "Place"
+        maps = (p.get("maps_url") or "").strip()
+        if maps:
+            bit = f"{i}. [{name}]({maps})"
+        else:
+            bit = f"{i}. {name}"
         if p.get("address"):
             bit += f" — {p['address']}"
         rating = p.get("rating")
         count = p.get("ratings_count")
         if rating is not None:
-            bit += f" — rating {rating}"
+            bit += f" — ★ {rating}"
             if count is not None:
                 bit += f" ({count} reviews)"
         if p.get("phone"):
             bit += f" — phone {p['phone']}"
-        if p.get("maps_url"):
-            bit += f" — maps: {p['maps_url']}"
+        if maps:
+            bit += f" — maps_url: {maps}"
         lines.append(bit)
     lines.append(
         "Pick the 3–6 that best match her request. Confirm hours/availability may change. "
