@@ -45,7 +45,11 @@ export function AdminProvider({
 
   const adminFetch = useCallback(
     async (path: string, opts: RequestInit = {}) => {
-      const headers = { ...(opts.headers as Record<string, string>), 'x-token': token }
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        ...(opts.headers as Record<string, string>),
+        'x-token': token,
+      }
       const r = await fetch(`${api}${path}`, { ...opts, headers })
       let d: Record<string, unknown> = {}
       try {

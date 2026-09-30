@@ -8,13 +8,15 @@
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     {
-      "source": "/admin/:path*",
+      "source": "/admin",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+      "missing": [{ "type": "header", "key": "content-type", "value": ".*json.*" }],
       "destination": "/admin/index.html"
     },
     {
-      "source": "/admin",
+      "source": "/admin/:path*",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+      "missing": [{ "type": "header", "key": "content-type", "value": ".*json.*" }],
       "destination": "/admin/index.html"
     },
     {
