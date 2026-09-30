@@ -34,6 +34,8 @@ const ADMIN_API_PREFIXES = [
   '/admin/profiles/',
   '/admin/chat_prompt',
   '/admin/llm_routing',
+  '/admin/notifications',
+  '/admin/emails',
 ]
 
 const ADMIN_UI_GET_PATHS = new Set([
@@ -56,6 +58,8 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/user-financials',
   '/admin/tools',
   '/admin/activity-log',
+  '/admin/notifications',
+  '/admin/emails',
 ])
 
 function wantsHtml(req) {

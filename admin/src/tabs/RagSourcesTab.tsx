@@ -252,7 +252,11 @@ export function RagSourcesTab() {
       if (h && typeof h === 'object') {
         setHealth(h as RagHealth)
         const active = (h as RagHealth).active_job
-        if (active && !active.done) setSeedJob(active)
+        if (active && !active.done) {
+          // Keep the job this tab is already ticking. Replacing it mid-run
+          // stops that sync, because only one job is advanced from the page.
+          setSeedJob((current) => (current && !current.done ? current : active))
+        }
       }
       if (d.error) show(String(d.error), 'err')
     } catch {
@@ -529,7 +533,7 @@ export function RagSourcesTab() {
     }
     setSiteSeeding(true)
     try {
-      const maxUrls = Math.max(1, Math.min(Number(siteMax) || 20, 50))
+      const maxUrls = Math.max(1, Math.min(Number(siteMax) || 20, 100))
       const d = await adminFetch('/admin/rag_sources/seed_website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -542,15 +546,19 @@ export function RagSourcesTab() {
           language: 'el',
         }),
       })
+      const job = (d.job || null) as SeedJobPublic | null
+      const behindCurrent = Boolean(seedJob && !seedJob.done)
+      if (job && !job.done && !behindCurrent) setSeedJob(job)
       show(
-        `Seeded ${d.name || 'website'} — ${d.ingested}/${d.total} pages (${d.discovered} discovered)`,
+        behindCurrent
+          ? `Queued ${d.discovered ?? d.total ?? 0} pages from ${d.name || 'the site'}. They start after the current sync finishes — keep this tab open.`
+          : `Ingesting ${d.name || 'website'} — ${d.discovered ?? d.total ?? 0} pages. Keep this tab open.`,
         'ok',
       )
       setSiteName('')
       setSiteBaseUrl('')
       setSiteSitemap('')
       setSiteRss('')
-      await loadSources()
     } catch (e) {
       show(e instanceof Error ? e.message : 'Website seed failed', 'err')
     } finally {

@@ -24,6 +24,8 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/user-data',
   '/admin/user-activity',
   '/admin/tools',
+  '/admin/notifications',
+  '/admin/emails',
   '/admin/activity-log',
   '/admin/chat-prompt',
   '/admin/llm-transactions',
@@ -54,7 +56,7 @@ export default defineConfig(({ mode }) => {
           target: API_TARGET,
           changeOrigin: true,
         },
-        '^/admin/(health|me|usage|insights|chat-quality|credits|llm_transactions|invite_tester|upload|offers|promotions|regions|levels|plans|point_rules|point_settings|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt|chat_memory|llm_routing|subscription-cancellations|support)': {
+        '^/admin/(health|me|usage|insights|chat-quality|credits|llm_transactions|invite_tester|upload|offers|promotions|regions|levels|plans|point_rules|point_settings|rag_sources|invite_codes|profiles|users|activity_log|user_activity|user_data|chat_prompt|chat_memory|llm_routing|subscription-cancellations|support|notifications|emails)': {
           target: API_TARGET,
           changeOrigin: true,
           bypass: adminApiBypass,

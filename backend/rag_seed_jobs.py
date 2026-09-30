@@ -168,6 +168,62 @@ def create_seed_job(
     return res.data[0]
 
 
+def create_prepared_seed_job(
+    sb,
+    *,
+    source_key: str,
+    urls: list[str],
+    created_by: Optional[str] = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> dict[str, Any]:
+    """Queue an already-discovered URL list and ingest it in small ticks.
+
+    discover_page > max_discover_pages marks discovery finished without the
+    rebuild_empty shortcut (that shortcut is max_discover_pages == 0).
+    """
+    key = (source_key or "").strip().lower()[:40]
+    if not key:
+        raise ValueError("source_key is required")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in urls:
+        u = (raw or "").strip()
+        if not u.startswith("http") or u in seen:
+            continue
+        seen.add(u)
+        cleaned.append(u)
+    if not cleaned:
+        raise ValueError("No pages to ingest")
+    payload = {
+        "source_key": key,
+        "status": "running",
+        "since_years": None,
+        "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
+        "discover_page": 2,
+        "max_discover_pages": 1,
+        "urls": cleaned,
+        "cursor_idx": 0,
+        "discovered": len(cleaned),
+        "ingested": 0,
+        "skipped": 0,
+        "failed": 0,
+        "last_error": None,
+        "created_by": created_by,
+        "updated_at": _now_iso(),
+    }
+    try:
+        res = sb.table("rag_seed_jobs").insert(payload).execute()
+    except Exception as e:
+        raise RuntimeError(
+            "rag_seed_jobs table missing or not writable. "
+            "Run backend/migrations/rag_seed_jobs.sql in Supabase, then retry. "
+            f"Detail: {e}"
+        ) from e
+    if not res.data:
+        raise RuntimeError("Failed to create seed job")
+    return res.data[0]
+
+
 def get_seed_job(sb, job_id: str) -> Optional[dict[str, Any]]:
     res = sb.table("rag_seed_jobs").select("*").eq("id", job_id).limit(1).execute()
     return (res.data or [None])[0]

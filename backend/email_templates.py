@@ -1033,6 +1033,59 @@ def render_support_admin_alert_email(
     )
 
 
+def _broadcast_images(urls: Optional[list[str]]) -> str:
+    parts: list[str] = []
+    for raw in urls or []:
+        url = (raw or "").strip()
+        if not url.startswith("https://") or len(url) > 800:
+            continue
+        safe = escape(url, quote=True)
+        parts.append(
+            f'<img src="{safe}" alt="" width="504" '
+            f'style="display:block;width:100%;max-width:504px;height:auto;'
+            f'border-radius:12px;margin:0 0 16px;border:0;" />'
+        )
+        if len(parts) >= 4:
+            break
+    return "".join(parts)
+
+
+def render_admin_broadcast_email(
+    *,
+    subject: str,
+    body: str,
+    link: Optional[str] = None,
+    name: Optional[str] = None,
+    images: Optional[list[str]] = None,
+    for_preview: bool = False,
+) -> EmailMessage:
+    """Admin-written message, wrapped in the HeyMaa email shell. {name} is optional."""
+    who = (name or "").strip()
+    subj = (subject or "").replace("{name}", who).strip()
+    text = (body or "").replace("{name}", who)
+    safe = escape(text).replace("\n", "<br>")
+    html_body = (
+        f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;">{safe}</div>'
+    )
+    pictures = _broadcast_images(images)
+    if pictures:
+        html_body += f'<div style="margin-top:8px;">{pictures}</div>'
+    if link:
+        html_body += _button(link, "Open HeyMaa")
+    html = _email_shell(html_body, preheader=subj[:140])
+    if for_preview:
+        raw = _read_logo_bytes()
+        if raw:
+            html = html.replace(
+                f"cid:{LOGO_CID}",
+                "data:image/png;base64," + base64.b64encode(raw).decode("ascii"),
+            )
+    return EmailMessage(
+        subject=subj[:180] or "HeyMaa",
+        html=html,
+    )
+
+
 def send_email(
     *,
     api_key: str,

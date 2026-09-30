@@ -53,6 +53,7 @@ import { ChatRichText } from "./components/ChatRichText";
 import { SupportContactPanel } from "./components/SupportContactPanel";
 import { ProfileActivePlanCard } from "./components/ProfileActivePlanCard";
 import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
+import { ChatSourcesDrawer, parseChatSources, type ChatSourceLink } from "./components/ChatSourcesDrawer";
 import "./appResponsive.css";
 
 import { useTranslation } from "react-i18next";
@@ -363,6 +364,8 @@ interface Message {
   memorySuggestion?: MemorySuggestion | null;
   /** Place pins for map embed (from Places API). */
   places?: ChatPlacePin[] | null;
+  /** Public pages that backed this answer. */
+  sources?: ChatSourceLink[] | null;
   /** Server id for thumbs / quality loop (from /chat message_id). */
   messageId?: string;
   feedback?: "up" | "down" | null;
@@ -2210,6 +2213,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [msgActionIndex, setMsgActionIndex] = useState<number | null>(null);
+  const [chatSources, setChatSources] = useState<ChatSourceLink[] | null>(null);
   const [replyTarget, setReplyTarget] = useState<{
     index: number;
     role: "user" | "assistant";
@@ -3291,6 +3295,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           promo: res.data.promo || null,
           memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
           places: Array.isArray(res.data?.places) ? res.data.places : null,
+          sources: parseChatSources(res.data?.sources),
           messageId: (() => {
             const raw = res.data?.message_id;
             if (typeof raw === "string" && raw.trim()) return raw.trim();
@@ -4729,11 +4734,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return lang === "el" ? "Δωρεάν" : "Free"
   }, [subSnapshot, lang]);
 
+  const [serverNotifUnread, setServerNotifUnread] = useState(0);
+  const [serverNotifTotal, setServerNotifTotal] = useState(0);
   const appNotifications = useMemo(
     () => buildAppNotifications(lang, trialEndsAt, subSnapshot),
     [lang, trialEndsAt, subSnapshot],
   );
-  const notifUnreadCount = appNotifications.filter((n) => !notifReadIds.has(n.id)).length;
+  const notifUnreadCount =
+    appNotifications.filter((n) => !notifReadIds.has(n.id)).length + serverNotifUnread;
   const refreshNotifRead = useCallback(() => {
     setNotifReadIds(readNotificationIds(token));
   }, [token]);
@@ -6290,6 +6298,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             }}
             onOpenSubscriptionSheet={openSubscriptionUpgrade}
             onReadChange={refreshNotifRead}
+            onInboxChange={(info) => {
+              setServerNotifUnread(info.unread);
+              setServerNotifTotal(info.total);
+            }}
           />
           </div>
           <button
@@ -6479,6 +6491,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           newChatLabel={t("newthread", lang)}
           searchLabel={t("search_chats", lang)}
           libraryLabel={t("chat_library", lang)}
+          sourcesLabel={lang === "el" ? "Πηγές" : "Sources"}
+          sourcesCount={(() => {
+            for (let i = messages.length - 1; i >= 0; i -= 1) {
+              const sources = messages[i]?.sources;
+              if (messages[i]?.role === "assistant" && sources && sources.length) return sources.length;
+            }
+            return 0;
+          })()}
+          onSources={() => {
+            for (let i = messages.length - 1; i >= 0; i -= 1) {
+              const sources = messages[i]?.sources;
+              if (messages[i]?.role === "assistant" && sources && sources.length) {
+                setChatSources(sources);
+                return;
+              }
+            }
+          }}
           onNewChat={requestNewThread}
           onSearch={() => {
             setChatSearchQuery("");
@@ -6578,7 +6607,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     icon: "🔔",
                     iconBg: "rgba(255,193,7,.2)",
                     label: lang==="el"?"Ειδοποιήσεις":"Alerts",
-                    value: notificationSummaryLabel(lang, appNotifications.length, notifUnreadCount),
+                    value: notificationSummaryLabel(lang, appNotifications.length + serverNotifTotal, notifUnreadCount),
                     onClick: () => {
                       setTab("profile");
                       setShowNotifications(true);
@@ -6702,13 +6731,49 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             <span className="hm-chat-bubble__quote-text">{msg.replyTo.content}</span>
                           </div>
                         )}
-                        <ChatRichText text={msg.content} />
+                        <ChatRichText
+                          text={msg.content}
+                          trailing={
+                            msg.sources && msg.sources.length > 0 ? (
+                              <span className="hm-chat-source-cites">
+                                {msg.sources.map((src, n) => (
+                                  <a
+                                    key={src.url}
+                                    className="hm-chat-source-cite"
+                                    href={src.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={src.title}
+                                  >
+                                    {lang === "el" ? `[πηγή ${n + 1}]` : `[source ${n + 1}]`}
+                                  </a>
+                                ))}
+                              </span>
+                            ) : undefined
+                          }
+                        />
                         {msg.places && msg.places.length > 0 ? (
                           <ChatPlacesMap places={msg.places} apiBase={API} />
                         ) : null}
                       </div>
                       <div className="hm-chat-reply-actions">
-                        <button onClick={()=>speak(msg.content,i)} className="hm-chat-listen-btn" style={{color:ttsRemaining<=0?"#C8BFB8":playingIndex===i?coral:teal,cursor:"pointer"}}>{playingIndex===i?"⏸ Stop":t("listen",lang)}</button>
+                        {msg.sources && msg.sources.length > 0 ? (
+                          <button
+                            type="button"
+                            className="hm-chat-sources-btn"
+                            onClick={() => setChatSources(msg.sources || null)}
+                          >
+                            {lang === "el" ? "Πηγές" : "Sources"}
+                            <span>{msg.sources.length}</span>
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => speak(msg.content, i)}
+                          className={`hm-chat-listen-btn${playingIndex === i ? " is-playing" : ""}${ttsRemaining <= 0 ? " is-empty" : ""}`}
+                        >
+                          {playingIndex === i ? "⏸ Stop" : t("listen", lang)}
+                        </button>
                         <span className="hm-chat-feedback" role="group" aria-label={lang==="el"?"Αξιολόγηση απάντησης":"Rate reply"}>
                           <button
                             type="button"
@@ -6836,6 +6901,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             <div ref={bottomRef}/>
           </div>
         )}
+        <ChatSourcesDrawer lang={lang} sources={chatSources} onClose={() => setChatSources(null)} />
 
         {/* ── FAMILY ── */}
         {tab==="family"&&(

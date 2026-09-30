@@ -45,6 +45,16 @@ function IconImages() {
   );
 }
 
+function IconSources() {
+  return (
+    <RailIcon>
+      <path d="M12 7.2C10.5 6.1 8.6 5.5 6.5 5.5H4.2v12.2h2.3c2.1 0 4 .6 5.5 1.7" {...stroke} />
+      <path d="M12 7.2c1.5-1.1 3.4-1.7 5.5-1.7h2.3v12.2h-2.3c-2.1 0-4 .6-5.5 1.7" {...stroke} />
+      <path d="M12 7.2v12.2" {...stroke} />
+    </RailIcon>
+  );
+}
+
 type RailItem = {
   key: string;
   label: string;
@@ -62,6 +72,9 @@ export function ChatIconRail({
   onSearch,
   onLibrary,
   newChatDisabled,
+  sourcesLabel,
+  sourcesCount,
+  onSources,
 }: {
   railAriaLabel: string;
   newChatLabel: string;
@@ -71,24 +84,38 @@ export function ChatIconRail({
   onSearch: () => void;
   onLibrary: () => void;
   newChatDisabled?: boolean;
+  sourcesLabel?: string;
+  sourcesCount?: number;
+  onSources?: () => void;
 }) {
   const items: RailItem[] = [
     { key: "new", label: newChatLabel, onClick: onNewChat, disabled: newChatDisabled, icon: <IconCirclePlus /> },
     { key: "search", label: searchLabel, onClick: onSearch, icon: <IconSearch /> },
     { key: "library", label: libraryLabel, onClick: onLibrary, icon: <IconImages /> },
   ];
+  if (onSources && (sourcesCount || 0) > 0) {
+    items.push({
+      key: "sources",
+      label: sourcesLabel || "Sources",
+      onClick: onSources,
+      icon: <IconSources />,
+    });
+  }
   return (
     <aside className="hm-chat-rail" aria-label={railAriaLabel}>
       {items.map((item) => (
         <button
           key={item.key}
           type="button"
-          className="hm-chat-rail__btn"
+          className={`hm-chat-rail__btn${item.key === "sources" ? " hm-chat-rail__btn--sources" : ""}`}
           aria-label={item.label}
           disabled={item.disabled}
           onClick={item.onClick}
         >
           {item.icon}
+          {item.key === "sources" && (sourcesCount || 0) > 0 ? (
+            <span className="hm-chat-rail__badge">{sourcesCount}</span>
+          ) : null}
           <span className="hm-chat-rail__tip">{item.label}</span>
         </button>
       ))}

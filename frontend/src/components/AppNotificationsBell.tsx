@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { SubscriptionSnapshot } from '../lib/authApi'
 import {
@@ -7,6 +7,15 @@ import {
   readNotificationIds,
   type AppNotification,
 } from '../lib/appNotifications'
+import {
+  enablePush,
+  fetchInbox,
+  markInboxRead,
+  pushPermission,
+  pushSupported,
+  subscribePush,
+  type InboxNotification,
+} from '../lib/inboxNotifications'
 import { AppModalPortal } from './AppModalPortal'
 
 type Props = {
@@ -18,6 +27,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onOpenSubscriptionSheet: () => void
   onReadChange?: () => void
+  onInboxChange?: (info: { unread: number; total: number }) => void
 }
 
 function BellIcon() {
@@ -44,6 +54,7 @@ export function AppNotificationsBell({
   onOpenChange,
   onOpenSubscriptionSheet,
   onReadChange,
+  onInboxChange,
 }: Props) {
   const isEl = lang === 'el'
   const panelId = useId()
@@ -52,15 +63,45 @@ export function AppNotificationsBell({
     [lang, trialEndsAt, subSnapshot],
   )
   const [readIds, setReadIds] = useState<Set<string>>(() => readNotificationIds(token))
+  const [inbox, setInbox] = useState<InboxNotification[]>([])
+  const [pushState, setPushState] = useState(pushPermission)
+  const [pushBusy, setPushBusy] = useState(false)
+  const onInboxChangeRef = useRef(onInboxChange)
+  onInboxChangeRef.current = onInboxChange
 
   useEffect(() => {
     setReadIds(readNotificationIds(token))
   }, [token])
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !readIds.has(n.id)).length,
-    [notifications, readIds],
-  )
+  const refreshInbox = useCallback(async () => {
+    if (!token) {
+      setInbox([])
+      onInboxChangeRef.current?.({ unread: 0, total: 0 })
+      return
+    }
+    try {
+      const data = await fetchInbox(token)
+      setInbox(data.notifications)
+      onInboxChangeRef.current?.({ unread: data.unread, total: data.notifications.length })
+    } catch {
+      /* inbox stays as last successful load */
+    }
+  }, [token])
+
+  useEffect(() => {
+    void refreshInbox()
+  }, [refreshInbox])
+
+  useEffect(() => {
+    if (!token || pushPermission() !== 'granted') return
+    void subscribePush(token).catch(() => undefined)
+  }, [token])
+
+  const unreadCount = useMemo(() => {
+    const local = notifications.filter((n) => !readIds.has(n.id)).length
+    const remote = inbox.filter((n) => !n.read).length
+    return local + remote
+  }, [notifications, readIds, inbox])
 
   const markRead = useCallback(
     (ids: string[]) => {
@@ -79,6 +120,35 @@ export function AppNotificationsBell({
       onOpenSubscriptionSheet()
     }
   }
+
+  const openInboxItem = async (item: InboxNotification) => {
+    if (!item.read) {
+      try {
+        await markInboxRead(token, [item.id])
+      } catch {
+        /* still close the row locally */
+      }
+      setInbox((cur) => cur.map((row) => (row.id === item.id ? { ...row, read: true } : row)))
+      onInboxChangeRef.current?.({
+        unread: inbox.filter((row) => !row.read && row.id !== item.id).length,
+        total: inbox.length,
+      })
+    }
+  }
+
+  const allowPush = async () => {
+    setPushBusy(true)
+    try {
+      const result = await enablePush(token)
+      setPushState(result === 'unsupported' ? 'unsupported' : result)
+    } catch {
+      setPushState(pushPermission())
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  const empty = notifications.length === 0 && inbox.length === 0
 
   return (
     <div style={{ position: 'relative' }}>
@@ -109,7 +179,7 @@ export function AppNotificationsBell({
           >
             <div className="hm-notif-panel-head">
               <span>{isEl ? 'Ειδοποιήσεις' : 'Alerts'}</span>
-              {notifications.length > 0 ? (
+              {!empty ? (
                 <span className="hm-notif-panel-count">
                   {unreadCount > 0
                     ? (isEl ? `${unreadCount} ${unreadCount === 1 ? 'νέα' : 'νέες'}` : `${unreadCount} new`)
@@ -118,7 +188,27 @@ export function AppNotificationsBell({
               ) : null}
             </div>
 
-            {notifications.length === 0 ? (
+            {pushSupported() && pushState !== 'granted' ? (
+              <div className="hm-notif-item" style={{ margin: '0 0 8px' }}>
+                <div className="hm-notif-item-body">
+                  <div className="hm-notif-item-title">
+                    {isEl ? 'Ειδοποιήσεις στο κινητό' : 'Alerts on this phone'}
+                  </div>
+                  <p className="hm-notif-item-text">
+                    {isEl
+                      ? 'Επίτρεψε τις ειδοποιήσεις για να εμφανίζονται και όταν η HeyMaa είναι κλειστή. Στο iPhone χρειάζεται «Προσθήκη στην αρχική».'
+                      : 'Allow alerts to see messages when HeyMaa is closed. On iPhone, add HeyMaa to the Home Screen first.'}
+                  </p>
+                  <button type="button" className="hm-notif-action" disabled={pushBusy} onClick={() => void allowPush()}>
+                    {pushBusy
+                      ? (isEl ? 'Ενεργοποίηση…' : 'Enabling…')
+                      : (isEl ? 'Να επιτρέπονται οι ειδοποιήσεις' : 'Allow notifications')}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {empty ? (
               <div className="hm-notif-empty">
                 <span className="hm-notif-empty-icon" aria-hidden="true">
                   🔔
@@ -127,6 +217,9 @@ export function AppNotificationsBell({
               </div>
             ) : (
               <div className="hm-notif-list">
+                {inbox.map((item) => (
+                  <InboxRow key={item.id} item={item} onOpen={() => void openInboxItem(item)} />
+                ))}
                 {notifications.map((item) => (
                   <NotificationRow
                     key={item.id}
@@ -141,6 +234,33 @@ export function AppNotificationsBell({
           </div>
         </AppModalPortal>
       ) : null}
+    </div>
+  )
+}
+
+function InboxRow({ item, onOpen }: { item: InboxNotification; onOpen: () => void }) {
+  const external = !!item.url && /^https?:\/\//i.test(item.url)
+  const internal = !!item.url && item.url.startsWith('/')
+  return (
+    <div
+      className={`hm-notif-item${item.read ? '' : ' hm-notif-item--unread'}`}
+      onClick={onOpen}
+    >
+      <div className="hm-notif-item-dot" aria-hidden="true" />
+      <div className="hm-notif-item-body">
+        <div className="hm-notif-item-title">{item.title}</div>
+        <p className="hm-notif-item-text">{item.body}</p>
+        {external ? (
+          <a className="hm-notif-action" href={item.url || '/'} onClick={onOpen}>
+            Open
+          </a>
+        ) : null}
+        {internal ? (
+          <Link to={item.url || '/'} className="hm-notif-action" onClick={onOpen}>
+            Open
+          </Link>
+        ) : null}
+      </div>
     </div>
   )
 }

@@ -13,6 +13,8 @@ import {
   MousePointerClick,
   Bot,
   Ban,
+  Bell,
+  Mail,
   BarChart3,
   BookOpen,
   Headphones,
@@ -56,6 +58,8 @@ import { ChatPromptTab } from '../tabs/ChatPromptTab'
 import { RagSourcesTab } from '../tabs/RagSourcesTab'
 import { LlmTransactionsTab } from '../tabs/LlmTransactionsTab'
 import { UserFinancialsTab } from '../tabs/UserFinancialsTab'
+import { NotificationsTab } from '../tabs/NotificationsTab'
+import { EmailsTab } from '../tabs/EmailsTab'
 import { SidebarUser } from './SidebarUser'
 
 const NAV_ICONS: Record<TabId, typeof LayoutDashboard> = {
@@ -72,6 +76,8 @@ const NAV_ICONS: Record<TabId, typeof LayoutDashboard> = {
   users: Users,
   cancellations: Ban,
   support: Headphones,
+  notifications: Bell,
+  emails: Mail,
   userdata: Database,
   useractivity: MousePointerClick,
   chatprompt: Bot,
@@ -296,6 +302,8 @@ export function AdminShell() {
               element={<CancellationsTab key={`cx-${refreshKey}`} />}
             />
             <Route path="support" element={<SupportInboxTab key={`sp-${refreshKey}`} />} />
+            <Route path="notifications" element={<NotificationsTab key={`nt-${refreshKey}`} />} />
+            <Route path="emails" element={<EmailsTab key={`em-${refreshKey}`} />} />
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
             <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />
             <Route path="chat-prompt" element={<ChatPromptTab key={`cp-${refreshKey}`} />} />

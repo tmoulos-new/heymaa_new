@@ -18,6 +18,8 @@ export const TAB_TITLES: Record<string, string> = {
   users: 'Users',
   cancellations: 'Cancellations',
   support: 'Support Inbox',
+  notifications: 'Notifications',
+  emails: 'Emails',
   userdata: 'User Data',
   useractivity: 'User Activity',
   chatprompt: 'Chat Prompt',
@@ -41,6 +43,8 @@ export const TAB_SUBTITLES: Record<string, string> = {
   users: 'Find accounts, change plans, and run support actions',
   cancellations: 'Approve period-end cancels or end access immediately',
   support: 'In-app contact messages from moms — read and reply',
+  notifications: 'Custom messages for specific people, in the app and as phone alerts',
+  emails: 'Custom emails to specific people, a plan, or a small group',
   userdata: 'Read-only look at family, chat, and memory JSON per user',
   useractivity: 'In-app clicks and screen views (not admin edits)',
   chatprompt: 'System prompt, memory instructions, and model routing',
@@ -55,7 +59,7 @@ export type TabId = keyof typeof TAB_TITLES
 /** Sidebar information architecture — groups keep the long nav scannable. */
 export const NAV_GROUPS: { label: string; ids: TabId[] }[] = [
   { label: 'Home', ids: ['overview', 'insights', 'quality'] },
-  { label: 'People', ids: ['users', 'cancellations', 'support', 'testers', 'invites'] },
+  { label: 'People', ids: ['users', 'cancellations', 'support', 'notifications', 'emails', 'testers', 'invites'] },
   { label: 'Product', ids: ['plans', 'points', 'content', 'regions', 'sources'] },
   {
     label: 'Intelligence',
@@ -79,6 +83,8 @@ export const TAB_PATHS: Record<TabId, string> = {
   users: 'users',
   cancellations: 'cancellations',
   support: 'support',
+  notifications: 'notifications',
+  emails: 'emails',
   userdata: 'user-data',
   useractivity: 'user-activity',
   chatprompt: 'chat-prompt',

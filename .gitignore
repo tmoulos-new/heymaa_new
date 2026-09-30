@@ -4,6 +4,7 @@
 .env.vercel.local
 backend/.env
 backend/.env.bak
+backend/.vapid.json
 
 # Logs & backups
 logs/

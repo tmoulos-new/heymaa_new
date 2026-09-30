@@ -1860,6 +1860,120 @@ def _serialize_rag_matches(chunks: list) -> list:
         )
     return out
 
+
+def public_chat_sources(chunks: list) -> list:
+    """Unique public URLs that actually backed this reply. Empty when RAG found nothing linkable."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    pending: list[tuple[str, str]] = []
+
+    def _meta(row: dict) -> dict:
+        meta = row.get("metadata") or {}
+        if isinstance(meta, str):
+            try:
+                import json as _json
+                meta = _json.loads(meta)
+            except Exception:
+                meta = {}
+        return meta if isinstance(meta, dict) else {}
+
+    def _add(url: str, title: str) -> bool:
+        raw = (url or "").strip()
+        if not raw.startswith("http"):
+            return False
+        key = raw.split("?")[0].rstrip("/")
+        if key in seen:
+            return False
+        seen.add(key)
+        label = (title or "").strip()
+        if not label:
+            try:
+                from urllib.parse import urlparse
+                label = urlparse(raw).netloc.replace("www.", "")
+            except Exception:
+                label = raw
+        out.append({"title": label[:160], "url": raw[:500]})
+        return len(out) >= 4
+
+    for row in chunks or []:
+        if not isinstance(row, dict):
+            continue
+        meta = _meta(row)
+        url = str(meta.get("source_url") or meta.get("url") or row.get("source_url") or row.get("origin") or "")
+        title = str(meta.get("title") or meta.get("source_title") or row.get("title") or "")
+        if _add(url, title):
+            return out
+        sid = str(meta.get("source_id") or row.get("source_id") or "").strip()
+        if sid and not url.startswith("http"):
+            pending.append((sid, title))
+
+    if pending and sb and len(out) < 4:
+        ids: list[str] = []
+        for sid, _title in pending:
+            if sid not in ids:
+                ids.append(sid)
+        try:
+            res = (
+                sb.table("rag_sources")
+                .select("id,title,origin,source_url")
+                .in_("id", ids[:12])
+                .execute()
+            )
+            by_id = {str(r.get("id")): r for r in (res.data or [])}
+        except Exception:
+            by_id = {}
+        for sid, fallback_title in pending:
+            row = by_id.get(sid) or {}
+            url = str(row.get("source_url") or row.get("origin") or "")
+            title = str(row.get("title") or fallback_title or "")
+            if _add(url, title):
+                break
+    return out
+
+
+def asks_for_sources(message: str) -> bool:
+    """True when the user is asking for the pages behind the last answer."""
+    text = (message or "").strip()
+    if not text or len(text) > 240:
+        return False
+    return bool(
+        _re.search(
+            r"(πηγές|πηγες|sources?\b|\blinks?\b|σύνδεσμ|συνδεσμ|παραπομπ)",
+            text,
+            _re.IGNORECASE,
+        )
+    )
+
+
+def previous_substantive_question(history) -> str:
+    for item in reversed(history or []):
+        if isinstance(item, dict):
+            role = item.get("role")
+            content = item.get("content") or item.get("text") or ""
+        else:
+            role = getattr(item, "role", None)
+            content = getattr(item, "content", "") or ""
+        content = str(content).strip()
+        if role == "user" and content and not asks_for_sources(content):
+            return content[:500]
+    return ""
+
+
+def source_request_reply(lang: str, has_sources: bool) -> str:
+    el = (lang or "").lower().startswith("el")
+    if has_sources:
+        return (
+            "Οι σελίδες που στήριξαν την απάντηση είναι στο κουμπί Πηγές, ακριβώς κάτω από αυτό το μήνυμα."
+            if el
+            else "The pages that backed the answer are under Sources, just below this message."
+        )
+    return (
+        "Αυτή η απάντηση δεν στηρίχτηκε σε συγκεκριμένη σελίδα της βιβλιοθήκης, οπότε δεν υπάρχει σύνδεσμος να ανοίξεις."
+        if el
+        else "That answer was not backed by a specific page in the library, so there is no link to open."
+    )
+
+
 def build_rag_context(chunks):
     if not chunks:
         return ""
@@ -2274,9 +2388,10 @@ _LIST_FORMAT_RULE = (
     "When a Maps or source URL is available, make the name a markdown link: [Name](https://…). "
     "Put address / rating / phone on the same bullet after an em dash, or on a short second line. "
     "Never paste raw 'maps: https://…' as trailing clutter — links belong on the name. "
-    "When background knowledge includes source URLs, you may end with a short "
-    "'Sources:' / 'Πηγές:' section of markdown links. "
-    "Do not invent URLs. Ordinary advice (non-list) stays clean prose without forced bullets."
+    "Never tell the user you cannot provide sources or links. "
+    "Real library pages are shown by the app in the Πηγές / Sources button under the reply. "
+    "If they ask for sources, point them to that button. Do not invent URLs. "
+    "Ordinary advice (non-list) stays clean prose without forced bullets."
 )
 
 _CONVERSATION_STYLE_RULE = (
@@ -2420,7 +2535,14 @@ def build_system_prompt(
     if promotion_context:
         prompt += "\n\n--- Sponsored content (mention ONLY if it naturally fits the current conversation topic, in at most one brief sentence translated into the user language, ALWAYS followed by the word sponsored in parentheses) ---\n" + promotion_context
     if rag_context:
-        prompt += f"\n\n--- Background knowledge (use naturally, don't cite) ---\n{rag_context}"
+        prompt += (
+            "\n\n--- Background knowledge ---\n"
+            "Use this to inform the answer. Do not mention a knowledge base. "
+            "Do not say you cannot provide sources or links. "
+            "When these notes include a page address, the app shows that page under the reply. "
+            "Do not invent URLs.\n"
+            f"{rag_context}"
+        )
     return prompt
 
 COMPLEX_KEYWORDS = ["diagnosis","symptoms","emergency","medication","fever","hospital","allergy","depression","anxiety"]
@@ -4688,20 +4810,28 @@ async def _run_chat_core(
     except Exception:
         greeting_only = False
 
+    source_ask = asks_for_sources(req.message)
+    retrieval_query = req.message or ""
+    if source_ask:
+        prior = previous_substantive_question(req.history)
+        if prior:
+            retrieval_query = prior
+            needs_rag = True
+
     t_rag0 = _time.perf_counter()
     rag_chunks: list = []
     rag_timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
     if needs_rag:
         if include_debug:
             rag_chunks, rag_timing = await asyncio.to_thread(
-                retrieve_context, req.message, with_timing=True
+                retrieve_context, retrieval_query, with_timing=True
             )
             timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
             timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
             if rag_timing.get("error"):
                 timing["rag_error"] = rag_timing["error"]
         else:
-            rag_chunks = await asyncio.to_thread(retrieve_context, req.message)
+            rag_chunks = await asyncio.to_thread(retrieve_context, retrieval_query)
     else:
         timing["rag_embed_ms"] = 0
         timing["rag_match_ms"] = 0
@@ -4709,6 +4839,7 @@ async def _run_chat_core(
         rag_timing["skipped"] = True
     timing["rag_total_ms"] = round((_time.perf_counter() - t_rag0) * 1000, 1)
     rag_matches = _serialize_rag_matches(rag_chunks) if include_debug else None
+    chat_sources = public_chat_sources(rag_chunks) if rag_chunks else []
     rag_context = build_rag_context(rag_chunks)
     t_ctx0 = _time.perf_counter()
     family_context = build_profile_context(req.profile)
@@ -4918,6 +5049,8 @@ async def _run_chat_core(
             "memory_suggestion": memory_suggestion,
             "message_id": message_id,
         }
+        if chat_sources:
+            out["sources"] = chat_sources
         if places_for_ui:
             out["places"] = places_for_ui
         if include_debug:
@@ -4945,6 +5078,12 @@ async def _run_chat_core(
                 "llm_transaction_ids": list(llm_tx_ids),
             }
         return out
+
+    if source_ask:
+        return _chat_success(
+            source_request_reply(msg_lang or profile_lang or "el", bool(chat_sources)),
+            "library",
+        )
 
     if image_parts:
         try:
@@ -7964,10 +8103,8 @@ async def admin_seed_website_sources(
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
         from .url_acquire import discover_source_urls, normalize_url
-        from .rag_ingest import create_or_update_url_source_and_ingest
     except ImportError:
         from url_acquire import discover_source_urls, normalize_url
-        from rag_ingest import create_or_update_url_source_and_ingest
 
     base = (req.base_url or "").strip()
     if not base:
@@ -7997,73 +8134,66 @@ async def admin_seed_website_sources(
     slug = _slug_re.sub(r"[^a-z0-9]+", "-", host.lower()).strip("-") or "website"
     source_key = (req.source_key or "").strip() or slug[:40]
     language = (req.language or "el").strip() or "el"
-    max_urls = max(1, min(int(req.max_urls or 20), 50))
+    max_urls = max(1, min(int(req.max_urls or 20), 100))
     display_name = (req.name or "").strip() or host
 
-    urls = discover_source_urls(
-        base_url=base,
-        sitemap_url=sitemap,
-        rss_url=rss,
-        source_key=source_key,
-        max_urls=max_urls,
-    )
+    try:
+        urls = discover_source_urls(
+            base_url=base,
+            sitemap_url=sitemap,
+            rss_url=rss,
+            source_key=source_key,
+            max_urls=max_urls,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch the site: {e}") from e
     if not urls:
         raise HTTPException(
             status_code=400,
             detail="No pages discovered. Try a sitemap URL, an RSS feed URL, or a blog listing page as the base URL.",
         )
 
-    results = []
-    for u in urls:
-        try:
-            item = create_or_update_url_source_and_ingest(
-                sb,
-                url=u,
-                source_key=source_key,
-                language=language,
-            )
-            results.append(
-                {
-                    "ok": True,
-                    "source_key": source_key,
-                    "url": item.get("url") or u,
-                    "chunk_count": item.get("chunk_count"),
-                    "status": item.get("status"),
-                }
-            )
-        except Exception as e:
-            results.append(
-                {
-                    "ok": False,
-                    "source_key": source_key,
-                    "url": u,
-                    "error": str(e),
-                }
-            )
-    ok_n = sum(1 for r in results if r.get("ok"))
+    # Ingest in the same small ticks as Babyspace. Doing every page inside this
+    # request embeds for minutes and the browser reports "Failed to fetch".
+    try:
+        from .rag_seed_jobs import create_prepared_seed_job, job_public
+    except ImportError:
+        from rag_seed_jobs import create_prepared_seed_job, job_public
+    try:
+        row = create_prepared_seed_job(
+            sb,
+            source_key=source_key,
+            urls=urls,
+            created_by=str(admin_id) if admin_id is not None else None,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     _log_activity(
         admin_id,
-        "seed",
-        "rag_source",
-        "website_seed",
+        "seed_job_create",
+        "rag_seed_job",
+        str(row.get("id")),
         details={
-            "ok": ok_n,
-            "total": len(results),
             "base_url": base,
             "source_key": source_key,
             "name": display_name,
             "sitemap_url": sitemap,
             "rss_url": rss,
+            "discovered": len(urls),
+            "language": language,
         },
     )
     return {
         "ok": True,
-        "ingested": ok_n,
-        "total": len(results),
+        "queued": True,
+        "ingested": 0,
+        "total": len(urls),
         "source_key": source_key,
         "name": display_name,
         "discovered": len(urls),
-        "results": results,
+        "job": job_public(row),
     }
 
 
@@ -10234,7 +10364,22 @@ _API_PATH_PREFIXES = (
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing", "admin/support",
     "public/offers", "public/promotions", "healthz", "functions/",
+    "me/", "admin/notifications", "admin/emails",
 )
+
+try:
+    from .app_notifications_api import register_notification_routes
+except ImportError:
+    from app_notifications_api import register_notification_routes
+
+register_notification_routes(app)
+
+try:
+    from .admin_email_api import register_email_routes
+except ImportError:
+    from admin_email_api import register_email_routes
+
+register_email_routes(app)
 
 @app.get("/{spa_path:path}")
 async def spa_fallback(spa_path: str, request: Request):

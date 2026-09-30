@@ -84,7 +84,7 @@ function stripBullet(line: string): string {
  * Lightweight markdown for assistant chat bubbles: bullets, numbered lists,
  * **bold**, [label](url) and bare https links. No HTML from the model is executed.
  */
-export function ChatRichText({ text }: { text: string }) {
+export function ChatRichText({ text, trailing }: { text: string; trailing?: ReactNode }) {
   const raw = (text || "").replace(/\r\n/g, "\n").trimEnd();
   if (!raw) return null;
 
@@ -158,6 +158,16 @@ export function ChatRichText({ text }: { text: string }) {
           </Fragment>
         ))}
       </p>,
+    );
+  }
+
+  if (trailing) {
+    const last = blocks.pop();
+    blocks.push(
+      <div key={`end-${blockKey}`} className="hm-chat-rich__end">
+        {last}
+        {trailing}
+      </div>,
     );
   }
 
