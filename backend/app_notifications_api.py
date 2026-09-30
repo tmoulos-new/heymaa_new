@@ -15,8 +15,11 @@ _MISSING = (
 
 
 def _main():
-    import main as m
-
+    # Vercel loads this file as backend.app_notifications_api, so `import main` misses.
+    try:
+        from . import main as m
+    except ImportError:
+        import main as m
     return m
 
 

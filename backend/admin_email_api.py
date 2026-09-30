@@ -20,8 +20,11 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _main():
-    import main as m
-
+    # Vercel loads this file as backend.admin_email_api, so `import main` misses.
+    try:
+        from . import main as m
+    except ImportError:
+        import main as m
     return m
 
 
