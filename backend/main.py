@@ -7856,7 +7856,7 @@ async def admin_rag_sources_health(x_token: Optional[str] = Header(None)):
     return compute_rag_health(sb)
 
 
-@app.post("/admin/rag_sources/cron_tick")
+@app.api_route("/admin/rag_sources/cron_tick", methods=["GET", "POST"])
 async def admin_rag_sources_cron_tick(
     x_token: Optional[str] = Header(None),
     authorization: Optional[str] = Header(None),
@@ -7866,6 +7866,7 @@ async def admin_rag_sources_cron_tick(
     """
     Unattended maintenance: cancel stale jobs, optionally enqueue rebuild/add_new,
     then advance the active job with several small ticks (Vercel cron).
+    Vercel Cron sends GET; admin "Run maintenance" uses POST.
     """
     _verify_cron_or_admin(authorization, x_token)
     if not sb:
