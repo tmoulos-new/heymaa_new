@@ -37,7 +37,7 @@ export const TAB_SUBTITLES: Record<string, string> = {
   points: 'Point rules, daily caps, and level gifts for the app ladder',
   plans: 'What moms see in pricing, plus LLM limits per plan',
   content: 'Offers/news for everyone vs targeted promotions (consent)',
-  sources: 'Documents & URLs chat can retrieve — upload, seed, library',
+  sources: 'Library health, sync new pages, and auto-repair — chat retrieves these chunks',
   users: 'Find accounts, change plans, and run support actions',
   cancellations: 'Approve period-end cancels or end access immediately',
   support: 'In-app contact messages from moms — read and reply',

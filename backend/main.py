@@ -7539,22 +7539,36 @@ async def admin_delete_level(level_id: int, x_token: Optional[str] = Header(None
 
 
 def _rag_chunk_counts(source_ids: List[str]) -> dict:
+    """Count rag_chunks per source_id without hitting PostgREST's ~1000-row cap."""
     counts = {sid: 0 for sid in source_ids}
     if not sb or not source_ids:
         return counts
+    # Keep IN lists modest; page through results (default max-rows is often 1000).
+    id_batch = 80
+    page_size = 1000
     try:
-        res = (
-            sb.table("rag_chunks")
-            .select("source_id")
-            .in_("source_id", source_ids)
-            .execute()
-        )
-        for row in res.data or []:
-            sid = row.get("source_id")
-            if sid in counts:
-                counts[sid] += 1
+        for i in range(0, len(source_ids), id_batch):
+            batch = source_ids[i : i + id_batch]
+            offset = 0
+            while True:
+                res = (
+                    sb.table("rag_chunks")
+                    .select("source_id")
+                    .in_("source_id", batch)
+                    .range(offset, offset + page_size - 1)
+                    .execute()
+                )
+                rows = res.data or []
+                for row in rows:
+                    sid = row.get("source_id")
+                    if sid in counts:
+                        counts[sid] += 1
+                if len(rows) < page_size:
+                    break
+                offset += page_size
     except Exception:
-        pass
+        # Fall back to empty live counts — callers must not clobber stored chunk_count.
+        return {sid: 0 for sid in source_ids}
     return counts
 
 
@@ -7564,21 +7578,35 @@ async def admin_list_rag_sources(x_token: Optional[str] = Header(None)):
     if not sb:
         return {"sources": [], "error": "Database not configured"}
     try:
-        result = (
-            sb.table("rag_sources")
-            .select("*")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        rows = result.data or []
+        # Page past PostgREST's default ~1000-row max so large libraries aren't truncated.
+        rows: list = []
+        page_size = 1000
+        offset = 0
+        while True:
+            result = (
+                sb.table("rag_sources")
+                .select("*")
+                .order("created_at", desc=True)
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            batch = result.data or []
+            rows.extend(batch)
+            if len(batch) < page_size:
+                break
+            offset += page_size
         live = _rag_chunk_counts([r["id"] for r in rows if r.get("id")])
         for row in rows:
             sid = row.get("id")
-            live_count = live.get(sid, 0)
+            stored = int(row.get("chunk_count") or 0)
+            live_count = int(live.get(sid, 0) or 0)
             row["chunks_live"] = live_count
-            # Prefer live count when stored value is stale
-            if int(row.get("chunk_count") or 0) != live_count:
+            # Prefer live when it found chunks; never overwrite a healthy stored
+            # count with 0 (that usually means the recount failed / was capped).
+            if live_count > 0:
                 row["chunk_count"] = live_count
+            else:
+                row["chunk_count"] = stored
         return {"sources": rows}
     except Exception as e:
         return {"sources": [], "error": str(e)}
@@ -7796,6 +7824,60 @@ class RagSeedJobCreateRequest(BaseModel):
     since_years: Optional[float] = 5.0
     batch_size: int = 5
     max_discover_pages: int = 250
+    # add_new: discover listings, skip healthy ready+chunks>0 (incremental).
+    # rebuild_empty: re-ingest only error/empty URL sources already in the library.
+    mode: str = "add_new"
+
+
+def _verify_cron_or_admin(
+    authorization: Optional[str] = None,
+    x_token: Optional[str] = None,
+) -> str:
+    """Allow Vercel cron (CRON_SECRET bearer) or a logged-in admin."""
+    secret = (os.getenv("CRON_SECRET") or "").strip()
+    auth = (authorization or "").strip()
+    if secret and auth:
+        token = auth[7:].strip() if auth.lower().startswith("bearer ") else auth
+        if token == secret:
+            return "cron"
+    return verify_admin(x_token)
+
+
+@app.get("/admin/rag_sources/health")
+async def admin_rag_sources_health(x_token: Optional[str] = Header(None)):
+    """Unfiltered corpus health + active seed job (for Sources tab / Overview)."""
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_maintenance import compute_rag_health
+    except ImportError:
+        from rag_maintenance import compute_rag_health
+    return compute_rag_health(sb)
+
+
+@app.post("/admin/rag_sources/cron_tick")
+async def admin_rag_sources_cron_tick(
+    x_token: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
+    max_ticks: int = 8,
+    enqueue: bool = True,
+):
+    """
+    Unattended maintenance: cancel stale jobs, optionally enqueue rebuild/add_new,
+    then advance the active job with several small ticks (Vercel cron).
+    """
+    _verify_cron_or_admin(authorization, x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    # Optional kill-switch
+    if (os.getenv("RAG_AUTO_MAINTENANCE") or "1").strip().lower() in ("0", "false", "off", "no"):
+        return {"ok": True, "skipped": True, "reason": "RAG_AUTO_MAINTENANCE disabled"}
+    try:
+        from .rag_maintenance import run_maintenance_tick
+    except ImportError:
+        from rag_maintenance import run_maintenance_tick
+    return run_maintenance_tick(sb, max_ticks=max_ticks, enqueue=enqueue)
 
 
 @app.post("/admin/rag_sources/seed_jobs")
@@ -7819,6 +7901,7 @@ async def admin_create_rag_seed_job(
             batch_size=req.batch_size,
             max_discover_pages=req.max_discover_pages,
             created_by=str(admin_id) if admin_id is not None else None,
+            mode=req.mode or "add_new",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -7829,7 +7912,12 @@ async def admin_create_rag_seed_job(
         "seed_job_create",
         "rag_seed_job",
         str(row.get("id")),
-        details={"source_key": row.get("source_key"), "since_years": row.get("since_years")},
+        details={
+            "source_key": row.get("source_key"),
+            "since_years": row.get("since_years"),
+            "mode": req.mode or "add_new",
+            "queued": len(row.get("urls") or []),
+        },
     )
     return {"ok": True, "job": job_public(row)}
 

@@ -1,4 +1,4 @@
-export type AuthLang = 'el' | 'en'
+export type AuthLang = 'el' | 'en' | 'ro'
 
 const STRINGS = {
   el: {
@@ -92,16 +92,62 @@ const STRINGS = {
     errInviteRequired: 'Invite code required.',
     errDatabase: 'Database unavailable. Please try again later.',
   },
+  ro: {
+    signupTitle: 'Pentru a continua, completează datele tale!',
+    loginTitle: 'Bine ai revenit!',
+    name: 'Nume',
+    namePh: 'Numele tău',
+    email: 'Email',
+    emailPh: 'tu@exemplu.com',
+    password: 'Parolă',
+    passwordPh: 'Introdu parola',
+    confirmPassword: 'Confirmă parola',
+    confirmPasswordPh: 'Reintrodu parola',
+    inviteTitle: 'Ai un cod de invitație?',
+    invitePh: 'ex. HEYMAA-ABC123',
+    wantChild: 'Vreau să am un copil',
+    pregnantOrMom: 'Sunt gravidă sau mamă',
+    newsletter:
+      'Doresc să primesc actualizări și newslettere cu sfaturi utile despre maternitate.',
+    privacy: 'Am citit și accept',
+    privacyLink: 'Politica de confidențialitate & protecția datelor',
+    terms: 'Accept',
+    termsLink: 'Termenii & condițiile de utilizare',
+    register: 'Înregistrare',
+    registering: 'Se înregistrează…',
+    hasAccount: 'Ai deja un cont?',
+    login: 'Autentificare',
+    noAccount: 'Nu ai cont?',
+    signup: 'Înregistrare',
+    loginBtn: 'Intră',
+    loggingIn: 'Se autentifică…',
+    forgot: 'Ai uitat parola?',
+    closeHome: 'Înapoi la pagina principală',
+    errConnection: 'Eroare de conexiune.',
+    errPasswordMin: 'Parola trebuie să aibă cel puțin 6 caractere.',
+    errPasswordMismatch: 'Parolele nu coincid.',
+    errName: 'Te rugăm să introduci numele.',
+    errEmail: 'Te rugăm să introduci emailul.',
+    errEmailInvalid: 'Adresă de email invalidă.',
+    errPrivacy: 'Te rugăm să accepți Politica de confidențialitate & protecția datelor.',
+    errTerms: 'Te rugăm să accepți Termenii & condițiile de utilizare.',
+    errLogin: 'Email sau parolă greșită.',
+    errRegister: 'Înregistrarea a eșuat.',
+    errEmailExists: 'Emailul este deja înregistrat.',
+    errInviteInvalid: 'Cod de invitație invalid.',
+    errInviteRequired: 'Este necesar un cod de invitație.',
+    errDatabase: 'Baza de date nu este disponibilă. Încearcă din nou mai târziu.',
+  },
 } as const
 
 export function authStrings(lang: AuthLang) {
-  return STRINGS[lang] || STRINGS.el
+  return STRINGS[lang] || STRINGS.en
 }
 
 /** Map common English API auth errors to the active UI language. */
 export function localizeAuthApiMessage(message: string, lang: AuthLang): string {
   const s = authStrings(lang)
-  if (lang !== 'el') {
+  if (lang === 'en') {
     if (message.toLowerCase().includes('database unavailable')) return s.errDatabase
     return message
   }

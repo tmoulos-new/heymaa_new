@@ -1,6 +1,6 @@
 import { SUPPORTED_LANG_CODES } from "./supportedLanguages";
 
-/** App UI language codes — Greek + English only (complete interface). */
+/** App UI language codes — Greek, English, Romanian (complete interface). */
 export const APP_LANG_CODES = SUPPORTED_LANG_CODES;
 
 export type AppLangCode = (typeof APP_LANG_CODES)[number];
@@ -39,7 +39,8 @@ const LANG_ALIASES: Record<string, AppLangCode> = {
   ru: "en",
   ar: "en",
   tr: "en",
-  ro: "en",
+  rum: "ro",
+  ron: "ro",
   bg: "en",
   pl: "en",
   sr: "en",

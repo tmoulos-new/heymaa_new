@@ -187,9 +187,9 @@ const _legacyLangs = new Set<string>([
   ...Object.keys(PLANS_BY_LANG),
 ]);
 
-/** Language codes with a legacy landing bundle (everything except el/en JSON). */
+/** Language codes with a legacy landing bundle (everything except primary JSON locales). */
 export const LEGACY_HOME_LANGS: readonly string[] = Array.from(_legacyLangs)
-  .filter((code) => code !== "el" && code !== "en")
+  .filter((code) => code !== "el" && code !== "en" && code !== "ro")
   .sort();
 
 export function hasLegacyHomeBundle(lang: string): boolean {

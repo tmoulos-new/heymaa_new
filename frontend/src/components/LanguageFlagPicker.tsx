@@ -8,12 +8,27 @@ import { SheetHeader } from "./ui/SheetHeader";
 import "../home/home.css";
 
 function pickerCopy(lang: string) {
-  const el = lang === "el";
+  if (lang === "el") {
+    return {
+      searchPlaceholder: "Αναζήτηση γλώσσας...",
+      selectLabel: "Επιλογή",
+      emptyLabel: "Δεν βρέθηκε γλώσσα",
+      closeLabel: "Πίσω",
+    };
+  }
+  if (lang === "ro") {
+    return {
+      searchPlaceholder: "Caută limba...",
+      selectLabel: "Selectează",
+      emptyLabel: "Nicio limbă găsită",
+      closeLabel: "Înapoi",
+    };
+  }
   return {
-    searchPlaceholder: el ? "Αναζήτηση γλώσσας..." : "Search language...",
-    selectLabel: el ? "Επιλογή" : "Select",
-    emptyLabel: el ? "Δεν βρέθηκε γλώσσα" : "No language found",
-    closeLabel: el ? "Πίσω" : "Back",
+    searchPlaceholder: "Search language...",
+    selectLabel: "Select",
+    emptyLabel: "No language found",
+    closeLabel: "Back",
   };
 }
 

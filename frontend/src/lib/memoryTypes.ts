@@ -51,7 +51,7 @@ export function memorySortTime(m: AppMemory): number {
 export function formatMemoryDisplayDate(m: AppMemory, lang: string): string {
   if (m.createdAt) {
     try {
-      return new Date(m.createdAt).toLocaleDateString(lang === 'el' ? 'el-GR' : lang, {
+      return new Date(m.createdAt).toLocaleDateString(lang === 'el' ? 'el-GR' : lang === 'ro' ? 'ro-RO' : lang, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

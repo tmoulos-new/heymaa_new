@@ -1,5 +1,6 @@
 import type { HomePlan } from '../i18n/homeTypes'
 import type { SubscriptionSnapshot } from './authApi'
+import { uiDateLocale } from './uiLocale'
 
 export type PlanSlot = 'trial' | 'starter' | 'premium' | 'annual'
 
@@ -81,19 +82,21 @@ export function activePlanNameForSlot(
   const index = PLAN_SLOTS.indexOf(slot)
   const plan = plans[index]
   if (plan?.name) return plan.name
-  const fallbacks: Record<PlanSlot, { el: string; en: string }> = {
-    trial: { el: 'Δωρεάν Δοκιμή', en: 'Free trial' },
-    starter: { el: 'Starter', en: 'Starter' },
-    premium: { el: 'Premium', en: 'Premium' },
-    annual: { el: 'Ετήσιο Premium', en: 'Annual Premium' },
+  const fallbacks: Record<PlanSlot, { el: string; en: string; ro: string }> = {
+    trial: { el: 'Δωρεάν Δοκιμή', en: 'Free trial', ro: 'Probă gratuită' },
+    starter: { el: 'Starter', en: 'Starter', ro: 'Starter' },
+    premium: { el: 'Premium', en: 'Premium', ro: 'Premium' },
+    annual: { el: 'Ετήσιο Premium', en: 'Annual Premium', ro: 'Premium anual' },
   }
-  return lang === 'el' ? fallbacks[slot].el : fallbacks[slot].en
+  if (lang === 'el') return fallbacks[slot].el
+  if (lang === 'ro') return fallbacks[slot].ro
+  return fallbacks[slot].en
 }
 
 export function formatTrialEnd(iso: string, locale: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleDateString(locale === 'el' ? 'el-GR' : 'en-GB', {
+    return d.toLocaleDateString(uiDateLocale(locale), {
       day: 'numeric',
       month: 'long',
       year: 'numeric',

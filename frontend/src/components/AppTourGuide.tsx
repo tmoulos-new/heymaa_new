@@ -47,8 +47,30 @@ export function AppTourGuide({
   const step: AppTourStep | undefined = APP_TOUR_STEPS[stepIndex]
   const isCenter = !step?.target || step.placement === 'center'
   const isEl = lang === 'el'
+  const isRo = lang === 'ro'
   const isLast = stepIndex >= APP_TOUR_STEPS.length - 1
   const isFirst = stepIndex === 0
+
+  const skipLabel = isEl ? 'Παράλειψη ξενάγησης' : isRo ? 'Omite turul' : 'Skip tour'
+  const backLabel = isEl ? 'Πίσω' : isRo ? 'Înapoi' : 'Back'
+  const skipShort = isEl ? 'Παράλειψη' : isRo ? 'Omite' : 'Skip'
+  const nextLabel = isLast
+    ? isEl
+      ? 'Ξεκίνα →'
+      : isRo
+        ? 'Începe →'
+        : 'Get started →'
+    : isFirst
+      ? isEl
+        ? 'Ξενάγηση →'
+        : isRo
+          ? 'Arată-mi →'
+          : 'Show me →'
+      : isEl
+        ? 'Επόμενο →'
+        : isRo
+          ? 'Următorul →'
+          : 'Next →'
 
   const [spot, setSpot] = useState<Rect | null>(null)
   const [tooltipStyle, setTooltipStyle] = useState<CSSProperties>({})
@@ -140,7 +162,9 @@ export function AppTourGuide({
     step.id === 'welcome' && userName
       ? isEl
         ? `Καλώς ήρθες, ${userName}!`
-        : `Welcome, ${userName}!`
+        : isRo
+          ? `Bine ai venit, ${userName}!`
+          : `Welcome, ${userName}!`
       : title
 
   return (
@@ -157,7 +181,7 @@ export function AppTourGuide({
             <button
               type="button"
               className="hm-tour-backdrop hm-tour-backdrop--dim"
-              aria-label={isEl ? 'Παράλειψη ξενάγησης' : 'Skip tour'}
+              aria-label={skipLabel}
               onClick={onSkip}
             />
             <div
@@ -175,7 +199,7 @@ export function AppTourGuide({
           <button
             type="button"
             className="hm-tour-backdrop hm-tour-backdrop--solid"
-            aria-label={isEl ? 'Παράλειψη ξενάγησης' : 'Skip tour'}
+            aria-label={skipLabel}
             onClick={onSkip}
           />
         )}
@@ -203,11 +227,11 @@ export function AppTourGuide({
           <div className="hm-tour-actions">
             {!isFirst ? (
               <button type="button" className="hm-btn hm-btn--ghost hm-btn--sm" onClick={onBack}>
-                {isEl ? 'Πίσω' : 'Back'}
+                {backLabel}
               </button>
             ) : (
               <button type="button" className="hm-btn hm-btn--ghost hm-btn--sm" onClick={onSkip}>
-                {isEl ? 'Παράλειψη' : 'Skip'}
+                {skipShort}
               </button>
             )}
             <button
@@ -215,23 +239,13 @@ export function AppTourGuide({
               className="hm-btn hm-btn--primary hm-btn--sm hm-tour-next"
               onClick={onNext}
             >
-              {isLast
-                ? isEl
-                  ? 'Ξεκίνα →'
-                  : 'Get started →'
-                : isFirst
-                  ? isEl
-                    ? 'Ξενάγηση →'
-                    : 'Show me →'
-                  : isEl
-                    ? 'Επόμενο →'
-                    : 'Next →'}
+              {nextLabel}
             </button>
           </div>
 
           {!isFirst && !isLast ? (
             <button type="button" className="hm-tour-skip-link" onClick={onSkip}>
-              {isEl ? 'Παράλειψη ξενάγησης' : 'Skip tour'}
+              {skipLabel}
             </button>
           ) : null}
         </div>

@@ -38,15 +38,15 @@ const PLAN_RANK: Record<PlanSlot, number> = {
 
 const PLAN_ORDER: PlanSlot[] = ['trial', 'starter', 'premium', 'annual']
 
-const FEATURE_LABELS: Record<PlanFeatureId, { el: string; en: string }> = {
-  document_archive: { el: 'Αρχείο Εγγράφων', en: 'Document Archive' },
-  document_upload: { el: 'Ανέβασμα αρχείου', en: 'File upload' },
-  document_export: { el: 'Λήψη & κοινοποίηση εγγράφων', en: 'Document download & share' },
-  album_export: { el: 'Λήψη & κοινοποίηση άλμπουμ', en: 'Album download & share' },
-  full_memory: { el: 'Φωτογραφίες αναμνήσεων', en: 'Photo memories' },
-  memory_video: { el: 'Βίντεο αναμνήσεων', en: 'Memory videos' },
-  archived_threads: { el: 'Αρχειοθετημένες συνομιλίες', en: 'Archived conversations' },
-  voice_listen: { el: 'Φωνητικά μηνύματα', en: 'Voice messages' },
+const FEATURE_LABELS: Record<PlanFeatureId, { el: string; en: string; ro: string }> = {
+  document_archive: { el: 'Αρχείο Εγγράφων', en: 'Document Archive', ro: 'Arhivă documente' },
+  document_upload: { el: 'Ανέβασμα αρχείου', en: 'File upload', ro: 'Încărcare fișier' },
+  document_export: { el: 'Λήψη & κοινοποίηση εγγράφων', en: 'Document download & share', ro: 'Descărcare & partajare documente' },
+  album_export: { el: 'Λήψη & κοινοποίηση άλμπουμ', en: 'Album download & share', ro: 'Descărcare & partajare album' },
+  full_memory: { el: 'Φωτογραφίες αναμνήσεων', en: 'Photo memories', ro: 'Amintiri foto' },
+  memory_video: { el: 'Βίντεο αναμνήσεων', en: 'Memory videos', ro: 'Videouri cu amintiri' },
+  archived_threads: { el: 'Αρχειοθετημένες συνομιλίες', en: 'Archived conversations', ro: 'Conversații arhivate' },
+  voice_listen: { el: 'Φωνητικά μηνύματα', en: 'Voice messages', ro: 'Mesaje vocale' },
 }
 
 function planMeetsMinimum(current: PlanSlot | null, minimum: PlanSlot): boolean {
@@ -60,7 +60,9 @@ export function featureMinPlan(feature: PlanFeatureId): PlanSlot {
 
 export function featureLabel(feature: PlanFeatureId, lang: string): string {
   const copy = FEATURE_LABELS[feature]
-  return lang === 'el' ? copy.el : copy.en
+  if (lang === 'el') return copy.el
+  if (lang === 'ro') return copy.ro
+  return copy.en
 }
 
 export function featureRequiredPlanLabel(feature: PlanFeatureId, lang: string): string {

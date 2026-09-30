@@ -229,7 +229,7 @@ h2{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:600;line-heig
 .card-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .card-head h2{font-size:15px;display:flex;align-items:center;gap:8px;margin:0}
 .card-head button{flex-shrink:0}
-.main button.sm:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):not(.plan-feat-info-btn):not(.attention-row),
+.main button.sm:not(.icon-btn):not(.th-sort):not(.ms-trigger):not(.user-data-key-tab):not(.hm-btn):not(.plan-feat-info-btn):not(.attention-row):not(.rag-stat-btn),
 .modal button.sm:not(.icon-btn):not(.hm-btn):not(.plan-feat-info-btn){
   padding:7px 12px;font-size:13px;
 }
@@ -614,6 +614,48 @@ textarea{min-height:80px;resize:vertical}
 .rag-seed-preset p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45;flex:1}
 .rag-seed-preset button{align-self:flex-start;margin-top:4px}
 .rag-seed-preset-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.rag-seed-preset-actions .sec,
+.rag-seed-preset-actions .ghost{align-self:flex-start}
+.rag-health-stats{margin-top:14px}
+.rag-stat-btn{
+  appearance:none;cursor:pointer;font:inherit;width:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--gl);color:var(--navy);border:.5px solid var(--border);
+  box-shadow:none;min-height:0;padding:10px 12px;border-radius:10px;
+  transform:none;filter:none;
+}
+.rag-stat-btn:hover{
+  background:#fff;border-color:rgba(74,190,170,.4);
+  box-shadow:0 2px 8px rgba(43,58,103,.06);transform:none;filter:none;
+}
+.rag-stat-btn:hover .rag-stat-value{color:var(--teal,#2D9E6B)}
+.rag-stat-btn:focus-visible{
+  outline:none;box-shadow:0 0 0 3px rgba(74,190,170,.35);
+}
+.rag-stat-btn.is-active{
+  background:#fff;border-color:rgba(74,190,170,.55);
+  box-shadow:0 0 0 2px rgba(74,190,170,.18);
+}
+.rag-stat-btn.is-warn .rag-stat-value{color:#8B2E2E}
+.rag-stat-btn .rag-stat-value,
+.rag-stat-btn .rag-stat-label{color:inherit}
+.rag-stat-btn .rag-stat-value{color:var(--navy)}
+.rag-stat-btn .rag-stat-label{color:var(--muted)}
+.rag-attention-card{border-color:rgba(196,75,75,.28);background:rgba(196,75,75,.04)}
+.rag-seed-progress-card{
+  display:flex;flex-direction:column;gap:6px;padding:14px 16px;
+  border:.5px solid rgba(74,190,170,.35);border-radius:12px;background:rgba(74,190,170,.06);
+  font-size:13px;color:var(--navy);
+}
+.rag-collapse-toggle{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border:0;background:transparent;cursor:pointer;padding:4px 0;font:inherit;color:var(--navy);
+  text-align:left;
+}
+.rag-add-card--flat{
+  background:rgba(43,58,103,.03);border:.5px solid var(--border);border-radius:12px;padding:14px;
+}
+.rag-add-card--flat h2{font-size:14px;margin:0}
 .rag-seed-progress{
   margin-top:12px;padding:10px 12px;border-radius:10px;border:.5px solid rgba(74,190,170,.28);
   background:rgba(74,190,170,.08);display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.45;
@@ -644,10 +686,11 @@ textarea{min-height:80px;resize:vertical}
   max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .rag-stats{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
   margin:0 0 16px;
 }
-@media(min-width:720px){.rag-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(min-width:520px){.rag-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:720px){.rag-stats{grid-template-columns:repeat(5,minmax(0,1fr))}}
 .rag-stat{
   padding:10px 12px;border-radius:10px;border:.5px solid var(--border);
   background:var(--gl);text-align:center;
@@ -668,6 +711,9 @@ textarea{min-height:80px;resize:vertical}
   background:rgba(43,58,103,.08);color:var(--navy);text-transform:uppercase;letter-spacing:.03em;
 }
 .rag-origin{max-width:280px}
+.rag-origin-date{
+  display:block;margin-top:4px;font-size:11px;color:var(--muted);white-space:nowrap;
+}
 .rag-url{
   display:inline-flex;align-items:center;gap:5px;max-width:100%;
   color:var(--teal);font-weight:600;text-decoration:none;font-size:12.5px;

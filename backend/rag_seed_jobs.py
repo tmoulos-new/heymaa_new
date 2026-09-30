@@ -19,10 +19,12 @@ def job_public(row: dict[str, Any]) -> dict[str, Any]:
         urls = []
     discover_page = int(row.get("discover_page") or 1)
     max_pages = int(row.get("max_discover_pages") or 250)
+    mode = "rebuild_empty" if max_pages == 0 and urls else "add_new"
     return {
         "id": row.get("id"),
         "source_key": row.get("source_key"),
         "status": row.get("status"),
+        "mode": mode,
         "since_years": row.get("since_years"),
         "batch_size": row.get("batch_size"),
         "discover_page": discover_page,
@@ -64,6 +66,38 @@ def _ready_origins_for_source(sb, source_key: str) -> set[str]:
     return out
 
 
+def _broken_urls_for_source(sb, source_key: str) -> list[str]:
+    """URLs that need rebuild: error status, or ready/processing with no chunks."""
+    out: list[str] = []
+    seen: set[str] = set()
+    try:
+        res = (
+            sb.table("rag_sources")
+            .select("origin,source_url,status,chunk_count,source_type")
+            .eq("source_key", source_key)
+            .execute()
+        )
+    except Exception:
+        return out
+    for row in res.data or []:
+        st = (row.get("status") or "").lower()
+        chunks = int(row.get("chunk_count") or 0)
+        needs = st == "error" or chunks < 1
+        if not needs:
+            continue
+        for key in ("source_url", "origin"):
+            val = (row.get(key) or "").strip()
+            if not val or not val.startswith("http"):
+                continue
+            norm = val.split("?")[0]
+            if norm in seen:
+                continue
+            seen.add(norm)
+            out.append(val)
+            break
+    return out
+
+
 def create_seed_job(
     sb,
     *,
@@ -72,27 +106,55 @@ def create_seed_job(
     batch_size: int = DEFAULT_BATCH_SIZE,
     max_discover_pages: int = 250,
     created_by: Optional[str] = None,
+    mode: str = "add_new",
 ) -> dict[str, Any]:
     key = (source_key or "").strip().lower()
     if key not in ("babyspace", "myparenthood"):
         raise ValueError("source_key must be babyspace or myparenthood")
-    payload = {
-        "source_key": key,
-        "status": "discovering",
-        "since_years": float(since_years) if since_years is not None else 5.0,
-        "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
-        "discover_page": 1,
-        "max_discover_pages": max(1, min(int(max_discover_pages or 250), 400)),
-        "urls": [],
-        "cursor_idx": 0,
-        "discovered": 0,
-        "ingested": 0,
-        "skipped": 0,
-        "failed": 0,
-        "last_error": None,
-        "created_by": created_by,
-        "updated_at": _now_iso(),
-    }
+    job_mode = (mode or "add_new").strip().lower()
+    if job_mode not in ("add_new", "rebuild_empty"):
+        raise ValueError("mode must be add_new or rebuild_empty")
+
+    if job_mode == "rebuild_empty":
+        urls = _broken_urls_for_source(sb, key)
+        payload = {
+            "source_key": key,
+            # max_discover_pages=0 ⇒ discover_done immediately (no listing walk)
+            "status": "running" if urls else "completed",
+            "since_years": float(since_years) if since_years is not None else 5.0,
+            "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
+            "discover_page": 1,
+            "max_discover_pages": 0,
+            "urls": urls,
+            "cursor_idx": 0,
+            "discovered": len(urls),
+            "ingested": 0,
+            "skipped": 0,
+            "failed": 0,
+            "last_error": None
+            if urls
+            else "No empty/error URL sources to rebuild for this site.",
+            "created_by": created_by,
+            "updated_at": _now_iso(),
+        }
+    else:
+        payload = {
+            "source_key": key,
+            "status": "discovering",
+            "since_years": float(since_years) if since_years is not None else 5.0,
+            "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
+            "discover_page": 1,
+            "max_discover_pages": max(1, min(int(max_discover_pages or 250), 400)),
+            "urls": [],
+            "cursor_idx": 0,
+            "discovered": 0,
+            "ingested": 0,
+            "skipped": 0,
+            "failed": 0,
+            "last_error": None,
+            "created_by": created_by,
+            "updated_at": _now_iso(),
+        }
     try:
         res = sb.table("rag_seed_jobs").insert(payload).execute()
     except Exception as e:
@@ -323,10 +385,12 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
     max_pages = int(row.get("max_discover_pages") or 250)
     discover_page = int(row.get("discover_page") or 1)
     discover_done = discover_page > max_pages
+    # rebuild_empty jobs set max_discover_pages=0 — always re-fetch queued URLs.
+    force_rebuild = max_pages == 0
 
     end = min(idx + batch, len(urls))
     for u in urls[idx:end]:
-        if url_already_ingested(sb, u):
+        if not force_rebuild and url_already_ingested(sb, u):
             skipped += 1
             continue
         try:

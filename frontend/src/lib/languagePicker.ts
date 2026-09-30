@@ -38,7 +38,7 @@ const LANG_NAMES: Record<string, { en: string; el: string; aliases: string[] }> 
   de: { en: "German", el: "Γερμανικά", aliases: ["germanika", "deutsch"] },
   fr: { en: "French", el: "Γαλλικά", aliases: ["gallika", "francais", "français"] },
   es: { en: "Spanish", el: "Ισπανικά", aliases: ["ispanika", "espanol", "español"] },
-  ro: { en: "Romanian", el: "Ρουμανικά", aliases: ["roumanika", "romana", "română"] },
+  ro: { en: "Romanian", el: "Ρουμανικά", aliases: ["roumanika", "romana", "română", "romania", "românia"] },
   bg: { en: "Bulgarian", el: "Βουλγαρικά", aliases: ["voulgarika", "balgarski"] },
   pl: { en: "Polish", el: "Πολωνικά", aliases: ["polonika", "polski"] },
   sr: { en: "Serbian", el: "Σερβικά", aliases: ["servika", "srpski"] },

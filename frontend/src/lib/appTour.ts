@@ -21,10 +21,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Καλώς ήρθες στο HeyMaa!',
       en: 'Welcome to HeyMaa!',
+      ro: 'Bine ai venit la HeyMaa!',
     },
     body: {
       el: 'Μια γρήγορη ξενάγηση 1 λεπτού — θα δεις πού βρίσκεις chat, οικογένεια, αναμνήσεις και ρυθμίσεις.',
       en: 'A quick 1-minute tour — where to chat, manage family, save memories, and find settings.',
+      ro: 'Un tur rapid de 1 minut — unde găsești chatul, familia, amintirile și setările.',
     },
   },
   {
@@ -35,10 +37,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Το chat με την HeyMaa',
       en: 'Chat with HeyMaa',
+      ro: 'Chat cu HeyMaa',
     },
     body: {
       el: 'Εδώ μιλάς με την AI βοηθό — ερωτήσεις για εγκυμοσύνη, μωρό, ύπνο, διατροφή.',
       en: 'Talk to your AI helper here — pregnancy, baby care, sleep, nutrition, and more.',
+      ro: 'Aici vorbești cu asistenta AI — sarcină, îngrijirea bebelușului, somn, nutriție și altele.',
     },
   },
   {
@@ -49,10 +53,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Γράψε ή μίλησε',
       en: 'Type or speak',
+      ro: 'Scrie sau vorbește',
     },
     body: {
       el: 'Πληκτρολόγησε ερώτηση, κράτα το μικρόφωνο για φωνή, ή πρόσθεσε φωτογραφία με το +.',
       en: 'Type a question, hold the mic for voice, or attach a photo with +.',
+      ro: 'Tastează o întrebare, ține microfonul pentru voce sau atașează o poză cu +.',
     },
   },
   {
@@ -63,10 +69,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Ειδοποιήσεις',
       en: 'Alerts',
+      ro: 'Alerte',
     },
     body: {
       el: 'Καμπανάκι για δοκιμαστική περίοδο, συνδρομή και σημαντικές ενημερώσεις.',
       en: 'Bell icon for trial reminders, subscription, and important updates.',
+      ro: 'Clopoțelul pentru reminder-uri de probă, abonament și actualizări importante.',
     },
   },
   {
@@ -77,10 +85,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Το προφίλ σου',
       en: 'Your profile',
+      ro: 'Profilul tău',
     },
     body: {
       el: 'Όνομα, πλάνο, πόντοι και ρυθμίσεις λογαριασμού. Οι πόντοι εμφανίζονται πάνω δεξιά — πάτα τους για το προφίλ, ή το avatar για ρυθμίσεις.',
       en: 'Name, plan, points, and account settings. Points sit top-right — tap them for your profile, or the avatar for settings.',
+      ro: 'Nume, plan, puncte și setări cont. Punctele apar sus-dreapta — apasă pe ele pentru profil sau pe avatar pentru setări.',
     },
   },
   {
@@ -91,10 +101,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Οικογένεια',
       en: 'Family',
+      ro: 'Familie',
     },
     body: {
       el: 'Πρόσθεσε παιδιά, σύντροφο, γονείς και κατοικίδια — το δέντρο ενημερώνεται αυτόματα.',
       en: 'Add children, partner, parents, and pets — your family tree updates automatically.',
+      ro: 'Adaugă copii, partener, părinți și animale — arborele familial se actualizează automat.',
     },
   },
   {
@@ -105,10 +117,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Αναμνήσεις',
       en: 'Memories',
+      ro: 'Amintiri',
     },
     body: {
       el: 'Κράτα ημερολόγιο στιγμών με κείμενο και φωτογραφίες — οργανωμένα ανά μέλος της οικογένειας.',
       en: 'Keep a journal of moments with text and photos — organized by family member.',
+      ro: 'Ține un jurnal de momente cu text și poze — organizat pe membru de familie.',
     },
   },
   {
@@ -119,10 +133,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Ορόσημα',
       en: 'Milestones',
+      ro: 'Etape',
     },
     body: {
       el: 'Παρακολούθησε ανάπτυξη και σημαντικά βήματα — σημείωσε τι έχει πετύχει το μωρό σου.',
       en: 'Track development milestones — mark what your little one has achieved.',
+      ro: 'Urmărește etapele de dezvoltare — bifează ce a reușit bebelușul tău.',
     },
   },
   {
@@ -131,10 +147,12 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
     title: {
       el: 'Έτοιμη/ος!',
       en: "You're all set!",
+      ro: 'Ești gata!',
     },
     body: {
       el: 'Ξεκίνα με μια ερώτηση στο chat. Είμαστε δίπλα σου — πάντα.',
       en: 'Start with a question in chat. We are here for you — always.',
+      ro: 'Începe cu o întrebare în chat. Suntem alături de tine — mereu.',
     },
   },
 ]

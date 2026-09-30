@@ -1,6 +1,7 @@
 /** Defaults — live values from GET /gamification/rules (admin Levels gifts). */
 
 import { GAMIFICATION_LEVELS, getLevelPlanRewards } from './gamificationCard'
+import { uiDateLocale } from './uiLocale'
 
 export type LevelPlanReward = {
   levelId: number
@@ -50,10 +51,10 @@ export function planLabel(slot: string, lang: string): string {
   const p = (slot || '').toLowerCase().trim()
   if (p === 'premium') return 'Premium'
   if (p === 'starter') return 'Starter'
-  if (p === 'annual') return lang === 'el' ? 'Ετήσιο' : 'Annual'
+  if (p === 'annual') return lang === 'el' ? 'Ετήσιο' : lang === 'ro' ? 'Anual' : 'Annual'
   if (p === 'admin') return 'Admin'
-  if (p === 'trial' || p === 'free') return lang === 'el' ? 'Δοκιμή' : 'Trial'
-  if (!p) return lang === 'el' ? 'πλάνο' : 'plan'
+  if (p === 'trial' || p === 'free') return lang === 'el' ? 'Δοκιμή' : lang === 'ro' ? 'Probă' : 'Trial'
+  if (!p) return lang === 'el' ? 'πλάνο' : lang === 'ro' ? 'plan' : 'plan'
   return p.charAt(0).toUpperCase() + p.slice(1)
 }
 
@@ -64,9 +65,12 @@ export function activeGrantMessage(
   lang: string,
 ): string {
   const plan = planLabel(planSlot, lang)
-  const date = new Date(endsAt).toLocaleDateString(lang === 'el' ? 'el-GR' : 'en-GB')
+  const date = new Date(endsAt).toLocaleDateString(uiDateLocale(lang))
   if (lang === 'el') {
     return `Ενεργό δώρο επιπέδου: δωρεάν πλάνο ${plan} μέχρι ${date}.`
+  }
+  if (lang === 'ro') {
+    return `Cadou de nivel activ: plan ${plan} gratuit până pe ${date}.`
   }
   return `Active level gift: free ${plan} plan until ${date}.`
 }
@@ -114,6 +118,9 @@ export function effectiveRewardDescription(
   if (lang === 'el') {
     return `${reward.days} μέρες δωρεάν πλάνο ${plan}`
   }
+  if (lang === 'ro') {
+    return `${reward.days} zile plan ${plan} gratuit`
+  }
   return `${reward.days} days free ${plan} plan`
 }
 
@@ -128,18 +135,30 @@ export function rewardClaimBody(
     && planSlotRank(currentPlanSlot) > planSlotRank('trial')
 
   if (upgraded) {
-    return lang === 'el'
-      ? `Κέρδισες ${desc} — ισοδύναμο με το τρέχον πλάνο σου (όχι υποβάθμιση σε Starter). Οι ${reward.days} μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου.`
-      : `You earned ${desc} — matched to your current plan (not downgraded to Starter). The ${reward.days} days are added after your current access ends.`
+    if (lang === 'el') {
+      return `Κέρδισες ${desc} — ισοδύναμο με το τρέχον πλάνο σου (όχι υποβάθμιση σε Starter). Οι ${reward.days} μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου.`
+    }
+    if (lang === 'ro') {
+      return `Ai câștigat ${desc} — aliniat la planul tău actual (fără downgrade la Starter). Cele ${reward.days} zile se adaugă după ce expiră accesul actual.`
+    }
+    return `You earned ${desc} — matched to your current plan (not downgraded to Starter). The ${reward.days} days are added after your current access ends.`
   }
   if (stacksLater) {
-    return lang === 'el'
-      ? `Κέρδισες ${desc}. Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου — δεν χάνεις τίποτα.`
-      : `You earned ${desc}. Days are added after your current access ends — nothing is lost.`
+    if (lang === 'el') {
+      return `Κέρδισες ${desc}. Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασής σου — δεν χάνεις τίποτα.`
+    }
+    if (lang === 'ro') {
+      return `Ai câștigat ${desc}. Zilele se adaugă după ce expiră accesul actual — nu pierzi nimic.`
+    }
+    return `You earned ${desc}. Days are added after your current access ends — nothing is lost.`
   }
-  return lang === 'el'
-    ? `Κέρδισες ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως.`
-    : `You earned ${desc}. Claim now — it activates immediately.`
+  if (lang === 'el') {
+    return `Κέρδισες ${desc}. Διεκδίκησέ το τώρα — ενεργοποιείται αμέσως.`
+  }
+  if (lang === 'ro') {
+    return `Ai câștigat ${desc}. Revendică acum — se activează imediat.`
+  }
+  return `You earned ${desc}. Claim now — it activates immediately.`
 }
 
 export function rewardDescription(reward: PendingLevelReward, lang: string): string {
@@ -147,17 +166,20 @@ export function rewardDescription(reward: PendingLevelReward, lang: string): str
   if (lang === 'el') {
     return `${reward.days} μέρες δωρεάν πλάνο ${plan}`
   }
+  if (lang === 'ro') {
+    return `${reward.days} zile plan ${plan} gratuit`
+  }
   return `${reward.days} days free ${plan} plan`
 }
 
 export function rewardTitle(levelId: number, lang: string): string {
   const level = GAMIFICATION_LEVELS.find((row) => row.number === levelId)
-  if (!level) return lang === 'el' ? 'Νέο επίπεδο!' : 'New level!'
+  if (!level) return lang === 'el' ? 'Νέο επίπεδο!' : lang === 'ro' ? 'Nivel nou!' : 'New level!'
   return lang === 'el' ? level.name_el : level.name_en
 }
 
 export function levelUpKicker(lang: string): string {
-  return lang === 'el' ? 'Ανέβηκες επίπεδο' : 'You leveled up'
+  return lang === 'el' ? 'Ανέβηκες επίπεδο' : lang === 'ro' ? 'Ai urcat de nivel' : 'You leveled up'
 }
 
 export function claimSuccessMessage(
@@ -167,16 +189,24 @@ export function claimSuccessMessage(
   const days = Number(grant?.days) || 0
   const plan = planLabel(grant?.plan_slot || 'starter', lang)
   if (!days) {
-    return lang === 'el' ? 'Το δώρο ενεργοποιήθηκε! 🎁' : 'Your gift is active! 🎁'
+    return lang === 'el'
+      ? 'Το δώρο ενεργοποιήθηκε! 🎁'
+      : lang === 'ro'
+        ? 'Cadoul este activ! 🎁'
+        : 'Your gift is active! 🎁'
   }
   if (grant?.upgraded) {
     return lang === 'el'
       ? `+${days} μέρες ${plan} μετά τη λήξη της πρόσβασής σου 🎁`
-      : `+${days} ${plan} days added after your current access ends 🎁`
+      : lang === 'ro'
+        ? `+${days} zile ${plan} după ce expiră accesul actual 🎁`
+        : `+${days} ${plan} days added after your current access ends 🎁`
   }
   return lang === 'el'
     ? `Κέρδισες ${days} μέρες δωρεάν πλάνο ${plan} 🎁`
-    : `You earned ${days} days free ${plan} plan 🎁`
+    : lang === 'ro'
+      ? `Ai câștigat ${days} zile plan ${plan} gratuit 🎁`
+      : `You earned ${days} days free ${plan} plan 🎁`
 }
 
 export function emptyRewardsSnapshot(): RewardsSnapshot {

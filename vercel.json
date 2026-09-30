@@ -5,6 +5,12 @@
       "maxDuration": 120
     }
   },
+  "crons": [
+    {
+      "path": "/admin/rag_sources/cron_tick",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     {

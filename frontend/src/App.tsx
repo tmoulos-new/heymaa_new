@@ -114,6 +114,7 @@ import {
   purgeLocalAppData,
 } from "./lib/userDataRecovery";
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
+import { uiDateLocale } from "./lib/uiLocale";
 import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { chatContextDepth, chatMediaLibraryLimit, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
@@ -3435,7 +3436,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       return false;
     }
     const id = String(Date.now());
-    const locale = lang === "el" ? "el-GR" : "en-GB";
+    const locale = uiDateLocale(lang);
     const date = new Date().toLocaleDateString(locale, { day: "numeric", month: "short" });
     setThreads((prev) => [
       {
@@ -3488,7 +3489,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       )
     ) {
       const id = String(Date.now());
-      const locale = curLang === "el" ? "el-GR" : "en-GB";
+      const locale = uiDateLocale(curLang);
       const date = new Date().toLocaleDateString(locale, { day: "numeric", month: "short" });
       nextThreads = [
         {
@@ -3629,7 +3630,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const chatSearchHits = useMemo(() => {
     const needle = chatSearchQuery.trim().toLowerCase();
-    const locale = lang === "el" ? "el-GR" : "en-GB";
+    const locale = uiDateLocale(lang);
     const dateLabel = (ts: number | null) => {
       if (!ts) return t("search_today", lang);
       const d = new Date(ts);

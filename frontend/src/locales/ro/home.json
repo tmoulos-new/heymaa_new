@@ -1,0 +1,396 @@
+{
+  "nav": {
+    "signIn": "Autentificare",
+    "demo": "Începe gratuit",
+    "demoShort": "Gratuit",
+    "close": "Închide",
+    "logoAlt": "Logo HeyMaa"
+  },
+  "langPicker": {
+    "title": "Alege limba",
+    "search": "Caută limba...",
+    "select": "Selectează",
+    "empty": "Nicio limbă găsită",
+    "close": "Închide"
+  },
+  "hero": {
+    "badge": "Prima aplicație AI pentru mămici",
+    "title": "Fiecare moment care<br>merită să fie <em>ținut minte</em>.",
+    "subtitle": "Scrie, vorbește sau trimite o poză. HeyMaa îți organizează amintirile, înregistrează dezvoltarea copiilor tăi și e mereu alături de tine — fără stres, fără presiune.",
+    "cta": "Vezi cum funcționează",
+    "scrollDown": "Derulează în jos",
+    "pillLanguages": "3 limbi"
+  },
+  "whatIs": {
+    "title": "Ce este HeyMaa?",
+    "body": "Un asistent inteligent, dedicat vieții de zi cu zi a maternității — solicitantă, dar minunată. Vorbești, scrii sau trimiți o poză — când vrei, când poți, când ai nevoie. HeyMaa organizează și salvează momentele tale într-o poveste continuă. <span class=\"what-is-closing\">Nu perfectă, ci <span class=\"what-is-closing-accent\">reală</span>.</span>",
+    "imageAlt": "Mamă care își ține copilul și arată aplicația HeyMaa pe telefon"
+  },
+  "feed": {
+    "offers": "Oferte",
+    "promotions": "Promoții",
+    "learnMore": "Află mai multe →",
+    "getIt": "Ia-o",
+    "emptyOffers": "Nicio ofertă activă momentan.",
+    "emptyPromotions": "Nicio promoție activă momentan.",
+    "sponsored": "Sponsorizat",
+    "loading": "…"
+  },
+  "how": {
+    "label": "Cum funcționează",
+    "title": "Scrie · Vorbește · Arată",
+    "subtitle": "Trei moduri simple să îi vorbești. Când vrei, când poți.",
+    "items": [
+      {
+        "icon": "ti-pencil",
+        "bg": "rgba(248,229,214,0.45)",
+        "color": "#de5a9e",
+        "title": "Scrie",
+        "lead": "Când ai doar câteva secunde.",
+        "body": "Un mesaj în chat. Îți răspunde cu ce își amintește deja din conversație, amintiri și etape."
+      },
+      {
+        "icon": "ti-microphone",
+        "bg": "rgba(124,92,191,0.14)",
+        "color": "#7C5CBF",
+        "title": "Vorbește",
+        "lead": "Când ai mâinile ocupate.",
+        "body": "Vorbește natural în microfon. Devine text și primești un răspuns."
+      },
+      {
+        "icon": "ti-camera",
+        "bg": "rgba(74,190,170,0.16)",
+        "color": "#2D9E6B",
+        "title": "Arată",
+        "lead": "Trimite o poză.",
+        "body": "O vede pe loc și răspunde pe baza a ceea ce îi arăți."
+      }
+    ]
+  },
+  "moments": {
+    "imageAlt": "Mamă și bebeluș în momente de zi cu zi",
+    "altExpecting": "Mamă pe fotoliu, uitându-se la telefon, în timp ce bebelușul se joacă pe covor lângă pătuț",
+    "altNight": "Mamă fotografindu-și copilul care se joacă cu cuburi de lemn în living",
+    "altHolding": "Mamă ținându-și bebelușul",
+    "altPlay": "Mamă ținându-și copilul și arătând spre un telefon pe blatul din bucătărie"
+  },
+  "testimonial": {
+    "ratingLabel": "5 din 5 stele",
+    "prevLabel": "Testimonialul anterior",
+    "nextLabel": "Testimonialul următor",
+    "items": [
+      {
+        "quote": "\"Prima dată când m-am trezit la 3 dimineața, am vorbit pur și simplu cu telefonul. HeyMaa mi-a răspuns la îngrijorare și a înregistrat totul. Nu m-am simțit singură.\"",
+        "initial": "E",
+        "name": "Eleni, mamă a unui bebeluș de 8 luni",
+        "location": "Thessaloniki"
+      },
+      {
+        "quote": "\"Când îmi pierdeam calmul din cauza somnului și a schimbărilor la hrănire, HeyMaa a fost acolo pentru mine. Am primit sfaturi cu adevărat utile, imediat, pentru copilul meu de 1 an, exact când aveam nevoie!\"",
+        "initial": "S",
+        "name": "Sofia, mamă a unui copil de 12 luni",
+        "location": "Patras"
+      },
+      {
+        "quote": "\"Am reușit să salvez toate amintirile prețioase ale copilului meu și să țin totul perfect organizat într-un singur loc! De la primul dințișor la primii pași, niciun moment nu se pierde.\"",
+        "initial": "M",
+        "name": "Maria, mamă a unui copil de 14 luni",
+        "location": "Athens"
+      }
+    ]
+  },
+  "pricing": {
+    "label": "Prețuri",
+    "title": "Abonament HeyMaa",
+    "subtitle": "Alege planul care ți se potrivește",
+    "confirm": "Confirmă",
+    "infoLabel": "Ce înseamnă asta",
+    "featureHints": {
+      "voice_listen": "Se aplică la redările audio ale răspunsurilor HeyMaa (butonul Ascultă). Vorbitul prin microfon (speech-to-text) nu consumă această cotă.",
+      "memory_daily": "În fiecare răspuns HeyMaa folosește ultimele 20 de mesaje din chat, 10 amintiri salvate și 10 etape bifate — ideal pentru conversații zilnice, mai scurte, fără să piardă firul.",
+      "memory_partial": "Ține minte ultimele 32 de mesaje, 24 de amintiri salvate și 24 de etape — continuitate mai bună când discuțiile se întind pe mai multe zile sau subiecte.",
+      "memory_strong": "Ține minte ultimele 64 de mesaje, 45 de amintiri salvate și 45 de etape — context mai profund pentru istoric bogat de chat, amintiri de familie și dezvoltare.",
+      "memory_strong_annual": "64 de mesaje din chat, până la 50 de amintiri salvate și 50 de etape în fiecare răspuns — cel mai profund context de memorie.",
+      "docs_album_view": "Vizualizează și organizează documente și albume de amintiri în aplicație; descărcarea sau partajarea fișierelor nu este inclusă.",
+      "docs_album_full": "Adaugă, editează și previzualizează documente și albume, fără posibilitatea de a descărca sau partaja fișiere.",
+      "docs_album_export": "Descarcă documente și exportă/partajează albumul de amintiri (de ex. ca PDF).",
+      "archived_threads": "Câte conversații anterioare poți salva și redeschide din istoric."
+    },
+    "plans": [
+      {
+        "icon": "✨",
+        "name": "Probă gratuită",
+        "price": "Gratuit",
+        "period": "14 zile",
+        "badge": "",
+        "badgeColor": "",
+        "variant": "trial",
+        "featured": false,
+        "save": "",
+        "features": [
+          { "label": "Chat nelimitat" },
+          { "label": "50 răspunsuri vocale/lună", "hint": "voice_listen" },
+          { "label": "Memorie zilnică", "hint": "memory_daily" },
+          { "label": "Arhivă documente & Album", "hint": "docs_album_view" },
+          { "label": "3 conversații arhivate", "hint": "archived_threads" }
+        ],
+        "button": "Selectează planul",
+        "buttonClass": "btn-plan-idle"
+      },
+      {
+        "icon": "⚡",
+        "name": "Starter",
+        "price": "€19",
+        "period": "/lună",
+        "badge": "",
+        "badgeColor": "",
+        "variant": "starter",
+        "featured": false,
+        "save": "",
+        "features": [
+          { "label": "Chat nelimitat" },
+          { "label": "150 răspunsuri vocale/lună" },
+          { "label": "Memorie de bază", "hint": "memory_partial" },
+          { "label": "Arhivă documente & Album", "hint": "docs_album_full" },
+          { "label": "45 conversații arhivate" },
+          { "label": "Suport prin email" }
+        ],
+        "button": "Alege planul",
+        "buttonClass": "btn-plan-idle"
+      },
+      {
+        "icon": "👑",
+        "name": "Premium",
+        "price": "€39",
+        "period": "/lună",
+        "badge": "Popular",
+        "badgeColor": "#2B3A67",
+        "variant": "premium",
+        "featured": true,
+        "save": "",
+        "features": [
+          { "label": "Chat nelimitat" },
+          { "label": "400 răspunsuri vocale/lună" },
+          { "label": "Memorie completă", "hint": "memory_strong" },
+          { "label": "Descărcare & partajare documente/album", "hint": "docs_album_export" },
+          { "label": "90 conversații arhivate" },
+          { "label": "Suport telefonic" }
+        ],
+        "button": "Alege planul",
+        "buttonClass": "btn-plan-idle"
+      },
+      {
+        "icon": "💎",
+        "name": "Premium anual",
+        "price": "€199",
+        "period": "/an",
+        "badge": "Economisești 57%",
+        "badgeColor": "#2D9E6B",
+        "variant": "annual",
+        "featured": false,
+        "save": "",
+        "features": [
+          { "label": "Toate beneficiile Premium" },
+          { "label": "700 răspunsuri vocale/lună" },
+          { "label": "Memorie completă" },
+          { "label": "Descărcare & partajare documente/album" },
+          { "label": "90 conversații arhivate" },
+          { "label": "Suport prioritar" }
+        ],
+        "button": "Alege planul",
+        "buttonClass": "btn-plan-idle"
+      }
+    ]
+  },
+  "inside": {
+    "label": "Aplicația",
+    "title": "În interiorul HeyMaa",
+    "subtitle": "Chat, familie, amintiri și etape — totul într-un singur loc.",
+    "items": [
+      {
+        "id": "chat",
+        "title": "Chat cu HeyMaa",
+        "body": "Scrie, vorbește sau trimite o poză. HeyMaa răspunde pe loc și ține minte ce ai salvat deja.",
+        "imageAlt": "Ecranul de chat HeyMaa pe telefon"
+      },
+      {
+        "id": "memories",
+        "title": "Amintiri și albume",
+        "body": "Note, poze și videoclipuri într-un jurnal. Construiești albume din momentele pe care vrei să le păstrezi.",
+        "imageAlt": "Jurnalul de amintiri HeyMaa pe telefon"
+      },
+      {
+        "id": "family",
+        "title": "Arbore genealogic",
+        "body": "Tu, partenerul, copiii și familia pe un arbore vizual. Fiecare membru are propriile amintiri.",
+        "imageAlt": "Arborele genealogic HeyMaa pe telefon"
+      },
+      {
+        "id": "milestones",
+        "title": "Etape de dezvoltare",
+        "body": "Perioade de vârstă cu progres: bifezi ce s-a întâmplat deja, iar etapele trec în jurnal.",
+        "imageAlt": "Etapele de dezvoltare HeyMaa pe telefon"
+      }
+    ],
+    "extras": [
+      {
+        "icon": "ti-folder",
+        "title": "Arhivă de documente",
+        "body": "Analize, vaccinuri, tratamente și medicamente, organizate pe membru al familiei."
+      },
+      {
+        "icon": "ti-gift",
+        "title": "Puncte și cadouri",
+        "body": "Câștigi puncte din chat, amintiri și etape. Deblochezi zile gratuite de plan și inviți prietene."
+      }
+    ]
+  },
+  "safety": {
+    "label": "",
+    "title": "Securitate & Confidențialitate",
+    "subtitle": "Datele tale îți aparțin.",
+    "items": [
+      {
+        "icon": "ti-shield-lock",
+        "text": "Criptare în tranzit"
+      },
+      {
+        "icon": "ti-world",
+        "text": "Stocare în Europa"
+      },
+      {
+        "icon": "ti-trash",
+        "text": "Ștergere completă oricând"
+      }
+    ]
+  },
+  "faq": {
+    "label": "Întrebări frecvente",
+    "title": "",
+    "landingItems": [
+      {
+        "question": "Ce este HeyMaa?",
+        "answer": "Ajutorul tău pe parcursul maternității: chat AI, amintiri, etape de dezvoltare, arbore genealogic și arhivă de documente — totul într-o singură aplicație. Vorbește, scrie sau trimite o poză când ți se potrivește."
+      },
+      {
+        "question": "Ce include proba gratuită?",
+        "answer": "14 zile ca să încerci HeyMaa: chat nelimitat, până la 50 de redări vocale (Ascultă) pe lună, Memorie zilnică (20 mesaje + 10 amintiri + 10 etape), previzualizare documente & album (fără descărcare), videoclipuri de amintiri de la Starter și până la 3 conversații arhivate. Nu este nevoie de card de credit pentru a începe."
+      },
+      {
+        "question": "Care este diferența dintre planuri?",
+        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€19/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€39/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€199/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
+      },
+      {
+        "question": "Ce se întâmplă când se termină proba?",
+        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai sau pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+      },
+      {
+        "question": "HeyMaa oferă sfaturi medicale?",
+        "answer": "Nu. HeyMaa nu înlocuiește medicul sau farmacistul. Pentru orice problemă de sănătate — a ta sau a copilului — vorbește întotdeauna cu un profesionist calificat din domeniul sănătății."
+      },
+      {
+        "question": "Cum anulez abonamentul?",
+        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai sau sună pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+      },
+      {
+        "question": "Sunt datele mele în siguranță?",
+        "answer": "Da — datele tale îți aparțin. Poți exporta o copie (JSON) sau șterge contul din Setări → Confidențialitate & date. Vezi Politica de confidențialitate pentru detalii complete."
+      }
+    ],
+    "items": [
+      {
+        "question": "Ce este HeyMaa?",
+        "answer": "HeyMaa este ajutorul tău pe parcursul maternității: chat AI, arbore genealogic, jurnal de amintiri, cronologie de etape și arhivă de documente — totul într-o singură aplicație."
+      },
+      {
+        "question": "Ce pot face în aplicație?",
+        "answer": "Poți vorbi cu HeyMaa (text sau voce), construi arborele genealogic, salva amintiri, urmări etapele de dezvoltare pe o cronologie pe perioade, stoca documente medicale (analize, vaccinuri, tratamente și medicamente) și arhiva conversații — în funcție de planul tău."
+      },
+      {
+        "question": "Ce include proba gratuită?",
+        "answer": "14 zile ca să încerci HeyMaa: chat nelimitat, până la 50 de redări vocale (Ascultă) pe lună, Memorie zilnică (20 mesaje + 10 amintiri + 10 etape), previzualizare documente & album (fără descărcare), videoclipuri de amintiri de la Starter și până la 3 conversații arhivate. Nu este nevoie de card de credit pentru a începe."
+      },
+      {
+        "question": "Ce se întâmplă când se termină proba?",
+        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai sau pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+      },
+      {
+        "question": "Cum funcționează mesajele vocale?",
+        "answer": "Limita lunară se aplică redărilor audio ale răspunsurilor HeyMaa (butonul Ascultă). Cota rămasă apare deasupra chatului. Când se termină, vei vedea un mesaj de upgrade.\n\n• Probă: 50/lună\n• Starter: 150/lună\n• Premium: 400/lună\n• Premium anual: 700/lună\n\nPoți vorbi în chat folosind microfonul (speech-to-text) fără a consuma această cotă."
+      },
+      {
+        "question": "Care este diferența dintre planuri?",
+        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€19/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€39/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€199/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
+      },
+      {
+        "question": "Ce înseamnă Memorie zilnică, de bază și completă?",
+        "answer": "Trei niveluri de memorie în chat — câte mesaje recente, amintiri salvate și etape bifate folosește HeyMaa în fiecare răspuns:\n\n• Memorie zilnică (probă): 20 mesaje + 10 amintiri + 10 etape\n• Memorie de bază (Starter): 32 mesaje + 24 amintiri + 24 etape\n• Memorie completă (Premium): 64 mesaje + 45 amintiri + 45 etape\n• Memorie completă (Anual): 64 mesaje + 50 amintiri + 50 etape\n\nVideoclipuri de amintiri de la Starter; poze, albume și documente din probă (doar vizualizare); descărcare & partajare doar pe Premium+."
+      },
+      {
+        "question": "Cum funcționează etapele?",
+        "answer": "Etapele de dezvoltare apar pe perioade de vârstă, cu o cronologie de progres. Poți bifa doar ce s-a întâmplat deja — etapele viitoare apar ca previzualizare și nu pot fi bifate încă. Etapele bifate alimentează și răspunsurile din chat (alături de mesaje și amintiri). Când bifezi o etapă, poate fi adăugată automat în jurnalul de amintiri."
+      },
+      {
+        "question": "Ce este Arhiva de documente?",
+        "answer": "În fila Familie poți stoca analize, vaccinuri, tratamente și medicamente — cu categorie, dată, membru al familiei și fișier atașat. Disponibilă din probă (doar vizualizare). Pe Starter poți încărca și edita. Descărcarea fișierelor de la Premium+."
+      },
+      {
+        "question": "Ce este arborele genealogic?",
+        "answer": "În fila Familie vezi un arbore vizual cu tine, partenerul, părinții, frații/surorile și copiii. Atinge un card ca să editezi sau trage membrii pentru a-i rearanja. Numărul de amintiri al fiecărui membru apare ca insignă pe card."
+      },
+      {
+        "question": "HeyMaa oferă sfaturi medicale?",
+        "answer": "Nu. HeyMaa nu înlocuiește medicul sau farmacistul. Pentru orice problemă de sănătate — a ta sau a copilului — vorbește întotdeauna cu un profesionist calificat din domeniul sănătății."
+      },
+      {
+        "question": "Ce limbi sunt suportate?",
+        "answer": "Suportăm 3 limbi: greacă, engleză și română. Schimbă limba din Setări → Limbă."
+      },
+      {
+        "question": "Cum fac upgrade la abonament?",
+        "answer": "Când ai nevoie de o funcție dintr-un plan superior, apare un mesaj cu butonul UPGRADE care deschide planurile disponibile. Poți merge și la Setări → Abonament sau atinge iconița clopoțel (notificări) din partea de sus."
+      },
+      {
+        "question": "Cum anulez abonamentul?",
+        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai sau sună pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+      },
+      {
+        "question": "Am uitat parola",
+        "answer": "Pe ecranul de autentificare, atinge Ai uitat parola? și urmează linkul trimis pe email."
+      },
+      {
+        "question": "Am nevoie de un cod de invitație?",
+        "answer": "De obicei nu — te poți înregistra cu email și parolă. Dacă ai primit un cod de invitație, introdu-l la înregistrare. Partajează-ți codul din Profil ca să câștigi +40 de puncte când o prietenă se înscrie."
+      },
+      {
+        "question": "Sunt datele mele în siguranță?",
+        "answer": "Da — datele tale îți aparțin. Poți exporta o copie (JSON) sau șterge contul din Setări → Confidențialitate & date. Vezi Politica de confidențialitate pentru detalii complete."
+      }
+    ]
+  },
+  "cta": {
+    "line1": "Nu trebuie să faci mai mult.",
+    "headline": "E suficient să fii prezentă.",
+    "line3": "Pentru restul, există HeyMaa.",
+    "secondaryButton": "Vezi cum funcționează",
+    "button": "Începe gratuit",
+    "imageAlt": "Mamă ținându-și bebelușul"
+  },
+  "footer": {
+    "logoAlt": "HeyMaa",
+    "about": "Aplicația HeyMaa este dezvoltată de <company>Care Direct</company>.",
+    "contactTitle": "Contact",
+    "email": "info@heymaa.ai",
+    "phoneLabel": "Linie de support",
+    "phone": "+30 2109287420",
+    "phoneTel": "+302109287420",
+    "phoneHours": "Luni–vineri 09:00–17:00",
+    "address": "Premetis 2, Agios Dimitrios, 173 42 Athens",
+    "infoTitle": "Informații",
+    "linkContact": "Contact",
+    "linkPrivacy": "Politica de confidențialitate",
+    "linkTerms": "Termeni și condiții",
+    "facebook": "HeyMaa pe Facebook",
+    "copy": "© 2026 HeyMaa - Care Direct. Făcut cu dragoste pentru fiecare mamă."
+  }
+}

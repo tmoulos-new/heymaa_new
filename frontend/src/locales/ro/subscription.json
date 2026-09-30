@@ -1,0 +1,82 @@
+{
+  "nav": {
+    "backToApp": "Înapoi la aplicație",
+    "signIn": "Autentificare",
+    "logoAlt": "HeyMaa"
+  },
+  "hero": {
+    "expired": {
+      "badge": "Probă încheiată",
+      "title": "Perioada ta de probă s-a <em>încheiat</em>",
+      "subtitle": "Ca să continui să folosești HeyMaa, alege un plan de abonament."
+    },
+    "trial": {
+      "badge": "Perioadă de probă",
+      "title": "Fă upgrade la <em>plan</em>",
+      "subtitle": "Ai încă acces gratuit. Alege un plan când ești gata."
+    },
+    "default": {
+      "badge": "Abonamente",
+      "title": "<em>Abonament</em> HeyMaa",
+      "subtitle": "Vezi planurile și alege-l pe cel care ți se potrivește."
+    },
+    "trialEnds": "Proba se încheie pe {{date}}"
+  },
+  "trial": {
+    "expiredBadge": "Expirat",
+    "expiredButton": "Expirat",
+    "signupButton": "Cu înregistrare"
+  },
+  "plan": {
+    "currentBadge": "Curent",
+    "currentButton": "Activ"
+  },
+  "faq": {
+    "button": "Întrebări frecvente",
+    "title": "FAQ",
+    "subtitle": "Planuri, puncte și aplicația",
+    "close": "Închide"
+  },
+  "cancel": {
+    "title": "Anulează abonamentul",
+    "body": "Solicită anularea aici. Echipa noastră analizează fiecare cerere. Păstrezi accesul până la sfârșitul perioadei de facturare. Rambursările sunt gestionate de support.",
+    "requestButton": "Solicită anularea",
+    "pendingTitle": "Anulare solicitată — în curs de verificare",
+    "pendingBody": "Am primit cererea ta. Un administrator o va confirma. Păstrezi accesul până la sfârșitul perioadei de facturare.",
+    "approvedTitle": "Anulare confirmată",
+    "approvedBody": "Anularea ta este confirmată. Păstrezi accesul până pe {{date}}. Nu există nicio taxare automată ulterioară pentru această perioadă.",
+    "emailButton": "Email info@heymaa.ai",
+    "helpButton": "Ajutor & support"
+  },
+  "checkout": {
+    "title": "Finalizează plata",
+    "reviewSubtitle": "Verifică ce include planul tău înainte de a trece la plată.",
+    "includes": "Acest plan include",
+    "buy": "Cumpără",
+    "loading": "Se încarcă…",
+    "redirecting": "Redirecționare către Viva Wallet…",
+    "invalidPlan": "Plan invalid.",
+    "failed": "Checkout eșuat.",
+    "backToPlans": "← Înapoi la planuri",
+    "backToApp": "Înapoi la aplicație",
+    "logoAlt": "HeyMaa",
+    "plans": {
+      "starter": "Starter",
+      "premium": "Premium",
+      "annual": "Premium anual"
+    }
+  },
+  "checkoutResult": {
+    "successTitle": "Plată reușită",
+    "failureTitle": "Plată eșuată",
+    "successBody": "Mulțumim! Abonamentul tău se va activa în scurt timp. Dacă nu vezi încă schimbarea, redeschide aplicația.",
+    "failureBody": "Plata nu a fost finalizată sau a fost anulată. Poți încerca din nou din pagina de planuri.",
+    "transactionRef": "Tranzacție",
+    "continueApp": "Continuă în aplicație →",
+    "signIn": "Autentificare →",
+    "tryAgain": "Încearcă din nou →",
+    "viewPlans": "Vezi planurile",
+    "backToApp": "Înapoi la aplicație",
+    "home": "Acasă"
+  }
+}

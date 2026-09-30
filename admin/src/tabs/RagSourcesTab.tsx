@@ -73,6 +73,19 @@ function formatDate(iso?: string | null) {
   }
 }
 
+function formatDateShort(iso?: string | null) {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  } catch {
+    return ''
+  }
+}
+
 function isHttpUrl(value?: string | null) {
   const v = (value || '').trim()
   return /^https?:\/\//i.test(v)
@@ -133,15 +146,13 @@ const PRESET_SEEDS: {
   {
     key: 'babyspace',
     name: 'Babyspace',
-    blurb:
-      'Walks /el/articles newest-first for the last 5 years. Already-ingested URLs are skipped; new ones are ingested in small batches so the library count grows while the job runs. Leave this tab open (Cancel to stop).',
+    blurb: 'Greek parenting articles. Sync finds new pages; auto-maintenance repairs empty/error rows.',
     sinceYears: 5,
   },
   {
     key: 'myparenthood',
     name: 'My Parenthood',
-    blurb:
-      'Background job from their post sitemap. Ingests in small batches (no timeout). Already-ready URLs are skipped.',
+    blurb: 'From their post sitemap. Sync skips healthy pages; broken rows are fixed automatically.',
   },
 ]
 
@@ -149,6 +160,7 @@ type SeedJobPublic = {
   id: string
   source_key: string
   status: string
+  mode?: string
   discovered?: number
   queued?: number
   ingested?: number
@@ -160,6 +172,29 @@ type SeedJobPublic = {
   cursor_idx?: number
   last_error?: string | null
   done?: boolean
+}
+
+type RagHealth = {
+  ok?: boolean
+  sources?: number
+  ready?: number
+  processing?: number
+  error?: number
+  empty_chunks?: number
+  broken?: number
+  chunks?: number
+  urls?: number
+  files?: number
+  by_source_key?: Record<
+    string,
+    { sources: number; ready: number; error: number; empty_chunks: number; broken: number }
+  >
+  active_job?: SeedJobPublic | null
+  auto?: {
+    rebuild_empty_hours?: number
+    add_new_hours?: number
+    maintained_keys?: string[]
+  }
 }
 
 
@@ -192,9 +227,13 @@ export function RagSourcesTab() {
 
   const [filterQ, setFilterQ] = useState('')
   const [filterKind, setFilterKind] = useState<'all' | 'URL' | 'File'>('all')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'ready' | 'processing' | 'error'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'ready' | 'processing' | 'error' | 'broken'>('all')
   const [filterSite, setFilterSite] = useState('all')
-
+  const [libraryPage, setLibraryPage] = useState(1)
+  const LIBRARY_PAGE_SIZE = 10
+  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [health, setHealth] = useState<RagHealth | null>(null)
+  const [maintaining, setMaintaining] = useState(false)
 
   const [editRow, setEditRow] = useState<RagSourceRow | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -211,8 +250,16 @@ export function RagSourcesTab() {
     setLoading(true)
     setErr(false)
     try {
-      const d = await adminFetch('/admin/rag_sources')
+      const [d, h] = await Promise.all([
+        adminFetch('/admin/rag_sources'),
+        adminFetch('/admin/rag_sources/health').catch(() => null),
+      ])
       setSources((d.sources as RagSourceRow[]) || [])
+      if (h && typeof h === 'object') {
+        setHealth(h as RagHealth)
+        const active = (h as RagHealth).active_job
+        if (active && !active.done) setSeedJob(active)
+      }
       if (d.error) show(String(d.error), 'err')
     } catch {
       setErr(true)
@@ -226,6 +273,43 @@ export function RagSourcesTab() {
     void loadSources()
   }, [loadSources])
 
+  // While a job is active, poll + nudge ticks (cron also advances in production).
+  useEffect(() => {
+    if (!seedJob?.id || seedJob.done) return
+    let cancelled = false
+    const pulse = async () => {
+      if (cancelled || seedAbortRef.current) return
+      try {
+        await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}/tick`, { method: 'POST' })
+        const got = await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}`)
+        const job = (got.job || got) as SeedJobPublic
+        if (cancelled) return
+        setSeedJob(job)
+        if (job.done) {
+          void loadSources()
+          if (job.status === 'completed') {
+            show(
+              job.mode === 'rebuild_empty'
+                ? `Rebuild done — ${job.ingested || 0} rebuilt, ${job.skipped || 0} skipped`
+                : `Sync done — ${job.ingested || 0} new, ${job.skipped || 0} skipped`,
+              'ok',
+            )
+          } else if (job.status === 'failed') {
+            show(job.last_error || 'Seed job failed', 'err')
+          }
+        }
+      } catch {
+        /* cron may still advance; ignore transient errors */
+      }
+    }
+    const id = window.setInterval(() => void pulse(), 2500)
+    void pulse()
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [seedJob?.id, seedJob?.done, seedJob?.mode, adminFetch, loadSources, show])
+
   const siteOptions = useMemo(() => {
     const keys = new Set<string>()
     for (const row of sources) keys.add(siteKey(row))
@@ -234,45 +318,90 @@ export function RagSourcesTab() {
 
   const filteredSources = useMemo(() => {
     const q = filterQ.trim().toLowerCase()
-    return sources.filter((row) => {
+    const rows = sources.filter((row) => {
       const kind = sourceKind(row).label
       if (filterKind !== 'all' && kind !== filterKind) return false
       const st = (row.status || '').toLowerCase()
-      if (filterStatus !== 'all' && st !== filterStatus) return false
+      const chunks = Number(row.chunk_count ?? row.chunks_live ?? 0)
+      const broken = st === 'error' || chunks < 1
+      if (filterStatus === 'broken') {
+        if (!broken) return false
+      } else if (filterStatus !== 'all' && st !== filterStatus) {
+        return false
+      }
       if (filterSite !== 'all' && siteKey(row) !== filterSite) return false
       if (!q) return true
       const hay = `${row.title || ''} ${row.origin || ''} ${row.source_key || ''}`.toLowerCase()
       return hay.includes(q)
     })
+    // Broken first so attention items aren't buried
+    return rows.sort((a, b) => {
+      const ab =
+        (a.status || '').toLowerCase() === 'error' || Number(a.chunk_count ?? a.chunks_live ?? 0) < 1
+          ? 0
+          : 1
+      const bb =
+        (b.status || '').toLowerCase() === 'error' || Number(b.chunk_count ?? b.chunks_live ?? 0) < 1
+          ? 0
+          : 1
+      return ab - bb
+    })
   }, [sources, filterQ, filterKind, filterStatus, filterSite])
+
+  const libraryTotalPages = Math.max(1, Math.ceil(filteredSources.length / LIBRARY_PAGE_SIZE))
+
+  useEffect(() => {
+    setLibraryPage(1)
+  }, [filterQ, filterKind, filterStatus, filterSite])
+
+  useEffect(() => {
+    setLibraryPage((p) => Math.min(p, libraryTotalPages))
+  }, [libraryTotalPages])
+
+  const pagedSources = useMemo(() => {
+    const start = (libraryPage - 1) * LIBRARY_PAGE_SIZE
+    return filteredSources.slice(start, start + LIBRARY_PAGE_SIZE)
+  }, [filteredSources, libraryPage])
+
+  const libraryRangeStart =
+    filteredSources.length === 0 ? 0 : (libraryPage - 1) * LIBRARY_PAGE_SIZE + 1
+  const libraryRangeEnd = Math.min(libraryPage * LIBRARY_PAGE_SIZE, filteredSources.length)
 
   const filtersActive =
     filterQ.trim() !== '' || filterKind !== 'all' || filterStatus !== 'all' || filterSite !== 'all'
 
-  const stats = useMemo(() => {
+  // Unfiltered totals — used when health API is unavailable. Never use filtered stats
+  // for the health tiles (clicking a filter was rewriting those numbers).
+  const globalStats = useMemo(() => {
     let chunks = 0
     let ready = 0
     let errors = 0
-    let urls = 0
-    let files = 0
-    for (const row of filteredSources) {
-      chunks += Number(row.chunks_live ?? row.chunk_count ?? 0)
+    let broken = 0
+    for (const row of sources) {
+      const n = Number(row.chunk_count ?? row.chunks_live ?? 0)
+      chunks += n
       const st = (row.status || '').toLowerCase()
       if (st === 'ready') ready += 1
       if (st === 'error') errors += 1
-      const kind = sourceKind(row).label
-      if (kind === 'URL') urls += 1
-      else files += 1
+      if (st === 'error' || n < 1) broken += 1
     }
-    return {
-      sources: filteredSources.length,
-      chunks,
-      ready,
-      errors,
-      urls,
-      files,
-    }
-  }, [filteredSources])
+    return { sources: sources.length, chunks, ready, errors, broken }
+  }, [sources])
+
+  const healthView = {
+    sources: health?.sources ?? globalStats.sources,
+    ready: health?.ready ?? globalStats.ready,
+    broken: health?.broken ?? globalStats.broken,
+    chunks: health?.chunks ?? globalStats.chunks,
+    error: health?.error ?? globalStats.errors,
+  }
+
+  const applyLibraryFilter = (next: typeof filterStatus) => {
+    setFilterStatus(next)
+    setLibraryPage(1)
+    const el = document.getElementById('rag-library')
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const uploadSource = async () => {
     if (!uploadFile) {
@@ -343,10 +472,14 @@ export function RagSourcesTab() {
     }
   }
 
-  const seedSite = async (sourceKey: string, label: string, opts?: { sinceYears?: number }) => {
+  const seedSite = async (
+    sourceKey: string,
+    label: string,
+    opts?: { sinceYears?: number; mode?: 'add_new' | 'rebuild_empty' },
+  ) => {
+    const mode = opts?.mode || 'add_new'
     setSeedingKey(sourceKey)
     seedAbortRef.current = false
-    setSeedJob(null)
     try {
       const created = await adminFetch('/admin/rag_sources/seed_jobs', {
         method: 'POST',
@@ -355,55 +488,71 @@ export function RagSourcesTab() {
           source_key: sourceKey,
           since_years: opts?.sinceYears ?? (sourceKey === 'babyspace' ? 5 : undefined),
           batch_size: 5,
+          mode,
         }),
       })
-      let job = (created.job || {}) as SeedJobPublic
-      setSeedJob(job)
-      show(`Started ${label} seed job — running in small steps…`, 'ok')
-
-      let ticks = 0
-      while (job?.id && !job.done && !seedAbortRef.current) {
-        const tick = await adminFetch(`/admin/rag_sources/seed_jobs/${job.id}/tick`, {
-          method: 'POST',
-        })
-        job = (tick.job || job) as SeedJobPublic
-        setSeedJob({ ...job })
-        ticks += 1
-        // Refresh library while ingesting so Sources / Chunks counters move
-        if (job.status === 'running' && ticks % 3 === 0) {
-          void loadSources()
-        }
-        if (job.done) break
-        // Brief pause so the UI can paint and the API can breathe
-        await new Promise((r) => setTimeout(r, 400))
+      const job0 = (created.job || created) as SeedJobPublic
+      setSeedJob(job0)
+      if (mode === 'rebuild_empty' && (job0.queued || 0) < 1) {
+        show(`${label}: nothing to rebuild`, 'ok')
+        setSeedingKey(null)
+        await loadSources()
+        return
       }
-
-      if (seedAbortRef.current && job?.id && !job.done) {
-        const cancelled = await adminFetch(`/admin/rag_sources/seed_jobs/${job.id}/cancel`, {
-          method: 'POST',
-        })
-        job = (cancelled.job || job) as SeedJobPublic
-        setSeedJob(job)
-        show(`${label} seed cancelled`, 'ok')
-      } else if (job?.status === 'failed') {
-        show(job.last_error || `${label} seed failed`, 'err')
-      } else if (job?.status === 'completed') {
-        show(
-          `${label} done — ${job.ingested || 0} new, ${job.skipped || 0} skipped, ${job.failed || 0} failed (${job.discovered || 0} queued)`,
-          'ok',
-        )
-      }
-      await loadSources()
+      show(
+        mode === 'rebuild_empty'
+          ? `${label}: rebuilding ${job0.queued ?? 0} broken URLs in the background…`
+          : `${label}: syncing new pages in the background…`,
+        'ok',
+      )
+      // Polling effect advances the job; cron does too if the tab closes.
     } catch (e) {
       show(e instanceof Error ? e.message : `Seed ${label} failed`, 'err')
     } finally {
       setSeedingKey(null)
-      seedAbortRef.current = false
     }
   }
 
-  const cancelSeedJob = () => {
+  const cancelSeedJob = async () => {
     seedAbortRef.current = true
+    if (!seedJob?.id || seedJob.done) return
+    try {
+      const cancelled = await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}/cancel`, {
+        method: 'POST',
+      })
+      setSeedJob((cancelled.job || cancelled) as SeedJobPublic)
+      show('Job cancelled', 'ok')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Cancel failed', 'err')
+    }
+  }
+
+  const runMaintenanceNow = async () => {
+    setMaintaining(true)
+    try {
+      const d = await adminFetch('/admin/rag_sources/cron_tick?max_ticks=10&enqueue=true', {
+        method: 'POST',
+      })
+      if (d.skipped) {
+        show('Auto-maintenance is disabled on the server', 'err')
+      } else if (d.enqueued) {
+        setSeedJob(d.enqueued as SeedJobPublic)
+        show(
+          `Queued ${(d.enqueued as SeedJobPublic).mode === 'rebuild_empty' ? 'rebuild' : 'sync'} for ${(d.enqueued as SeedJobPublic).source_key}`,
+          'ok',
+        )
+      } else if (d.job) {
+        setSeedJob(d.job as SeedJobPublic)
+        show(`Advanced job (${d.ticks || 0} ticks)`, 'ok')
+      } else {
+        show('Library is healthy — nothing to enqueue', 'ok')
+      }
+      await loadSources()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Maintenance failed', 'err')
+    } finally {
+      setMaintaining(false)
+    }
   }
 
   const seedCustomWebsite = async () => {
@@ -516,6 +665,35 @@ export function RagSourcesTab() {
     }
   }
 
+  const rebuildOneSource = async (row: RagSourceRow) => {
+    const origin = (row.origin || '').trim()
+    if (isHttpUrl(origin)) {
+      setRechunking(true)
+      try {
+        const d = await adminFetch('/admin/rag_sources/ingest_url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: origin,
+            title: row.title || undefined,
+            source_key: row.source_key || undefined,
+          }),
+        })
+        const chunks = Number(d.chunk_count || 0)
+        if (chunks < 1) throw new Error('URL rebuild finished but no chunks were created')
+        show(`Rebuilt URL — ${chunks} chunks`, 'ok')
+        await loadSources()
+      } catch (e) {
+        show(e instanceof Error ? e.message : 'URL rebuild failed', 'err')
+      } finally {
+        setRechunking(false)
+      }
+      return
+    }
+    setRechunkTarget(row)
+    rechunkInputRef.current?.click()
+  }
+
   return (
     <>
       {Message}
@@ -524,281 +702,370 @@ export function RagSourcesTab() {
           <div>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
               <BookOpen size={18} />
-              Knowledge sources (RAG)
+              Knowledge library
             </h2>
+            <p className="card-desc" style={{ margin: '6px 0 0' }}>
+              Chat retrieves chunks from these sources. Health is global (not filtered). Sync and
+              repair can run in the background — you do not need to keep this tab open.
+            </p>
           </div>
-          <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
-            <RefreshCw size={14} />
-            Refresh
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="sec sm"
+              onClick={() => void runMaintenanceNow()}
+              disabled={maintaining || seedingKey !== null}
+              title="Enqueue rebuild/sync if needed and advance the active job"
+            >
+              <Sprout size={14} />
+              {maintaining ? 'Running…' : 'Run maintenance'}
+            </button>
+            <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
+              <RefreshCw size={14} />
+              Refresh
+            </button>
+          </div>
         </div>
-        <p className="card-desc">
-          This page fills the knowledge HeyMaa can quote in chat. You add sources in one of the three
-          ways below; each source is split into <strong>chunks</strong> (small searchable pieces). When a
-          parent asks something, chat retrieves the most relevant chunks and adds them to the model
-          context.
+
+        <div className="rag-stats rag-health-stats" aria-label="Library health">
+          <button
+            type="button"
+            className={`rag-stat rag-stat-btn${filterStatus === 'all' ? ' is-active' : ''}`}
+            title="Show all sources in the library below"
+            onClick={() => applyLibraryFilter('all')}
+          >
+            <span className="rag-stat-value">{healthView.sources}</span>
+            <span className="rag-stat-label">Sources</span>
+          </button>
+          <button
+            type="button"
+            className={`rag-stat rag-stat-btn${filterStatus === 'ready' ? ' is-active' : ''}`}
+            title="Filter library to ready sources"
+            onClick={() => applyLibraryFilter('ready')}
+          >
+            <span className="rag-stat-value">{healthView.ready}</span>
+            <span className="rag-stat-label">Ready</span>
+          </button>
+          <button
+            type="button"
+            className={`rag-stat rag-stat-btn${healthView.broken > 0 ? ' is-warn' : ''}${filterStatus === 'broken' ? ' is-active' : ''}`}
+            title="Filter library to sources with errors or 0 chunks"
+            onClick={() => applyLibraryFilter('broken')}
+          >
+            <span className="rag-stat-value">{healthView.broken}</span>
+            <span className="rag-stat-label">Needs attention</span>
+          </button>
+          <div className="rag-stat" title="Total chunks stored in the knowledge base (no row cap)">
+            <span className="rag-stat-value">{healthView.chunks}</span>
+            <span className="rag-stat-label">Chunks</span>
+          </div>
+          <div className="rag-stat" title="Sources currently in error status">
+            <span className="rag-stat-value">{healthView.error}</span>
+            <span className="rag-stat-label">Errors</span>
+          </div>
+        </div>
+
+        <p className="muted" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4 }}>
+          Sources / Ready / Needs attention filter the library list below — totals above stay global.
         </p>
 
-        <div className="rag-howto" aria-label="How RAG sources work">
-          <div className="rag-howto-title">How this page works</div>
-          <ol className="rag-howto-steps">
-            <li>
-              <strong>1. Add a source</strong>
-              <span>Upload a file, paste one URL, or seed a whole website.</span>
-            </li>
-            <li>
-              <strong>2. Chunks are created</strong>
-              <span>Text is split and embedded so chat can search it.</span>
-            </li>
-            <li>
-              <strong>3. Chat uses them</strong>
-              <span>Matching chunks are injected into replies when relevant.</span>
-            </li>
-          </ol>
+        <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.45 }}>
+          Auto-maintenance (Vercel cron every 5 min): repairs empty/error URLs daily, syncs new pages
+          about every 3 days for Babyspace & My Parenthood, and advances any active job. Set{' '}
+          <code>CRON_SECRET</code> in production; disable with <code>RAG_AUTO_MAINTENANCE=0</code>.
+        </p>
+      </div>
+
+      {(health?.broken || 0) > 0 ? (
+        <div className="card rag-attention-card">
+          <div className="card-head">
+            <div>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={16} />
+                Needs attention
+              </h2>
+              <p className="card-desc" style={{ margin: '6px 0 0' }}>
+                {health?.broken} source{(health?.broken || 0) === 1 ? '' : 's'} with status Error or 0
+                chunks. Auto-repair runs daily; you can also fix now.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="teal sm"
+              disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
+              onClick={() => {
+                const key =
+                  (health?.by_source_key &&
+                    Object.entries(health.by_source_key).sort(
+                      (a, b) => (b[1].broken || 0) - (a[1].broken || 0),
+                    )[0]?.[0]) ||
+                  'babyspace'
+                const site = PRESET_SEEDS.find((s) => s.key === key) || PRESET_SEEDS[0]
+                void seedSite(site.key, site.name, {
+                  sinceYears: site.sinceYears,
+                  mode: 'rebuild_empty',
+                })
+              }}
+            >
+              Fix broken now
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="rag-add-grid">
-        <section className="card rag-add-card">
-          <div className="rag-add-head">
-            <span className="rag-add-icon" aria-hidden>
-              <FileUp size={18} />
+      {seedJob && !seedJob.done ? (
+        <div className="card rag-seed-progress-card" aria-live="polite">
+          <strong>
+            Background job · {seedJob.status}
+            {seedJob.mode === 'rebuild_empty' ? ' · rebuild' : ' · sync new'}
+            {seedJob.source_key ? ` · ${seedJob.source_key}` : ''}
+          </strong>
+          <span>
+            Queued {seedJob.discovered ?? seedJob.queued ?? 0} · ingested {seedJob.ingested ?? 0} ·
+            skipped {seedJob.skipped ?? 0} · failed {seedJob.failed ?? 0}
+            {seedJob.status === 'running'
+              ? ` · cursor ${seedJob.cursor_idx ?? 0}/${seedJob.queued ?? seedJob.discovered ?? 0}`
+              : ''}
+          </span>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Safe to leave this page — cron keeps ticking every 5 minutes while the job is active.
+          </span>
+          {seedJob.last_error ? (
+            <span
+              className={
+                /404|410|dead link|not found/i.test(seedJob.last_error)
+                  ? 'rag-seed-progress-note'
+                  : 'rag-seed-progress-err'
+              }
+            >
+              {seedJob.last_error}
             </span>
-            <div>
-              <h2>1. Upload a document</h2>
-              <p className="card-desc" style={{ marginBottom: 0 }}>
-                Best for PDFs, guides, or .txt/.md files you already have. One upload = one source in
-                the library below.
-              </p>
-            </div>
+          ) : null}
+          <div>
+            <button type="button" className="ghost sm" onClick={() => void cancelSeedJob()}>
+              Cancel job
+            </button>
           </div>
-          <div className="field">
-            <FieldLabel>Title (optional)</FieldLabel>
-            <input
-              value={uploadTitle}
-              onChange={(e) => setUploadTitle(e.target.value)}
-              placeholder="e.g. Pregnancy Guide"
-            />
-          </div>
-          <div className="field">
-            <FieldLabel>File (.txt, .md, .pdf)</FieldLabel>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,.markdown,.pdf,text/plain,application/pdf"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-            />
-            {uploadFile ? (
-              <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
-                {uploadFile.name} · {(uploadFile.size / 1024).toFixed(1)} KB
-              </p>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className="teal"
-            onClick={() => void uploadSource()}
-            disabled={uploading || !uploadFile}
-          >
-            <Upload size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-            {uploading ? 'Uploading & chunking…' : 'Upload & create chunks'}
-          </button>
-        </section>
+        </div>
+      ) : null}
 
-        <section className="card rag-add-card">
-          <div className="rag-add-head">
-            <span className="rag-add-icon" aria-hidden>
-              <Link2 size={18} />
-            </span>
-            <div>
-              <h2>2. Ingest one URL</h2>
-              <p className="card-desc" style={{ marginBottom: 0 }}>
-                Fetch a single public article or page. Use this when you want one specific URL in the
-                knowledge base.
-              </p>
-            </div>
+      <section className="card rag-seed-panel">
+        <div className="rag-add-head">
+          <span className="rag-add-icon" aria-hidden>
+            <Sprout size={18} />
+          </span>
+          <div>
+            <h2>Site sync</h2>
+            <p className="card-desc" style={{ marginBottom: 0 }}>
+              One primary action per site. Sync only adds new pages; repair is automatic (or use Fix
+              broken above).
+            </p>
           </div>
-          <div className="field">
-            <FieldLabel>Page URL</FieldLabel>
-            <input
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://example.com/article"
-            />
-          </div>
-          <div className="field">
-            <FieldLabel>Title (optional)</FieldLabel>
-            <input
-              value={urlTitle}
-              onChange={(e) => setUrlTitle(e.target.value)}
-              placeholder="Overrides the page title"
-            />
-          </div>
-          <button
-            type="button"
-            className="teal"
-            onClick={() => void ingestUrl()}
-            disabled={urlIngesting || !urlInput.trim()}
-          >
-            <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-            {urlIngesting ? 'Fetching & chunking…' : 'Ingest URL'}
-          </button>
-        </section>
-      </div>
+        </div>
 
-      <section className="card rag-add-card rag-seed-panel">
-          <div className="rag-add-head">
-            <span className="rag-add-icon" aria-hidden>
-              <Sprout size={18} />
-            </span>
-            <div>
-              <h2>3. Seed websites</h2>
-              <p className="card-desc" style={{ marginBottom: 0 }}>
-                Bulk-import many pages from a site. Built-in presets for Babyspace and My Parenthood,
-                or add any public website below. Each discovered page is fetched in full and chunked
-                (not just a feed summary).
-              </p>
-            </div>
-          </div>
-
-          <div className="rag-seed-presets">
-            <div className="rag-seed-presets-label">Built-in sites</div>
-            <div className="rag-seed-preset-grid">
-              {PRESET_SEEDS.map((site) => (
+        <div className="rag-seed-presets">
+          <div className="rag-seed-preset-grid">
+            {PRESET_SEEDS.map((site) => {
+              const siteHealth = health?.by_source_key?.[site.key]
+              return (
                 <div key={site.key} className="rag-seed-preset">
                   <strong>{site.name}</strong>
                   <p>{site.blurb}</p>
+                  {siteHealth ? (
+                    <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                      {siteHealth.sources} sources · {siteHealth.broken} broken
+                    </p>
+                  ) : null}
                   <div className="rag-seed-preset-actions">
                     <button
                       type="button"
                       className="sec"
                       onClick={() =>
-                        void seedSite(site.key, site.name, { sinceYears: site.sinceYears })
+                        void seedSite(site.key, site.name, {
+                          sinceYears: site.sinceYears,
+                          mode: 'add_new',
+                        })
                       }
-                      disabled={seedingKey !== null || siteSeeding}
+                      disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
                     >
                       <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-                      {seedingKey === site.key
-                        ? `Running ${site.name}…`
-                        : site.key === 'babyspace'
-                          ? `Start ${site.name} (last 5 years)`
-                          : `Start ${site.name}`}
+                      {seedingKey === site.key ? 'Starting…' : 'Sync new pages'}
                     </button>
-                    {seedingKey === site.key ? (
-                      <button type="button" className="ghost sm" onClick={cancelSeedJob}>
-                        Cancel
+                    {(siteHealth?.broken || 0) > 0 ? (
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() =>
+                          void seedSite(site.key, site.name, {
+                            sinceYears: site.sinceYears,
+                            mode: 'rebuild_empty',
+                          })
+                        }
+                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
+                      >
+                        Fix {siteHealth?.broken} broken
                       </button>
                     ) : null}
                   </div>
                 </div>
-              ))}
-            </div>
-            {seedJob ? (
-              <div className="rag-seed-progress" aria-live="polite">
-                <strong>
-                  Job {seedJob.status}
-                  {seedJob.source_key ? ` · ${seedJob.source_key}` : ''}
-                </strong>
-                <span>
-                  Queued {seedJob.discovered ?? seedJob.queued ?? 0} · ingested {seedJob.ingested ?? 0} ·
-                  skipped {seedJob.skipped ?? 0} · failed {seedJob.failed ?? 0}
-                  {seedJob.status === 'discovering' || !seedJob.discover_done
-                    ? ` · listing page ${Math.min(seedJob.discover_page ?? 1, seedJob.max_discover_pages ?? 250)}/${seedJob.max_discover_pages ?? 250}`
-                    : ''}
-                  {seedJob.status === 'running'
-                    ? ` · cursor ${seedJob.cursor_idx ?? 0}/${seedJob.queued ?? seedJob.discovered ?? 0}`
-                    : ''}
-                </span>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  Interleaved: discovers a few listing pages, ingests those URLs, then walks older pages.
-                  Dead links (404) count as skipped — the job keeps going. Leave this tab open.
-                </span>
-                {seedJob.last_error ? (
-                  <span
-                    className={
-                      /404|410|dead link|not found/i.test(seedJob.last_error)
-                        ? 'rag-seed-progress-note'
-                        : 'rag-seed-progress-err'
-                    }
-                  >
-                    {seedJob.last_error}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+              )
+            })}
           </div>
-
-          <div className="rag-seed-custom">
-            <div className="rag-seed-presets-label">Add a website source</div>
-            <p className="card-desc" style={{ marginBottom: 12 }}>
-              Point at a blog or article listing. Prefer a <strong>sitemap</strong> or{' '}
-              <strong>RSS</strong> URL when you have one — discovery is more accurate. Otherwise we
-              crawl links from the base URL.
-            </p>
-            <div className="rag-seed-custom-grid">
-              <div className="field">
-                <FieldLabel>Display name (optional)</FieldLabel>
-                <input
-                  value={siteName}
-                  onChange={(e) => setSiteName(e.target.value)}
-                  placeholder="e.g. Parenting Tips Blog"
-                />
-              </div>
-              <div className="field">
-                <FieldLabel>Base URL</FieldLabel>
-                <input
-                  value={siteBaseUrl}
-                  onChange={(e) => setSiteBaseUrl(e.target.value)}
-                  placeholder="https://example.com/blog/"
-                />
-              </div>
-              <div className="field">
-                <FieldLabel>Sitemap URL (optional)</FieldLabel>
-                <input
-                  value={siteSitemap}
-                  onChange={(e) => setSiteSitemap(e.target.value)}
-                  placeholder="https://example.com/post-sitemap.xml"
-                />
-              </div>
-              <div className="field">
-                <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
-                <input
-                  value={siteRss}
-                  onChange={(e) => setSiteRss(e.target.value)}
-                  placeholder="https://example.com/feed"
-                />
-              </div>
-              <div className="field">
-                <FieldLabel>Max pages</FieldLabel>
-                <input
-                  value={siteMax}
-                  onChange={(e) => setSiteMax(e.target.value)}
-                  inputMode="numeric"
-                  placeholder="20"
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              className="teal"
-              onClick={() => void seedCustomWebsite()}
-              disabled={siteSeeding || seedingKey !== null || !siteBaseUrl.trim()}
-            >
-              <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-              {siteSeeding ? 'Discovering & chunking…' : 'Discover & seed website'}
-            </button>
-          </div>
+        </div>
       </section>
 
       <div className="card">
+        <button
+          type="button"
+          className="rag-collapse-toggle"
+          onClick={() => setShowAddPanel((v) => !v)}
+          aria-expanded={showAddPanel}
+        >
+          <span>{showAddPanel ? '▼' : '▶'} Add a source manually</span>
+          <span className="muted">Upload file · one URL · custom website</span>
+        </button>
+        {showAddPanel ? (
+          <>
+            <div className="rag-add-grid" style={{ marginTop: 14 }}>
+              <section className="rag-add-card rag-add-card--flat">
+                <div className="rag-add-head">
+                  <span className="rag-add-icon" aria-hidden>
+                    <FileUp size={18} />
+                  </span>
+                  <div>
+                    <h2>Upload a document</h2>
+                  </div>
+                </div>
+                <div className="field">
+                  <FieldLabel>Title (optional)</FieldLabel>
+                  <input
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                    placeholder="e.g. Pregnancy Guide"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>File (.txt, .md, .pdf)</FieldLabel>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".txt,.md,.markdown,.pdf,text/plain,application/pdf"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="teal"
+                  onClick={() => void uploadSource()}
+                  disabled={uploading || !uploadFile}
+                >
+                  <Upload size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                  {uploading ? 'Uploading…' : 'Upload'}
+                </button>
+              </section>
+
+              <section className="rag-add-card rag-add-card--flat">
+                <div className="rag-add-head">
+                  <span className="rag-add-icon" aria-hidden>
+                    <Link2 size={18} />
+                  </span>
+                  <div>
+                    <h2>Ingest one URL</h2>
+                  </div>
+                </div>
+                <div className="field">
+                  <FieldLabel>URL</FieldLabel>
+                  <input
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://…"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>Title (optional)</FieldLabel>
+                  <input
+                    value={urlTitle}
+                    onChange={(e) => setUrlTitle(e.target.value)}
+                    placeholder="Optional title"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="teal"
+                  onClick={() => void ingestUrl()}
+                  disabled={urlIngesting || !urlInput.trim()}
+                >
+                  <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                  {urlIngesting ? 'Ingesting…' : 'Ingest URL'}
+                </button>
+              </section>
+            </div>
+
+            <div className="rag-seed-custom" style={{ marginTop: 16 }}>
+              <div className="rag-seed-presets-label">Custom website</div>
+              <div className="rag-seed-custom-grid">
+                <div className="field">
+                  <FieldLabel>Display name (optional)</FieldLabel>
+                  <input
+                    value={siteName}
+                    onChange={(e) => setSiteName(e.target.value)}
+                    placeholder="e.g. Parenting Tips Blog"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>Base URL</FieldLabel>
+                  <input
+                    value={siteBaseUrl}
+                    onChange={(e) => setSiteBaseUrl(e.target.value)}
+                    placeholder="https://example.com/blog/"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>Sitemap URL (optional)</FieldLabel>
+                  <input
+                    value={siteSitemap}
+                    onChange={(e) => setSiteSitemap(e.target.value)}
+                    placeholder="https://example.com/post-sitemap.xml"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
+                  <input
+                    value={siteRss}
+                    onChange={(e) => setSiteRss(e.target.value)}
+                    placeholder="https://example.com/feed"
+                  />
+                </div>
+                <div className="field">
+                  <FieldLabel>Max pages</FieldLabel>
+                  <input
+                    value={siteMax}
+                    onChange={(e) => setSiteMax(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="20"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="teal"
+                onClick={() => void seedCustomWebsite()}
+                disabled={siteSeeding || seedingKey !== null || !siteBaseUrl.trim()}
+              >
+                <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                {siteSeeding ? 'Discovering…' : 'Discover & seed website'}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      <div className="card" id="rag-library">
         <div className="card-head">
           <div>
-            <h2 style={{ margin: 0 }}>Library — seeded URLs &amp; documents</h2>
+            <h2 style={{ margin: 0 }}>Library</h2>
             <p className="card-desc" style={{ margin: '6px 0 0' }}>
-              Every source that chat can retrieve from. <strong>Chunks</strong> = searchable pieces
-              (paragraph-sized). Stats below follow the active filters. Use{' '}
-              <strong>Rebuild chunks</strong> after replacing a file or if chat quotes stale text.
-              For URL rows, open the link to see what was ingested.
+              10 per page. Broken rows sort first. Health chips above filter this list (totals stay global).
             </p>
           </div>
         </div>
@@ -828,6 +1095,7 @@ export function RagSourcesTab() {
                 onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
               >
                 <option value="all">All statuses</option>
+                <option value="broken">Needs attention</option>
                 <option value="ready">Ready</option>
                 <option value="processing">Processing</option>
                 <option value="error">Error</option>
@@ -854,6 +1122,7 @@ export function RagSourcesTab() {
                     setFilterKind('all')
                     setFilterStatus('all')
                     setFilterSite('all')
+                    setLibraryPage(1)
                   }}
                 >
                   Clear filters
@@ -863,35 +1132,6 @@ export function RagSourcesTab() {
                 </span>
               </div>
             ) : null}
-          </div>
-        ) : null}
-
-        {!loading && !err ? (
-          <div className="rag-stats" aria-label="Library summary">
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.sources}</span>
-              <span className="rag-stat-label">Sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.chunks}</span>
-              <span className="rag-stat-label">Chunks live</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.urls}</span>
-              <span className="rag-stat-label">URL sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.files}</span>
-              <span className="rag-stat-label">File sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.ready}</span>
-              <span className="rag-stat-label">Ready</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.errors}</span>
-              <span className="rag-stat-label">Errors</span>
-            </div>
           </div>
         ) : null}
 
@@ -915,6 +1155,7 @@ export function RagSourcesTab() {
         ) : null}
 
         {!loading && filteredSources.length > 0 ? (
+          <>
           <div className="table-wrap rag-table-wrap">
             <table className="rag-table">
               <thead>
@@ -930,10 +1171,10 @@ export function RagSourcesTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSources.map((row) => {
-                  const chunks = row.chunks_live ?? row.chunk_count ?? 0
-                  const needsChunks =
-                    chunks === 0 || (row.status || '').toLowerCase() === 'error'
+                {pagedSources.map((row) => {
+                  const chunks = Number(row.chunk_count ?? row.chunks_live ?? 0)
+                  const st = (row.status || '').toLowerCase()
+                  const needsChunks = chunks < 1 || st === 'error'
                   const kind = sourceKind(row)
                   const origin = (row.origin || '').trim()
                   const url = isHttpUrl(origin) ? origin : ''
@@ -970,6 +1211,14 @@ export function RagSourcesTab() {
                             {origin || '—'}
                           </span>
                         )}
+                        {formatDateShort(row.created_at) ? (
+                          <span
+                            className="rag-origin-date"
+                            title={`Added ${formatDate(row.created_at)}`}
+                          >
+                            {formatDateShort(row.created_at)}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="num">
                         <span className={`rag-chunks${needsChunks ? ' warn' : ''}`}>{chunks}</span>
@@ -999,11 +1248,12 @@ export function RagSourcesTab() {
                           <button
                             type="button"
                             className="icon-btn"
-                            title="Rebuild chunks from a new file"
-                            onClick={() => {
-                              setRechunkTarget(row)
-                              rechunkInputRef.current?.click()
-                            }}
+                            title={
+                              url
+                                ? 'Rebuild: re-fetch this URL and replace chunks'
+                                : 'Rebuild chunks from a new file'
+                            }
+                            onClick={() => void rebuildOneSource(row)}
                             disabled={rechunking}
                           >
                             <RefreshCw size={14} />
@@ -1024,6 +1274,35 @@ export function RagSourcesTab() {
               </tbody>
             </table>
           </div>
+
+          <div className="pagination-bar">
+            <span className="pagination-info">
+              {libraryRangeStart}–{libraryRangeEnd} of {filteredSources.length}
+              {filtersActive ? ` (filtered from ${sources.length})` : ''}
+            </span>
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="sec sm"
+                disabled={libraryPage <= 1}
+                onClick={() => setLibraryPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <span className="pagination-page">
+                Page {libraryPage} / {libraryTotalPages}
+              </span>
+              <button
+                type="button"
+                className="sec sm"
+                disabled={libraryPage >= libraryTotalPages}
+                onClick={() => setLibraryPage((p) => Math.min(libraryTotalPages, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+          </>
         ) : null}
 
         <input

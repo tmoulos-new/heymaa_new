@@ -28,7 +28,7 @@
         },
         {
           "title": "Who it's for",
-          "intro": "From pregnancy and the first year through later childhood. The app is available in Greek and English — choose your language in Settings."
+          "intro": "From pregnancy and the first year through later childhood. The app is available in Greek, English and Romanian — choose your language in Settings."
         }
       ]
     },
@@ -526,13 +526,14 @@
     },
     {
       "question": "Which languages are supported?",
-      "answer": "The app is available in Greek and English.",
+      "answer": "The app is available in Greek, English and Romanian.",
       "sections": [
         {
           "title": "Available languages",
           "bullets": [
             "Greek",
-            "English"
+            "English",
+            "Romanian"
           ]
         },
         {

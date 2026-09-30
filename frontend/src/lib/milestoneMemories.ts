@@ -1,4 +1,5 @@
 import type { AppMemory } from './memoryTypes'
+import { uiDateLocale } from './uiLocale'
 
 export function milestoneMemoryKey(ref: string, stageId: string, idx: number): string {
   return `${ref}:${stageId}:${idx}`
@@ -107,7 +108,7 @@ export function buildMilestoneMemory(params: {
   return {
     emoji: emojiForMilestoneLabel(params.label),
     text: params.label,
-    date: now.toLocaleDateString(params.lang === 'el' ? 'el-GR' : params.lang, {
+    date: now.toLocaleDateString(uiDateLocale(params.lang), {
       day: 'numeric',
       month: 'short',
     }),
@@ -119,6 +120,8 @@ export function buildMilestoneMemory(params: {
     description:
       params.lang === 'el'
         ? 'Καταχωρήθηκε από το tab Ορόσημα.'
-        : 'Logged from the Milestones tab.',
+        : params.lang === 'ro'
+          ? 'Adăugat din tab-ul Etape.'
+          : 'Logged from the Milestones tab.',
   }
 }

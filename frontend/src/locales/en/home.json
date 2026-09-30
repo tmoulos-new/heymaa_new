@@ -1,4 +1,4 @@
-﻿{
+{
   "nav": {
     "signIn": "Sign in",
     "demo": "Start free",
@@ -19,7 +19,7 @@
     "subtitle": "Write, speak or send a photo. HeyMaa organises your memories, records your children's development, and is always with you — no stress, no pressure.",
     "cta": "See how it works",
     "scrollDown": "Scroll down",
-    "pillLanguages": "2 languages"
+    "pillLanguages": "3 languages"
   },
   "whatIs": {
     "title": "What is HeyMaa?",
@@ -344,7 +344,7 @@
       },
       {
         "question": "Which languages are supported?",
-        "answer": "We support 17 languages: Greek, English, Italian, German, French, Spanish, Romanian, Bulgarian, Polish, Serbian, Arabic, Turkish, Chinese, Japanese, Russian, Portuguese, and Dutch. Change language in Settings → Language."
+        "answer": "We support 3 languages: Greek, English, and Romanian. Change language in Settings → Language."
       },
       {
         "question": "How do I upgrade my subscription?",

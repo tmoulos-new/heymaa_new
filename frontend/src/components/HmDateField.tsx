@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { uiDateLocale } from '../lib/uiLocale'
 
 type Props = {
   value: string
@@ -13,7 +14,7 @@ type Props = {
 }
 
 function localeFor(lang: string) {
-  return lang === 'el' ? 'el-GR' : 'en-GB'
+  return uiDateLocale(lang)
 }
 
 function pad(n: number) {

@@ -12,14 +12,25 @@ import {
   registerUser,
 } from '../lib/authApi'
 import { normalizeAppLang, readStoredAppLang, writeStoredAppLang } from '../lib/appLang'
+import { SUPPORTED_LANG_CODES } from '../lib/supportedLanguages'
 import { authStrings, PRIVACY_URL, TERMS_URL, localizeAuthApiMessage, type AuthLang } from './authStrings'
 import { EyeIcon, EyeOffIcon } from './passwordVisibilityIcons'
 import { useStableMobileViewport } from '../lib/useStableMobileViewport'
 import './appAuth.css'
 
-/** Auth copy is el/en only — follow the home/app language preference (Greek-first). */
 function authUiLangFromStored(): AuthLang {
-  return normalizeAppLang(readStoredAppLang('el'), 'el') === 'el' ? 'el' : 'en'
+  return normalizeAppLang(readStoredAppLang('el'), 'el') as AuthLang
+}
+
+function nextAuthLang(current: AuthLang): AuthLang {
+  const idx = SUPPORTED_LANG_CODES.indexOf(current)
+  const next = SUPPORTED_LANG_CODES[(idx + 1) % SUPPORTED_LANG_CODES.length]
+  return next as AuthLang
+}
+
+function authLangToggleLabel(current: AuthLang): string {
+  const next = nextAuthLang(current)
+  return next.toUpperCase()
 }
 
 type Mode = 'signup' | 'login'
@@ -62,7 +73,6 @@ export function AppAuthScreen({
 
   const persistLang = (next: AuthLang) => {
     setLang(next)
-    // Only persist when user explicitly toggles EL/EN on this screen
     writeStoredAppLang(next)
   }
 
@@ -161,7 +171,7 @@ export function AppAuthScreen({
   const handleForgot = async () => {
     const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail) {
-      setError(lang === 'el' ? 'Συμπλήρωσε το email σου.' : 'Enter your email first.')
+      setError(lang === 'el' ? 'Συμπλήρωσε το email σου.' : lang === 'ro' ? 'Introdu mai întâi emailul.' : 'Enter your email first.')
       return
     }
     setLoading(true)
@@ -192,9 +202,10 @@ export function AppAuthScreen({
       <button
         type="button"
         className="app-auth-lang"
-        onClick={() => persistLang(lang === 'el' ? 'en' : 'el')}
+        onClick={() => persistLang(nextAuthLang(lang))}
+        aria-label={authLangToggleLabel(lang)}
       >
-        {lang === 'el' ? 'EN' : 'EL'}
+        {authLangToggleLabel(lang)}
       </button>
 
       <div className="app-auth-logo-wrap">
@@ -259,7 +270,19 @@ export function AppAuthScreen({
               type="button"
               className="app-auth-password-toggle"
               onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? (lang === 'el' ? 'Απόκρυψη κωδικού' : 'Hide password') : (lang === 'el' ? 'Εμφάνιση κωδικού' : 'Show password')}
+              aria-label={
+                showPassword
+                  ? lang === 'el'
+                    ? 'Απόκρυψη κωδικού'
+                    : lang === 'ro'
+                      ? 'Ascunde parola'
+                      : 'Hide password'
+                  : lang === 'el'
+                    ? 'Εμφάνιση κωδικού'
+                    : lang === 'ro'
+                      ? 'Arată parola'
+                      : 'Show password'
+              }
               tabIndex={-1}
             >
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -290,7 +313,19 @@ export function AppAuthScreen({
                 type="button"
                 className="app-auth-password-toggle"
                 onClick={() => setShowConfirmPassword((v) => !v)}
-                aria-label={showConfirmPassword ? (lang === 'el' ? 'Απόκρυψη κωδικού' : 'Hide password') : (lang === 'el' ? 'Εμφάνιση κωδικού' : 'Show password')}
+                aria-label={
+                  showConfirmPassword
+                    ? lang === 'el'
+                      ? 'Απόκρυψη κωδικού'
+                      : lang === 'ro'
+                        ? 'Ascunde parola'
+                        : 'Hide password'
+                    : lang === 'el'
+                      ? 'Εμφάνιση κωδικού'
+                      : lang === 'ro'
+                        ? 'Arată parola'
+                        : 'Show password'
+                }
                 tabIndex={-1}
               >
                 {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
@@ -302,7 +337,11 @@ export function AppAuthScreen({
         {mode === 'login' && (
           forgotSent ? (
             <p className="app-auth-error" style={{ color: '#2d9e6b' }}>
-              {lang === 'el' ? 'Στείλαμε email επαναφοράς κωδικού ✓' : 'Password reset email sent ✓'}
+              {lang === 'el'
+                ? 'Στείλαμε email επαναφοράς κωδικού ✓'
+                : lang === 'ro'
+                  ? 'Am trimis emailul de resetare a parolei ✓'
+                  : 'Password reset email sent ✓'}
             </p>
           ) : (
             <button type="button" className="app-auth-forgot" onClick={() => void handleForgot()}>
