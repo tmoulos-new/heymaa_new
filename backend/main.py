@@ -7829,20 +7829,6 @@ class RagSeedJobCreateRequest(BaseModel):
     mode: str = "add_new"
 
 
-def _verify_cron_or_admin(
-    authorization: Optional[str] = None,
-    x_token: Optional[str] = None,
-) -> str:
-    """Allow Vercel cron (CRON_SECRET bearer) or a logged-in admin."""
-    secret = (os.getenv("CRON_SECRET") or "").strip()
-    auth = (authorization or "").strip()
-    if secret and auth:
-        token = auth[7:].strip() if auth.lower().startswith("bearer ") else auth
-        if token == secret:
-            return "cron"
-    return verify_admin(x_token)
-
-
 @app.get("/admin/rag_sources/health")
 async def admin_rag_sources_health(x_token: Optional[str] = Header(None)):
     """Unfiltered corpus health + active seed job (for Sources tab / Overview)."""
@@ -7854,31 +7840,6 @@ async def admin_rag_sources_health(x_token: Optional[str] = Header(None)):
     except ImportError:
         from rag_maintenance import compute_rag_health
     return compute_rag_health(sb)
-
-
-@app.api_route("/admin/rag_sources/cron_tick", methods=["GET", "POST"])
-async def admin_rag_sources_cron_tick(
-    x_token: Optional[str] = Header(None),
-    authorization: Optional[str] = Header(None),
-    max_ticks: int = 8,
-    enqueue: bool = True,
-):
-    """
-    Unattended maintenance: cancel stale jobs, optionally enqueue rebuild/add_new,
-    then advance the active job with several small ticks (Vercel cron).
-    Vercel Cron sends GET; admin "Run maintenance" uses POST.
-    """
-    _verify_cron_or_admin(authorization, x_token)
-    if not sb:
-        raise HTTPException(status_code=500, detail="Database not configured")
-    # Optional kill-switch
-    if (os.getenv("RAG_AUTO_MAINTENANCE") or "1").strip().lower() in ("0", "false", "off", "no"):
-        return {"ok": True, "skipped": True, "reason": "RAG_AUTO_MAINTENANCE disabled"}
-    try:
-        from .rag_maintenance import run_maintenance_tick
-    except ImportError:
-        from rag_maintenance import run_maintenance_tick
-    return run_maintenance_tick(sb, max_ticks=max_ticks, enqueue=enqueue)
 
 
 @app.post("/admin/rag_sources/seed_jobs")

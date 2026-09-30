@@ -146,13 +146,13 @@ const PRESET_SEEDS: {
   {
     key: 'babyspace',
     name: 'Babyspace',
-    blurb: 'Greek parenting articles. Sync finds new pages; auto-maintenance repairs empty/error rows.',
+    blurb: 'Greek parenting articles. Use Sync for new pages, Fix broken for empty/error rows.',
     sinceYears: 5,
   },
   {
     key: 'myparenthood',
     name: 'My Parenthood',
-    blurb: 'From their post sitemap. Sync skips healthy pages; broken rows are fixed automatically.',
+    blurb: 'From their post sitemap. Sync skips healthy pages; Fix broken re-ingests failed ones.',
   },
 ]
 
@@ -190,11 +190,6 @@ type RagHealth = {
     { sources: number; ready: number; error: number; empty_chunks: number; broken: number }
   >
   active_job?: SeedJobPublic | null
-  auto?: {
-    rebuild_empty_hours?: number
-    add_new_hours?: number
-    maintained_keys?: string[]
-  }
 }
 
 
@@ -233,7 +228,6 @@ export function RagSourcesTab() {
   const LIBRARY_PAGE_SIZE = 10
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [health, setHealth] = useState<RagHealth | null>(null)
-  const [maintaining, setMaintaining] = useState(false)
 
   const [editRow, setEditRow] = useState<RagSourceRow | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -273,7 +267,7 @@ export function RagSourcesTab() {
     void loadSources()
   }, [loadSources])
 
-  // While a job is active, poll + nudge ticks (cron also advances in production).
+  // While a job is active, poll + nudge ticks (keep this tab open).
   useEffect(() => {
     if (!seedJob?.id || seedJob.done) return
     let cancelled = false
@@ -299,7 +293,7 @@ export function RagSourcesTab() {
           }
         }
       } catch {
-        /* cron may still advance; ignore transient errors */
+        /* ignore transient errors; next pulse retries */
       }
     }
     const id = window.setInterval(() => void pulse(), 2500)
@@ -501,11 +495,11 @@ export function RagSourcesTab() {
       }
       show(
         mode === 'rebuild_empty'
-          ? `${label}: rebuilding ${job0.queued ?? 0} broken URLs in the background…`
-          : `${label}: syncing new pages in the background…`,
+          ? `${label}: rebuilding ${job0.queued ?? 0} broken URLs…`
+          : `${label}: syncing new pages…`,
         'ok',
       )
-      // Polling effect advances the job; cron does too if the tab closes.
+      // Polling effect advances the job while this tab stays open.
     } catch (e) {
       show(e instanceof Error ? e.message : `Seed ${label} failed`, 'err')
     } finally {
@@ -524,34 +518,6 @@ export function RagSourcesTab() {
       show('Job cancelled', 'ok')
     } catch (e) {
       show(e instanceof Error ? e.message : 'Cancel failed', 'err')
-    }
-  }
-
-  const runMaintenanceNow = async () => {
-    setMaintaining(true)
-    try {
-      const d = await adminFetch('/admin/rag_sources/cron_tick?max_ticks=10&enqueue=true', {
-        method: 'POST',
-      })
-      if (d.skipped) {
-        show('Auto-maintenance is disabled on the server', 'err')
-      } else if (d.enqueued) {
-        setSeedJob(d.enqueued as SeedJobPublic)
-        show(
-          `Queued ${(d.enqueued as SeedJobPublic).mode === 'rebuild_empty' ? 'rebuild' : 'sync'} for ${(d.enqueued as SeedJobPublic).source_key}`,
-          'ok',
-        )
-      } else if (d.job) {
-        setSeedJob(d.job as SeedJobPublic)
-        show(`Advanced job (${d.ticks || 0} ticks)`, 'ok')
-      } else {
-        show('Library is healthy — nothing to enqueue', 'ok')
-      }
-      await loadSources()
-    } catch (e) {
-      show(e instanceof Error ? e.message : 'Maintenance failed', 'err')
-    } finally {
-      setMaintaining(false)
     }
   }
 
@@ -705,21 +671,11 @@ export function RagSourcesTab() {
               Knowledge library
             </h2>
             <p className="card-desc" style={{ margin: '6px 0 0' }}>
-              Chat retrieves chunks from these sources. Health is global (not filtered). Sync and
-              repair can run in the background — you do not need to keep this tab open.
+              Chat retrieves chunks from these sources. Health is global (not filtered). Use the
+              manual Sync / Fix buttons below — keep this tab open while a job runs.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="sec sm"
-              onClick={() => void runMaintenanceNow()}
-              disabled={maintaining || seedingKey !== null}
-              title="Enqueue rebuild/sync if needed and advance the active job"
-            >
-              <Sprout size={14} />
-              {maintaining ? 'Running…' : 'Run maintenance'}
-            </button>
             <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
               <RefreshCw size={14} />
               Refresh
@@ -768,12 +724,6 @@ export function RagSourcesTab() {
         <p className="muted" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4 }}>
           Sources / Ready / Needs attention filter the library list below — totals above stay global.
         </p>
-
-        <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.45 }}>
-          Auto-maintenance (Vercel cron every 5 min): repairs empty/error URLs daily, syncs new pages
-          about every 3 days for Babyspace & My Parenthood, and advances any active job. Set{' '}
-          <code>CRON_SECRET</code> in production; disable with <code>RAG_AUTO_MAINTENANCE=0</code>.
-        </p>
       </div>
 
       {(health?.broken || 0) > 0 ? (
@@ -786,7 +736,7 @@ export function RagSourcesTab() {
               </h2>
               <p className="card-desc" style={{ margin: '6px 0 0' }}>
                 {health?.broken} source{(health?.broken || 0) === 1 ? '' : 's'} with status Error or 0
-                chunks. Auto-repair runs daily; you can also fix now.
+                chunks. Use Fix broken to re-ingest them.
               </p>
             </div>
             <button
@@ -816,7 +766,7 @@ export function RagSourcesTab() {
       {seedJob && !seedJob.done ? (
         <div className="card rag-seed-progress-card" aria-live="polite">
           <strong>
-            Background job · {seedJob.status}
+            Running job · {seedJob.status}
             {seedJob.mode === 'rebuild_empty' ? ' · rebuild' : ' · sync new'}
             {seedJob.source_key ? ` · ${seedJob.source_key}` : ''}
           </strong>
@@ -828,7 +778,7 @@ export function RagSourcesTab() {
               : ''}
           </span>
           <span className="muted" style={{ fontSize: 12 }}>
-            Safe to leave this page — cron keeps ticking every 5 minutes while the job is active.
+            Keep this tab open until the job finishes — progress stops if you leave.
           </span>
           {seedJob.last_error ? (
             <span
@@ -857,8 +807,7 @@ export function RagSourcesTab() {
           <div>
             <h2>Site sync</h2>
             <p className="card-desc" style={{ marginBottom: 0 }}>
-              One primary action per site. Sync only adds new pages; repair is automatic (or use Fix
-              broken above).
+              Manual only. Sync new pages discovers additions; Fix broken re-ingests empty/error URLs.
             </p>
           </div>
         </div>
@@ -867,13 +816,14 @@ export function RagSourcesTab() {
           <div className="rag-seed-preset-grid">
             {PRESET_SEEDS.map((site) => {
               const siteHealth = health?.by_source_key?.[site.key]
+              const broken = siteHealth?.broken || 0
               return (
                 <div key={site.key} className="rag-seed-preset">
                   <strong>{site.name}</strong>
                   <p>{site.blurb}</p>
                   {siteHealth ? (
                     <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                      {siteHealth.sources} sources · {siteHealth.broken} broken
+                      {siteHealth.sources} sources · {broken} broken
                     </p>
                   ) : null}
                   <div className="rag-seed-preset-actions">
@@ -891,21 +841,24 @@ export function RagSourcesTab() {
                       <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
                       {seedingKey === site.key ? 'Starting…' : 'Sync new pages'}
                     </button>
-                    {(siteHealth?.broken || 0) > 0 ? (
-                      <button
-                        type="button"
-                        className="ghost sm"
-                        onClick={() =>
-                          void seedSite(site.key, site.name, {
-                            sinceYears: site.sinceYears,
-                            mode: 'rebuild_empty',
-                          })
-                        }
-                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
-                      >
-                        Fix {siteHealth?.broken} broken
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="ghost sm"
+                      onClick={() =>
+                        void seedSite(site.key, site.name, {
+                          sinceYears: site.sinceYears,
+                          mode: 'rebuild_empty',
+                        })
+                      }
+                      disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
+                      title={
+                        broken > 0
+                          ? `Re-ingest ${broken} broken source${broken === 1 ? '' : 's'}`
+                          : 'Re-ingest empty/error sources for this site'
+                      }
+                    >
+                      {broken > 0 ? `Fix ${broken} broken` : 'Fix broken'}
+                    </button>
                   </div>
                 </div>
               )
