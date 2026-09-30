@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   AlertTriangle,
   BookOpen,
+  ExternalLink,
+  FileUp,
+  Globe,
+  Link2,
   Pencil,
   RefreshCw,
+  Sprout,
   Trash2,
   Upload,
   X,
@@ -55,7 +60,7 @@ function statusBadge(status?: string) {
   const s = (status || '').toLowerCase()
   if (s === 'ready') return 'badge badge-ok'
   if (s === 'processing') return 'badge badge-warn'
-  if (s === 'error') return 'badge badge-warn'
+  if (s === 'error') return 'badge badge-err'
   return 'badge badge-muted'
 }
 
@@ -68,9 +73,38 @@ function formatDate(iso?: string | null) {
   }
 }
 
+function isHttpUrl(value?: string | null) {
+  const v = (value || '').trim()
+  return /^https?:\/\//i.test(v)
+}
+
+function sourceKind(row: RagSourceRow): { label: string; hint: string } {
+  const type = (row.source_type || '').toLowerCase()
+  const origin = (row.origin || '').trim()
+  if (type === 'url' || isHttpUrl(origin)) {
+    return { label: 'URL', hint: 'Fetched from the web' }
+  }
+  if (type === 'text' || type === 'pdf' || type === 'markdown' || type === 'file') {
+    return { label: 'File', hint: 'Uploaded document' }
+  }
+  if (type) return { label: type, hint: 'Knowledge source' }
+  if (isHttpUrl(origin)) return { label: 'URL', hint: 'Fetched from the web' }
+  return { label: 'File', hint: 'Uploaded document' }
+}
+
+function shortUrl(url: string, max = 48) {
+  try {
+    const u = new URL(url)
+    const path = `${u.hostname}${u.pathname}`.replace(/\/$/, '')
+    return path.length > max ? `${path.slice(0, max - 1)}…` : path
+  } catch {
+    return url.length > max ? `${url.slice(0, max - 1)}…` : url
+  }
+}
+
 export function RagSourcesTab() {
   const { adminFetch, token } = useAdmin()
-  const { show } = useFlashMessage()
+  const { show, Message } = useFlashMessage()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const rechunkInputRef = useRef<HTMLInputElement>(null)
 
@@ -115,6 +149,31 @@ export function RagSourcesTab() {
   useEffect(() => {
     void loadSources()
   }, [loadSources])
+
+  const stats = useMemo(() => {
+    let chunks = 0
+    let ready = 0
+    let errors = 0
+    let urls = 0
+    let files = 0
+    for (const row of sources) {
+      chunks += Number(row.chunks_live ?? row.chunk_count ?? 0)
+      const st = (row.status || '').toLowerCase()
+      if (st === 'ready') ready += 1
+      if (st === 'error') errors += 1
+      const kind = sourceKind(row).label
+      if (kind === 'URL') urls += 1
+      else files += 1
+    }
+    return {
+      sources: sources.length,
+      chunks,
+      ready,
+      errors,
+      urls,
+      files,
+    }
+  }, [sources])
 
   const uploadSource = async () => {
     if (!uploadFile) {
@@ -277,26 +336,62 @@ export function RagSourcesTab() {
 
   return (
     <>
+      {Message}
       <div className="card">
         <div className="card-head">
           <div>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
               <BookOpen size={18} />
-              Knowledge sources
+              Knowledge sources (RAG)
             </h2>
-            <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
-              Upload documents or ingest public URLs for chat RAG. Chunks are created on ingest.
-            </p>
           </div>
           <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
             <RefreshCw size={14} />
             Refresh
           </button>
         </div>
+        <p className="card-desc">
+          This page fills the knowledge HeyMaa can quote in chat. You add sources in one of the three
+          ways below; each source is split into <strong>chunks</strong> (small searchable pieces). When a
+          parent asks something, chat retrieves the most relevant chunks and adds them to the model
+          context.
+        </p>
 
-        <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+        <div className="rag-howto" aria-label="How RAG sources work">
+          <div className="rag-howto-title">How this page works</div>
+          <ol className="rag-howto-steps">
+            <li>
+              <strong>1. Add a source</strong>
+              <span>Upload a file, paste one URL, or seed known parenting sites.</span>
+            </li>
+            <li>
+              <strong>2. Chunks are created</strong>
+              <span>Text is split and embedded so chat can search it.</span>
+            </li>
+            <li>
+              <strong>3. Chat uses them</strong>
+              <span>Matching chunks are injected into replies when relevant.</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div className="rag-add-grid">
+        <section className="card rag-add-card">
+          <div className="rag-add-head">
+            <span className="rag-add-icon" aria-hidden>
+              <FileUp size={18} />
+            </span>
+            <div>
+              <h2>1. Upload a document</h2>
+              <p className="card-desc" style={{ marginBottom: 0 }}>
+                Best for PDFs, guides, or .txt/.md files you already have. One upload = one source in
+                the library below.
+              </p>
+            </div>
+          </div>
           <div className="field">
-            <FieldLabel>Title</FieldLabel>
+            <FieldLabel>Title (optional)</FieldLabel>
             <input
               value={uploadTitle}
               onChange={(e) => setUploadTitle(e.target.value)}
@@ -317,21 +412,32 @@ export function RagSourcesTab() {
               </p>
             ) : null}
           </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => void uploadSource()}
-              disabled={uploading || !uploadFile}
-            >
-              <Upload size={14} />
-              {uploading ? 'Uploading & chunking…' : 'Upload & create chunks'}
-            </button>
-          </div>
-        </div>
+          <button
+            type="button"
+            className="teal"
+            onClick={() => void uploadSource()}
+            disabled={uploading || !uploadFile}
+          >
+            <Upload size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            {uploading ? 'Uploading & chunking…' : 'Upload & create chunks'}
+          </button>
+        </section>
 
-        <div style={{ display: 'grid', gap: 12, marginBottom: 20, paddingTop: 8, borderTop: '1px solid var(--border, #e8e2dc)' }}>
+        <section className="card rag-add-card">
+          <div className="rag-add-head">
+            <span className="rag-add-icon" aria-hidden>
+              <Link2 size={18} />
+            </span>
+            <div>
+              <h2>2. Ingest one URL</h2>
+              <p className="card-desc" style={{ marginBottom: 0 }}>
+                Fetch a single public article or page. Use this when you want one specific URL in the
+                knowledge base.
+              </p>
+            </div>
+          </div>
           <div className="field">
-            <FieldLabel>Ingest URL</FieldLabel>
+            <FieldLabel>Page URL</FieldLabel>
             <input
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
@@ -343,28 +449,90 @@ export function RagSourcesTab() {
             <input
               value={urlTitle}
               onChange={(e) => setUrlTitle(e.target.value)}
-              placeholder="Overrides page title"
+              placeholder="Overrides the page title"
             />
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => void ingestUrl()}
-              disabled={urlIngesting || !urlInput.trim()}
-            >
-              {urlIngesting ? 'Fetching & chunking…' : 'Ingest URL'}
-            </button>
-            <button
-              type="button"
-              className="sec"
-              onClick={() => void seedParenthood()}
-              disabled={seeding}
-              title="Babyspace + My Parenthood seed crawl"
-            >
-              {seeding ? 'Seeding parenthood sources…' : 'Seed Babyspace + My Parenthood'}
-            </button>
+          <button
+            type="button"
+            className="teal"
+            onClick={() => void ingestUrl()}
+            disabled={urlIngesting || !urlInput.trim()}
+          >
+            <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            {urlIngesting ? 'Fetching & chunking…' : 'Ingest URL'}
+          </button>
+        </section>
+
+        <section className="card rag-add-card">
+          <div className="rag-add-head">
+            <span className="rag-add-icon" aria-hidden>
+              <Sprout size={18} />
+            </span>
+            <div>
+              <h2>3. Seed parenting sites</h2>
+              <p className="card-desc" style={{ marginBottom: 0 }}>
+                Bulk-import a curated set of Babyspace + My Parenthood pages (up to 20 per site). Use
+                this to bootstrap lots of URL sources at once — not for a single page.
+              </p>
+            </div>
+          </div>
+          <ul className="rag-seed-notes">
+            <li>Creates many rows in the library (one per page).</li>
+            <li>Safe to re-run; existing URLs are updated rather than duplicated.</li>
+            <li>Needs working embeddings (Gemini key) like the other sections.</li>
+          </ul>
+          <button
+            type="button"
+            className="sec"
+            onClick={() => void seedParenthood()}
+            disabled={seeding}
+            title="Babyspace + My Parenthood seed crawl"
+          >
+            <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            {seeding ? 'Seeding parenthood sources…' : 'Seed Babyspace + My Parenthood'}
+          </button>
+        </section>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h2 style={{ margin: 0 }}>Library — seeded URLs &amp; documents</h2>
+            <p className="card-desc" style={{ margin: '6px 0 0' }}>
+              Every source that chat can retrieve from. <strong>Chunks</strong> = searchable pieces.
+              For URL rows, open the link to see what was ingested.
+            </p>
           </div>
         </div>
+
+        {!loading && !err ? (
+          <div className="rag-stats" aria-label="Library summary">
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.sources}</span>
+              <span className="rag-stat-label">Sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.chunks}</span>
+              <span className="rag-stat-label">Chunks live</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.urls}</span>
+              <span className="rag-stat-label">URL sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.files}</span>
+              <span className="rag-stat-label">File sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.ready}</span>
+              <span className="rag-stat-label">Ready</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.errors}</span>
+              <span className="rag-stat-label">Errors</span>
+            </div>
+          </div>
+        ) : null}
 
         {loading ? <p className="muted">Loading sources…</p> : null}
         {err ? (
@@ -375,21 +543,24 @@ export function RagSourcesTab() {
         ) : null}
 
         {!loading && !err && sources.length === 0 ? (
-          <p className="muted">No sources yet. Upload a document to get started.</p>
+          <p className="muted">
+            No sources yet. Use one of the three sections above to upload a file, ingest a URL, or seed
+            parenting sites.
+          </p>
         ) : null}
 
         {!loading && sources.length > 0 ? (
-          <div className="table-wrap">
-            <table>
+          <div className="table-wrap rag-table-wrap">
+            <table className="rag-table">
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>Type</th>
+                  <th>Kind</th>
+                  <th>URL / file</th>
+                  <th className="num">Chunks</th>
                   <th>Status</th>
-                  <th>Chunks</th>
-                  <th>Origin</th>
-                  <th>Created</th>
-                  <th />
+                  <th>Updated</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
@@ -397,29 +568,51 @@ export function RagSourcesTab() {
                   const chunks = row.chunks_live ?? row.chunk_count ?? 0
                   const needsChunks =
                     chunks === 0 || (row.status || '').toLowerCase() === 'error'
+                  const kind = sourceKind(row)
+                  const origin = (row.origin || '').trim()
+                  const url = isHttpUrl(origin) ? origin : ''
                   return (
-                    <tr key={row.id}>
+                    <tr key={row.id} className={needsChunks ? 'rag-row-warn' : undefined}>
                       <td>
-                        <strong>{row.title}</strong>
+                        <strong className="rag-title">{row.title}</strong>
                       </td>
-                      <td>{row.source_type || '—'}</td>
+                      <td>
+                        <span className="rag-kind" title={kind.hint}>
+                          {kind.label}
+                        </span>
+                      </td>
+                      <td className="rag-origin">
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={url}
+                            className="rag-url"
+                          >
+                            <span>{shortUrl(url)}</span>
+                            <ExternalLink size={12} aria-hidden />
+                          </a>
+                        ) : (
+                          <span className="muted" title={origin || undefined}>
+                            {origin || '—'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="num">
+                        <span className={`rag-chunks${needsChunks ? ' warn' : ''}`}>{chunks}</span>
+                        {needsChunks ? (
+                          <span className="rag-chunks-hint">needs rebuild</span>
+                        ) : null}
+                      </td>
                       <td>
                         <span className={statusBadge(row.status)}>{row.status || '—'}</span>
                       </td>
-                      <td>
-                        <strong>{chunks}</strong>
-                        {needsChunks ? (
-                          <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>
-                            needs rebuild
-                          </span>
-                        ) : null}
+                      <td className="muted rag-date">
+                        {formatDate(row.updated_at || row.created_at)}
                       </td>
-                      <td className="muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {row.origin || '—'}
-                      </td>
-                      <td className="muted">{formatDate(row.created_at)}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <div className="rag-actions">
                           <button
                             type="button"
                             className="icon-btn"
@@ -434,7 +627,7 @@ export function RagSourcesTab() {
                           <button
                             type="button"
                             className="icon-btn"
-                            title="Rebuild chunks from file"
+                            title="Rebuild chunks from a new file"
                             onClick={() => {
                               setRechunkTarget(row)
                               rechunkInputRef.current?.click()
@@ -446,7 +639,7 @@ export function RagSourcesTab() {
                           <button
                             type="button"
                             className="icon-btn"
-                            title="Delete"
+                            title="Delete source and its chunks"
                             onClick={() => setDeleteTarget(row)}
                           >
                             <Trash2 size={14} />
