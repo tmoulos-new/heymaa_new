@@ -6731,27 +6731,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             <span className="hm-chat-bubble__quote-text">{msg.replyTo.content}</span>
                           </div>
                         )}
-                        <ChatRichText
-                          text={msg.content}
-                          trailing={
-                            msg.sources && msg.sources.length > 0 ? (
-                              <span className="hm-chat-source-cites">
-                                {msg.sources.map((src, n) => (
-                                  <a
-                                    key={src.url}
-                                    className="hm-chat-source-cite"
-                                    href={src.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title={src.title}
-                                  >
-                                    {lang === "el" ? `[πηγή ${n + 1}]` : `[source ${n + 1}]`}
-                                  </a>
-                                ))}
-                              </span>
-                            ) : undefined
-                          }
-                        />
+                        <ChatRichText text={msg.content} />
                         {msg.places && msg.places.length > 0 ? (
                           <ChatPlacesMap places={msg.places} apiBase={API} />
                         ) : null}
