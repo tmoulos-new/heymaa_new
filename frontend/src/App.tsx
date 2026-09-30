@@ -4653,6 +4653,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     else deleteFamilyMember(index);
   };
 
+  const closeAccountMenu = () => setShowAccountMenu(false);
+
+  const runFromAccountMenu = (fn: () => void) => {
+    setShowAccountMenu(false);
+    setShowNotifications(false);
+    // Let the menu unmount before opening another sheet/dialog.
+    window.setTimeout(fn, 30);
+  };
+
   const requestLogout = () => {
     setShowAccountMenu(false);
     setShowProfileSettings(false);
@@ -4924,7 +4933,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                 key: "help",
                 icon: "💬",
                 title: lang==="el"?"Βοήθεια & επικοινωνία":"Help & contact",
-                subtitle: lang==="el"?"Email, τηλέφωνο, διεύθυνση":"Email, phone, address",
+                subtitle: lang==="el"?"Μήνυμα στην ομάδα, email, τηλέφωνο":"Message the team, email, phone",
                 onClick: () => {
                   setShowProfileSettings(false);
                   openHelpContact();
@@ -6299,28 +6308,139 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </span>
             {showAccountMenu && (
               <div className="hm-header-account-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { setShowAccountMenu(false); setShowProfileSettings(true); setTab("profile"); }}
-                >
-                  ⚙️ {lang === "el" ? "Ρυθμίσεις" : "Settings"}
-                </button>
                 {!isLocalDemoToken(token) ? (
                   <>
+                    <div className="hm-header-account-menu__group" role="group" aria-label={lang === "el" ? "Λογαριασμός" : "Account"}>
+                      <div className="hm-header-account-menu__label">{lang === "el" ? "Λογαριασμός" : "Account"}</div>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() =>
+                          runFromAccountMenu(() => {
+                            setTab("profile");
+                            openProfileEditForm();
+                          })
+                        }
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">✏️</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Επεξεργασία προφίλ" : "Edit profile"}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runFromAccountMenu(() => openSubscriptionUpgrade())}
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">💳</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Συνδρομή" : "Subscription"}</span>
+                          {profilePlanLabel ? (
+                            <span className="hm-header-account-menu__meta">{profilePlanLabel}</span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="hm-header-account-menu__divider" role="separator" />
+
+                    <div className="hm-header-account-menu__group" role="group" aria-label={lang === "el" ? "Προτιμήσεις" : "Preferences"}>
+                      <div className="hm-header-account-menu__label">{lang === "el" ? "Προτιμήσεις" : "Preferences"}</div>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runFromAccountMenu(() => setShowLang(true))}
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">🌐</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Γλώσσα" : "Language"}</span>
+                          <span className="hm-header-account-menu__meta">{L.n}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runFromAccountMenu(() => openAccountPrivacy())}
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">🔐</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Απόρρητο & δεδομένα" : "Privacy & data"}</span>
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="hm-header-account-menu__divider" role="separator" />
+
+                    <div className="hm-header-account-menu__group" role="group" aria-label={lang === "el" ? "Υποστήριξη" : "Support"}>
+                      <div className="hm-header-account-menu__label">{lang === "el" ? "Υποστήριξη" : "Support"}</div>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runFromAccountMenu(() => openHelpContact())}
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">💬</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact"}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runFromAccountMenu(() => openFaqDialog(null))}
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">❓</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Συχνές ερωτήσεις" : "FAQ"}</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() =>
+                          runFromAccountMenu(() => {
+                            setTab("profile");
+                            setShowProfileSettings(true);
+                          })
+                        }
+                      >
+                        <span className="hm-header-account-menu__icon" aria-hidden="true">⚙️</span>
+                        <span className="hm-header-account-menu__text">
+                          <span className="hm-header-account-menu__title">{lang === "el" ? "Όλες οι ρυθμίσεις" : "All settings"}</span>
+                        </span>
+                      </button>
+                    </div>
+
                     <div className="hm-header-account-menu__divider" role="separator" />
                     <button type="button" role="menuitem" className="hm-menuitem--danger" onClick={requestLogout}>
-                      🚪 {lang === "el" ? "Αποσύνδεση" : "Log out"}
+                      <span className="hm-header-account-menu__icon" aria-hidden="true">🚪</span>
+                      <span className="hm-header-account-menu__text">
+                        <span className="hm-header-account-menu__title">{lang === "el" ? "Αποσύνδεση" : "Log out"}</span>
+                      </span>
                     </button>
                   </>
                 ) : (
                   <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() =>
+                        runFromAccountMenu(() => {
+                          setTab("profile");
+                          setShowProfileSettings(true);
+                        })
+                      }
+                    >
+                      <span className="hm-header-account-menu__icon" aria-hidden="true">⚙️</span>
+                      <span className="hm-header-account-menu__text">
+                        <span className="hm-header-account-menu__title">{lang === "el" ? "Ρυθμίσεις" : "Settings"}</span>
+                      </span>
+                    </button>
                     <div className="hm-header-account-menu__divider" role="separator" />
                     <Link
                       to={`${APP_ROUTE}/auth?mode=login`}
                       role="menuitem"
                       className="hm-header-account-menu__link"
-                      onClick={() => setShowAccountMenu(false)}
+                      onClick={closeAccountMenu}
                     >
                       {lang === "el" ? "Σύνδεση" : "Sign in"}
                     </Link>
@@ -6328,7 +6448,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       to={`${APP_ROUTE}/auth?mode=signup`}
                       role="menuitem"
                       className="hm-header-account-menu__link"
-                      onClick={() => setShowAccountMenu(false)}
+                      onClick={closeAccountMenu}
                     >
                       {lang === "el" ? "Εγγραφή" : "Sign up"}
                     </Link>

@@ -1033,10 +1033,10 @@ body.hm-app-active #root {
 .hm-header-account-menu [role='menuitem'] {
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
+  padding: 9px 10px;
   background: none;
   border: none;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--hm-navy);
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
@@ -1044,7 +1044,9 @@ body.hm-app-active #root {
   cursor: pointer;
   box-sizing: border-box;
   text-decoration: none;
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .hm-header-account-menu [role='menuitem']:hover {
@@ -1059,7 +1061,53 @@ body.hm-app-active #root {
 .hm-header-account-menu__divider {
   height: 1px;
   background: rgba(43, 58, 103, 0.08);
-  margin: 4px 0;
+  margin: 5px 4px;
+}
+
+.hm-header-account-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hm-header-account-menu__label {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.45);
+}
+
+.hm-header-account-menu__icon {
+  flex-shrink: 0;
+  width: 1.25em;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.hm-header-account-menu__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.hm-header-account-menu__title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.hm-header-account-menu__meta {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(43, 58, 103, 0.5);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Dialog panels & sheet chrome ── */
@@ -3581,10 +3629,13 @@ body.hm-app-active #root {
   top: 42px;
   right: 0;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(43, 58, 103, 0.16);
   padding: 6px;
-  min-width: 200px;
+  min-width: min(260px, calc(100vw - 24px));
+  max-width: min(300px, calc(100vw - 16px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
   z-index: 3;
 }
 
