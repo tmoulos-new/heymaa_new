@@ -3796,6 +3796,128 @@ body.hm-app-active .hm-sheet-overlay {
   color: rgba(43, 58, 103, 0.55);
 }
 
+/* Profile — active plan card */
+.hm-plan-card {
+  background:
+    linear-gradient(165deg, rgba(74, 190, 170, 0.14) 0%, rgba(255, 255, 255, 0.96) 42%, #fff 100%);
+  border: 0.5px solid rgba(74, 190, 170, 0.28);
+  border-radius: 18px;
+  padding: 18px 16px 16px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  box-shadow: 0 8px 28px rgba(43, 58, 103, 0.06);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.hm-plan-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hm-plan-card__eyebrow {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(43, 58, 103, 0.5);
+}
+
+.hm-plan-card__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--hm-navy);
+}
+
+.hm-plan-card__badge {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(74, 190, 170, 0.16);
+  color: #2a8f7d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.hm-plan-card__badge.is-urgent {
+  background: rgba(222, 90, 158, 0.14);
+  color: #c45a8a;
+}
+
+.hm-plan-card__renewal {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(43, 58, 103, 0.72);
+}
+
+.hm-plan-card__feats {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hm-plan-card__feats li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--hm-navy);
+}
+
+.hm-plan-card__feats li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.45em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hm-teal);
+  box-shadow: 0 0 0 3px rgba(74, 190, 170, 0.18);
+}
+
+.hm-plan-card__tip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
+  background: rgba(43, 58, 103, 0.05);
+  border-left: 3px solid var(--hm-coral);
+}
+
+.hm-plan-card__tip strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hm-navy);
+}
+
+.hm-plan-card__tip span {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(43, 58, 103, 0.68);
+}
+
+.hm-plan-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .hm-tab-empty {
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;

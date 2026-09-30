@@ -51,6 +51,7 @@ import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ChatRichText } from "./components/ChatRichText";
 import { SupportContactPanel } from "./components/SupportContactPanel";
+import { ProfileActivePlanCard } from "./components/ProfileActivePlanCard";
 import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
 import "./appResponsive.css";
 
@@ -6551,14 +6552,31 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               onOpenFaq={openProfileGamificationFaq}
             />
 
-            <AppTabSection lang={lang} label={lang==="el"?"Ρυθμίσεις":"Settings"}>
+            <ProfileActivePlanCard
+              lang={lang}
+              snapshot={subSnapshot}
+              entitlements={planEntitlements}
+              accessExpiry={accessExpiryInfo}
+              onUpgrade={openSubscriptionUpgrade}
+              onManage={openSubscriptionUpgrade}
+            />
+
+            <AppTabSection lang={lang} label={lang==="el"?"Γρήγορη πρόσβαση":"Quick access"}>
               <div className="hm-tab-card hm-tab-card--flush">
                 {[
+                  {
+                    key: "edit",
+                    icon: "✏️",
+                    iconBg: "rgba(74,190,170,.18)",
+                    label: lang==="el"?"Επεξεργασία προφίλ":"Edit profile",
+                    value: "",
+                    onClick: openProfileEditForm,
+                  },
                   {
                     key: "alerts",
                     icon: "🔔",
                     iconBg: "rgba(255,193,7,.2)",
-                    label: lang==="el"?"Ειδοποιήσεις εφαρμογής":"App alerts",
+                    label: lang==="el"?"Ειδοποιήσεις":"Alerts",
                     value: notificationSummaryLabel(lang, appNotifications.length, notifUnreadCount),
                     onClick: () => {
                       setTab("profile");
@@ -6566,30 +6584,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     },
                   },
                   {
-                    key: "privacy",
-                    icon: "🔐",
-                    iconBg: "rgba(74,190,170,.18)",
-                    label: lang==="el"?"Απόρρητο & δεδομένα":"Privacy & data",
-                    value: profile.consentMarketing
-                      ? (lang==="el"?"Marketing: ναι":"Marketing: on")
-                      : (lang==="el"?"Marketing: όχι":"Marketing: off"),
-                    onClick: openAccountPrivacy,
-                  },
-                  {
-                    key: "language",
-                    icon: "🌐",
-                    iconBg: "rgba(91,127,232,.15)",
-                    label: lang==="el"?"Γλώσσα":"Language",
-                    value: L.n,
-                    onClick: () => setShowLang(true),
-                  },
-                  {
-                    key: "subscription",
-                    icon: "💳",
+                    key: "settings",
+                    icon: "⚙️",
                     iconBg: "rgba(43,58,103,.1)",
-                    label: lang==="el"?"Συνδρομή":"Subscription",
-                    value: profilePlanLabel,
-                    onClick: openSubscriptionUpgrade,
+                    label: lang==="el"?"Όλες οι ρυθμίσεις":"All settings",
+                    value: "",
+                    onClick: () => setShowProfileSettings(true),
                   },
                 ].map((row, i, rows) => (
                   <button
@@ -6598,7 +6598,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                     onClick={row.onClick}
                     style={{
                       width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 16px",
-                      border:"none",background:"#fff",cursor:row.onClick?"pointer":"default",
+                      border:"none",background:"#fff",cursor:"pointer",
                       fontFamily:"'DM Sans',sans-serif",textAlign:"left",
                       borderBottom: i < rows.length - 1 ? "1px solid "+gl : "none",
                     }}
@@ -6614,112 +6614,33 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                       {row.icon}
                     </span>
                     <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:600,color:navy}}>{row.label}</span>
-                    <span style={{fontSize:13,color:"rgba(43,58,103,.5)",marginRight:4}}>{row.value}</span>
+                    {row.value ? (
+                      <span style={{fontSize:13,color:"rgba(43,58,103,.5)",marginRight:4}}>{row.value}</span>
+                    ) : null}
                     <span style={{color:"rgba(43,58,103,.28)",fontSize:20,lineHeight:1}} aria-hidden="true">›</span>
                   </button>
                 ))}
               </div>
             </AppTabSection>
 
-            <AppTabSection lang={lang} label={lang === "el" ? "Υποστήριξη" : "Support"}>
-              <div className="hm-tab-card hm-tab-card--flush">
-                {[
-                  {
-                    key: "faq",
-                    icon: "❓",
-                    iconBg: "rgba(91,127,232,.15)",
-                    label: lang === "el" ? "Συχνές ερωτήσεις" : "FAQ",
-                    onClick: () => openFaqDialog(null),
-                  },
-                  {
-                    key: "help",
-                    icon: "💬",
-                    iconBg: "rgba(74,190,170,.18)",
-                    label: lang === "el" ? "Βοήθεια & επικοινωνία" : "Help & contact",
-                    onClick: openHelpContact,
-                  },
-                ].map((row, i, rows) => (
-                  <button
-                    key={row.key}
-                    type="button"
-                    onClick={row.onClick}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "13px 16px",
-                      border: "none",
-                      background: "#fff",
-                      cursor: "pointer",
-                      fontFamily: "'DM Sans',sans-serif",
-                      textAlign: "left",
-                      borderBottom: i < rows.length - 1 ? "1px solid " + gl : "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        background: row.iconBg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 17,
-                        flexShrink: 0,
-                      }}
-                      aria-hidden="true"
-                    >
-                      {row.icon}
-                    </span>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: navy }}>
-                      {row.label}
-                    </span>
-                    <span style={{ color: "rgba(43,58,103,.28)", fontSize: 20, lineHeight: 1 }} aria-hidden="true">
-                      ›
-                    </span>
-                  </button>
-                ))}
+            {isLocalDemoToken(token) ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4, marginBottom: 8 }}>
+                <Link
+                  to={`${APP_ROUTE}/auth?mode=login`}
+                  className="hm-btn hm-btn--primary hm-btn--block"
+                  style={{ textAlign: "center", textDecoration: "none" }}
+                >
+                  {lang === "el" ? "Σύνδεση" : "Sign in"}
+                </Link>
+                <Link
+                  to={`${APP_ROUTE}/auth?mode=signup`}
+                  className="hm-btn hm-btn--ghost hm-btn--block"
+                  style={{ textAlign: "center", textDecoration: "none" }}
+                >
+                  {lang === "el" ? "Εγγραφή" : "Sign up"}
+                </Link>
               </div>
-            </AppTabSection>
-
-            {!isLocalDemoToken(token) ? (
-            <button
-              type="button"
-              onClick={requestLogout}
-              style={{
-                width:"100%",padding:"14px 12px",marginTop:4,
-                border:".5px solid rgba(43,58,103,.08)",background:"#fff",borderRadius:14,
-                boxSizing:"border-box",
-                color:"var(--hm-destructive)",fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:600,
-                cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {lang==="el"?"Αποσύνδεση":"Log out"}
-            </button>
-            ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-              <Link
-                to={`${APP_ROUTE}/auth?mode=login`}
-                className="hm-btn hm-btn--primary hm-btn--block"
-                style={{ textAlign: "center", textDecoration: "none" }}
-              >
-                {lang === "el" ? "Σύνδεση" : "Sign in"}
-              </Link>
-              <Link
-                to={`${APP_ROUTE}/auth?mode=signup`}
-                className="hm-btn hm-btn--ghost hm-btn--block"
-                style={{ textAlign: "center", textDecoration: "none" }}
-              >
-                {lang === "el" ? "Εγγραφή" : "Sign up"}
-              </Link>
-            </div>
-            )}
+            ) : null}
           </AppTabPageShell>
         )}
 
