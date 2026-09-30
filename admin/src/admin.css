@@ -620,6 +620,7 @@ textarea{min-height:80px;resize:vertical}
 }
 .rag-seed-progress strong{font-size:13px;color:var(--navy)}
 .rag-seed-progress-err{color:#8B2E2E;font-weight:600}
+.rag-seed-progress-note{color:var(--muted);font-weight:500;font-size:12.5px}
 .rag-seed-custom{
   padding-top:16px;border-top:.5px solid var(--border);
 }

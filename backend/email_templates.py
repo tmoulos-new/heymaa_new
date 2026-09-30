@@ -902,6 +902,137 @@ def render_llm_ops_alert_email(
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
+def render_support_received_email(
+    *,
+    name: Optional[str],
+    subject: str,
+    category: str,
+    lang: str = "el",
+) -> EmailMessage:
+    """Ack to the mom after she submits an in-app contact message."""
+    lang = normalize_email_lang(lang)
+    subj = escape((subject or "").strip() or "HeyMaa")
+    cat = escape((category or "general").strip())
+    if lang == "en":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'We received your message about <strong style="color:{TEXT};">{subj}</strong> '
+                f"({cat}). Our team will reply by email and in the app Help &amp; contact screen."
+            )
+            + _paragraph(
+                "This channel is for account, billing, and product help — not medical emergencies. "
+                "If you or your child need urgent care, contact a doctor or local emergency services."
+            )
+            + _help_footer(lang)
+        )
+        return EmailMessage(
+            subject="We received your HeyMaa message",
+            html=_email_shell(body, preheader="Our team will get back to you"),
+        )
+    body = (
+        _greeting(name, lang)
+        + _paragraph(
+            f'Λάβαμε το μήνυμά σου για <strong style="color:{TEXT};">{subj}</strong> '
+            f"({cat}). Θα απαντήσουμε με email και μέσα στην εφαρμογή (Βοήθεια &amp; επικοινωνία)."
+        )
+        + _paragraph(
+            "Αυτό το κανάλι είναι για λογαριασμό, πληρωμές και την εφαρμογή — όχι για επείγοντα "
+            "ιατρικά θέματα. Σε επείγουσα περίπτωση επικοινώνησε με γιατρό ή τις τοπικές υπηρεσίες."
+        )
+        + _help_footer(lang)
+    )
+    return EmailMessage(
+        subject="Λάβαμε το μήνυμά σου στο HeyMaa",
+        html=_email_shell(body, preheader="Θα σου απαντήσουμε σύντομα"),
+    )
+
+
+def render_support_admin_reply_email(
+    *,
+    name: Optional[str],
+    subject: str,
+    reply_body: str,
+    lang: str = "el",
+) -> EmailMessage:
+    """Email the mom when an admin replies from the Support Inbox."""
+    lang = normalize_email_lang(lang)
+    subj = escape((subject or "").strip() or "HeyMaa")
+    reply = escape((reply_body or "").strip()).replace("\n", "<br>")
+    if lang == "en":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Reply from HeyMaa Support about <strong style="color:{TEXT};">{subj}</strong>:'
+            )
+            + (
+                f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;'
+                f'background:#f6f4f1;border-radius:12px;padding:14px 16px;margin:0 0 16px;">{reply}</div>'
+            )
+            + _paragraph(
+                "You can continue the conversation in the app under Help &amp; contact, or reply to this email."
+            )
+            + _help_footer(lang)
+        )
+        return EmailMessage(
+            subject=f"Re: {subject.strip()[:80] or 'HeyMaa support'}",
+            html=_email_shell(body, preheader="New reply from HeyMaa Support"),
+        )
+    body = (
+        _greeting(name, lang)
+        + _paragraph(
+            f'Απάντηση από το HeyMaa Support για <strong style="color:{TEXT};">{subj}</strong>:'
+        )
+        + (
+            f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;'
+            f'background:#f6f4f1;border-radius:12px;padding:14px 16px;margin:0 0 16px;">{reply}</div>'
+        )
+        + _paragraph(
+            "Μπορείς να συνεχίσεις τη συνομιλία στην εφαρμογή (Βοήθεια &amp; επικοινωνία) ή να απαντήσεις σε αυτό το email."
+        )
+        + _help_footer(lang)
+    )
+    return EmailMessage(
+        subject=f"Απ: {(subject or '').strip()[:80] or 'HeyMaa'}",
+        html=_email_shell(body, preheader="Νέα απάντηση από το HeyMaa Support"),
+    )
+
+
+def render_support_admin_alert_email(
+    *,
+    subject: str,
+    category: str,
+    from_email: str,
+    from_name: Optional[str],
+    body_text: str,
+    thread_id: str,
+) -> EmailMessage:
+    """Notify the support inbox email about a new in-app contact."""
+    subj = escape((subject or "").strip())
+    cat = escape((category or "general").strip())
+    who = escape((from_name or "").strip() or from_email)
+    em = escape(from_email)
+    preview = escape((body_text or "").strip()[:800]).replace("\n", "<br>")
+    tid = escape(thread_id)
+    html_body = (
+        f'<p style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;">'
+        f"New in-app support message</p>"
+        f'<p style="font-family:{_font()};color:{TEXT};font-size:14px;line-height:1.55;">'
+        f"<strong>From:</strong> {who} &lt;{em}&gt;<br>"
+        f"<strong>Category:</strong> {cat}<br>"
+        f"<strong>Subject:</strong> {subj}<br>"
+        f"<strong>Thread:</strong> {tid}</p>"
+        f'<div style="font-family:{_font()};color:{TEXT};font-size:14px;line-height:1.6;'
+        f'background:#f6f4f1;border-radius:12px;padding:14px 16px;">{preview}</div>'
+        f'<p style="font-family:{_font()};color:{MUTED};font-size:12px;margin-top:16px;">'
+        f"Reply from Admin → Support Inbox.</p>"
+    )
+    return EmailMessage(
+        subject=f"[HeyMaa Support] {subject.strip()[:90] or 'New message'}",
+        html=_email_shell(html_body, preheader="New in-app support message"),
+    )
+
+
 def send_email(
     *,
     api_key: str,

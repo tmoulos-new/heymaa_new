@@ -15,6 +15,7 @@ import {
   Ban,
   BarChart3,
   BookOpen,
+  Headphones,
   MessageSquareWarning,
   Receipt,
   RefreshCw,
@@ -42,6 +43,7 @@ import { TestersTab } from '../tabs/TestersTab'
 import { ContentTab } from '../tabs/ContentTab'
 import { UsersTab } from '../tabs/UsersTab'
 import { CancellationsTab } from '../tabs/CancellationsTab'
+import { SupportInboxTab } from '../tabs/SupportInboxTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { GamificationTab } from '../tabs/GamificationTab'
@@ -69,6 +71,7 @@ const NAV_ICONS: Record<TabId, typeof LayoutDashboard> = {
   sources: BookOpen,
   users: Users,
   cancellations: Ban,
+  support: Headphones,
   userdata: Database,
   useractivity: MousePointerClick,
   chatprompt: Bot,
@@ -90,6 +93,7 @@ export function AdminShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userCount, setUserCount] = useState<number | null>(null)
   const [pendingCancels, setPendingCancels] = useState<number | null>(null)
+  const [openSupport, setOpenSupport] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const switchTab = (id: TabId) => {
@@ -122,6 +126,21 @@ export function AdminShell() {
       })
       .catch(() => {
         if (!cancelled) setPendingCancels(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [adminFetch, refreshKey])
+
+  useEffect(() => {
+    let cancelled = false
+    adminFetch('/admin/support/threads?status=open_queue')
+      .then((d) => {
+        if (cancelled) return
+        setOpenSupport(typeof d.open_count === 'number' ? d.open_count : null)
+      })
+      .catch(() => {
+        if (!cancelled) setOpenSupport(null)
       })
     return () => {
       cancelled = true
@@ -201,6 +220,11 @@ export function AdminShell() {
                           {pendingCancels > 99 ? '99+' : pendingCancels}
                         </span>
                       ) : null}
+                      {id === 'support' && openSupport != null && openSupport > 0 ? (
+                        <span className="nav-badge" aria-label={`${openSupport} open`}>
+                          {openSupport > 99 ? '99+' : openSupport}
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                 )
@@ -271,6 +295,7 @@ export function AdminShell() {
               path="cancellations"
               element={<CancellationsTab key={`cx-${refreshKey}`} />}
             />
+            <Route path="support" element={<SupportInboxTab key={`sp-${refreshKey}`} />} />
             <Route path="user-data" element={<UserDataTab key={`ud-${refreshKey}`} />} />
             <Route path="user-activity" element={<UserActivityLogTab key={`ua-${refreshKey}`} />} />
             <Route path="chat-prompt" element={<ChatPromptTab key={`cp-${refreshKey}`} />} />

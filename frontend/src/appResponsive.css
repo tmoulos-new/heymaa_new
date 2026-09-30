@@ -1529,6 +1529,60 @@ body.hm-app-active #root {
   background: rgba(43, 58, 103, 0.08);
 }
 
+.hm-support-panel { margin-bottom: 8px; }
+.hm-support-tabs {
+  display: flex; gap: 6px; margin-bottom: 10px;
+}
+.hm-support-tab {
+  flex: 1; border: 1px solid rgba(43,58,103,.12); background: #fff;
+  border-radius: 999px; padding: 8px 10px; font-size: 12.5px; font-weight: 700;
+  color: var(--hm-muted); cursor: pointer; font-family: inherit;
+}
+.hm-support-tab.is-active {
+  background: rgba(74,190,170,.14); color: var(--hm-navy); border-color: rgba(74,190,170,.35);
+}
+.hm-support-policy {
+  margin: 0 0 10px; font-size: 12px; line-height: 1.45; color: var(--hm-muted);
+}
+.hm-support-form, .hm-support-list, .hm-support-thread { display: flex; flex-direction: column; gap: 10px; }
+.hm-support-label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--hm-muted);
+}
+.hm-support-label input,
+.hm-support-label select,
+.hm-support-label textarea {
+  border: 1px solid rgba(43,58,103,.14); border-radius: 12px; padding: 10px 12px;
+  font-size: 14px; font-family: inherit; color: var(--hm-navy); background: #fff;
+  text-transform: none; letter-spacing: normal; font-weight: 500;
+}
+.hm-support-meta { margin: 0; font-size: 12.5px; color: var(--hm-muted); line-height: 1.4; }
+.hm-support-flash {
+  border-radius: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.4; margin-bottom: 8px;
+}
+.hm-support-flash--err { background: rgba(196,75,75,.08); color: #8B2E2E; }
+.hm-support-flash--ok { background: rgba(74,190,170,.12); color: var(--hm-navy); }
+.hm-support-thread-row {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  width: 100%; border: 1px solid rgba(43,58,103,.1); background: #fff;
+  border-radius: 12px; padding: 10px 12px; cursor: pointer; font-family: inherit;
+}
+.hm-support-thread-title { font-size: 13.5px; font-weight: 700; color: var(--hm-navy); }
+.hm-support-thread-meta { font-size: 11.5px; color: var(--hm-muted); }
+.hm-support-back {
+  align-self: flex-start; border: none; background: transparent; color: var(--hm-navy);
+  font-weight: 700; font-size: 13px; cursor: pointer; padding: 0; font-family: inherit;
+}
+.hm-support-thread-h { margin: 0; font-size: 15px; color: var(--hm-navy); }
+.hm-support-msgs { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; }
+.hm-support-bubble {
+  border-radius: 12px; padding: 8px 10px; font-size: 13px; line-height: 1.45; color: var(--hm-navy);
+}
+.hm-support-bubble--user { background: rgba(74,190,170,.12); align-self: flex-end; max-width: 92%; }
+.hm-support-bubble--admin { background: rgba(43,58,103,.06); align-self: flex-start; max-width: 92%; }
+.hm-support-bubble-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--hm-muted); margin-bottom: 3px; }
+.hm-support-bubble-body { white-space: pre-wrap; word-break: break-word; }
+
 .hm-contact-hours {
   display: block;
   margin-top: 4px;

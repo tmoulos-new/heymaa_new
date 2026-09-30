@@ -50,6 +50,7 @@ import {
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ChatRichText } from "./components/ChatRichText";
+import { SupportContactPanel } from "./components/SupportContactPanel";
 import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
 import "./appResponsive.css";
 
@@ -5047,14 +5048,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               <div className="hm-section-label">
                 {displayUppercase(lang==="el"?"Επικοινωνία":"Contact", lang)}
               </div>
+              <SupportContactPanel
+                token={token}
+                lang={lang}
+                defaultName={displayName || profile.name}
+                defaultEmail={accountEmail}
+              />
               <a
                 href={`mailto:${helpEmail}?subject=${encodeURIComponent("HeyMaa Support")}`}
                 className="hm-contact-row"
-                style={{ color: "var(--hm-navy)", marginBottom: 10 }}
+                style={{ color: "var(--hm-navy)", marginTop: 14, marginBottom: 10 }}
               >
                 <span className="hm-contact-icon hm-contact-icon--warm" aria-hidden="true">✉️</span>
                 <span>
-                  <span style={{display:"block",fontSize:13,fontWeight:700}}>Email</span>
+                  <span style={{display:"block",fontSize:13,fontWeight:700}}>
+                    {lang === "el" ? "Email (εναλλακτικά)" : "Email (fallback)"}
+                  </span>
                   <span style={{display:"block",fontSize:12,color:"var(--hm-muted)",marginTop:2}}>{helpEmail}</span>
                 </span>
               </a>

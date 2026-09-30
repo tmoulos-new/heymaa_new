@@ -289,6 +289,23 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _is_dead_url_error(exc: BaseException) -> bool:
+    """Broken listing links (404/410) should not fail the whole seed job."""
+    msg = str(exc).lower()
+    if "404" in msg or "410" in msg or "not found" in msg:
+        return True
+    try:
+        import requests
+
+        if isinstance(exc, requests.exceptions.HTTPError):
+            code = getattr(getattr(exc, "response", None), "status_code", None)
+            if code in (404, 410, 451):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
     try:
         from .rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
@@ -320,9 +337,16 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
                 language="el",
             )
             ingested += 1
+            # Clear sticky soft-errors once a URL succeeds
+            if last_error and _is_dead_url_error(Exception(last_error)):
+                last_error = None
         except Exception as e:
-            failed += 1
-            last_error = str(e)[:500]
+            if _is_dead_url_error(e):
+                skipped += 1
+                last_error = f"Skipped dead link (404/410): {u}"[:500]
+            else:
+                failed += 1
+                last_error = str(e)[:500]
 
     patch: dict[str, Any] = {
         "cursor_idx": end,

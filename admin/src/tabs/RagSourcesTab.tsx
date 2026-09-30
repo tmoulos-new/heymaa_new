@@ -703,14 +703,26 @@ export function RagSourcesTab() {
                   Queued {seedJob.discovered ?? seedJob.queued ?? 0} · ingested {seedJob.ingested ?? 0} ·
                   skipped {seedJob.skipped ?? 0} · failed {seedJob.failed ?? 0}
                   {seedJob.status === 'discovering' || !seedJob.discover_done
-                    ? ` · listing page ${seedJob.discover_page ?? 1}/${seedJob.max_discover_pages ?? 250}`
+                    ? ` · listing page ${Math.min(seedJob.discover_page ?? 1, seedJob.max_discover_pages ?? 250)}/${seedJob.max_discover_pages ?? 250}`
                     : ''}
                   {seedJob.status === 'running'
                     ? ` · cursor ${seedJob.cursor_idx ?? 0}/${seedJob.queued ?? seedJob.discovered ?? 0}`
                     : ''}
                 </span>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Interleaved: discovers a few listing pages, ingests those URLs, then walks older pages.
+                  Dead links (404) count as skipped — the job keeps going. Leave this tab open.
+                </span>
                 {seedJob.last_error ? (
-                  <span className="rag-seed-progress-err">{seedJob.last_error}</span>
+                  <span
+                    className={
+                      /404|410|dead link|not found/i.test(seedJob.last_error)
+                        ? 'rag-seed-progress-note'
+                        : 'rag-seed-progress-err'
+                    }
+                  >
+                    {seedJob.last_error}
+                  </span>
                 ) : null}
               </div>
             ) : null}

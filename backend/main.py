@@ -9575,6 +9575,393 @@ async def lemon_webhook(request: Request):
 
 
 
+# == In-app support contact (mom ↔ admin) ==
+class SupportContactRequest(BaseModel):
+    subject: str
+    body: str
+    category: Optional[str] = "general"
+    email: Optional[str] = None
+    name: Optional[str] = None
+    locale: Optional[str] = "el"
+
+
+class SupportReplyRequest(BaseModel):
+    body: str
+
+
+class SupportStatusRequest(BaseModel):
+    status: str
+
+
+def _support_mod():
+    try:
+        from . import support_messages as sm
+    except ImportError:
+        import support_messages as sm
+    return sm
+
+
+def _support_send_emails_new_thread(*, thread: dict, body: str) -> None:
+    if not RESEND_API_KEY:
+        return
+    try:
+        from .email_templates import (
+            render_support_admin_alert_email,
+            render_support_received_email,
+            send_email,
+        )
+    except ImportError:
+        from email_templates import (
+            render_support_admin_alert_email,
+            render_support_received_email,
+            send_email,
+        )
+    lang = (thread.get("locale") or "el")[:8]
+    to_user = (thread.get("email") or "").strip()
+    if to_user:
+        send_email(
+            api_key=RESEND_API_KEY,
+            from_address=RESEND_FROM,
+            to=to_user,
+            message=render_support_received_email(
+                name=thread.get("name"),
+                subject=thread.get("subject") or "",
+                category=thread.get("category") or "general",
+                lang=lang,
+            ),
+        )
+    support = os.getenv("HEYMAA_SUPPORT_EMAIL", "info@heymaa.ai")
+    if support:
+        send_email(
+            api_key=RESEND_API_KEY,
+            from_address=RESEND_FROM,
+            to=support,
+            message=render_support_admin_alert_email(
+                subject=thread.get("subject") or "",
+                category=thread.get("category") or "general",
+                from_email=to_user or support,
+                from_name=thread.get("name"),
+                body_text=body,
+                thread_id=str(thread.get("id") or ""),
+            ),
+        )
+
+
+def _support_send_admin_reply_email(*, thread: dict, reply_body: str) -> None:
+    if not RESEND_API_KEY:
+        return
+    to_user = (thread.get("email") or "").strip()
+    if not to_user:
+        return
+    try:
+        from .email_templates import render_support_admin_reply_email, send_email
+    except ImportError:
+        from email_templates import render_support_admin_reply_email, send_email
+    send_email(
+        api_key=RESEND_API_KEY,
+        from_address=RESEND_FROM,
+        to=to_user,
+        message=render_support_admin_reply_email(
+            name=thread.get("name"),
+            subject=thread.get("subject") or "",
+            reply_body=reply_body,
+            lang=(thread.get("locale") or "el")[:8],
+        ),
+    )
+
+
+@app.post("/support/contact")
+async def support_contact(req: SupportContactRequest, x_token: Optional[str] = Header(None)):
+    """Create a support thread from Help & contact in the app."""
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    sm = _support_mod()
+    user_id = auth.get("user_id") if auth.get("kind") == "user" else None
+    invite_token = auth.get("token") if auth.get("kind") == "invite" else None
+    email = (req.email or "").strip()
+    name = (req.name or "").strip() or None
+    if user_id and sb:
+        try:
+            ures = (
+                sb.table("users")
+                .select("email,name")
+                .eq("id", user_id)
+                .limit(1)
+                .execute()
+            )
+            if ures.data:
+                email = email or (ures.data[0].get("email") or "")
+                name = name or (ures.data[0].get("name") or None)
+        except Exception:
+            pass
+    try:
+        result = sm.create_thread(
+            sb,
+            user_id=user_id,
+            invite_token=invite_token,
+            email=email,
+            name=name,
+            category=req.category,
+            subject=req.subject,
+            body=req.body,
+            locale=req.locale,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    thread = result["thread"]
+    try:
+        _support_send_emails_new_thread(thread=thread, body=req.body)
+    except Exception:
+        pass
+    try:
+        _log_activity(
+            "system",
+            "support_contact",
+            "support_thread",
+            thread.get("id"),
+            details={"email": thread.get("email"), "category": thread.get("category")},
+        )
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "thread": sm.thread_public(thread),
+        "message": sm.message_public(result["message"]),
+    }
+
+
+@app.get("/support/threads")
+async def support_list_threads(x_token: Optional[str] = Header(None)):
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    sm = _support_mod()
+    user_id = auth.get("user_id") if auth.get("kind") == "user" else None
+    email = None
+    if user_id and sb:
+        try:
+            ures = sb.table("users").select("email").eq("id", user_id).limit(1).execute()
+            if ures.data:
+                email = ures.data[0].get("email")
+        except Exception:
+            pass
+    try:
+        rows = sm.list_user_threads(sb, user_id=user_id, email=email)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    return {"threads": [sm.thread_public(r) for r in rows]}
+
+
+@app.get("/support/threads/{thread_id}")
+async def support_get_thread(thread_id: str, x_token: Optional[str] = Header(None)):
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    sm = _support_mod()
+    try:
+        thread = sm.get_thread(sb, thread_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    user_id = auth.get("user_id") if auth.get("kind") == "user" else None
+    invite = auth.get("token") if auth.get("kind") == "invite" else None
+    email = None
+    if user_id and sb:
+        try:
+            ures = sb.table("users").select("email").eq("id", user_id).limit(1).execute()
+            if ures.data:
+                email = ures.data[0].get("email")
+        except Exception:
+            pass
+    if not sm.user_can_access(thread, user_id=user_id, email=email, invite_token=invite):
+        raise HTTPException(status_code=403, detail="Not allowed")
+    msgs = sm.list_messages(sb, thread_id)
+    return {
+        "thread": sm.thread_public(thread),
+        "messages": [sm.message_public(m) for m in msgs],
+    }
+
+
+@app.post("/support/threads/{thread_id}/messages")
+async def support_user_reply(
+    thread_id: str,
+    req: SupportReplyRequest,
+    x_token: Optional[str] = Header(None),
+):
+    if not ensure_supabase():
+        raise HTTPException(status_code=500, detail=_db_unavailable_detail())
+    auth = resolve_auth(x_token)
+    sm = _support_mod()
+    try:
+        thread = sm.get_thread(sb, thread_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    user_id = auth.get("user_id") if auth.get("kind") == "user" else None
+    invite = auth.get("token") if auth.get("kind") == "invite" else None
+    email = None
+    if user_id and sb:
+        try:
+            ures = sb.table("users").select("email").eq("id", user_id).limit(1).execute()
+            if ures.data:
+                email = ures.data[0].get("email")
+        except Exception:
+            pass
+    if not sm.user_can_access(thread, user_id=user_id, email=email, invite_token=invite):
+        raise HTTPException(status_code=403, detail="Not allowed")
+    try:
+        result = sm.add_message(
+            sb,
+            thread_id=thread_id,
+            sender_role="user",
+            body=req.body,
+            new_status="pending_admin",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    # Notify support inbox only (no second "we received" ack to the mom)
+    if RESEND_API_KEY:
+        try:
+            from .email_templates import render_support_admin_alert_email, send_email
+        except ImportError:
+            from email_templates import render_support_admin_alert_email, send_email
+        support = os.getenv("HEYMAA_SUPPORT_EMAIL", "info@heymaa.ai")
+        thread = result["thread"]
+        try:
+            send_email(
+                api_key=RESEND_API_KEY,
+                from_address=RESEND_FROM,
+                to=support,
+                message=render_support_admin_alert_email(
+                    subject=f"Re: {thread.get('subject') or ''}",
+                    category=thread.get("category") or "general",
+                    from_email=thread.get("email") or support,
+                    from_name=thread.get("name"),
+                    body_text=req.body,
+                    thread_id=str(thread.get("id") or ""),
+                ),
+            )
+        except Exception:
+            pass
+    return {
+        "ok": True,
+        "thread": sm.thread_public(result["thread"]),
+        "message": sm.message_public(result["message"]),
+    }
+
+
+@app.get("/admin/support/threads")
+async def admin_support_list_threads(
+    status: Optional[str] = Query("open_queue"),
+    x_token: Optional[str] = Header(None),
+):
+    verify_admin(x_token)
+    if not sb:
+        return {"threads": [], "open_count": 0}
+    sm = _support_mod()
+    try:
+        rows = sm.list_admin_threads(sb, status=status or "open_queue")
+        open_count = sm.count_open_queue(sb)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"threads": [sm.thread_public(r) for r in rows], "open_count": open_count}
+
+
+@app.get("/admin/support/threads/{thread_id}")
+async def admin_support_get_thread(thread_id: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    sm = _support_mod()
+    try:
+        thread = sm.get_thread(sb, thread_id)
+        msgs = sm.list_messages(sb, thread_id) if thread else []
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return {
+        "thread": sm.thread_public(thread),
+        "messages": [sm.message_public(m) for m in msgs],
+    }
+
+
+@app.post("/admin/support/threads/{thread_id}/reply")
+async def admin_support_reply(
+    thread_id: str,
+    req: SupportReplyRequest,
+    x_token: Optional[str] = Header(None),
+):
+    admin_id = verify_admin(x_token)
+    sm = _support_mod()
+    try:
+        result = sm.add_message(
+            sb,
+            thread_id=thread_id,
+            sender_role="admin",
+            body=req.body,
+            sender_admin_id=admin_id,
+            new_status="pending_user",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    try:
+        _support_send_admin_reply_email(thread=result["thread"], reply_body=req.body)
+    except Exception:
+        pass
+    try:
+        _log_activity(
+            admin_id,
+            "support_reply",
+            "support_thread",
+            thread_id,
+            details={"preview": (req.body or "")[:120]},
+        )
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "thread": sm.thread_public(result["thread"]),
+        "message": sm.message_public(result["message"]),
+    }
+
+
+@app.patch("/admin/support/threads/{thread_id}")
+async def admin_support_set_status(
+    thread_id: str,
+    req: SupportStatusRequest,
+    x_token: Optional[str] = Header(None),
+):
+    admin_id = verify_admin(x_token)
+    sm = _support_mod()
+    try:
+        thread = sm.set_status(sb, thread_id, req.status, closed_by="admin")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    try:
+        _log_activity(
+            admin_id,
+            "support_status",
+            "support_thread",
+            thread_id,
+            details={"status": req.status},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "thread": sm.thread_public(thread)}
+
+
 # == User activity (views, clicks) ==
 @app.post("/user_activity")
 async def log_user_activity(req: UserActivityRequest, x_token: str = Header(None)):
@@ -9792,10 +10179,10 @@ def _register_public_root_files():
 _register_public_root_files()
 
 _API_PATH_PREFIXES = (
-    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "gamification/", "webhooks/", "checkout/",
+    "auth/", "profile", "chat", "tts", "offers", "userdata", "user_activity", "support", "gamification/", "webhooks/", "checkout/",
     "admin/health", "admin/usage", "admin/credits", "admin/upload", "admin/offers", "admin/promotions",
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
-    "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing",
+    "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing", "admin/support",
     "public/offers", "public/promotions", "healthz", "functions/",
 )
 
