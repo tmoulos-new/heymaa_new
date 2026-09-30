@@ -225,7 +225,7 @@ export function RegionsTab() {
               Show deleted
             </label>
             <button type="button" className="sec sm" onClick={() => void loadRegions()}>
-              <RefreshCw size={14} />
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
             {!showDeleted && (
               <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>
@@ -235,8 +235,9 @@ export function RegionsTab() {
           </div>
         </div>
         <p className="card-desc">
-          Regions group languages for targeting offers and promotions. Leave offers/promos unassigned to show
-          everywhere.
+          Regions group app languages for targeting offers and promotions — they do not geolocate
+          users by GPS. Leave offers/promos unassigned to show everywhere. <strong>Active</strong>{' '}
+          regions appear in Content pickers; inactive keep history but hide from new campaigns.
         </p>
 
         {loading && <div className="empty">Loading…</div>}

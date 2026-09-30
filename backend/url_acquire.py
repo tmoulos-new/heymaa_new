@@ -116,8 +116,16 @@ def url_hash(url: str) -> str:
 
 def fetch_url(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str, dict]:
     """Returns (final_url, content_type, response_text)."""
-    headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
-    res = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+    except requests.exceptions.SSLError:
+        res = requests.get(
+            url, headers=headers, timeout=timeout, allow_redirects=True, verify=False
+        )
     res.raise_for_status()
     ctype = (res.headers.get("content-type") or "").split(";")[0].strip().lower()
     # requests may guess encoding poorly for Greek sites
@@ -435,7 +443,7 @@ SEED_SOURCES = [
         "listing_paths": None,
         "since_years": 5,
         "language": "el",
-        "max_urls": 200,
+        "max_urls": 2000,
     },
     {
         "source_key": "myparenthood",

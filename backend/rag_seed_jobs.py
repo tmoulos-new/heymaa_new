@@ -1,10 +1,10 @@
 """Background-friendly RAG seed jobs (small ticks so Vercel does not time out)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-DISCOVER_PAGES_PER_TICK = 4
+DISCOVER_PAGES_PER_TICK = 3
 DEFAULT_BATCH_SIZE = 5
 MAX_BATCH_SIZE = 10
 
@@ -17,14 +17,16 @@ def job_public(row: dict[str, Any]) -> dict[str, Any]:
     urls = row.get("urls") or []
     if not isinstance(urls, list):
         urls = []
+    discover_page = int(row.get("discover_page") or 1)
+    max_pages = int(row.get("max_discover_pages") or 250)
     return {
         "id": row.get("id"),
         "source_key": row.get("source_key"),
         "status": row.get("status"),
         "since_years": row.get("since_years"),
         "batch_size": row.get("batch_size"),
-        "discover_page": row.get("discover_page"),
-        "max_discover_pages": row.get("max_discover_pages"),
+        "discover_page": discover_page,
+        "max_discover_pages": max_pages,
         "cursor_idx": row.get("cursor_idx"),
         "discovered": row.get("discovered") or len(urls),
         "queued": len(urls),
@@ -34,6 +36,7 @@ def job_public(row: dict[str, Any]) -> dict[str, Any]:
         "last_error": row.get("last_error"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
+        "discover_done": discover_page > max_pages,
         "done": (row.get("status") or "") in ("completed", "failed", "cancelled"),
     }
 
@@ -147,21 +150,11 @@ def _save(sb, job_id: str, patch: dict[str, Any]) -> dict[str, Any]:
 
 def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
     try:
-        from .babyspace_feed import (
-            discover_babyspace_article_urls,
-            fetch_listing_html,
-            parse_listing,
-        )
+        from .babyspace_feed import fetch_listing_html, parse_listing
         from .url_acquire import normalize_url
     except ImportError:
-        from babyspace_feed import (
-            discover_babyspace_article_urls,
-            fetch_listing_html,
-            parse_listing,
-        )
+        from babyspace_feed import fetch_listing_html, parse_listing
         from url_acquire import normalize_url
-
-    from datetime import datetime, timedelta, timezone
 
     job_id = row["id"]
     page = int(row.get("discover_page") or 1)
@@ -171,74 +164,89 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
     known = {u.split("?")[0] for u in urls}
     ready = _ready_origins_for_source(sb, row["source_key"])
     known |= ready
+    cursor = int(row.get("cursor_idx") or 0)
 
     cutoff = None
     if since_years is not None and float(since_years) > 0:
         cutoff = datetime.now(timezone.utc) - timedelta(days=int(365.25 * float(since_years)))
 
     end_page = min(page + DISCOVER_PAGES_PER_TICK - 1, max_pages)
-    listing_paths = []
-    for p in range(page, end_page + 1):
-        if p <= 1:
-            listing_paths.append("/el/articles")
-        else:
-            listing_paths.append(f"/el/articles?page={p}&per=30")
-
-    found = discover_babyspace_article_urls(
-        max_urls=500,
-        listing_paths=listing_paths,
-        since_years=since_years,
-    )
-
     added = 0
-    for raw in found:
-        try:
-            u = normalize_url(raw)
-        except ValueError:
-            continue
-        key = u.split("?")[0]
-        if key in known:
-            continue
-        known.add(key)
-        urls.append(u)
-        added += 1
+    dated_total = 0
+    dated_old = 0
+    empty_pages = 0
 
-    # Stop only when we pass max pages, or listing pages are past the year window
-    hit_cutoff = False
-    if cutoff is not None:
-        dated_old = 0
-        dated_total = 0
-        for path in listing_paths:
-            try:
-                items = parse_listing(fetch_listing_html(path))
-            except Exception:
-                continue
-            for it in items:
-                if not it.pub_date:
-                    continue
-                pub = it.pub_date
+    for p in range(page, end_page + 1):
+        path = "/el/articles" if p <= 1 else f"/el/articles?page={p}&per=30"
+        try:
+            items = parse_listing(fetch_listing_html(path))
+        except Exception as e:
+            return _save(
+                sb,
+                job_id,
+                {
+                    "status": "failed",
+                    "last_error": f"Listing fetch failed on page {p}: {e}"[:800],
+                },
+            )
+        if not items:
+            empty_pages += 1
+            continue
+        empty_pages = 0
+        for it in items:
+            pub = it.pub_date
+            if pub is not None:
                 if pub.tzinfo is None:
                     pub = pub.replace(tzinfo=timezone.utc)
                 else:
                     pub = pub.astimezone(timezone.utc)
                 dated_total += 1
-                if pub < cutoff:
+                if cutoff is not None and pub < cutoff:
                     dated_old += 1
-        if dated_total > 0 and dated_old >= dated_total:
-            hit_cutoff = True
+                    continue
+            try:
+                u = normalize_url(it.link)
+            except ValueError:
+                continue
+            key = u.split("?")[0]
+            if key in known:
+                continue
+            known.add(key)
+            urls.append(u)
+            added += 1
+
+    hit_cutoff = bool(cutoff is not None and dated_total > 0 and dated_old >= dated_total)
+    # Pagination dead-end (WAF / empty) — stop discovering rather than spinning to max_pages
+    stalled = empty_pages >= DISCOVER_PAGES_PER_TICK
 
     next_page = end_page + 1
+    discover_done = next_page > max_pages or hit_cutoff or stalled
+    pending = len(urls) > cursor
+
     patch: dict[str, Any] = {
         "urls": urls,
         "discovered": len(urls),
-        "discover_page": next_page,
+        "discover_page": (max_pages + 1) if discover_done else next_page,
     }
-    if next_page > max_pages or hit_cutoff:
-        patch["status"] = "running" if urls else "completed"
+    if stalled and not pending and added == 0 and page == 1:
+        patch["status"] = "failed"
+        patch["last_error"] = (
+            "Babyspace listing returned no articles. Check outbound HTTPS from the server."
+        )
+    elif pending:
+        # Ingest newly queued URLs before walking older listing pages — library count moves.
+        patch["status"] = "running"
+    elif discover_done:
+        patch["status"] = "completed"
     else:
         patch["status"] = "discovering"
-    # silence unused in some paths
-    _ = added
+
+    if hit_cutoff and not patch.get("last_error"):
+        patch["last_error"] = None
+    if stalled and patch["status"] != "failed":
+        # Soft note only; keep going if we already have URLs to ingest
+        pass
+
     return _save(sb, job_id, patch)
 
 
@@ -268,13 +276,14 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             continue
         seen.add(key)
         urls.append(u)
+    max_pages = int(row.get("max_discover_pages") or 250)
     return _save(
         sb,
         job_id,
         {
             "urls": urls,
             "discovered": len(urls),
-            "discover_page": 9999,
+            "discover_page": max_pages + 1,
             "status": "running" if urls else "completed",
         },
     )
@@ -294,6 +303,9 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
     skipped = int(row.get("skipped") or 0)
     failed = int(row.get("failed") or 0)
     last_error = row.get("last_error")
+    max_pages = int(row.get("max_discover_pages") or 250)
+    discover_page = int(row.get("discover_page") or 1)
+    discover_done = discover_page > max_pages
 
     end = min(idx + batch, len(urls))
     for u in urls[idx:end]:
@@ -318,8 +330,14 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
         "skipped": skipped,
         "failed": failed,
         "last_error": last_error,
-        "status": "completed" if end >= len(urls) else "running",
     }
+    if end < len(urls):
+        patch["status"] = "running"
+    elif not discover_done and (row.get("source_key") == "babyspace"):
+        # Queue drained — walk older listing pages for the rest of the year window.
+        patch["status"] = "discovering"
+    else:
+        patch["status"] = "completed"
     return _save(sb, job_id, patch)
 
 

@@ -570,6 +570,16 @@ export function ContentTab() {
 
   return (
     <>
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h2>Offers &amp; promotions</h2>
+        </div>
+        <p className="card-desc" style={{ marginBottom: 0 }}>
+          <strong>Offers / News</strong> appear in the app feed for matching language and region.
+          <strong> Promotions</strong> are sponsored cards for users who opted into marketing —
+          optional GEO and age filters. Regions are managed in the Regions tab.
+        </p>
+      </div>
       <div className="grid-2">
         <div className="card">
           <div className="card-head">
@@ -577,6 +587,10 @@ export function ContentTab() {
               <PlusCircle size={16} className="h-icon" /> New Offer / News
             </h2>
           </div>
+          <p className="card-desc">
+            Broad in-app feed item. <strong>Language</strong> <code>all</code> = everyone; otherwise
+            use a locale code (e.g. <code>el</code>). Badge is optional visual labeling only.
+          </p>
           {offerMsg.Message}
           <FieldLabel required>Title</FieldLabel>
           <input value={oTitle} onChange={(e) => setOTitle(e.target.value)} placeholder="Offer title" />
@@ -643,7 +657,10 @@ export function ContentTab() {
               <Target size={16} className="h-icon" /> New Promotion
             </h2>
           </div>
-          <p className="card-desc">Targeted · consent users only</p>
+          <p className="card-desc">
+            Sponsored · only users with marketing consent. Use <strong>Preview match</strong> to see
+            how many consenting profiles match your filters (counts only — does not send).
+          </p>
           {promoMsg.Message}
           <FieldLabel required>Title</FieldLabel>
           <input value={pTitle} onChange={(e) => setPTitle(e.target.value)} placeholder="Promotion title" />
@@ -823,10 +840,11 @@ export function ContentTab() {
                 Show deleted
               </label>
               <button type="button" className="sec sm" onClick={() => void loadOffers()}>
-                <RefreshCw size={14} />
+                <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
               </button>
             </div>
           </div>
+          <p className="card-desc">Published feed items. Soft-delete hides them from the app; restore from Show deleted.</p>
           {offersLoading && <div className="empty">Loading…</div>}
           {offersErr && <div className="msg err">Failed to load</div>}
           {!offersLoading && !offersErr && offers.length === 0 && (
@@ -908,10 +926,13 @@ export function ContentTab() {
                 Show deleted
               </label>
               <button type="button" className="sec sm" onClick={() => void loadPromotions()}>
-                <RefreshCw size={14} />
+                <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
               </button>
             </div>
           </div>
+          <p className="card-desc">
+            Sponsored promotions for marketing-consent users. Soft-delete removes them from the app.
+          </p>
           {promosLoading && <div className="empty">Loading…</div>}
           {promosErr && <div className="msg err">Failed to load</div>}
           {!promosLoading && !promosErr && promotions.length === 0 && (

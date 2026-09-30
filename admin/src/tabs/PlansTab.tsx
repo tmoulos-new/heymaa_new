@@ -211,9 +211,11 @@ export function PlansTab() {
       </div>
       {Message}
       <p className="card-desc">
-        Subscription catalog linked to users via <code>plan_id</code>. Ids are fixed (trial / starter /
-        premium / annual). <strong>LLM txs</strong> and <strong>Tx cost</strong> are stored on{' '}
-        <code>plans.tx_count</code> / <code>plans.tx_cost_usd</code> and updated on each API call.
+        What moms see on the pricing screen, plus <strong>LLM usage limits</strong> enforced each
+        billing period. Ids are fixed (<code>trial</code> / <code>starter</code> /{' '}
+        <code>premium</code> / <code>annual</code>). <strong>Active</strong> = offered to new
+        subscribers; <strong>Featured</strong> = highlighted card in the app. Empty LLM limit fields
+        mean unlimited.
       </p>
 
       {!tableReady && (

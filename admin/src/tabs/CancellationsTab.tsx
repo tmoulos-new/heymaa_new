@@ -142,8 +142,11 @@ export function CancellationsTab() {
               Subscription cancellations
             </h2>
             <p className="card-desc">
-              Review user requests or admin-initiated cancels. Approve at period end, end now for
-              refunds, dismiss to keep the plan, or restore a scheduled cancel.
+              Review user requests or admin-initiated cancels.
+              <strong> Approve</strong> keeps access until the listed Access-until date;
+              <strong> End now</strong> revokes immediately (e.g. refunds);
+              <strong> Dismiss</strong> keeps the plan active;
+              <strong> Restore</strong> undoes a scheduled cancel.
             </p>
           </div>
           <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>

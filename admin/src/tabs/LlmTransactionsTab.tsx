@@ -195,8 +195,9 @@ export function LlmTransactionsTab() {
           </button>
         </div>
         <p className="card-desc">
-          One row per API call via LLMWrapper — chat and embeddings. Costs are estimates from the
-          configured model rates.
+          One row per LLM API call (chat, embeddings, etc.). Costs are estimates from configured
+          rates. <strong>Purpose</strong> filters by call type; <strong>Failed</strong> means
+          provider error or timeout. Open User Financials for per-user usage vs plan limits.
         </p>
 
         {!tableReady && (

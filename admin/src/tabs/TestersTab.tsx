@@ -122,16 +122,37 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
     <div className="card">
       <div className="card-head">
         <h2>
-          <MailPlus size={16} className="h-icon" /> Πρόσκληση Testers
+          <MailPlus size={16} className="h-icon" /> Invite tester
         </h2>
+      </div>
+      <p className="card-desc">
+        Creates a tester account and sends the HeyMaa invite email. Pick an <strong>active invite
+        code</strong> from Invite Codes — that code is what they use to access the app in beta.
+      </p>
+      <div className="admin-howto" role="note">
+        <div className="admin-howto-title">Steps</div>
+        <ol className="admin-howto-steps">
+          <li>
+            <strong>Create a code</strong>
+            <span>Invite Codes → New invite code (if you do not already have one).</span>
+          </li>
+          <li>
+            <strong>Fill the form</strong>
+            <span>Name, email, plan after sign-in, invite code, and app language.</span>
+          </li>
+          <li>
+            <strong>Optional Auth account</strong>
+            <span>Tick Supabase Auth to create a password login; otherwise email invite only.</span>
+          </li>
+        </ol>
       </div>
       <div className="row">
         <div className="field-wrap">
-          <FieldLabel required>Όνομα</FieldLabel>
+          <FieldLabel required>First name</FieldLabel>
           <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Maria" />
         </div>
         <div className="field-wrap">
-          <FieldLabel required>Επώνυμο</FieldLabel>
+          <FieldLabel required>Last name</FieldLabel>
           <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Papadopoulou" />
         </div>
       </div>
@@ -141,7 +162,7 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maria@example.com" />
         </div>
         <div className="field-wrap">
-          <FieldLabel>Plan</FieldLabel>
+          <FieldLabel>Plan after sign-in</FieldLabel>
           <select value={plan} onChange={(e) => setPlan(e.target.value)}>
             <option value="starter">Starter</option>
             <option value="premium">Premium</option>
@@ -150,9 +171,9 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
       </div>
       <div className="row">
         <div className="field-wrap">
-          <FieldLabel required>Κωδικός Εισόδου</FieldLabel>
+          <FieldLabel required>Invite code</FieldLabel>
           <select value={code} onChange={(e) => setCode(e.target.value)}>
-            <option value="">-- Επιλογή --</option>
+            <option value="">— Select —</option>
             {inviteCodes.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -161,7 +182,7 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
           </select>
         </div>
         <div className="field-wrap">
-          <FieldLabel>Γλώσσα</FieldLabel>
+          <FieldLabel>App language</FieldLabel>
           <select value={lang} onChange={(e) => setLang(e.target.value)}>
             {LANG_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -178,18 +199,18 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
             checked={createSupabaseUser}
             onChange={(e) => setCreateSupabaseUser(e.target.checked)}
           />
-          Δημιουργία λογαριασμού Supabase Auth (χωρίς email από Supabase)
+          Also create a Supabase Auth account (no Supabase welcome email)
         </label>
       </div>
       {createSupabaseUser && (
         <>
           <div className="field-wrap" style={{ marginTop: 8 }}>
-            <FieldLabel>Προσωρινός κωδικός (προαιρετικό)</FieldLabel>
+            <FieldLabel>Temporary password (optional)</FieldLabel>
             <input
               type="password"
               value={temporaryPassword}
               onChange={(e) => setTemporaryPassword(e.target.value)}
-              placeholder="min 6 χαρακτήρες — αφήστε κενό για reset email"
+              placeholder="Min 6 characters — leave blank to use reset-password email"
               autoComplete="new-password"
             />
           </div>
@@ -201,12 +222,12 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
                 onChange={(e) => setRequirePasswordChange(e.target.checked)}
                 disabled={!temporaryPassword.trim()}
               />
-              Αλλαγή κωδικού στην πρώτη σύνδεση
+              Require password change on first sign-in
             </label>
           </div>
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
-            Με προσωρινό κωδικό: ο χρήστης συνδέεται αμέσως και ορίζει νέο κωδικό στο app.
-            Χωρίς κωδικό: χρησιμοποιεί «Ξέχασα τον κωδικό» από το email.
+            With a temporary password: they can sign in immediately and set a new one in the app.
+            Without one: they use &quot;Forgot password&quot; from email.
           </p>
         </>
       )}
@@ -216,7 +237,7 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
         disabled={!canInvite || sending}
         onClick={() => void sendInvite()}
       >
-        {createSupabaseUser ? '🔐 Δημιουργία λογαριασμού →' : '📧 Αποστολή Πρόσκλησης →'}
+        {createSupabaseUser ? 'Create account & invite →' : 'Send invite email →'}
       </button>
 
       <div className="danger-zone">
@@ -224,7 +245,8 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
           <AlertTriangle size={14} style={{ verticalAlign: -2, marginRight: 5 }} /> Danger zone
         </h3>
         <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
-          Deletes every user from the database. Irreversible. Type <strong>DELETE ALL</strong> to enable.
+          Deletes <strong>every</strong> user from the database. Do not use on production unless you
+          intend a full wipe. Type <strong>DELETE ALL</strong> to enable.
         </p>
         <input
           type="text"

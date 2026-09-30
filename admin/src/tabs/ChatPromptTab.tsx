@@ -629,9 +629,14 @@ export function ChatPromptTab() {
           </button>
         </div>
         <p className="card-desc">
-          Shared personality instructions sent to <strong>Grok, Gemini, and Claude</strong> on every chat.
-          Family, memories, documents, promotions, and RAG context are still appended automatically.
+          Shared personality instructions sent to <strong>Grok, Gemini, and Claude</strong> on every
+          chat. Family, memories, documents, promotions, and RAG context are still appended
+          automatically. <strong>Changes affect all chats after Save</strong> — test with Tools →
+          Chat Test first.
         </p>
+        <div className="admin-callout admin-callout-warn" role="note">
+          Save carefully: this is the live system prompt for every mom conversation.
+        </div>
         {loading ? (
           <p className="muted">Loading…</p>
         ) : (
@@ -817,8 +822,9 @@ export function ChatPromptTab() {
           </button>
         </div>
         <p className="card-desc">
-          Which model is tried first (then failover). Missing API keys are skipped automatically.
-          {routingMeta.source === 'defaults' ? ' Currently using built-in defaults.' : ''}
+          Which model is tried first, then failover order. Drag to reorder; missing API keys are
+          skipped automatically. Keyword routes can force a provider for specific topics (e.g. places).
+          {routingMeta.source === 'defaults' ? ' Currently using built-in defaults until you Save.' : ''}
         </p>
         {routingLoading || !routing ? (
           <p className="muted">Loading…</p>

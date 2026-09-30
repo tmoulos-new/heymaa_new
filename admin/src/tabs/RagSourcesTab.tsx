@@ -134,7 +134,7 @@ const PRESET_SEEDS: {
     key: 'babyspace',
     name: 'Babyspace',
     blurb:
-      'Background job: discovers last 5 years newest-first, then ingests a few pages per tick so it never times out. Leave this tab open; click Cancel to stop.',
+      'Walks /el/articles newest-first for the last 5 years. Already-ingested URLs are skipped; new ones are ingested in small batches so the library count grows while the job runs. Leave this tab open (Cancel to stop).',
     sinceYears: 5,
   },
   {
@@ -155,6 +155,8 @@ type SeedJobPublic = {
   skipped?: number
   failed?: number
   discover_page?: number
+  max_discover_pages?: number
+  discover_done?: boolean
   cursor_idx?: number
   last_error?: string | null
   done?: boolean
@@ -224,31 +226,6 @@ export function RagSourcesTab() {
     void loadSources()
   }, [loadSources])
 
-  const stats = useMemo(() => {
-    let chunks = 0
-    let ready = 0
-    let errors = 0
-    let urls = 0
-    let files = 0
-    for (const row of sources) {
-      chunks += Number(row.chunks_live ?? row.chunk_count ?? 0)
-      const st = (row.status || '').toLowerCase()
-      if (st === 'ready') ready += 1
-      if (st === 'error') errors += 1
-      const kind = sourceKind(row).label
-      if (kind === 'URL') urls += 1
-      else files += 1
-    }
-    return {
-      sources: sources.length,
-      chunks,
-      ready,
-      errors,
-      urls,
-      files,
-    }
-  }, [sources])
-
   const siteOptions = useMemo(() => {
     const keys = new Set<string>()
     for (const row of sources) keys.add(siteKey(row))
@@ -271,6 +248,31 @@ export function RagSourcesTab() {
 
   const filtersActive =
     filterQ.trim() !== '' || filterKind !== 'all' || filterStatus !== 'all' || filterSite !== 'all'
+
+  const stats = useMemo(() => {
+    let chunks = 0
+    let ready = 0
+    let errors = 0
+    let urls = 0
+    let files = 0
+    for (const row of filteredSources) {
+      chunks += Number(row.chunks_live ?? row.chunk_count ?? 0)
+      const st = (row.status || '').toLowerCase()
+      if (st === 'ready') ready += 1
+      if (st === 'error') errors += 1
+      const kind = sourceKind(row).label
+      if (kind === 'URL') urls += 1
+      else files += 1
+    }
+    return {
+      sources: filteredSources.length,
+      chunks,
+      ready,
+      errors,
+      urls,
+      files,
+    }
+  }, [filteredSources])
 
   const uploadSource = async () => {
     if (!uploadFile) {
@@ -359,12 +361,18 @@ export function RagSourcesTab() {
       setSeedJob(job)
       show(`Started ${label} seed job — running in small steps…`, 'ok')
 
+      let ticks = 0
       while (job?.id && !job.done && !seedAbortRef.current) {
         const tick = await adminFetch(`/admin/rag_sources/seed_jobs/${job.id}/tick`, {
           method: 'POST',
         })
         job = (tick.job || job) as SeedJobPublic
         setSeedJob({ ...job })
+        ticks += 1
+        // Refresh library while ingesting so Sources / Chunks counters move
+        if (job.status === 'running' && ticks % 3 === 0) {
+          void loadSources()
+        }
         if (job.done) break
         // Brief pause so the UI can paint and the API can breathe
         await new Promise((r) => setTimeout(r, 400))
@@ -694,8 +702,8 @@ export function RagSourcesTab() {
                 <span>
                   Queued {seedJob.discovered ?? seedJob.queued ?? 0} · ingested {seedJob.ingested ?? 0} ·
                   skipped {seedJob.skipped ?? 0} · failed {seedJob.failed ?? 0}
-                  {seedJob.status === 'discovering'
-                    ? ` · listing page ${seedJob.discover_page ?? 1}`
+                  {seedJob.status === 'discovering' || !seedJob.discover_done
+                    ? ` · listing page ${seedJob.discover_page ?? 1}/${seedJob.max_discover_pages ?? 250}`
                     : ''}
                   {seedJob.status === 'running'
                     ? ` · cursor ${seedJob.cursor_idx ?? 0}/${seedJob.queued ?? seedJob.discovered ?? 0}`
@@ -775,40 +783,13 @@ export function RagSourcesTab() {
           <div>
             <h2 style={{ margin: 0 }}>Library — seeded URLs &amp; documents</h2>
             <p className="card-desc" style={{ margin: '6px 0 0' }}>
-              Every source that chat can retrieve from. <strong>Chunks</strong> = searchable pieces.
+              Every source that chat can retrieve from. <strong>Chunks</strong> = searchable pieces
+              (paragraph-sized). Stats below follow the active filters. Use{' '}
+              <strong>Rebuild chunks</strong> after replacing a file or if chat quotes stale text.
               For URL rows, open the link to see what was ingested.
             </p>
           </div>
         </div>
-
-        {!loading && !err ? (
-          <div className="rag-stats" aria-label="Library summary">
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.sources}</span>
-              <span className="rag-stat-label">Sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.chunks}</span>
-              <span className="rag-stat-label">Chunks live</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.urls}</span>
-              <span className="rag-stat-label">URL sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.files}</span>
-              <span className="rag-stat-label">File sources</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.ready}</span>
-              <span className="rag-stat-label">Ready</span>
-            </div>
-            <div className="rag-stat">
-              <span className="rag-stat-value">{stats.errors}</span>
-              <span className="rag-stat-label">Errors</span>
-            </div>
-          </div>
-        ) : null}
 
         {!loading && !err && sources.length > 0 ? (
           <div className="rag-filters" aria-label="Filter sources">
@@ -870,6 +851,35 @@ export function RagSourcesTab() {
                 </span>
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {!loading && !err ? (
+          <div className="rag-stats" aria-label="Library summary">
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.sources}</span>
+              <span className="rag-stat-label">Sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.chunks}</span>
+              <span className="rag-stat-label">Chunks live</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.urls}</span>
+              <span className="rag-stat-label">URL sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.files}</span>
+              <span className="rag-stat-label">File sources</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.ready}</span>
+              <span className="rag-stat-label">Ready</span>
+            </div>
+            <div className="rag-stat">
+              <span className="rag-stat-value">{stats.errors}</span>
+              <span className="rag-stat-label">Errors</span>
+            </div>
           </div>
         ) : null}
 

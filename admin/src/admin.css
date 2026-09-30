@@ -550,18 +550,38 @@ textarea{min-height:80px;resize:vertical}
 .badge-err{background:#C44B4B}
 .badge-muted{background:#9A928C}
 
-/* RAG sources tab */
-.rag-howto{
-  margin-top:4px;padding:14px 16px;border-radius:12px;
+/* Shared admin guides (also used by RAG as .rag-howto aliases) */
+.admin-howto,.rag-howto{
+  margin:0 0 16px;padding:14px 16px;border-radius:12px;
   background:linear-gradient(135deg,rgba(74,190,170,.08),rgba(43,58,103,.04));
   border:.5px solid rgba(74,190,170,.22);
 }
-.rag-howto-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.rag-howto-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-@media(min-width:900px){.rag-howto-steps{grid-template-columns:repeat(3,1fr);gap:14px}}
-.rag-howto-steps li{display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.45;color:var(--navy)}
-.rag-howto-steps li strong{font-size:13px;color:var(--navy)}
-.rag-howto-steps li span{color:var(--muted);font-size:12.5px}
+.admin-howto-title,.rag-howto-title{
+  font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;
+}
+.admin-howto-steps,.rag-howto-steps{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:howto}
+@media(min-width:900px){.admin-howto-steps,.rag-howto-steps{grid-template-columns:repeat(3,1fr);gap:14px}}
+.admin-howto-steps li,.rag-howto-steps li{
+  display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.45;color:var(--navy);
+}
+.admin-howto-steps li strong,.rag-howto-steps li strong{font-size:13px;color:var(--navy)}
+.admin-howto-steps li span,.rag-howto-steps li span{color:var(--muted);font-size:12.5px}
+
+.admin-callout{
+  margin:0 0 14px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.5;color:var(--navy);
+}
+.admin-callout-info{
+  background:rgba(43,58,103,.05);border:.5px solid var(--border);
+}
+.admin-callout-warn{
+  background:rgba(196,75,75,.06);border:.5px solid rgba(196,75,75,.28);color:#6b2a2a;
+}
+.admin-callout strong{font-weight:700}
+
+/* RAG sources tab — keep class names; styles shared above */
+.rag-howto{
+  margin-top:4px;
+}
 
 .rag-add-grid{display:grid;gap:14px;margin:14px 0}
 @media(min-width:900px){.rag-add-grid{grid-template-columns:repeat(2,1fr);align-items:stretch}}

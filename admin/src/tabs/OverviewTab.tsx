@@ -403,7 +403,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           </button>
         </div>
         <p className="card-desc">
-          Admin to-dos and operational alerts in one place. Click a row to jump to the right screen.
+          Admin to-dos and operational alerts in one place. Start here each day, then open{' '}
+          <strong>Insights</strong> for full charts. Click a row to jump to the right screen.
         </p>
         {attentionItems.length === 0 ? (
           <div className="attention-empty">
@@ -728,7 +729,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         </div>
         <p className="card-desc">
           Optional HeyMaa alerts when <strong>our tracked chat spend</strong> crosses a daily or
-          monthly cap. This is not the vendor prepaid balance (unavailable via API).
+          monthly cap. Changing caps does <strong>not</strong> stop API calls — it only triggers
+          alerts. This is not the vendor prepaid balance.
         </p>
         <div className="row">
           <div className="field-wrap">

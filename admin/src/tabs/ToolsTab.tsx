@@ -77,8 +77,8 @@ export function ToolsTab({ onSeeded }: { onSeeded: () => void }) {
           </h2>
         </div>
         <p className="card-desc">
-          Seeds profiles for all 15 beta testers (HeyMaa_CD_Test_01–15) with{' '}
-          <code>consent_marketing=true</code>.
+          Fills family profiles for the 15 built-in beta tester codes (HeyMaa_CD_Test_01–15) with
+          marketing consent on. Safe to re-run — updates those profiles only, not all users.
         </p>
         {Message}
         <div className="row">
@@ -114,12 +114,16 @@ export function ToolsTab({ onSeeded }: { onSeeded: () => void }) {
             <MessageCircle size={16} className="h-icon" /> Chat Test
           </h2>
         </div>
-        <p className="card-desc">Paste a user&apos;s session token and send a message to test Maa&apos;s response.</p>
-        <FieldLabel>Session token</FieldLabel>
+        <p className="card-desc">
+          Smoke-test production <code>/chat</code> as a mom. Paste their{' '}
+          <strong>session / invite token</strong> (from Users → copy token, Invite Codes, or
+          Supabase). Does not change admin settings.
+        </p>
+        <FieldLabel>Session / invite token</FieldLabel>
         <input
           value={chatToken}
           onChange={(e) => setChatToken(e.target.value)}
-          placeholder="x-token from Supabase users table"
+          placeholder="Invite code or x-token from the user record"
           style={{ fontSize: 12 }}
         />
         <FieldLabel>Message</FieldLabel>

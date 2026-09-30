@@ -182,14 +182,15 @@ export function PointsTab() {
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" className="sec sm" onClick={() => void loadRules()}>
-              <RefreshCw size={14} />
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
           </div>
         </div>
         <p className="card-desc">
-          These values are awarded live in the app (memories, chat, milestones, referrals). Changing a
-          milestone amount also updates untick to the negative of the same value. Existing earned
-          points are not rewritten. Level thresholds are in the Levels card below.
+          These values are awarded live in the app (memories, chat, milestones, referrals).{' '}
+          <code>action</code> / <code>path</code> are internal event ids — moms only see the labels.
+          Changing a milestone amount also updates untick to the negative. Existing earned points are
+          not rewritten.
         </p>
 
         {!tableReady && (

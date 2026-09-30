@@ -34,8 +34,11 @@ Until that migration runs, ingest still works using `origin` + `source_type='url
 
 1. Run `backend/migrations/rag_seed_jobs.sql` in the Supabase SQL editor (once).
 2. In Admin → RAG Sources → **Start Babyspace (last 5 years)**.
-3. The UI creates a job and repeatedly calls `/tick` (a few listing pages or ~5 URL ingests each time), so each request stays under Vercel’s timeout.
-4. Leave the tab open until status is `completed`, or click **Cancel**.
+3. The UI creates a job and repeatedly calls `/tick`. Each tick either scrapes a few `/el/articles` listing pages **or** ingests ~5 article URLs.
+4. Discovery and ingest are interleaved: as soon as new URLs are found (beyond what you already have), they start ingesting so the library source count grows while older listing pages are still being walked.
+5. Leave the tab open until status is `completed`, or click **Cancel**. Your existing ~ready sources stay; only new URLs in the year window add rows.
+
+Expect hundreds–thousands of Babyspace articles in a 5-year window (roughly 30 per listing page). A library that stays stuck near ~100 usually means the job never got past the newest pages you already ingested, or it was cancelled/failed mid-run — check the job progress line for `listing page`, `ingested`, and `last_error`.
 
 APIs:
 

@@ -249,7 +249,7 @@ export function LevelsTab() {
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" className="sec sm" onClick={() => void loadLevels()}>
-              <RefreshCw size={14} />
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
             <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>
               <Plus size={14} /> New
@@ -257,14 +257,15 @@ export function LevelsTab() {
           </div>
         </div>
         <p className="card-desc">
-          Gamification levels for moms in the app. Entry threshold is cumulative points from the
-          actions above. Reaching a level can unlock a gift of free Starter or Premium days.
+          Levels for moms in the app. <strong>Min points</strong> = lifetime total needed to enter;
+          <strong> Sort order</strong> controls display order. Reaching a level can unlock free
+          Starter or Premium gift days. Create Level 1 at 0 points first if the list is empty.
         </p>
 
         {loading && <div className="empty">Loading…</div>}
         {err && <div className="msg err">Failed to load levels</div>}
         {!loading && !err && sortedLevels.length === 0 && (
-          <div className="empty">No levels yet. Create one to get started.</div>
+          <div className="empty">No levels yet. Create Level 1 at 0 points first.</div>
         )}
 
         {!loading &&

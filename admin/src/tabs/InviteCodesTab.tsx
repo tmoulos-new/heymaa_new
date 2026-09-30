@@ -255,10 +255,19 @@ export function InviteCodesTab() {
             )}
           </div>
         </div>
+        <p className="card-desc">
+          Moms sign in with the <strong>Code</strong> as their access token during invite-only beta.
+          <strong> Label</strong> is internal only. Inactive or expired codes reject login. Soft-deleted
+          codes can be restored via &quot;Show deleted&quot;.
+        </p>
         {loading && <div className="empty">Loading…</div>}
         {err && <div className="msg err">Could not load from database — showing defaults.</div>}
         {!loading && codes.length === 0 && (
-          <div className="empty">{showDeleted ? 'No deleted invite codes.' : 'No invite codes yet.'}</div>
+          <div className="empty">
+            {showDeleted
+              ? 'No deleted invite codes.'
+              : 'No invite codes yet. Create one, then assign it when inviting a tester.'}
+          </div>
         )}
         {!loading && codes.length > 0 && (
           <div className="table-wrap">

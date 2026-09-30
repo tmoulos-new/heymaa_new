@@ -499,7 +499,7 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
           <Users size={16} className="h-icon" /> Users
         </h2>
         <div className="card-head-actions">
-          <div className="users-total-cost" title="Total estimated LLM spend across all transactions">
+          <div className="users-total-cost" title="Estimated LLM spend across all recorded transactions (all users, all time)">
             <span className="users-total-cost-label">TOTAL COST</span>
             <span className="users-total-cost-value">
               ${Number(llmTotalCost || 0).toFixed(4)}
@@ -509,6 +509,28 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
             <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
           </button>
         </div>
+      </div>
+      <p className="card-desc">
+        Search by email or name, then open <strong>⋯</strong> on a row for support actions (plan,
+        trial, password, cancel, chat-as-user, points). Users with a pending cancel also appear under
+        Cancellations. <strong>TOTAL COST</strong> is estimated LLM spend across all users (all time).
+      </p>
+      <div className="admin-howto" role="note">
+        <div className="admin-howto-title">Support quick guide</div>
+        <ol className="admin-howto-steps">
+          <li>
+            <strong>Find the person</strong>
+            <span>Filter by plan or status, or paste their full email in search.</span>
+          </li>
+          <li>
+            <strong>Open ⋯ actions</strong>
+            <span>Change plan, extend trial, reset password, cancel, or chat as them.</span>
+          </li>
+          <li>
+            <strong>Invite-only betas</strong>
+            <span>Profiles with only an invite code (no email) are not listed — see Invite Codes.</span>
+          </li>
+        </ol>
       </div>
       {Message}
       {apiError && <div className="msg err">{apiError}</div>}

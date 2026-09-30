@@ -155,7 +155,9 @@ export function InsightsTab() {
         </div>
         <p className="card-desc">
           Growth, plan mix (including Free trial), modelled paid MRR, Viva cash, and LLM consumption.
-          Free trial users are counted in Total / Free plan / Users per plan — not under Paying.
+          Free trial users count in Total / Free plan — not under Paying. Window = dropdown above;
+          cash = completed Viva orders only. <strong>Recognized MRR</strong> = users still in a paid
+          access window; <strong>Renewing MRR</strong> = expected to auto-renew.
         </p>
         {err ? <div className="msg err">{err}</div> : null}
         {data?.notes && data.notes.length > 0 ? (
@@ -319,6 +321,11 @@ export function InsightsTab() {
               <TrendingUp size={16} className="h-icon" /> Revenue model
             </h2>
           </div>
+          <p className="card-desc">
+            <strong>Recognized</strong> = users still in a paid access window (incl. period-end
+            cancels). <strong>Renewing</strong> = expected to continue (excludes cancel queue). Not a
+            guarantee of auto-charge.
+          </p>
           <div className="insights-mrr-grid">
             <div className="stat green">
               <div className="n">{moneyEur(data?.mrr?.recognized_mrr_eur, 0)}</div>

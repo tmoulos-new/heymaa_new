@@ -472,8 +472,9 @@ export function UserDataTab() {
       </div>
 
       <p className="card-desc">
-        Browse persisted app data from the <code>user_data</code> table — chat, family,
-        memories, milestones, and more.
+        Read-only debug view of persisted app JSON from <code>user_data</code> — family, chat,
+        memories, milestones, and more. Look up by email user or by <strong>invite token</strong>{' '}
+        (same code as Invite Codes). Nothing here is editable.
       </p>
 
       <div className="user-data-filters">

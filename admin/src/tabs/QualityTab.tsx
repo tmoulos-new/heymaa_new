@@ -373,10 +373,15 @@ export function QualityTab() {
             <ThumbsDown size={16} className="h-icon" /> Bad replies queue
           </h2>
         </div>
+        <p className="card-desc">
+          Open items from thumbs-down and auto-judge. <strong>Rejudge</strong> reruns the scorer;
+          <strong> Mark fixed</strong> after you changed prompt/RAG; <strong>Dismiss</strong> for
+          false alarms. Export prefs (toolbar) downloads thumbs JSON for optional model training.
+        </p>
         {!data?.bad_queue?.length ? (
           <div className="attention-empty">
             <CheckCircle2 size={16} />
-            <div>Queue empty.</div>
+            <div>Queue empty — thumbs-down in the app feed this list.</div>
           </div>
         ) : (
           <div className="quality-queue">

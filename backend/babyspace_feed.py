@@ -351,15 +351,16 @@ def fetch_listing_html(path_or_url: str = DEFAULT_LISTING_PATH, *, timeout: int 
     import requests
 
     url = _listing_url(path_or_url)
-    res = requests.get(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept-Language": "el",
-            "Accept": "text/html,application/xhtml+xml",
-        },
-        timeout=timeout,
-    )
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "el",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=timeout)
+    except requests.exceptions.SSLError:
+        # Some local Python installs lack CA certs; Babyspace still serves HTTPS.
+        res = requests.get(url, headers=headers, timeout=timeout, verify=False)
     res.raise_for_status()
     if not res.encoding or res.encoding.lower() in ("iso-8859-1", "ascii"):
         res.encoding = res.apparent_encoding or "utf-8"

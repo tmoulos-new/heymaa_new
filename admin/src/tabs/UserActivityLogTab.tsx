@@ -124,12 +124,14 @@ export function UserActivityLogTab() {
           <MousePointerClick size={16} className="h-icon" /> User Activity
         </h2>
         <button type="button" className="sec sm" onClick={() => void loadLog()}>
-          <RefreshCw size={14} />
+          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
         </button>
       </div>
 
       <p className="card-desc">
-        Views, clicks, and navigation in the consumer app — distinct from admin audit actions.
+        Views, clicks, and navigation in the consumer app — not admin edits (those are under{' '}
+        <strong>Admin Activity</strong>). Path filter is a partial match, e.g.{' '}
+        <code>/app/chat</code> or <code>/app/family</code>.
       </p>
 
       <div className="user-activity-filters">

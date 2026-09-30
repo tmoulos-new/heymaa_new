@@ -196,8 +196,10 @@ export function UserFinancialsTab() {
           </button>
         </div>
         <p className="card-desc">
-          Plan package and LLM usage per user. Limits come from the plan catalog; remaining = limit −
-          used. All-time cost across users: <strong>{money(totalCost, 4)}</strong>.
+          Plan package and LLM usage per user this period. <strong>Used</strong> counts from period
+          start; limits come from Plans. Remaining = limit − used (empty limit = unlimited).
+          All-time cost across users: <strong>{money(totalCost, 4)}</strong>. Use “View
+          transactions” to open the ledger filtered to that user.
         </p>
 
         {!tableReady && (

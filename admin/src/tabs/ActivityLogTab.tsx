@@ -152,9 +152,14 @@ export function ActivityLogTab() {
           <ScrollText size={16} className="h-icon" /> Admin Activity
         </h2>
         <button type="button" className="sec sm" onClick={() => void loadLog()}>
-          <RefreshCw size={14} />
+          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
         </button>
       </div>
+      <p className="card-desc">
+        Audit trail of <strong>admin panel</strong> changes (offers, users, regions, plans, etc.).
+        For mom app clicks and screen views, use <strong>User Activity</strong>. Expand a row to see
+        before/after values when available.
+      </p>
 
       <div
         style={{
@@ -185,9 +190,9 @@ export function ActivityLogTab() {
           </select>
         </div>
         <div className="field-wrap">
-          <FieldLabel>User</FieldLabel>
+          <FieldLabel>Admin user</FieldLabel>
           <select value={userId} onChange={(e) => setUserId(e.target.value)}>
-            <option value="">All users</option>
+            <option value="">All admins</option>
             {admins.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name || u.email}
@@ -208,7 +213,9 @@ export function ActivityLogTab() {
       {loading && <div className="empty">Loading…</div>}
       {err && !loading && <div className="msg err">Failed to load activity log</div>}
       {!loading && !err && entries.length === 0 && (
-        <div className="empty">No activity recorded yet.</div>
+        <div className="empty">
+          No activity recorded yet. Entries appear after someone saves a change in this admin panel.
+        </div>
       )}
 
       {!loading && !err && entries.length > 0 && (
