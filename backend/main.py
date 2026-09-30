@@ -4,7 +4,7 @@ import base64
 import asyncio
 import uuid
 from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import dotenv_values
@@ -3933,6 +3933,42 @@ def _probe_llm_providers() -> dict:
     _llm_probe_cache_at = now
     return out
 
+@app.get("/public/babyspace-rss")
+@app.get("/babyspace-rss")
+async def public_babyspace_rss(
+    request: Request,
+    path: Optional[str] = Query(None, description="Babyspace listing path under /el"),
+    limit: int = Query(30, ge=1, le=100),
+):
+    """
+    Unofficial Babyspace.gr RSS 2.0 feed (scraped from public listing pages).
+    No Babyspace server access required. Seed discovery uses the same listing parser;
+    RAG chunks still come from full article page fetches.
+    """
+    try:
+        from .babyspace_feed import build_feed, safe_path
+    except ImportError:
+        from babyspace_feed import build_feed, safe_path
+
+    try:
+        listing = safe_path(path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    self_url = str(request.url)
+    try:
+        xml, count, _items = build_feed(listing, self_url=self_url, limit=limit)
+    except Exception as e:
+        return Response(content=f"Feed error: {e}", status_code=502, media_type="text/plain")
+    return Response(
+        content=xml,
+        media_type="application/rss+xml; charset=utf-8",
+        headers={
+            "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
+            "X-Item-Count": str(count),
+        },
+    )
+
+
 @app.get("/healthz")
 def root():
     client = ensure_supabase()
@@ -7511,6 +7547,18 @@ class RagSeedIngestRequest(BaseModel):
     source_keys: Optional[List[str]] = None
 
 
+class RagWebsiteSeedRequest(BaseModel):
+    """Discover pages from a custom website (sitemap, RSS, and/or crawl) and ingest them."""
+
+    base_url: str
+    name: Optional[str] = None
+    source_key: Optional[str] = None
+    sitemap_url: Optional[str] = None
+    rss_url: Optional[str] = None
+    language: Optional[str] = "el"
+    max_urls: int = 20
+
+
 @app.post("/admin/rag_sources/ingest_url")
 async def admin_ingest_rag_url(req: RagUrlIngestRequest, x_token: Optional[str] = Header(None)):
     """Fetch a public URL, extract text, chunk + embed into the knowledge base."""
@@ -7579,6 +7627,9 @@ async def admin_seed_parenthood_sources(
         urls = discover_source_urls(
             base_url=src["base_url"],
             sitemap_url=src.get("sitemap_url"),
+            rss_url=src.get("rss_url"),
+            listing_paths=src.get("listing_paths"),
+            source_key=src.get("source_key"),
             max_urls=max_per,
         )
         for u in urls:
@@ -7613,9 +7664,128 @@ async def admin_seed_parenthood_sources(
         "seed",
         "rag_source",
         "parenthood_seeds",
-        details={"ok": ok_n, "total": len(results), "max_per_source": max_per},
+        details={
+            "ok": ok_n,
+            "total": len(results),
+            "max_per_source": max_per,
+            "source_keys": sorted(wanted) if wanted else [s["source_key"] for s in SEED_SOURCES],
+        },
     )
     return {"ok": True, "ingested": ok_n, "total": len(results), "results": results}
+
+
+@app.post("/admin/rag_sources/seed_website")
+async def admin_seed_website_sources(
+    req: RagWebsiteSeedRequest,
+    x_token: Optional[str] = Header(None),
+):
+    """Discover pages from a custom website and ingest them as URL RAG sources."""
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .url_acquire import discover_source_urls, normalize_url
+        from .rag_ingest import create_or_update_url_source_and_ingest
+    except ImportError:
+        from url_acquire import discover_source_urls, normalize_url
+        from rag_ingest import create_or_update_url_source_and_ingest
+
+    base = (req.base_url or "").strip()
+    if not base:
+        raise HTTPException(status_code=400, detail="base_url is required")
+    try:
+        base = normalize_url(base)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    sitemap = (req.sitemap_url or "").strip() or None
+    rss = (req.rss_url or "").strip() or None
+    if sitemap:
+        try:
+            sitemap = normalize_url(sitemap)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"sitemap_url: {e}")
+    if rss:
+        try:
+            rss = normalize_url(rss)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"rss_url: {e}")
+
+    from urllib.parse import urlparse
+    import re as _slug_re
+
+    host = urlparse(base).netloc.replace("www.", "")
+    slug = _slug_re.sub(r"[^a-z0-9]+", "-", host.lower()).strip("-") or "website"
+    source_key = (req.source_key or "").strip() or slug[:40]
+    language = (req.language or "el").strip() or "el"
+    max_urls = max(1, min(int(req.max_urls or 20), 50))
+    display_name = (req.name or "").strip() or host
+
+    urls = discover_source_urls(
+        base_url=base,
+        sitemap_url=sitemap,
+        rss_url=rss,
+        source_key=source_key,
+        max_urls=max_urls,
+    )
+    if not urls:
+        raise HTTPException(
+            status_code=400,
+            detail="No pages discovered. Try a sitemap URL, an RSS feed URL, or a blog listing page as the base URL.",
+        )
+
+    results = []
+    for u in urls:
+        try:
+            item = create_or_update_url_source_and_ingest(
+                sb,
+                url=u,
+                source_key=source_key,
+                language=language,
+            )
+            results.append(
+                {
+                    "ok": True,
+                    "source_key": source_key,
+                    "url": item.get("url") or u,
+                    "chunk_count": item.get("chunk_count"),
+                    "status": item.get("status"),
+                }
+            )
+        except Exception as e:
+            results.append(
+                {
+                    "ok": False,
+                    "source_key": source_key,
+                    "url": u,
+                    "error": str(e),
+                }
+            )
+    ok_n = sum(1 for r in results if r.get("ok"))
+    _log_activity(
+        admin_id,
+        "seed",
+        "rag_source",
+        "website_seed",
+        details={
+            "ok": ok_n,
+            "total": len(results),
+            "base_url": base,
+            "source_key": source_key,
+            "name": display_name,
+            "sitemap_url": sitemap,
+            "rss_url": rss,
+        },
+    )
+    return {
+        "ok": True,
+        "ingested": ok_n,
+        "total": len(results),
+        "source_key": source_key,
+        "name": display_name,
+        "discovered": len(urls),
+        "results": results,
+    }
 
 
 @app.post("/admin/rag_sources/{source_id}/rechunk")

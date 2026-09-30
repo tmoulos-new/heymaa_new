@@ -271,6 +271,7 @@ export interface RagSourceRow {
   title: string
   source_type?: string
   origin?: string | null
+  source_key?: string | null
   status?: string
   chunk_count?: number
   chunks_live?: number

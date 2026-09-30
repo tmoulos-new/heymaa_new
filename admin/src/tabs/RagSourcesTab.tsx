@@ -102,6 +102,42 @@ function shortUrl(url: string, max = 48) {
   }
 }
 
+function siteKey(row: RagSourceRow): string {
+  const key = (row.source_key || '').trim().toLowerCase()
+  if (key) return key
+  const origin = (row.origin || '').trim()
+  if (isHttpUrl(origin)) {
+    try {
+      return new URL(origin).hostname.replace(/^www\./i, '').toLowerCase()
+    } catch {
+      /* fall through */
+    }
+  }
+  return sourceKind(row).label === 'File' ? 'file' : 'other'
+}
+
+function siteLabel(key: string): string {
+  if (key === 'babyspace') return 'Babyspace'
+  if (key === 'myparenthood') return 'My Parenthood'
+  if (key === 'file') return 'Uploaded files'
+  if (key === 'other') return 'Other'
+  return key
+}
+
+const PRESET_SEEDS = [
+  {
+    key: 'babyspace',
+    name: 'Babyspace',
+    blurb: 'Scrapes /el/articles listings, then full-page chunks each article.',
+  },
+  {
+    key: 'myparenthood',
+    name: 'My Parenthood',
+    blurb: 'Uses their post sitemap, then full-page chunks each article.',
+  },
+] as const
+
+
 export function RagSourcesTab() {
   const { adminFetch, token } = useAdmin()
   const { show, Message } = useFlashMessage()
@@ -118,7 +154,20 @@ export function RagSourcesTab() {
   const [urlInput, setUrlInput] = useState('')
   const [urlTitle, setUrlTitle] = useState('')
   const [urlIngesting, setUrlIngesting] = useState(false)
-  const [seeding, setSeeding] = useState(false)
+  const [seedingKey, setSeedingKey] = useState<string | null>(null)
+
+  const [siteName, setSiteName] = useState('')
+  const [siteBaseUrl, setSiteBaseUrl] = useState('')
+  const [siteSitemap, setSiteSitemap] = useState('')
+  const [siteRss, setSiteRss] = useState('')
+  const [siteMax, setSiteMax] = useState('20')
+  const [siteSeeding, setSiteSeeding] = useState(false)
+
+  const [filterQ, setFilterQ] = useState('')
+  const [filterKind, setFilterKind] = useState<'all' | 'URL' | 'File'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'ready' | 'processing' | 'error'>('all')
+  const [filterSite, setFilterSite] = useState('all')
+
 
   const [editRow, setEditRow] = useState<RagSourceRow | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -174,6 +223,29 @@ export function RagSourcesTab() {
       files,
     }
   }, [sources])
+
+  const siteOptions = useMemo(() => {
+    const keys = new Set<string>()
+    for (const row of sources) keys.add(siteKey(row))
+    return Array.from(keys).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)))
+  }, [sources])
+
+  const filteredSources = useMemo(() => {
+    const q = filterQ.trim().toLowerCase()
+    return sources.filter((row) => {
+      const kind = sourceKind(row).label
+      if (filterKind !== 'all' && kind !== filterKind) return false
+      const st = (row.status || '').toLowerCase()
+      if (filterStatus !== 'all' && st !== filterStatus) return false
+      if (filterSite !== 'all' && siteKey(row) !== filterSite) return false
+      if (!q) return true
+      const hay = `${row.title || ''} ${row.origin || ''} ${row.source_key || ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [sources, filterQ, filterKind, filterStatus, filterSite])
+
+  const filtersActive =
+    filterQ.trim() !== '' || filterKind !== 'all' || filterStatus !== 'all' || filterSite !== 'all'
 
   const uploadSource = async () => {
     if (!uploadFile) {
@@ -244,20 +316,57 @@ export function RagSourcesTab() {
     }
   }
 
-  const seedParenthood = async () => {
-    setSeeding(true)
+  const seedSite = async (sourceKey: string, label: string) => {
+    setSeedingKey(sourceKey)
     try {
       const d = await adminFetch('/admin/rag_sources/seed_parenthood', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_per_source: 20 }),
+        body: JSON.stringify({ max_per_source: 20, source_keys: [sourceKey] }),
       })
-      show(`Seeded parenthood sources — ${d.ingested}/${d.total} pages`, 'ok')
+      show(`Seeded ${label} — ${d.ingested}/${d.total} pages`, 'ok')
       await loadSources()
     } catch (e) {
-      show(e instanceof Error ? e.message : 'Seed failed', 'err')
+      show(e instanceof Error ? e.message : `Seed ${label} failed`, 'err')
     } finally {
-      setSeeding(false)
+      setSeedingKey(null)
+    }
+  }
+
+  const seedCustomWebsite = async () => {
+    const base = siteBaseUrl.trim()
+    if (!base) {
+      show('Enter a website base URL (e.g. https://example.com/blog/)', 'err')
+      return
+    }
+    setSiteSeeding(true)
+    try {
+      const maxUrls = Math.max(1, Math.min(Number(siteMax) || 20, 50))
+      const d = await adminFetch('/admin/rag_sources/seed_website', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base_url: base,
+          name: siteName.trim() || undefined,
+          sitemap_url: siteSitemap.trim() || undefined,
+          rss_url: siteRss.trim() || undefined,
+          max_urls: maxUrls,
+          language: 'el',
+        }),
+      })
+      show(
+        `Seeded ${d.name || 'website'} — ${d.ingested}/${d.total} pages (${d.discovered} discovered)`,
+        'ok',
+      )
+      setSiteName('')
+      setSiteBaseUrl('')
+      setSiteSitemap('')
+      setSiteRss('')
+      await loadSources()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Website seed failed', 'err')
+    } finally {
+      setSiteSeeding(false)
     }
   }
 
@@ -362,7 +471,7 @@ export function RagSourcesTab() {
           <ol className="rag-howto-steps">
             <li>
               <strong>1. Add a source</strong>
-              <span>Upload a file, paste one URL, or seed known parenting sites.</span>
+              <span>Upload a file, paste one URL, or seed a whole website.</span>
             </li>
             <li>
               <strong>2. Chunks are created</strong>
@@ -462,37 +571,105 @@ export function RagSourcesTab() {
             {urlIngesting ? 'Fetching & chunking…' : 'Ingest URL'}
           </button>
         </section>
+      </div>
 
-        <section className="card rag-add-card">
+      <section className="card rag-add-card rag-seed-panel">
           <div className="rag-add-head">
             <span className="rag-add-icon" aria-hidden>
               <Sprout size={18} />
             </span>
             <div>
-              <h2>3. Seed parenting sites</h2>
+              <h2>3. Seed websites</h2>
               <p className="card-desc" style={{ marginBottom: 0 }}>
-                Bulk-import a curated set of Babyspace + My Parenthood pages (up to 20 per site). Use
-                this to bootstrap lots of URL sources at once — not for a single page.
+                Bulk-import many pages from a site. Built-in presets for Babyspace and My Parenthood,
+                or add any public website below. Each discovered page is fetched in full and chunked
+                (not just a feed summary).
               </p>
             </div>
           </div>
-          <ul className="rag-seed-notes">
-            <li>Creates many rows in the library (one per page).</li>
-            <li>Safe to re-run; existing URLs are updated rather than duplicated.</li>
-            <li>Needs working embeddings (Gemini key) like the other sections.</li>
-          </ul>
-          <button
-            type="button"
-            className="sec"
-            onClick={() => void seedParenthood()}
-            disabled={seeding}
-            title="Babyspace + My Parenthood seed crawl"
-          >
-            <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-            {seeding ? 'Seeding parenthood sources…' : 'Seed Babyspace + My Parenthood'}
-          </button>
-        </section>
-      </div>
+
+          <div className="rag-seed-presets">
+            <div className="rag-seed-presets-label">Built-in sites</div>
+            <div className="rag-seed-preset-grid">
+              {PRESET_SEEDS.map((site) => (
+                <div key={site.key} className="rag-seed-preset">
+                  <strong>{site.name}</strong>
+                  <p>{site.blurb}</p>
+                  <button
+                    type="button"
+                    className="sec"
+                    onClick={() => void seedSite(site.key, site.name)}
+                    disabled={seedingKey !== null || siteSeeding}
+                  >
+                    <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                    {seedingKey === site.key ? `Seeding ${site.name}…` : `Seed ${site.name}`}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rag-seed-custom">
+            <div className="rag-seed-presets-label">Add a website source</div>
+            <p className="card-desc" style={{ marginBottom: 12 }}>
+              Point at a blog or article listing. Prefer a <strong>sitemap</strong> or{' '}
+              <strong>RSS</strong> URL when you have one — discovery is more accurate. Otherwise we
+              crawl links from the base URL.
+            </p>
+            <div className="rag-seed-custom-grid">
+              <div className="field">
+                <FieldLabel>Display name (optional)</FieldLabel>
+                <input
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  placeholder="e.g. Parenting Tips Blog"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>Base URL</FieldLabel>
+                <input
+                  value={siteBaseUrl}
+                  onChange={(e) => setSiteBaseUrl(e.target.value)}
+                  placeholder="https://example.com/blog/"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>Sitemap URL (optional)</FieldLabel>
+                <input
+                  value={siteSitemap}
+                  onChange={(e) => setSiteSitemap(e.target.value)}
+                  placeholder="https://example.com/post-sitemap.xml"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
+                <input
+                  value={siteRss}
+                  onChange={(e) => setSiteRss(e.target.value)}
+                  placeholder="https://example.com/feed"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>Max pages</FieldLabel>
+                <input
+                  value={siteMax}
+                  onChange={(e) => setSiteMax(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="20"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              className="teal"
+              onClick={() => void seedCustomWebsite()}
+              disabled={siteSeeding || seedingKey !== null || !siteBaseUrl.trim()}
+            >
+              <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              {siteSeeding ? 'Discovering & chunking…' : 'Discover & seed website'}
+            </button>
+          </div>
+      </section>
 
       <div className="card">
         <div className="card-head">
@@ -534,6 +711,69 @@ export function RagSourcesTab() {
           </div>
         ) : null}
 
+        {!loading && !err && sources.length > 0 ? (
+          <div className="rag-filters" aria-label="Filter sources">
+            <div className="field">
+              <FieldLabel>Search</FieldLabel>
+              <input
+                value={filterQ}
+                onChange={(e) => setFilterQ(e.target.value)}
+                placeholder="Title, URL, or site key…"
+              />
+            </div>
+            <div className="field">
+              <FieldLabel>Kind</FieldLabel>
+              <select value={filterKind} onChange={(e) => setFilterKind(e.target.value as typeof filterKind)}>
+                <option value="all">All kinds</option>
+                <option value="URL">URL</option>
+                <option value="File">File</option>
+              </select>
+            </div>
+            <div className="field">
+              <FieldLabel>Status</FieldLabel>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+              >
+                <option value="all">All statuses</option>
+                <option value="ready">Ready</option>
+                <option value="processing">Processing</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            <div className="field">
+              <FieldLabel>Site</FieldLabel>
+              <select value={filterSite} onChange={(e) => setFilterSite(e.target.value)}>
+                <option value="all">All sites</option>
+                {siteOptions.map((key) => (
+                  <option key={key} value={key}>
+                    {siteLabel(key)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {filtersActive ? (
+              <div className="rag-filters-clear">
+                <button
+                  type="button"
+                  className="ghost sm"
+                  onClick={() => {
+                    setFilterQ('')
+                    setFilterKind('all')
+                    setFilterStatus('all')
+                    setFilterSite('all')
+                  }}
+                >
+                  Clear filters
+                </button>
+                <span className="muted">
+                  Showing {filteredSources.length} of {sources.length}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {loading ? <p className="muted">Loading sources…</p> : null}
         {err ? (
           <p className="flash err" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -545,17 +785,22 @@ export function RagSourcesTab() {
         {!loading && !err && sources.length === 0 ? (
           <p className="muted">
             No sources yet. Use one of the three sections above to upload a file, ingest a URL, or seed
-            parenting sites.
+            a website.
           </p>
         ) : null}
 
-        {!loading && sources.length > 0 ? (
+        {!loading && sources.length > 0 && filteredSources.length === 0 ? (
+          <p className="muted">No sources match these filters.</p>
+        ) : null}
+
+        {!loading && filteredSources.length > 0 ? (
           <div className="table-wrap rag-table-wrap">
             <table className="rag-table">
               <thead>
                 <tr>
                   <th>Title</th>
                   <th>Kind</th>
+                  <th>Site</th>
                   <th>URL / file</th>
                   <th className="num">Chunks</th>
                   <th>Status</th>
@@ -564,13 +809,14 @@ export function RagSourcesTab() {
                 </tr>
               </thead>
               <tbody>
-                {sources.map((row) => {
+                {filteredSources.map((row) => {
                   const chunks = row.chunks_live ?? row.chunk_count ?? 0
                   const needsChunks =
                     chunks === 0 || (row.status || '').toLowerCase() === 'error'
                   const kind = sourceKind(row)
                   const origin = (row.origin || '').trim()
                   const url = isHttpUrl(origin) ? origin : ''
+                  const site = siteKey(row)
                   return (
                     <tr key={row.id} className={needsChunks ? 'rag-row-warn' : undefined}>
                       <td>
@@ -579,6 +825,11 @@ export function RagSourcesTab() {
                       <td>
                         <span className="rag-kind" title={kind.hint}>
                           {kind.label}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="rag-site" title={site}>
+                          {siteLabel(site)}
                         </span>
                       </td>
                       <td className="rag-origin">

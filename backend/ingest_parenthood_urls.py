@@ -62,6 +62,9 @@ def main() -> int:
         urls = discover_source_urls(
             base_url=src["base_url"],
             sitemap_url=src.get("sitemap_url"),
+            rss_url=src.get("rss_url"),
+            listing_paths=src.get("listing_paths"),
+            source_key=src.get("source_key"),
             max_urls=max_per,
         )
         print(f"Discovered {len(urls)} URLs (cap={max_per})")

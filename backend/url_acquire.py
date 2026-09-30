@@ -272,18 +272,70 @@ def discover_site_links(seed_url: str, *, same_host: bool = True, max_urls: int 
     return out
 
 
+def discover_rss_urls(rss_url: str, *, max_urls: int = 40) -> list[str]:
+    """Parse an RSS/Atom feed and return item links (for seed discovery)."""
+    try:
+        from .babyspace_feed import parse_rss_links
+    except ImportError:
+        from babyspace_feed import parse_rss_links
+
+    _, _, body = fetch_url(rss_url)
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in parse_rss_links(body):
+        try:
+            u = normalize_url(raw)
+        except ValueError:
+            continue
+        if u in seen:
+            continue
+        seen.add(u)
+        out.append(u)
+        if len(out) >= max_urls:
+            break
+    return out
+
+
 def discover_source_urls(
     *,
     base_url: str,
     sitemap_url: Optional[str] = None,
+    rss_url: Optional[str] = None,
+    listing_paths: Optional[list[str]] = None,
+    source_key: Optional[str] = None,
     max_urls: int = 40,
 ) -> list[str]:
     urls: list[str] = []
-    if sitemap_url:
+    # 1) Explicit RSS feed (our unofficial Babyspace feed, or any other)
+    if rss_url:
+        try:
+            urls = discover_rss_urls(rss_url, max_urls=max(max_urls * 2, 40))
+        except Exception:
+            urls = []
+    # 2) Sitemap (My Parenthood etc.)
+    if len(urls) < 5 and sitemap_url:
         try:
             urls = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 3, 80))
         except Exception:
             urls = []
+    # 3) Babyspace listing scrape (same logic as unofficial RSS builder)
+    if len(urls) < 5 and (listing_paths or (source_key or "").lower() == "babyspace"):
+        try:
+            from .babyspace_feed import discover_babyspace_article_urls
+        except ImportError:
+            from babyspace_feed import discover_babyspace_article_urls
+
+        try:
+            listed = discover_babyspace_article_urls(
+                max_urls=max(max_urls * 2, 40),
+                listing_paths=listing_paths,
+            )
+            for u in listed:
+                if u not in urls:
+                    urls.append(u)
+        except Exception:
+            pass
+    # 4) Fallback: crawl seed page links
     if len(urls) < 5:
         crawled = discover_site_links(base_url, max_urls=max(max_urls * 2, 40))
         for u in crawled:
@@ -358,7 +410,14 @@ SEED_SOURCES = [
         "source_key": "babyspace",
         "name": "Babyspace",
         "base_url": "https://www.babyspace.gr/",
+        # No official RSS/sitemap — we scrape public /el listing pages (same as
+        # GET /public/babyspace-rss) then full-page ingest for chunks.
         "sitemap_url": None,
+        "rss_url": None,
+        "listing_paths": [
+            "/el/articles",
+            "/el/articles?page=2&per=30",
+        ],
         "language": "el",
         "max_urls": 25,
     },
@@ -367,6 +426,7 @@ SEED_SOURCES = [
         "name": "My Parenthood",
         "base_url": "https://myparenthood.gr/blog/",
         "sitemap_url": "https://myparenthood.gr/post-sitemap.xml",
+        "rss_url": None,
         "language": "el",
         "max_urls": 40,
     },
@@ -379,6 +439,9 @@ def iter_seed_page_plans(max_per_source: Optional[int] = None) -> Iterable[dict]
         urls = discover_source_urls(
             base_url=src["base_url"],
             sitemap_url=src.get("sitemap_url"),
+            rss_url=src.get("rss_url"),
+            listing_paths=src.get("listing_paths"),
+            source_key=src.get("source_key"),
             max_urls=limit,
         )
         for u in urls:
