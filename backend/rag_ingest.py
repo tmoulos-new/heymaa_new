@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from typing import Optional
 
@@ -75,20 +76,75 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
         doc.close()
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name) or default)
+    except ValueError:
+        return default
+
+
+# Gemini free tier allows ~100 embed requests/min. Stay under it by default
+# (0.7s ~= 85 req/min). Set RAG_EMBED_MIN_INTERVAL=0 on a paid tier.
+EMBED_MIN_INTERVAL = _env_float("RAG_EMBED_MIN_INTERVAL", 0.7)
+EMBED_MAX_RETRIES = int(_env_float("RAG_EMBED_MAX_RETRIES", 6))
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_embed_lock = threading.Lock()
+_last_embed_call = 0.0
+
+
+def _throttle_embed() -> None:
+    """Serialise + space out embedding calls across all ingest threads."""
+    global _last_embed_call
+    if EMBED_MIN_INTERVAL <= 0:
+        return
+    with _embed_lock:
+        wait = EMBED_MIN_INTERVAL - (time.monotonic() - _last_embed_call)
+        if wait > 0:
+            time.sleep(wait)
+        _last_embed_call = time.monotonic()
+
+
+def _retry_delay_seconds(res: "requests.Response", attempt: int) -> float:
+    """Honour Retry-After / Google's RetryInfo.retryDelay, else exponential backoff."""
+    header = res.headers.get("Retry-After")
+    if header:
+        try:
+            return min(float(header), 90.0)
+        except ValueError:
+            pass
+    try:
+        for detail in (res.json().get("error") or {}).get("details") or []:
+            delay = detail.get("retryDelay")
+            if isinstance(delay, str) and delay.endswith("s"):
+                return min(float(delay[:-1]) + 1.0, 90.0)
+    except Exception:
+        pass
+    return min(5.0 * (2**attempt), 60.0)
+
+
 def get_document_embedding(text: str) -> list[float]:
     key = _gemini_api_key()
     if not key:
         raise ValueError("GEMINI_API_KEY is not configured.")
     url = f"https://generativelanguage.googleapis.com/v1beta/{EMBED_MODEL}:embedContent?key={key}"
-    res = requests.post(
-        url,
-        json={
-            "model": EMBED_MODEL,
-            "content": {"parts": [{"text": text}]},
-            "taskType": "RETRIEVAL_DOCUMENT",
-        },
-        timeout=30,
-    )
+    payload = {
+        "model": EMBED_MODEL,
+        "content": {"parts": [{"text": text}]},
+        "taskType": "RETRIEVAL_DOCUMENT",
+    }
+    res = None
+    for attempt in range(EMBED_MAX_RETRIES + 1):
+        _throttle_embed()
+        try:
+            res = requests.post(url, json=payload, timeout=30)
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt >= EMBED_MAX_RETRIES:
+                raise
+            time.sleep(min(5.0 * (2**attempt), 60.0))
+            continue
+        if res.status_code not in _RETRYABLE_STATUS or attempt >= EMBED_MAX_RETRIES:
+            break
+        time.sleep(_retry_delay_seconds(res, attempt))
     res.raise_for_status()
     values = res.json().get("embedding", {}).get("values")
     if not values:
@@ -254,6 +310,19 @@ def _find_source_by_url(sb, source_url: str):
         pass
     res = sb.table("rag_sources").select("*").eq("origin", source_url).limit(1).execute()
     return (res.data or [None])[0]
+
+
+def url_already_ingested(sb, url: str) -> bool:
+    """True when this URL already has a healthy (ready, >0 chunks) rag_source."""
+    try:
+        from .url_acquire import normalize_url
+    except ImportError:
+        from url_acquire import normalize_url
+    try:
+        row = _find_source_by_url(sb, normalize_url(url))
+    except Exception:
+        return False
+    return bool(row) and row.get("status") == "ready" and int(row.get("chunk_count") or 0) > 0
 
 
 def create_or_update_url_source_and_ingest(

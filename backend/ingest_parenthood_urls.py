@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from supabase import create_client
 
-from rag_ingest import create_or_update_url_source_and_ingest
+from rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
 from url_acquire import SEED_SOURCES, discover_source_urls
 
 
@@ -34,6 +34,7 @@ def main() -> int:
         dest="sources",
         help="Limit to source_key (babyspace|myparenthood). Repeatable.",
     )
+    parser.add_argument("--force", action="store_true", help="Re-ingest even if already ready")
     args = parser.parse_args()
 
     url = (os.getenv("SUPABASE_URL") or "").strip().strip('"').strip("'")
@@ -70,6 +71,9 @@ def main() -> int:
         print(f"Discovered {len(urls)} URLs (cap={max_per})")
         for i, u in enumerate(urls, 1):
             print(f"[{i}/{len(urls)}] {u}")
+            if not args.force and url_already_ingested(sb, u):
+                print("  SKIP (already ready)")
+                continue
             try:
                 result = create_or_update_url_source_and_ingest(
                     sb,

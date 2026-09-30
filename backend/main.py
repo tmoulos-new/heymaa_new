@@ -7574,6 +7574,9 @@ class RagUrlIngestRequest(BaseModel):
 class RagSeedIngestRequest(BaseModel):
     max_per_source: int = 20
     source_keys: Optional[List[str]] = None
+    # False (default): skip pages already ingested OK, so re-pressing the button
+    # only retries failed/missing pages. True: re-ingest everything.
+    force: bool = False
 
 
 class RagWebsiteSeedRequest(BaseModel):
@@ -7642,10 +7645,10 @@ async def admin_seed_parenthood_sources(
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
         from .url_acquire import SEED_SOURCES, discover_source_urls
-        from .rag_ingest import create_or_update_url_source_and_ingest
+        from .rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
     except ImportError:
         from url_acquire import SEED_SOURCES, discover_source_urls
-        from rag_ingest import create_or_update_url_source_and_ingest
+        from rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
 
     max_per = max(1, min(int(req.max_per_source or 20), 50))
     wanted = set(req.source_keys or [])
@@ -7662,6 +7665,11 @@ async def admin_seed_parenthood_sources(
             max_urls=max_per,
         )
         for u in urls:
+            if not req.force and url_already_ingested(sb, u):
+                results.append(
+                    {"ok": True, "skipped": True, "source_key": src["source_key"], "url": u}
+                )
+                continue
             try:
                 item = create_or_update_url_source_and_ingest(
                     sb,
