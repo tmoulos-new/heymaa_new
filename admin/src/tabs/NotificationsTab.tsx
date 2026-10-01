@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Bell, Eye, RefreshCw, Send } from 'lucide-react'
+import { BarChart3, Bell, Download, Eye, Link2, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
 import { CampaignReportModal } from '../components/CampaignReportModal'
@@ -7,6 +7,7 @@ import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
 import { EmailAiAssist } from '../components/EmailBodyEditor'
 import { useAdmin } from '../context/AdminContext'
 import { consumeComposeDraft, giftCodeIsOfferable } from '../lib/composeDraft'
+import { downloadTextFile, reportToCsv } from '../lib/downloadReport'
 
 type Campaign = {
   id: string
@@ -32,8 +33,9 @@ type PushStatus = {
 
 type Audience = 'selected' | 'all' | 'plan' | 'no_push'
 
-type GiftCta = {
+type CtaSource = {
   id: string
+  kind: 'invite' | 'offer' | 'level_gift' | 'gift'
   label: string
   url: string
   detail: string
@@ -43,6 +45,12 @@ const PUSH_NUDGE_TITLE = 'Stay in touch with HeyMaa'
 const PUSH_NUDGE_BODY =
   'Turn on lock-screen alerts so you don’t miss important updates when the app is closed. Open Account → Privacy to activate in one tap.'
 
+const TAP_PRESETS = [
+  { label: 'Open HeyMaa', url: '/app', hint: 'Main app · Account → Privacy for push' },
+  { label: 'View plans', url: '/subscription', hint: 'Pricing' },
+  { label: 'Upgrade now', url: '/checkout', hint: 'Checkout' },
+]
+
 function fmt(iso?: string) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -50,17 +58,30 @@ function fmt(iso?: string) {
   return d.toLocaleString()
 }
 
+function deliverySummary(item: Campaign) {
+  const recipients = item.recipient_count ?? 0
+  const reads = item.read_count ?? 0
+  const pushD = item.push_delivered ?? 0
+  const pushA = item.push_attempted ?? 0
+  const parts = [`${recipients} in bell`, `${reads} opened`, `push ${pushD}/${pushA}`]
+  if (item.push_failed) parts.push(`${item.push_failed} push failed`)
+  return parts.join(' · ')
+}
+
 export function NotificationsTab() {
   const { adminFetch } = useAdmin()
   const { show, Message } = useFlashMessage()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [url, setUrl] = useState('')
+  const [includeUrl, setIncludeUrl] = useState(false)
+  const [url, setUrl] = useState('/app')
   const [audience, setAudience] = useState<Audience>('selected')
   const [plan, setPlan] = useState('trial')
   const [picked, setPicked] = useState<PickerUser[]>([])
   const [sending, setSending] = useState(false)
   const [history, setHistory] = useState<Campaign[]>([])
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [setupError, setSetupError] = useState('')
   const [pushStatus, setPushStatus] = useState<PushStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,20 +89,29 @@ export function NotificationsTab() {
   const [reportPath, setReportPath] = useState<string | null>(null)
   const [reportHeading, setReportHeading] = useState('Notification report')
   const [overviewDays, setOverviewDays] = useState(30)
-  const [giftCtas, setGiftCtas] = useState<GiftCta[]>([])
-  const [giftCtasLoading, setGiftCtasLoading] = useState(false)
+  const [ctaSources, setCtaSources] = useState<CtaSource[]>([])
+  const [ctaSourcesLoading, setCtaSourcesLoading] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiBrief, setAiBrief] = useState('')
   const [aiTone, setAiTone] = useState('warm')
   const [aiLang, setAiLang] = useState('en')
   const [aiBusy, setAiBusy] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
-  const loadGiftCtas = async () => {
-    setGiftCtasLoading(true)
+  const loadCtaSources = async () => {
+    setCtaSourcesLoading(true)
     try {
-      const d = await adminFetch('/admin/gift_codes').catch(() => ({ gifts: [] }))
-      const next: GiftCta[] = []
-      for (const row of (d.gifts as Array<{
+      const [invites, offers, levels, gifts] = await Promise.all([
+        adminFetch('/admin/invite_codes').catch(() => ({ codes: [] })),
+        adminFetch('/admin/offers').catch(() => ({ offers: [] })),
+        adminFetch('/admin/levels').catch(() => ({ levels: [] })),
+        adminFetch('/admin/gift_codes').catch(() => ({ gifts: [] })),
+      ])
+      const next: CtaSource[] = []
+
+      for (const row of (gifts.gifts as Array<{
         code?: string
         status?: string
         gift_type?: string
@@ -104,22 +134,74 @@ export function NotificationsTab() {
         }
         next.push({
           id: `gift:${code}`,
-          label: row.label ? String(row.label) : `Claim ${code}`,
+          kind: 'gift',
+          label: row.label ? String(row.label) : 'Claim your gift',
           url: `/app?gift=${encodeURIComponent(code)}`,
           detail: bits.length ? `${code} · ${bits.join(' · ')}` : code,
         })
       }
-      setGiftCtas(next)
+
+      for (const row of (invites.codes as Array<{ code?: string; status?: string; label?: string }>) || []) {
+        const code = String(row.code || '').trim()
+        if (!code || (row.status || 'active') !== 'active') continue
+        next.push({
+          id: `invite:${code}`,
+          kind: 'invite',
+          label: 'Join with invite',
+          url: `/app/auth?invite=${encodeURIComponent(code)}`,
+          detail: row.label ? `${code} · ${row.label}` : code,
+        })
+      }
+
+      for (const row of (offers.offers as Array<{ id?: string; title?: string; link?: string | null }>) || []) {
+        const link = String(row.link || '').trim()
+        if (!link) continue
+        const offerTitle = String(row.title || 'Offer').trim() || 'Offer'
+        next.push({
+          id: `offer:${row.id || link}`,
+          kind: 'offer',
+          label: offerTitle.length > 42 ? `${offerTitle.slice(0, 40)}…` : offerTitle,
+          url: link,
+          detail: 'Offer / promo link',
+        })
+      }
+
+      for (const row of (levels.levels as Array<{
+        id?: string
+        name_en?: string
+        name_el?: string
+        reward_plan_slot?: string | null
+        reward_days?: number | null
+      }>) || []) {
+        const slot = String(row.reward_plan_slot || '').trim()
+        const days = Number(row.reward_days) || 0
+        if (!slot || days < 1) continue
+        const name = String(row.name_en || row.name_el || row.id || 'Level').trim()
+        next.push({
+          id: `level:${row.id || name}`,
+          kind: 'level_gift',
+          label: 'Open app (level gift)',
+          url: '/app',
+          detail: `${name}: ${days} days free ${slot}`,
+        })
+      }
+
+      setCtaSources(next)
     } finally {
-      setGiftCtasLoading(false)
+      setCtaSourcesLoading(false)
     }
   }
 
   const load = async () => {
     setLoading(true)
     try {
+      const qs = new URLSearchParams()
+      if (fromDate) qs.set('from_date', fromDate)
+      if (toDate) qs.set('to_date', toDate)
+      qs.set('limit', fromDate || toDate ? '50' : '10')
+      const path = `/admin/notifications${qs.toString() ? `?${qs.toString()}` : ''}`
       const [list, status] = await Promise.all([
-        adminFetch('/admin/notifications'),
+        adminFetch(path),
         adminFetch('/admin/notifications/status').catch(() => null),
       ])
       setHistory((list.notifications as Campaign[]) || [])
@@ -134,16 +216,29 @@ export function NotificationsTab() {
 
   useEffect(() => {
     void load()
-    void loadGiftCtas()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate])
+
+  useEffect(() => {
+    void loadCtaSources()
     const draft = consumeComposeDraft('notification')
     if (draft) {
       if (draft.title) setTitle(draft.title)
       if (draft.body) setBody(draft.body)
-      if (draft.url) setUrl(draft.url)
+      if (draft.url) {
+        setUrl(draft.url)
+        setIncludeUrl(true)
+      }
       show('Gift draft loaded — pick recipients and send when ready', 'ok')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!includeUrl || ctaSources.length > 0 || ctaSourcesLoading) return
+    void loadCtaSources()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [includeUrl])
 
   const send = async () => {
     if (audience === 'selected' && picked.length === 0) {
@@ -158,7 +253,7 @@ export function NotificationsTab() {
         body: JSON.stringify({
           title: title.trim(),
           body: body.trim(),
-          url: url.trim() || undefined,
+          url: includeUrl ? url.trim() || undefined : undefined,
           audience,
           user_ids: picked.map((u) => u.id),
           plan: audience === 'plan' ? plan : undefined,
@@ -171,7 +266,8 @@ export function NotificationsTab() {
       )
       setTitle('')
       setBody('')
-      setUrl('')
+      setUrl('/app')
+      setIncludeUrl(false)
       setPicked([])
       await load()
     } catch (e) {
@@ -185,7 +281,8 @@ export function NotificationsTab() {
     setAudience('no_push')
     setTitle(PUSH_NUDGE_TITLE)
     setBody(PUSH_NUDGE_BODY)
-    setUrl('')
+    setIncludeUrl(true)
+    setUrl('/app')
     show('Composer filled for users without lock-screen alerts — review and send when ready', 'ok')
   }
 
@@ -207,12 +304,46 @@ export function NotificationsTab() {
       if (d.title) setTitle(String(d.title).slice(0, 120))
       if (d.body) setBody(String(d.body).slice(0, 500))
       const suggestedUrl = String(d.url_suggestion || '').trim()
-      if (suggestedUrl) setUrl(suggestedUrl)
+      if (suggestedUrl) {
+        setIncludeUrl(true)
+        setUrl(suggestedUrl)
+      }
       show('Draft ready — edit anything, then Preview before sending', 'ok')
     } catch (e) {
       show(e instanceof Error ? e.message : 'AI draft failed', 'err')
     } finally {
       setAiBusy(false)
+    }
+  }
+
+  const downloadNotificationReport = async (item: Campaign) => {
+    setDownloadingId(item.id)
+    try {
+      const d = await adminFetch(`/admin/notifications/${item.id}/report`)
+      const report = (d.report || {}) as Parameters<typeof reportToCsv>[0]
+      const stamp = (item.created_at || new Date().toISOString()).slice(0, 10)
+      const safe = (item.title || 'notification').replace(/[^\w\-]+/g, '_').slice(0, 40)
+      downloadTextFile(`heymaa-notification-report-${safe}-${stamp}.csv`, reportToCsv(report))
+      show('Report downloaded', 'ok')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Could not download report', 'err')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  const removeNotification = async () => {
+    if (!deleteTarget?.id) return
+    setDeleting(true)
+    try {
+      await adminFetch(`/admin/notifications/${deleteTarget.id}`, { method: 'DELETE' })
+      show('Notification removed from history', 'ok')
+      setDeleteTarget(null)
+      await load()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Delete failed', 'err')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -298,52 +429,169 @@ export function NotificationsTab() {
         />
 
         <div className="field-wrap">
-          <FieldLabel required>Title</FieldLabel>
-          <input value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline" />
+          <div className="email-subject-head">
+            <FieldLabel required>Title</FieldLabel>
+            <span className={`email-subject-count${title.length > 50 ? ' is-long' : ''}`}>
+              {title.length}/120
+            </span>
+          </div>
+          <input
+            value={title}
+            maxLength={120}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Short headline — clear and specific"
+          />
+          <div className="email-subject-meter" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, (title.length / 50) * 100)}%` }} />
+          </div>
+          <p className="field-hint">Best under ~50 characters so it doesn’t truncate on lock screens.</p>
         </div>
+
         <div className="field-wrap">
-          <FieldLabel required>Message</FieldLabel>
+          <div className="email-subject-head">
+            <FieldLabel required>Message</FieldLabel>
+            <span className={`email-subject-count${body.length > 180 ? ' is-long' : ''}`}>
+              {body.length}/500
+            </span>
+          </div>
           <textarea
             value={body}
             maxLength={500}
             rows={4}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="What should they see?"
+            placeholder="What should they see in the bell and on the lock screen?"
           />
+          <div className="email-subject-meter" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, (body.length / 180) * 100)}%` }} />
+          </div>
+          <p className="field-hint">Aim for ≤180 characters for push preview; longer text still shows in the bell.</p>
         </div>
-        <div className="field-wrap">
-          <FieldLabel>Open this page when tapped (optional)</FieldLabel>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/subscription" />
-          <p className="field-hint" style={{ marginTop: 6 }}>
-            Gift codes open the claim sheet via <code>/app?gift=CODE</code> — pick one below or from Gifts → compose.
-          </p>
-          {giftCtasLoading && giftCtas.length === 0 ? (
-            <p className="field-hint">Loading gift codes…</p>
-          ) : giftCtas.length > 0 ? (
-            <div className="email-cta-sources" style={{ marginTop: 8 }}>
-              {giftCtas.map((src) => {
-                const active = url === src.url
-                return (
-                  <button
-                    key={src.id}
-                    type="button"
-                    className={`email-cta-source${active ? ' is-active' : ''}`}
-                    onClick={() => {
-                      setUrl(src.url)
-                      if (!title.trim()) setTitle(src.label.slice(0, 120))
-                      if (!body.trim()) setBody(`Tap to claim: ${src.detail}`.slice(0, 500))
-                    }}
-                  >
-                    <span className="email-cta-source__kind">Gift code</span>
-                    <strong>{src.label}</strong>
-                    <span>{src.detail}</span>
-                  </button>
-                )
-              })}
+
+        <div className={`email-cta-card${includeUrl ? ' is-on' : ''}`}>
+          <div className="email-cta-card__head">
+            <div>
+              <strong>Tap destination</strong>
+              <p>
+                Optional deep link when they tap the bell item or push alert — gifts, plans, checkout, invites,
+                offers.
+              </p>
             </div>
-          ) : (
-            <p className="field-hint">No active gift codes yet — create one under Gifts.</p>
-          )}
+            <button
+              type="button"
+              className={`email-switch${includeUrl ? ' is-on' : ''}`}
+              role="switch"
+              aria-checked={includeUrl}
+              onClick={() => setIncludeUrl((v) => !v)}
+            >
+              <span className="email-switch__knob" />
+              <span className="email-switch__label">{includeUrl ? 'On' : 'Off'}</span>
+            </button>
+          </div>
+          {includeUrl ? (
+            <div className="email-cta-card__body">
+              <div className="field-wrap">
+                <FieldLabel>Open this page when tapped</FieldLabel>
+                <div className="email-cta-link">
+                  <Link2 size={14} aria-hidden="true" />
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="/subscription or https://…"
+                  />
+                </div>
+                <p className="field-hint" style={{ marginTop: 6 }}>
+                  Gift codes open the claim sheet via <code>/app?gift=CODE</code>.
+                </p>
+              </div>
+
+              <div>
+                <p className="email-cta-section-label">Quick links</p>
+                <div className="email-cta-presets" role="group" aria-label="Tap destination presets">
+                  {TAP_PRESETS.map((preset) => {
+                    const active = url === preset.url
+                    return (
+                      <button
+                        key={`${preset.label}-${preset.url}`}
+                        type="button"
+                        title={preset.hint}
+                        className={`email-cta-preset${active ? ' is-active' : ''}`}
+                        onClick={() => setUrl(preset.url)}
+                      >
+                        {preset.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="email-cta-section-head">
+                  <p className="email-cta-section-label">From your product</p>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => void loadCtaSources()}
+                    aria-busy={ctaSourcesLoading || undefined}
+                  >
+                    <RefreshCw
+                      size={12}
+                      className={ctaSourcesLoading ? 'icon-spin' : undefined}
+                      style={{ verticalAlign: -2, marginRight: 4 }}
+                    />
+                    Refresh
+                  </button>
+                </div>
+                {ctaSourcesLoading && ctaSources.length === 0 ? (
+                  <p className="field-hint">Loading gift codes, invites, offers, and level gifts…</p>
+                ) : ctaSources.length === 0 ? (
+                  <p className="field-hint">
+                    No gift codes, invite codes, or offer links found. Create gifts under Gifts, or use Invite
+                    Codes / Offers & Promos.
+                  </p>
+                ) : (
+                  <div className="email-cta-sources">
+                    {ctaSources.map((src) => {
+                      const active = url === src.url
+                      return (
+                        <button
+                          key={src.id}
+                          type="button"
+                          className={`email-cta-source${active ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setUrl(src.url)
+                            if (src.kind === 'gift' && !title.trim()) setTitle(src.label.slice(0, 120))
+                            if (src.kind === 'level_gift') {
+                              show(
+                                'Level gifts claim in-app after opening HeyMaa — use for people with a pending reward',
+                                'ok',
+                              )
+                            }
+                          }}
+                        >
+                          <span className="email-cta-source__kind">
+                            {src.kind === 'invite'
+                              ? 'Invite'
+                              : src.kind === 'offer'
+                                ? 'Offer'
+                                : src.kind === 'gift'
+                                  ? 'Gift code'
+                                  : 'Level gift'}
+                          </span>
+                          <strong>{src.label}</strong>
+                          <span>{src.detail}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="email-cta-preview">
+                <span className="email-cta-preview__label">Opens</span>
+                <span className="email-cta-preview__url">{url.trim() || '/app'}</span>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="field-wrap">
@@ -385,7 +633,17 @@ export function NotificationsTab() {
         {audience === 'selected' ? <PeoplePicker picked={picked} onChange={setPicked} /> : null}
 
         <div className="composer-actions">
-          <button type="button" className="sec" onClick={() => setPreview({ title, body, url })}>
+          <button
+            type="button"
+            className="sec"
+            onClick={() =>
+              setPreview({
+                title,
+                body,
+                url: includeUrl ? url : '',
+              })
+            }
+          >
             <Eye size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
             Preview
           </button>
@@ -396,11 +654,7 @@ export function NotificationsTab() {
         </div>
       </div>
 
-      <ComposerPreview
-        open={!!preview}
-        onClose={() => setPreview(null)}
-        notice={preview}
-      />
+      <ComposerPreview open={!!preview} onClose={() => setPreview(null)} notice={preview} />
 
       <div className="card broadcast-report-card">
         <div className="card-head">
@@ -439,55 +693,151 @@ export function NotificationsTab() {
             <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} /> Refresh
           </button>
         </div>
+        <p className="card-desc" style={{ marginTop: 0 }}>
+          {fromDate || toDate
+            ? 'Notifications in the selected date range (up to 50).'
+            : 'Last 10 notifications.'}{' '}
+          Preview, download the report, open analytics, or remove a history row (does not unsend messages
+          already delivered).
+        </p>
+        <div className="row" style={{ marginBottom: 14 }}>
+          <div className="field-wrap">
+            <FieldLabel>From</FieldLabel>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </div>
+          <div className="field-wrap">
+            <FieldLabel>To</FieldLabel>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+          {fromDate || toDate ? (
+            <div className="field-wrap" style={{ flex: '0 0 auto', justifyContent: 'flex-end' }}>
+              <FieldLabel>&nbsp;</FieldLabel>
+              <button
+                type="button"
+                className="ghost sm"
+                onClick={() => {
+                  setFromDate('')
+                  setToDate('')
+                }}
+              >
+                Clear dates
+              </button>
+            </div>
+          ) : null}
+        </div>
         {history.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
         ) : (
-          <div className="broadcast-history-list">
-            {history.map((item) => (
-              <article key={item.id} className="broadcast-history-item">
-                <div className="broadcast-history-item__head">
-                  <strong>{item.title}</strong>
-                  <button
-                    type="button"
-                    className="ghost sm"
-                    onClick={() =>
-                      setPreview({
-                        title: item.title || '',
-                        body: item.body || '',
-                        url: item.url || '',
-                      })
-                    }
-                  >
-                    Preview
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost sm"
-                    onClick={() => {
-                      setReportHeading('Notification report')
-                      setReportPath(`/admin/notifications/${item.id}/report`)
-                    }}
-                  >
-                    <BarChart3 size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-                    Report
-                  </button>
-                </div>
-                <p>{item.body}</p>
-                <p className="muted" style={{ fontSize: 12 }}>
-                  {fmt(item.created_at)} · {item.audience_label || item.audience} ·{' '}
-                  {item.recipient_count ?? 0} in the bell · {item.read_count ?? 0} opened · push{' '}
-                  {item.push_delivered ?? 0}/{item.push_attempted ?? 0}
-                  {item.push_failed ? ` · ${item.push_failed} push failed` : ''}
-                  {item.url ? ` · opens ${item.url}` : ''}
-                </p>
-                {item.last_error ? (
-                  <p className="muted" style={{ fontSize: 12 }}>{item.last_error}</p>
-                ) : null}
-              </article>
-            ))}
+          <div className="table-wrap">
+            <table className="data-table sent-mail-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Title</th>
+                  <th>Audience</th>
+                  <th>Delivery</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((item) => (
+                  <tr key={item.id}>
+                    <td className="sent-mail-table__when">{fmt(item.created_at)}</td>
+                    <td>
+                      <strong>{item.title || '—'}</strong>
+                      {item.url ? <div className="muted sent-mail-table__cta">{item.url}</div> : null}
+                      {item.last_error ? (
+                        <div className="sent-mail-table__error" title={item.last_error}>
+                          {item.last_error}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>{item.audience_label || item.audience || '—'}</td>
+                    <td>{deliverySummary(item)}</td>
+                    <td>
+                      <div className="sent-mail-table__actions">
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() =>
+                            setPreview({
+                              title: item.title || '',
+                              body: item.body || '',
+                              url: item.url || '',
+                            })
+                          }
+                        >
+                          <Eye size={14} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          disabled={downloadingId === item.id}
+                          onClick={() => void downloadNotificationReport(item)}
+                        >
+                          <Download size={14} />
+                          {downloadingId === item.id ? '…' : 'Download'}
+                        </button>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() => {
+                            setReportHeading(item.title || 'Notification report')
+                            setReportPath(`/admin/notifications/${item.id}/report`)
+                          }}
+                        >
+                          <BarChart3 size={14} /> Report
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost sm"
+                          title="Remove from history"
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {deleteTarget ? (
+        <div className="modal-backdrop" onClick={() => !deleting && setDeleteTarget(null)} role="presentation">
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Remove from history?</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setDeleteTarget(null)}
+                aria-label="Close"
+                disabled={deleting}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginTop: 0 }}>
+                Remove <strong>{deleteTarget.title || 'this notification'}</strong> from the sent list?
+                Recipients may already have seen it — this only clears the admin history row.
+              </p>
+              <div className="composer-actions">
+                <button type="button" className="sec" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="teal" disabled={deleting} onClick={() => void removeNotification()}>
+                  {deleting ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <CampaignReportModal
         open={!!reportPath}
