@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BarChart3, Eye, ImagePlus, Link2, Mail, RefreshCw, Send } from 'lucide-react'
+import { BarChart3, Download, Eye, ImagePlus, Link2, Mail, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
 import { CampaignReportModal } from '../components/CampaignReportModal'
@@ -7,12 +7,14 @@ import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
 import { EmailAiAssist, EmailBodyEditor } from '../components/EmailBodyEditor'
 import { useAdmin } from '../context/AdminContext'
 import { consumeComposeDraft, giftCodeIsOfferable } from '../lib/composeDraft'
+import { downloadTextFile, reportToCsv } from '../lib/downloadReport'
 
 type Campaign = {
   id: string
   subject: string
   body: string
   url?: string | null
+  button_label?: string | null
   images?: string[] | null
   audience?: string
   audience_label?: string
@@ -62,6 +64,28 @@ function fmt(iso?: string) {
   return d.toLocaleString()
 }
 
+function statusBadge(status?: string) {
+  const s = (status || 'sent').toLowerCase()
+  const cls =
+    s === 'sent' || s === 'delivered'
+      ? 'badge-ok'
+      : s === 'sending'
+        ? 'badge-warn'
+        : s === 'failed'
+          ? 'badge-err'
+          : 'badge-muted'
+  return <span className={`badge ${cls}`}>{s}</span>
+}
+
+function deliverySummary(item: Campaign) {
+  const delivered = item.delivered ?? 0
+  const total = item.recipient_count ?? 0
+  const parts = [`${delivered}/${total}`]
+  if (item.failed) parts.push(`${item.failed} failed`)
+  if (item.skipped) parts.push(`${item.skipped} skipped`)
+  return parts.join(' · ')
+}
+
 export function EmailsTab() {
   const { adminFetch, uploadImage } = useAdmin()
   const { show, Message } = useFlashMessage()
@@ -87,6 +111,9 @@ export function EmailsTab() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [reportPath, setReportPath] = useState<string | null>(null)
   const [reportHeading, setReportHeading] = useState('Campaign report')
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [txDays, setTxDays] = useState(30)
   const [txKind, setTxKind] = useState('')
   const [txKinds, setTxKinds] = useState<Array<{ id: string; label: string }>>([
@@ -342,6 +369,37 @@ export function EmailsTab() {
       show(e instanceof Error ? e.message : 'AI draft failed', 'err')
     } finally {
       setAiBusy(false)
+    }
+  }
+
+  const downloadCampaignReport = async (item: Campaign) => {
+    setDownloadingId(item.id)
+    try {
+      const d = await adminFetch(`/admin/emails/${item.id}/report`)
+      const report = (d.report || {}) as Parameters<typeof reportToCsv>[0]
+      const stamp = (item.created_at || new Date().toISOString()).slice(0, 10)
+      const safe = (item.subject || 'email').replace(/[^\w\-]+/g, '_').slice(0, 40)
+      downloadTextFile(`heymaa-email-report-${safe}-${stamp}.csv`, reportToCsv(report))
+      show('Report downloaded', 'ok')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Could not download report', 'err')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  const removeCampaign = async () => {
+    if (!deleteTarget?.id) return
+    setDeleting(true)
+    try {
+      await adminFetch(`/admin/emails/${deleteTarget.id}`, { method: 'DELETE' })
+      show('Email removed from history', 'ok')
+      setDeleteTarget(null)
+      await load()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Delete failed', 'err')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -777,23 +835,48 @@ export function EmailsTab() {
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
+        <p className="card-desc" style={{ marginTop: 0 }}>
+          Last 10 campaigns. Preview the message, download the analytics report, or remove a row from history
+          (does not unsend mail already delivered).
+        </p>
         {history.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
         ) : (
-          <div className="broadcast-history-list">
-            {history.map((item) => (
-              <article key={item.id} className="broadcast-history-item">
-                <div className="broadcast-history-item__head">
-                  <strong>{item.subject}</strong>
+          <div className="sent-mail-grid">
+            {history.slice(0, 10).map((item) => (
+              <article key={item.id} className="sent-mail-card">
+                <div className="sent-mail-card__top">
+                  <time className="sent-mail-card__date">{fmt(item.created_at)}</time>
+                  {statusBadge(item.status)}
+                </div>
+                <h3 className="sent-mail-card__subject">{item.subject || '—'}</h3>
+                <dl className="sent-mail-card__meta">
+                  <div>
+                    <dt>Audience</dt>
+                    <dd>{item.audience_label || item.audience || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Delivery</dt>
+                    <dd>{deliverySummary(item)}</dd>
+                  </div>
+                  {item.url ? (
+                    <div>
+                      <dt>CTA</dt>
+                      <dd className="sent-mail-card__cta">{item.url}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {item.last_error ? <p className="sent-mail-card__error">{item.last_error}</p> : null}
+                <div className="sent-mail-card__actions">
                   <button
                     type="button"
-                    className="ghost sm"
+                    className="sec sm"
                     onClick={() =>
                       setPreview({
                         subject: item.subject || '',
                         body: item.body || '',
                         url: item.url || '',
-                        buttonLabel: 'Open HeyMaa',
+                        buttonLabel: item.button_label || 'Open HeyMaa',
                         includeButton: !!item.url,
                         images: Array.isArray(item.images)
                           ? item.images.filter((src) => typeof src === 'string')
@@ -801,35 +884,68 @@ export function EmailsTab() {
                       })
                     }
                   >
-                    Preview
+                    <Eye size={14} /> Preview
+                  </button>
+                  <button
+                    type="button"
+                    className="sec sm"
+                    disabled={downloadingId === item.id}
+                    onClick={() => void downloadCampaignReport(item)}
+                  >
+                    <Download size={14} />
+                    {downloadingId === item.id ? 'Downloading…' : 'Download report'}
+                  </button>
+                  <button
+                    type="button"
+                    className="sec sm"
+                    onClick={() => {
+                      setReportHeading(item.subject || 'Campaign report')
+                      setReportPath(`/admin/emails/${item.id}/report`)
+                    }}
+                  >
+                    <BarChart3 size={14} /> Open report
                   </button>
                   <button
                     type="button"
                     className="ghost sm"
-                    onClick={() => {
-                      setReportHeading('Campaign report')
-                      setReportPath(`/admin/emails/${item.id}/report`)
-                    }}
+                    title="Remove from history"
+                    onClick={() => setDeleteTarget(item)}
                   >
-                    Report
+                    <Trash2 size={14} />
                   </button>
                 </div>
-                <p style={{ whiteSpace: 'pre-wrap' }}>{item.body}</p>
-                <p className="muted" style={{ fontSize: 12 }}>
-                  {fmt(item.created_at)} · {item.audience_label || item.audience} · {item.status || 'sent'} ·{' '}
-                  delivered {item.delivered ?? 0}/{item.recipient_count ?? 0}
-                  {item.failed ? ` · ${item.failed} failed` : ''}
-                  {item.skipped ? ` · ${item.skipped} skipped` : ''}
-                  {item.url ? ` · button ${item.url}` : ''}
-                </p>
-                {item.last_error ? (
-                  <p className="muted" style={{ fontSize: 12 }}>{item.last_error}</p>
-                ) : null}
               </article>
             ))}
           </div>
         )}
       </div>
+
+      {deleteTarget ? (
+        <div className="modal-backdrop" onClick={() => !deleting && setDeleteTarget(null)} role="presentation">
+          <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Remove from history?</h2>
+              <button type="button" className="icon-btn" onClick={() => setDeleteTarget(null)} aria-label="Close" disabled={deleting}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginTop: 0 }}>
+                Remove <strong>{deleteTarget.subject || 'this email'}</strong> from the sent list?
+                Recipients already received it — this only clears the admin history row.
+              </p>
+              <div className="composer-actions">
+                <button type="button" className="sec" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="teal" disabled={deleting} onClick={() => void removeCampaign()}>
+                  {deleting ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <CampaignReportModal
         open={!!reportPath}

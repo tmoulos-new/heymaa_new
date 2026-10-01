@@ -337,8 +337,7 @@ def _build_report(*, sends: list[dict], events: list[dict], title: str, meta: di
         },
         "timeline": timeline,
         "tracking_note": (
-            "Opens/clicks fill in after Resend webhooks are connected "
-            "(email.opened, email.clicked, email.delivered, email.bounced)."
+            _webhook_setup_note()
             if total_opens == 0 and total_clicks == 0
             else None
         ),
@@ -409,8 +408,8 @@ def campaign_email_report(sb, campaign_id: str) -> dict[str, Any]:
                 "devices": {"desktop": 0, "mobile": 0, "unknown": 0},
                 "timeline": [],
                 "tracking_note": (
-                    "This campaign has delivery counts only. New sends log per-recipient "
-                    "rows + Resend opens/clicks after email_analytics.sql and the webhook."
+                    "This campaign has delivery counts only. New sends log per-recipient rows; "
+                    + _webhook_setup_note()
                 ),
             },
         }
@@ -788,10 +787,61 @@ def notifications_period_report(sb, *, since: str, until: Optional[str] = None) 
     }
 
 
+def _webhook_endpoint_url() -> str:
+    base = (os.getenv("APP_URL") or "https://www.heymaa.ai").rstrip("/")
+    return f"{base}/webhooks/resend"
+
+
+def _webhook_setup_note() -> str:
+    return (
+        "Opens/clicks need Resend webhooks. In Resend → Webhooks → Add Webhook, set URL "
+        f"{_webhook_endpoint_url()} and enable email.delivered, email.opened, email.clicked, "
+        "email.bounced (and email.complained). Copy the whsec_ signing secret into Vercel as "
+        "RESEND_WEBHOOK_SECRET. Also run backend/migrations/email_analytics.sql in Supabase if needed."
+    )
+
+
 def webhook_secret_ok(header_secret: Optional[str], query_secret: Optional[str]) -> bool:
+    """Legacy check (header / ?secret=). Prefer verify_resend_webhook for production."""
     expected = (os.getenv("RESEND_WEBHOOK_SECRET") or "").strip()
     if not expected:
         # Allow ingest when secret not configured (local / first setup).
         return True
     got = (header_secret or query_secret or "").strip()
     return bool(got) and got == expected
+
+
+def verify_resend_webhook(
+    *,
+    raw_body: str,
+    svix_id: Optional[str],
+    svix_timestamp: Optional[str],
+    svix_signature: Optional[str],
+    header_secret: Optional[str] = None,
+    query_secret: Optional[str] = None,
+) -> bool:
+    """Accept Resend (Svix) signatures, or legacy x-resend-secret / ?secret= for manual tests."""
+    expected = (os.getenv("RESEND_WEBHOOK_SECRET") or "").strip()
+    if not expected:
+        return True
+
+    if svix_id and svix_timestamp and svix_signature:
+        try:
+            import resend as _resend
+
+            _resend.Webhooks.verify(
+                {
+                    "payload": raw_body or "",
+                    "headers": {
+                        "id": svix_id,
+                        "timestamp": svix_timestamp,
+                        "signature": svix_signature,
+                    },
+                    "webhook_secret": expected,
+                }
+            )
+            return True
+        except Exception:
+            return False
+
+    return webhook_secret_ok(header_secret, query_secret)

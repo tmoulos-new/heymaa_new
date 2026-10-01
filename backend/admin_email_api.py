@@ -301,14 +301,51 @@ def register_email_routes(app: FastAPI) -> None:
                 sb.table("admin_email_campaigns")
                 .select("*")
                 .order("created_at", desc=True)
-                .limit(40)
+                .limit(10)
                 .execute()
             )
         except Exception as e:
             if _missing_table(e):
                 return {"emails": [], "error": _MISSING}
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return {"emails": res.data or []}
+        return {"emails": res.data or [], "limit": 10}
+
+    @app.delete("/admin/emails/{campaign_id}")
+    async def admin_delete_email(campaign_id: str, x_token: Optional[str] = Header(None)):
+        admin_id = _require_admin(x_token)
+        sb = _main().sb
+        cid = (campaign_id or "").strip()
+        if not cid:
+            raise HTTPException(status_code=400, detail="campaign_id required")
+        try:
+            existing = (
+                sb.table("admin_email_campaigns")
+                .select("id,subject")
+                .eq("id", cid)
+                .limit(1)
+                .execute()
+            )
+            if not existing.data:
+                raise HTTPException(status_code=404, detail="Email campaign not found")
+            row = existing.data[0]
+            sb.table("admin_email_campaigns").delete().eq("id", cid).execute()
+            try:
+                _main()._log_activity(
+                    admin_id,
+                    "delete",
+                    "admin_email_campaign",
+                    cid,
+                    value_before={"subject": row.get("subject")},
+                )
+            except Exception:
+                pass
+        except HTTPException:
+            raise
+        except Exception as e:
+            if _missing_table(e):
+                raise HTTPException(status_code=503, detail=_MISSING) from e
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        return {"ok": True, "id": cid}
 
     @app.post("/admin/emails")
     async def admin_send_email(req: EmailSendRequest, x_token: Optional[str] = Header(None)):

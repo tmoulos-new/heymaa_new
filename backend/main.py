@@ -9750,22 +9750,31 @@ async def viva_webhook(request: Request):
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
 
 
-# Lemon Squeezy Webhook
 @app.post("/webhooks/resend")
 async def resend_webhook(request: Request):
-    """Ingest Resend delivery / open / click events for email reports."""
+    """Ingest Resend delivery / open / click events for email reports (Svix-signed)."""
+    raw_body = (await request.body()).decode("utf-8", errors="replace")
     secret_header = request.headers.get("x-resend-secret") or request.headers.get("authorization")
     if secret_header and secret_header.lower().startswith("bearer "):
         secret_header = secret_header[7:].strip()
     query_secret = request.query_params.get("secret")
     try:
-        from .email_analytics import handle_resend_webhook, webhook_secret_ok
+        from .email_analytics import handle_resend_webhook, verify_resend_webhook
     except ImportError:
-        from email_analytics import handle_resend_webhook, webhook_secret_ok
-    if not webhook_secret_ok(secret_header, query_secret):
-        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+        from email_analytics import handle_resend_webhook, verify_resend_webhook
+    if not verify_resend_webhook(
+        raw_body=raw_body,
+        svix_id=request.headers.get("svix-id"),
+        svix_timestamp=request.headers.get("svix-timestamp"),
+        svix_signature=request.headers.get("svix-signature"),
+        header_secret=secret_header,
+        query_secret=query_secret,
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
     try:
-        payload = await request.json()
+        import json as _json
+
+        payload = _json.loads(raw_body) if raw_body else None
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON") from None
     if not isinstance(payload, dict):

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, X } from 'lucide-react'
+import { BarChart3, Download, X } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
+import { downloadTextFile, reportToCsv } from '../lib/downloadReport'
 
 type ReportKpis = {
   recipients?: number
@@ -73,6 +74,14 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [report, setReport] = useState<ReportPayload | null>(null)
+
+  const downloadReport = () => {
+    if (!report) return
+    const title = String(report.title || heading || 'report')
+      .replace(/[^\w\-]+/g, '_')
+      .slice(0, 48)
+    downloadTextFile(`heymaa-report-${title || 'campaign'}.csv`, reportToCsv(report))
+  }
 
   useEffect(() => {
     if (!open || !path) {
@@ -147,9 +156,17 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
               {report?.title || (loading ? 'Loading…' : '—')}
             </p>
           </div>
-          <button type="button" className="ghost sm" onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {report ? (
+              <button type="button" className="sec sm" onClick={downloadReport}>
+                <Download size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                Download
+              </button>
+            ) : null}
+            <button type="button" className="ghost sm" onClick={onClose} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="modal-body report-modal__body">

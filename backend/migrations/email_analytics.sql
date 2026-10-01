@@ -1,6 +1,8 @@
 -- Email send log + Resend webhook events for campaign / transactional reports.
--- Run in the Supabase SQL editor, then point Resend webhooks at POST /webhooks/resend
--- (events: email.sent, email.delivered, email.opened, email.clicked, email.bounced, email.complained).
+-- Run in the Supabase SQL editor, then in Resend → Webhooks add:
+--   POST {APP_URL}/webhooks/resend
+--   events: email.sent, email.delivered, email.opened, email.clicked, email.bounced, email.complained
+-- Store the whsec_ signing secret as RESEND_WEBHOOK_SECRET on Vercel.
 
 CREATE TABLE IF NOT EXISTS public.email_sends (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
