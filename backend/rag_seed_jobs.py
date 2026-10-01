@@ -182,6 +182,159 @@ def get_knowledge_source(sb, source_key: str) -> Optional[dict[str, Any]]:
     return (res.data or [None])[0]
 
 
+def knowledge_source_public(row: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    if not row:
+        return None
+    meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    key = (row.get("source_key") or "").strip().lower()
+    return {
+        "source_key": key,
+        "name": row.get("name") or key,
+        "source_type": (row.get("source_type") or "website").strip().lower(),
+        "language": row.get("language") or "el",
+        "base_url": row.get("base_url"),
+        "enabled": bool(row.get("enabled", True)),
+        "sitemap_url": meta.get("sitemap") or None,
+        "rss_url": meta.get("rss") or None,
+        "max_urls": int(meta.get("max_urls") or 50),
+        "discover": meta.get("discover") or _discover_mode(row, key),
+        "since_years": meta.get("since_years"),
+        "max_discover_pages": meta.get("max_discover_pages"),
+    }
+
+
+def resolve_knowledge_source(sb, source_key: str) -> Optional[dict[str, Any]]:
+    """Fetch a registry row, creating initial websites on first access if needed."""
+    ensure_initial_knowledge_sources(sb)
+    key = _slug_source_key(source_key)
+    row = get_knowledge_source(sb, key)
+    if row:
+        return row
+    for src in INITIAL_KNOWLEDGE_SOURCES:
+        if src["source_key"] == key:
+            upsert_knowledge_source(
+                sb,
+                source_key=key,
+                name=src["name"],
+                base_url=src.get("base_url"),
+                source_type=src.get("source_type") or "website",
+                language=src.get("language") or "el",
+                sitemap_url=(src.get("metadata") or {}).get("sitemap"),
+                rss_url=(src.get("metadata") or {}).get("rss"),
+                max_urls=int((src.get("metadata") or {}).get("max_urls") or 50),
+                discover=(src.get("metadata") or {}).get("discover"),
+                since_years=(src.get("metadata") or {}).get("since_years"),
+                max_discover_pages=(src.get("metadata") or {}).get("max_discover_pages"),
+                metadata_extra={"seed": True},
+                merge_existing=False,
+            )
+            return get_knowledge_source(sb, key)
+    # Infer a website row from already-ingested pages.
+    base = _base_url_for_source(sb, key)
+    if base:
+        label = key.replace("-", " ").replace("_", " ").strip().title() or key
+        upsert_knowledge_source(
+            sb,
+            source_key=key,
+            name=label,
+            base_url=base,
+            source_type="website",
+        )
+        return get_knowledge_source(sb, key)
+    return None
+
+
+def update_knowledge_source_setup(
+    sb,
+    source_key: str,
+    *,
+    name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    language: Optional[str] = None,
+    sitemap_url: Optional[str] = None,
+    rss_url: Optional[str] = None,
+    max_urls: Optional[int] = None,
+    discover: Optional[str] = None,
+    since_years: Optional[float] = None,
+    max_discover_pages: Optional[int] = None,
+    enabled: Optional[bool] = None,
+) -> dict[str, Any]:
+    """Update sync setup for a website collection (admin Edit setup)."""
+    key = _slug_source_key(source_key)
+    if not key:
+        raise ValueError("source_key is required")
+    existing = resolve_knowledge_source(sb, key)
+    if not existing:
+        raise ValueError(f"Unknown sync source '{key}'")
+    stype = (existing.get("source_type") or "website").strip().lower()
+    if stype == "file":
+        raise ValueError("File sources have no website sync setup — re-upload from Add a source.")
+
+    meta: dict[str, Any] = {}
+    if isinstance(existing.get("metadata"), dict):
+        meta.update(existing["metadata"])
+
+    new_name = (name if name is not None else existing.get("name") or key).strip()[:120] or key
+    new_base = (base_url if base_url is not None else existing.get("base_url") or "").strip()
+    if not new_base:
+        raise ValueError("base_url is required for website sync setup")
+    new_lang = (language if language is not None else existing.get("language") or "el").strip()[:12] or "el"
+
+    if max_urls is not None:
+        meta["max_urls"] = max(1, min(int(max_urls), 2000))
+    if since_years is not None:
+        meta["since_years"] = float(since_years)
+    if max_discover_pages is not None:
+        meta["max_discover_pages"] = max(1, min(int(max_discover_pages), 400))
+    if discover is not None:
+        d = discover.strip().lower()
+        if d in ("listing_pages", "sitemap", "rss", "crawl", "none", ""):
+            if d and d != "none":
+                meta["discover"] = d
+            elif d == "none":
+                meta.pop("discover", None)
+
+    # Optional URLs: None = leave unchanged; "" = clear.
+    if sitemap_url is not None:
+        s = sitemap_url.strip()
+        if s:
+            meta["sitemap"] = s
+        else:
+            meta.pop("sitemap", None)
+    if rss_url is not None:
+        r = rss_url.strip()
+        if r:
+            meta["rss"] = r
+        else:
+            meta.pop("rss", None)
+
+    # Infer discover when not set explicitly but sitemap/rss changed.
+    if discover is None and "discover" not in meta:
+        if meta.get("rss"):
+            meta["discover"] = "rss"
+        elif meta.get("sitemap"):
+            meta["discover"] = "sitemap"
+        else:
+            meta["discover"] = "crawl"
+
+    payload = {
+        "source_key": key,
+        "name": new_name,
+        "source_type": "website",
+        "language": new_lang,
+        "base_url": new_base,
+        "enabled": bool(existing.get("enabled", True) if enabled is None else enabled),
+        "metadata": meta,
+        "updated_at": _now_iso(),
+    }
+    try:
+        res = sb.table("knowledge_sources").upsert(payload, on_conflict="source_key").execute()
+    except Exception as e:
+        raise RuntimeError(f"Could not save sync setup: {e}") from e
+    row = (res.data or [payload])[0]
+    return knowledge_source_public(row) or payload
+
+
 def upsert_knowledge_source(
     sb,
     *,
@@ -198,6 +351,7 @@ def upsert_knowledge_source(
     max_discover_pages: Optional[int] = None,
     metadata_extra: Optional[dict[str, Any]] = None,
     merge_existing: bool = True,
+    enabled: bool = True,
 ) -> Optional[dict[str, Any]]:
     """Register any source (website or file) so it appears under Site Sync."""
     key = _slug_source_key(source_key)
@@ -233,7 +387,7 @@ def upsert_knowledge_source(
         "source_type": stype,
         "language": (language or "el")[:12],
         "base_url": (base_url or "").strip() or None,
-        "enabled": True,
+        "enabled": bool(enabled),
         "metadata": meta,
         "updated_at": _now_iso(),
     }
@@ -299,7 +453,6 @@ def list_sync_sites(sb) -> list[dict[str, Any]]:
         res = (
             sb.table("knowledge_sources")
             .select("source_key,name,source_type,base_url,enabled,metadata,language")
-            .eq("enabled", True)
             .order("name")
             .execute()
         )
@@ -310,6 +463,7 @@ def list_sync_sites(sb) -> list[dict[str, Any]]:
             stype = (row.get("source_type") or "website").strip().lower()
             meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
             base = (row.get("base_url") or "").strip()
+            enabled = bool(row.get("enabled", True))
             if stype == "file":
                 filename = meta.get("filename") or key
                 blurb = f"Uploaded document ({filename}). Re-upload from Library if broken."
@@ -320,6 +474,8 @@ def list_sync_sites(sb) -> list[dict[str, Any]]:
                 )
             else:
                 blurb = "Registered source. Sync discovers additions; Fix broken re-ingests failures."
+            if not enabled:
+                blurb = f"Disabled. {blurb}"
             since = meta.get("since_years")
             out.append(
                 {
@@ -333,7 +489,8 @@ def list_sync_sites(sb) -> list[dict[str, Any]]:
                     "sitemap_url": meta.get("sitemap"),
                     "rss_url": meta.get("rss"),
                     "max_urls": meta.get("max_urls") or 50,
-                    "can_sync": stype == "website",
+                    "enabled": enabled,
+                    "can_sync": stype == "website" and enabled,
                 }
             )
     except Exception:

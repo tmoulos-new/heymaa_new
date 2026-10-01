@@ -8023,6 +8023,84 @@ async def admin_rag_sources_health(x_token: Optional[str] = Header(None)):
     return compute_rag_health(sb)
 
 
+class RagSyncSiteSetupRequest(BaseModel):
+    """Edit Site Sync setup for a registered website collection."""
+
+    name: Optional[str] = None
+    base_url: Optional[str] = None
+    language: Optional[str] = None
+    sitemap_url: Optional[str] = None
+    rss_url: Optional[str] = None
+    max_urls: Optional[int] = None
+    discover: Optional[str] = None
+    since_years: Optional[float] = None
+    max_discover_pages: Optional[int] = None
+    enabled: Optional[bool] = None
+
+
+@app.get("/admin/rag_sources/sync_sites/{source_key}")
+async def admin_get_sync_site_setup(source_key: str, x_token: Optional[str] = Header(None)):
+    verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import knowledge_source_public, resolve_knowledge_source
+    except ImportError:
+        from rag_seed_jobs import knowledge_source_public, resolve_knowledge_source
+    row = resolve_knowledge_source(sb, source_key)
+    pub = knowledge_source_public(row)
+    if not pub:
+        raise HTTPException(status_code=404, detail=f"Sync source '{source_key}' not found")
+    return {"ok": True, "site": pub}
+
+
+@app.patch("/admin/rag_sources/sync_sites/{source_key}")
+async def admin_patch_sync_site_setup(
+    source_key: str,
+    req: RagSyncSiteSetupRequest,
+    x_token: Optional[str] = Header(None),
+):
+    admin_id = verify_admin(x_token)
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    try:
+        from .rag_seed_jobs import update_knowledge_source_setup
+    except ImportError:
+        from rag_seed_jobs import update_knowledge_source_setup
+    try:
+        site = update_knowledge_source_setup(
+            sb,
+            source_key,
+            name=req.name,
+            base_url=req.base_url,
+            language=req.language,
+            sitemap_url=req.sitemap_url,
+            rss_url=req.rss_url,
+            max_urls=req.max_urls,
+            discover=req.discover,
+            since_years=req.since_years,
+            max_discover_pages=req.max_discover_pages,
+            enabled=req.enabled,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    _log_activity(
+        admin_id,
+        "update",
+        "knowledge_source",
+        source_key,
+        details={
+            "name": site.get("name"),
+            "base_url": site.get("base_url"),
+            "enabled": site.get("enabled"),
+            "discover": site.get("discover"),
+        },
+    )
+    return {"ok": True, "site": site}
+
+
 @app.post("/admin/rag_sources/seed_jobs")
 async def admin_create_rag_seed_job(
     req: RagSeedJobCreateRequest,

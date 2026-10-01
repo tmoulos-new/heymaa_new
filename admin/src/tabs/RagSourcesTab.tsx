@@ -186,6 +186,7 @@ type SyncSiteCard = {
   broken?: number
   sourceType?: string
   canSync?: boolean
+  enabled?: boolean
 }
 
 const ALWAYS_SYNC_SITES: SyncSiteCard[] = [
@@ -280,6 +281,18 @@ export function RagSourcesTab() {
   const [siteRss, setSiteRss] = useState('')
   const [siteMax, setSiteMax] = useState('20')
   const [siteSeeding, setSiteSeeding] = useState(false)
+
+  const [setupKey, setSetupKey] = useState<string | null>(null)
+  const [setupLoading, setSetupLoading] = useState(false)
+  const [setupSaving, setSetupSaving] = useState(false)
+  const [setupName, setSetupName] = useState('')
+  const [setupBaseUrl, setSetupBaseUrl] = useState('')
+  const [setupSitemap, setSetupSitemap] = useState('')
+  const [setupRss, setSetupRss] = useState('')
+  const [setupMax, setSetupMax] = useState('50')
+  const [setupSinceYears, setSetupSinceYears] = useState('')
+  const [setupDiscover, setSetupDiscover] = useState('crawl')
+  const [setupEnabled, setSetupEnabled] = useState(true)
 
   const [filterQ, setFilterQ] = useState('')
   const [filterKind, setFilterKind] = useState<'all' | 'URL' | 'File'>('all')
@@ -397,10 +410,12 @@ export function RagSourcesTab() {
         sources: site.sources ?? prev?.sources,
         broken: site.broken ?? prev?.broken,
         sourceType: site.sourceType || prev?.sourceType || 'website',
+        enabled: site.enabled ?? prev?.enabled ?? true,
         canSync:
           site.canSync ??
           prev?.canSync ??
-          (site.sourceType || prev?.sourceType || 'website') !== 'file',
+          ((site.sourceType || prev?.sourceType || 'website') !== 'file' &&
+            (site.enabled ?? prev?.enabled ?? true)),
       })
     }
 
@@ -413,7 +428,9 @@ export function RagSourcesTab() {
         since_years?: number
         source_type?: string
         can_sync?: boolean
+        enabled?: boolean
       }
+      const enabled = raw.enabled !== false
       put({
         key: s.key,
         name: s.name || siteLabel(s.key),
@@ -422,7 +439,11 @@ export function RagSourcesTab() {
         sources: s.sources,
         broken: s.broken,
         sourceType: raw.sourceType || raw.source_type || 'website',
-        canSync: raw.canSync ?? raw.can_sync ?? (raw.source_type || 'website') !== 'file',
+        enabled,
+        canSync:
+          raw.canSync ??
+          raw.can_sync ??
+          ((raw.source_type || 'website') !== 'file' && enabled),
       })
     }
 
@@ -702,6 +723,80 @@ export function RagSourcesTab() {
       seedAbortRef.current = false
       show(e instanceof Error ? e.message : 'Cancel failed', 'err')
       void loadSources()
+    }
+  }
+
+  const openSetup = async (site: SyncSiteCard) => {
+    setSetupKey(site.key)
+    setSetupLoading(true)
+    setSetupName(site.name)
+    setSetupBaseUrl('')
+    setSetupSitemap('')
+    setSetupRss('')
+    setSetupMax('50')
+    setSetupSinceYears(site.sinceYears != null ? String(site.sinceYears) : '')
+    setSetupDiscover('crawl')
+    setSetupEnabled(true)
+    try {
+      const d = await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(site.key)}`)
+      const s = (d.site || d) as {
+        name?: string
+        base_url?: string
+        sitemap_url?: string
+        rss_url?: string
+        max_urls?: number
+        since_years?: number
+        discover?: string
+        enabled?: boolean
+      }
+      setSetupName(s.name || site.name)
+      setSetupBaseUrl(s.base_url || '')
+      setSetupSitemap(s.sitemap_url || '')
+      setSetupRss(s.rss_url || '')
+      setSetupMax(String(s.max_urls ?? 50))
+      setSetupSinceYears(s.since_years != null ? String(s.since_years) : '')
+      setSetupDiscover(s.discover || 'crawl')
+      setSetupEnabled(s.enabled !== false)
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Could not load sync setup', 'err')
+      setSetupKey(null)
+    } finally {
+      setSetupLoading(false)
+    }
+  }
+
+  const saveSetup = async () => {
+    if (!setupKey) return
+    const base = setupBaseUrl.trim()
+    if (!base) {
+      show('Base URL is required', 'err')
+      return
+    }
+    setSetupSaving(true)
+    try {
+      const maxUrls = Math.max(1, Math.min(Number(setupMax) || 50, 2000))
+      const since = setupSinceYears.trim() ? Number(setupSinceYears) : undefined
+      await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(setupKey)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: setupName.trim() || setupKey,
+          base_url: base,
+          sitemap_url: setupSitemap.trim(),
+          rss_url: setupRss.trim(),
+          max_urls: maxUrls,
+          discover: setupDiscover,
+          since_years: Number.isFinite(since) ? since : undefined,
+          enabled: setupEnabled,
+        }),
+      })
+      show('Sync setup saved', 'ok')
+      setSetupKey(null)
+      await loadSources()
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Save failed', 'err')
+    } finally {
+      setSetupSaving(false)
     }
   }
 
@@ -1007,8 +1102,8 @@ export function RagSourcesTab() {
           <div>
             <h2>Site sync</h2>
             <p className="card-desc" style={{ marginBottom: 0 }}>
-              {syncSites.length} collection{syncSites.length === 1 ? '' : 's'} — websites and uploaded
-              docs. Sync new pages for sites; Fix broken re-ingests empty/error URLs.
+              {syncSites.length} collection{syncSites.length === 1 ? '' : 's'}. Use Edit setup to
+              change URLs and discovery; Sync / Fix broken run the jobs.
             </p>
           </div>
         </div>
@@ -1024,10 +1119,17 @@ export function RagSourcesTab() {
               const siteHealth = health?.by_source_key?.[site.key]
               const broken = site.broken ?? siteHealth?.broken ?? 0
               const sourceCount = site.sources ?? siteHealth?.sources
-              const canSync = site.canSync !== false && site.sourceType !== 'file'
+              const canSync = site.canSync !== false && site.sourceType !== 'file' && site.enabled !== false
               return (
                 <div key={site.key} className="rag-seed-preset">
-                  <strong>{site.name}</strong>
+                  <strong>
+                    {site.name}
+                    {site.enabled === false ? (
+                      <span className="muted" style={{ fontWeight: 500, marginLeft: 6 }}>
+                        (disabled)
+                      </span>
+                    ) : null}
+                  </strong>
                   <p>{site.blurb}</p>
                   {typeof sourceCount === 'number' ? (
                     <p className="muted" style={{ margin: 0, fontSize: 12 }}>
@@ -1036,6 +1138,17 @@ export function RagSourcesTab() {
                     </p>
                   ) : null}
                   <div className="rag-seed-preset-actions">
+                    {site.sourceType !== 'file' ? (
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() => void openSetup(site)}
+                        title="Edit name, URL, sitemap, RSS, and sync options"
+                      >
+                        <Pencil size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                        Edit setup
+                      </button>
+                    ) : null}
                     {canSync ? (
                       <button
                         type="button"
@@ -1497,6 +1610,106 @@ export function RagSourcesTab() {
           }}
         />
       </div>
+
+      {setupKey ? (
+        <Modal title={`Edit sync setup · ${setupKey}`} onClose={() => setSetupKey(null)}>
+          {setupLoading ? (
+            <p className="muted">Loading setup…</p>
+          ) : (
+            <>
+              <p className="card-desc" style={{ marginTop: 0 }}>
+                These settings control how <strong>Sync new pages</strong> finds content. They do not
+                change pages already in the library until you sync or fix broken.
+              </p>
+              <div className="field">
+                <FieldLabel>Display name</FieldLabel>
+                <input
+                  value={setupName}
+                  onChange={(e) => setSetupName(e.target.value)}
+                  placeholder="e.g. Babyspace"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>Base URL</FieldLabel>
+                <input
+                  value={setupBaseUrl}
+                  onChange={(e) => setSetupBaseUrl(e.target.value)}
+                  placeholder="https://example.com/blog/"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>Sitemap URL (optional)</FieldLabel>
+                <input
+                  value={setupSitemap}
+                  onChange={(e) => setSetupSitemap(e.target.value)}
+                  placeholder="https://example.com/post-sitemap.xml"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
+                <input
+                  value={setupRss}
+                  onChange={(e) => setSetupRss(e.target.value)}
+                  placeholder="https://example.com/feed"
+                />
+              </div>
+              <div className="field">
+                <FieldLabel>How Sync discovers pages</FieldLabel>
+                <select value={setupDiscover} onChange={(e) => setSetupDiscover(e.target.value)}>
+                  <option value="crawl">Crawl links from base URL</option>
+                  <option value="sitemap">Sitemap</option>
+                  <option value="rss">RSS / Atom feed</option>
+                  <option value="listing_pages">Paged article listing (Babyspace-style)</option>
+                </select>
+              </div>
+              <div className="field">
+                <FieldLabel>Max pages per sync</FieldLabel>
+                <input
+                  value={setupMax}
+                  onChange={(e) => setSetupMax(e.target.value)}
+                  inputMode="numeric"
+                  placeholder="50"
+                />
+              </div>
+              {setupDiscover === 'listing_pages' ? (
+                <div className="field">
+                  <FieldLabel>Only articles newer than (years)</FieldLabel>
+                  <input
+                    value={setupSinceYears}
+                    onChange={(e) => setSetupSinceYears(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="5"
+                  />
+                </div>
+              ) : null}
+              <label
+                className="field"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={setupEnabled}
+                  onChange={(e) => setSetupEnabled(e.target.checked)}
+                />
+                <span>Enabled in Site sync</span>
+              </label>
+              <div className="modal-foot">
+                <button type="button" className="ghost" onClick={() => setSetupKey(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="teal"
+                  onClick={() => void saveSetup()}
+                  disabled={setupSaving || !setupBaseUrl.trim()}
+                >
+                  {setupSaving ? 'Saving…' : 'Save setup'}
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
+      ) : null}
 
       {editRow ? (
         <Modal title="Edit source title" onClose={() => setEditRow(null)}>
