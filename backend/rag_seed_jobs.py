@@ -970,13 +970,22 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             prefer=discover,
         )
     except Exception as e:
+        msg = str(e)
+        if "403" in msg:
+            msg = (
+                f"Site blocked the sync server (403) for {base}. "
+                "Use Edit setup with a working RSS/sitemap URL. "
+                "Existing library pages are kept — Sync only adds new reachable URLs."
+            )
         return _save(
             sb,
             job_id,
             {
-                "status": "failed",
-                "last_error": f"Discover failed: {e}"[:500],
+                "status": "completed",
+                "last_error": msg[:500],
                 "discover_page": int(row.get("max_discover_pages") or 1) + 1,
+                "discovered": 0,
+                "urls": [],
             },
         )
 
@@ -998,8 +1007,8 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
         note = f"Capped discover at {max_urls} pages this sync (requested {requested})."
     if not urls:
         note = (
-            "No new pages found (already synced or feed/sitemap empty). "
-            "Check Edit setup RSS/sitemap, or lower expectations — an RSS feed rarely has 2000 items."
+            "No new pages found (already synced, empty feed, or site blocked crawl). "
+            "Check Edit setup RSS/sitemap. Existing library pages stay as they are."
         )
     return _save(
         sb,

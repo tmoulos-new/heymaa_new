@@ -10,8 +10,16 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import requests
 
-USER_AGENT = "HeyMaaKnowledgeBot/1.0 (+https://heymaa.ai)"
+USER_AGENT = (
+    "Mozilla/5.0 (compatible; HeyMaaKnowledgeBot/1.1; +https://heymaa.ai) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 DEFAULT_TIMEOUT = 25
+DEFAULT_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "el-GR,el;q=0.9,en-US;q=0.8,en;q=0.7",
+}
 TRACKING_PARAMS = {
     "utm_source",
     "utm_medium",
@@ -116,10 +124,7 @@ def url_hash(url: str) -> str:
 
 def fetch_url(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str, dict]:
     """Returns (final_url, content_type, response_text)."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
+    headers = dict(DEFAULT_HEADERS)
     try:
         res = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
     except requests.exceptions.SSLError:
@@ -132,6 +137,15 @@ def fetch_url(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str, di
     if not res.encoding or res.encoding.lower() in ("iso-8859-1", "ascii"):
         res.encoding = res.apparent_encoding or "utf-8"
     return res.url, ctype, res.text
+
+
+def fetch_url_soft(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> Optional[tuple[str, str, str]]:
+    """Like fetch_url but returns None on HTTP/network errors (403, timeout, …)."""
+    try:
+        final, ctype, body = fetch_url(url, timeout=timeout)
+        return final, ctype, body
+    except Exception:
+        return None
 
 
 def extract_html_document(html: str, base_url: str) -> dict:
@@ -218,7 +232,10 @@ def parse_sitemap_locs(xml_text: str) -> list[str]:
 
 
 def discover_sitemap_urls(sitemap_url: str, *, max_urls: int = 80) -> list[str]:
-    _, ctype, body = fetch_url(sitemap_url)
+    soft = fetch_url_soft(sitemap_url)
+    if not soft:
+        return []
+    _, _, body = soft
     locs = parse_sitemap_locs(body)
     out: list[str] = []
     for loc in locs:
@@ -248,11 +265,15 @@ def discover_sitemap_urls(sitemap_url: str, *, max_urls: int = 80) -> list[str]:
 def discover_site_links(seed_url: str, *, same_host: bool = True, max_urls: int = 40) -> list[str]:
     seed = normalize_url(seed_url)
     host = urlparse(seed).netloc
+    links: list[str] = []
     try:
         doc = acquire_url(seed)
         links = [seed] + list(doc.get("links") or [])
     except Exception:
-        _, _, html = fetch_url(seed)
+        soft = fetch_url_soft(seed)
+        if not soft:
+            return []
+        _, _, html = soft
         extracted = extract_html_document(html, seed)
         links = [seed] + list(extracted.get("links") or [])
 
@@ -287,7 +308,10 @@ def discover_rss_urls(rss_url: str, *, max_urls: int = 40) -> list[str]:
     except ImportError:
         from babyspace_feed import parse_rss_links
 
-    _, _, body = fetch_url(rss_url)
+    soft = fetch_url_soft(rss_url)
+    if not soft:
+        return []
+    _, _, body = soft
     out: list[str] = []
     seen: set[str] = set()
     for raw in parse_rss_links(body):
@@ -364,15 +388,21 @@ def discover_source_urls(
                     urls.append(u)
         except Exception:
             pass
-    # 4) Fallback: crawl seed page links (bounded — never 2000×2 requests in one tick)
-    if len(urls) < 5 and mode != "rss" and mode != "sitemap":
-        crawled = discover_site_links(base_url, max_urls=max(crawl_budget * 2, 40))
+    # 4) Fallback: crawl seed page links (never raise — 403 from gov WAFs is common on Vercel)
+    if len(urls) < 5 and mode not in ("rss", "sitemap"):
+        try:
+            crawled = discover_site_links(base_url, max_urls=max(crawl_budget * 2, 40))
+        except Exception:
+            crawled = []
         for u in crawled:
             if u not in urls:
                 urls.append(u)
-    elif len(urls) < 5 and mode in ("rss", "sitemap"):
-        # Soft fallback only if preferred feed/sitemap was empty.
-        crawled = discover_site_links(base_url, max_urls=max(crawl_budget, 40))
+    elif len(urls) == 0 and mode in ("rss", "sitemap"):
+        # Only if preferred feed/sitemap found nothing — soft crawl, ignore blocks.
+        try:
+            crawled = discover_site_links(base_url, max_urls=max(crawl_budget, 40))
+        except Exception:
+            crawled = []
         for u in crawled:
             if u not in urls:
                 urls.append(u)
