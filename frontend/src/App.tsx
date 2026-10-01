@@ -3405,19 +3405,33 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         setMessages([...next, { role: "assistant", content: msg }]);
       } else {
         const detail = apiDetail(err.response?.data, "");
+        const status = err.response?.status;
         const network = !err.response && (err.code === "ECONNABORTED" || /timeout/i.test(String(err.message || "")));
+        const gateway =
+          status === 502 || status === 504 || status === 408 || /timeout|timed out|gateway/i.test(detail);
         const busy = /busy right now|try again in a minute/i.test(detail);
+        const emptyReply = /empty_reply/i.test(String(err.message || ""));
         let msg = t("chat_error", lang);
-        if (network) {
-          msg = lang === "el" ? "Η απάντηση άργησε πολύ. Δοκίμασε ξανά." : "The reply took too long. Please try again.";
-        } else if (busy || err.response?.status === 503) {
+        if (network || gateway) {
+          msg =
+            lang === "el"
+              ? "Η απάντηση άργησε πολύ (ή ο server δεν απάντησε εγκαίρως). Δοκίμασε ξανά σε λίγο."
+              : "The reply took too long (or the server timed out). Please try again in a moment.";
+        } else if (emptyReply) {
+          msg =
+            lang === "el"
+              ? "Η HeyMaa δεν επέστρεψε κείμενο απάντησης. Δοκίμασε ξανά."
+              : "HeyMaa returned an empty reply. Please try again.";
+        } else if (busy || status === 503) {
           msg = lang === "el"
             ? (busy ? "Η HeyMaa είναι λίγο απασχολημένη. Δοκίμασε ξανά σε ένα λεπτό." : "Η HeyMaa δεν μπόρεσε να απαντήσει. Δοκίμασε ξανά σε λίγο.")
             : (detail || msg);
-        } else if (detail && detail.length < 200) {
+        } else if (detail && detail.length < 280) {
           msg = detail;
+        } else if (status && lang === "el") {
+          msg = `Κάτι πήγε στραβά (σφάλμα ${status}). Δοκίμασε ξανά σε λίγο.`;
         }
-        console.error("chat failed", err.response?.status, detail || err.message);
+        console.error("chat failed", status, detail || err.message);
         setMessages([...next, { role: "assistant", content: msg }]);
       }
     } finally {

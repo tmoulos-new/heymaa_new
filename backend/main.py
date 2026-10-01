@@ -3254,7 +3254,6 @@ def _is_usable_reply(text: str) -> bool:
         "reply length",
         "always follow",
         "system prompt",
-        "knowledge base",
         "(εσύ)",
         "εσύ).",
         "tone: warm",
@@ -4980,6 +4979,12 @@ async def _run_chat_core(
     def _chat_success(reply: str, provider: str):
         t_post0 = _time.perf_counter()
         reply = _scrub_language_leaks(reply, msg_lang or profile_lang or "")
+        if not (reply or "").strip():
+            reply = (
+                "Συγγνώμη, δεν μπόρεσα να ολοκληρώσω την απάντηση. Ξαναδοκίμασε σε λίγο."
+                if (msg_lang or profile_lang or "").startswith("el")
+                else "Sorry, I could not finish that answer. Please try again in a moment."
+            )
         if places_for_ui:
             try:
                 try:
@@ -5240,7 +5245,7 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)[:160]}") from e
 
 
 class ChatFeedbackRequest(BaseModel):
@@ -7274,7 +7279,7 @@ async def admin_chat_as_user(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat failed: {e}") from e
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)[:160]}") from e
 
 
 @app.delete("/admin/users/{user_id}")
