@@ -8217,14 +8217,14 @@ async def admin_seed_website_sources(
     req: RagWebsiteSeedRequest,
     x_token: Optional[str] = Header(None),
 ):
-    """Discover pages from a custom website and ingest them as URL RAG sources."""
+    """Register a website and start the same tick-based Sync job used for all sites."""
     admin_id = verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
     try:
-        from .url_acquire import discover_source_urls, normalize_url
+        from .url_acquire import normalize_url
     except ImportError:
-        from url_acquire import discover_source_urls, normalize_url
+        from url_acquire import normalize_url
 
     base = (req.base_url or "").strip()
     if not base:
@@ -8254,31 +8254,15 @@ async def admin_seed_website_sources(
     slug = _slug_re.sub(r"[^a-z0-9]+", "-", host.lower()).strip("-") or "website"
     source_key = (req.source_key or "").strip() or slug[:40]
     language = (req.language or "el").strip() or "el"
-    max_urls = max(1, min(int(req.max_urls or 20), 100))
+    max_urls = max(1, min(int(req.max_urls or 20), 300))
     display_name = (req.name or "").strip() or host
+    discover = "rss" if rss else ("sitemap" if sitemap else "crawl")
 
+    # Same path as Sync new pages: save setup, queue discovering job, ingest on ticks.
     try:
-        urls = discover_source_urls(
-            base_url=base,
-            sitemap_url=sitemap,
-            rss_url=rss,
-            source_key=source_key,
-            max_urls=max_urls,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not fetch the site: {e}") from e
-    if not urls:
-        raise HTTPException(
-            status_code=400,
-            detail="No pages discovered. Try a sitemap URL, an RSS feed URL, or a blog listing page as the base URL.",
-        )
-
-    # Ingest in the same small ticks as Babyspace. Doing every page inside this
-    # request embeds for minutes and the browser reports "Failed to fetch".
-    try:
-        from .rag_seed_jobs import create_prepared_seed_job, job_public, upsert_knowledge_source
+        from .rag_seed_jobs import create_seed_job, job_public, upsert_knowledge_source
     except ImportError:
-        from rag_seed_jobs import create_prepared_seed_job, job_public, upsert_knowledge_source
+        from rag_seed_jobs import create_seed_job, job_public, upsert_knowledge_source
     upsert_knowledge_source(
         sb,
         source_key=source_key,
@@ -8288,14 +8272,15 @@ async def admin_seed_website_sources(
         sitemap_url=sitemap,
         rss_url=rss,
         max_urls=max_urls,
-        discover="rss" if rss else ("sitemap" if sitemap else "crawl"),
+        discover=discover,
     )
     try:
-        row = create_prepared_seed_job(
+        row = create_seed_job(
             sb,
             source_key=source_key,
-            urls=urls,
             created_by=str(admin_id) if admin_id is not None else None,
+            mode="add_new",
+            batch_size=5,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -8312,7 +8297,8 @@ async def admin_seed_website_sources(
             "name": display_name,
             "sitemap_url": sitemap,
             "rss_url": rss,
-            "discovered": len(urls),
+            "max_urls": max_urls,
+            "discover": discover,
             "language": language,
         },
     )
@@ -8320,10 +8306,10 @@ async def admin_seed_website_sources(
         "ok": True,
         "queued": True,
         "ingested": 0,
-        "total": len(urls),
+        "total": 0,
         "source_key": source_key,
         "name": display_name,
-        "discovered": len(urls),
+        "discovered": 0,
         "job": job_public(row),
     }
 

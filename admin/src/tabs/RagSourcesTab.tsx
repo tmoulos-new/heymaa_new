@@ -808,7 +808,7 @@ export function RagSourcesTab() {
     }
     setSiteSeeding(true)
     try {
-      const maxUrls = Math.max(1, Math.min(Number(siteMax) || 20, 100))
+      const maxUrls = Math.max(1, Math.min(Number(siteMax) || 50, 300))
       const d = await adminFetch('/admin/rag_sources/seed_website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -826,14 +826,15 @@ export function RagSourcesTab() {
       if (job && !job.done && !behindCurrent) setSeedJob(job)
       show(
         behindCurrent
-          ? `Queued ${d.discovered ?? d.total ?? 0} pages from ${d.name || 'the site'}. They start after the current sync finishes — keep this tab open.`
-          : `Ingesting ${d.name || 'website'} — ${d.discovered ?? d.total ?? 0} pages. Keep this tab open.`,
+          ? `${d.name || 'Website'} saved — sync starts after the current job. Keep this tab open.`
+          : `${d.name || 'Website'} added — discovering & ingesting like Site Sync. Keep this tab open.`,
         'ok',
       )
       setSiteName('')
       setSiteBaseUrl('')
       setSiteSitemap('')
       setSiteRss('')
+      await loadSources()
     } catch (e) {
       show(e instanceof Error ? e.message : 'Website seed failed', 'err')
     } finally {
@@ -1347,7 +1348,7 @@ export function RagSourcesTab() {
                 disabled={siteSeeding || seedingKey !== null || !siteBaseUrl.trim()}
               >
                 <Globe size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-                {siteSeeding ? 'Discovering…' : 'Discover & seed website'}
+                {siteSeeding ? 'Starting…' : 'Add & sync website'}
               </button>
             </div>
           </>
