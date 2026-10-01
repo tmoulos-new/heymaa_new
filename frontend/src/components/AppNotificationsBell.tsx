@@ -227,30 +227,15 @@ export function AppNotificationsBell({
                           ? 'Ενεργές — μπορείς να λαμβάνεις μηνύματα και όταν η HeyMaa είναι κλειστή.'
                           : 'On — you can get messages even when HeyMaa is closed.'}
                       </p>
-                      <button type="button" className="hm-notif-push-btn" disabled={pushBusy} onClick={() => void turnOffPush()}>
-                        {pushBusy ? (isEl ? 'Ένα λεπτό…' : 'One moment…') : (isEl ? 'Απενεργοποίηση' : 'Turn off')}
-                      </button>
-                    </>
-                  ) : pushState === 'denied' ? (
-                    <p className="hm-notif-item-text">
-                      {isEl
-                        ? 'Έχουν αποκλειστεί από τον browser. Άνοιξε τις ρυθμίσεις ειδοποιήσεων του site για να τις ενεργοποιήσεις.'
-                        : 'Blocked in the browser. Open site notification settings to turn them back on.'}
-                    </p>
-                  ) : (
-                    <>
-                      <p className="hm-notif-item-text">
-                        {isEl
-                          ? 'Ενεργοποίησέ τες για να μη χάνεις σημαντικά μηνύματα όταν η εφαρμογή είναι κλειστή.'
-                          : 'Turn these on so you don’t miss important updates when the app is closed.'}
-                      </p>
-                      <button type="button" className="hm-notif-push-btn" disabled={pushBusy} onClick={() => void allowPush()}>
-                        {pushBusy ? (isEl ? 'Ένα λεπτό…' : 'One moment…') : (isEl ? 'Ενεργοποίηση' : 'Activate alerts')}
-                      </button>
-                    </>
-                  )}
-                      <button type="button" className="hm-notif-action hm-notif-action--ghost" disabled={pushBusy} onClick={() => void turnOffPush()}>
-                        {pushBusy ? (isEl ? 'Απενεργοποίηση…' : 'Turning off…') : (isEl ? 'Απενεργοποίηση' : 'Turn off')}
+                      <button
+                        type="button"
+                        className="hm-notif-action hm-notif-action--ghost"
+                        disabled={pushBusy}
+                        onClick={() => void turnOffPush()}
+                      >
+                        {pushBusy
+                          ? (isEl ? 'Απενεργοποίηση…' : 'Turning off…')
+                          : (isEl ? 'Απενεργοποίηση' : 'Turn off')}
                       </button>
                     </>
                   ) : pushState === 'denied' ? (
@@ -272,7 +257,12 @@ export function AppNotificationsBell({
                           ? 'Ενεργοποίησέ τες για να μη χάνεις σημαντικά μηνύματα όταν η εφαρμογή είναι κλειστή.'
                           : 'Turn these on so you don’t miss important updates when the app is closed.'}
                       </p>
-                      <button type="button" className="hm-notif-action" disabled={pushBusy} onClick={() => void allowPush()}>
+                      <button
+                        type="button"
+                        className="hm-notif-action"
+                        disabled={pushBusy}
+                        onClick={() => void allowPush()}
+                      >
                         {pushBusy
                           ? (isEl ? 'Ενεργοποίηση…' : 'Enabling…')
                           : (isEl ? 'Ενεργοποίηση ειδοποιήσεων' : 'Activate alerts')}
