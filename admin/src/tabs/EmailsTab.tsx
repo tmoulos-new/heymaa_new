@@ -101,6 +101,8 @@ export function EmailsTab() {
   const [picked, setPicked] = useState<PickerUser[]>([])
   const [sending, setSending] = useState(false)
   const [history, setHistory] = useState<Campaign[]>([])
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [setupError, setSetupError] = useState('')
   const [mailStatus, setMailStatus] = useState<MailStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -241,8 +243,13 @@ export function EmailsTab() {
   const load = async () => {
     setLoading(true)
     try {
+      const qs = new URLSearchParams()
+      if (fromDate) qs.set('from_date', fromDate)
+      if (toDate) qs.set('to_date', toDate)
+      qs.set('limit', fromDate || toDate ? '50' : '10')
+      const path = `/admin/emails${qs.toString() ? `?${qs.toString()}` : ''}`
       const [list, status] = await Promise.all([
-        adminFetch('/admin/emails'),
+        adminFetch(path),
         adminFetch('/admin/emails/status').catch(() => null),
       ])
       setHistory((list.emails as Campaign[]) || [])
@@ -257,6 +264,10 @@ export function EmailsTab() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate])
+
+  useEffect(() => {
     void adminFetch('/admin/emails/reports/kinds')
       .then((d) => {
         const kinds = (d.kinds as Array<{ id: string; label: string }>) || []
@@ -286,12 +297,16 @@ export function EmailsTab() {
   useEffect(() => {
     if (!stillSending) return
     const handle = window.setInterval(() => {
-      void adminFetch('/admin/emails')
+      const qs = new URLSearchParams()
+      if (fromDate) qs.set('from_date', fromDate)
+      if (toDate) qs.set('to_date', toDate)
+      qs.set('limit', fromDate || toDate ? '50' : '10')
+      void adminFetch(`/admin/emails?${qs.toString()}`)
         .then((d) => setHistory((d.emails as Campaign[]) || []))
         .catch(() => undefined)
     }, 3000)
     return () => window.clearInterval(handle)
-  }, [stillSending, adminFetch])
+  }, [stillSending, adminFetch, fromDate, toDate])
 
   useEffect(() => {
     if (!preview) return
@@ -836,86 +851,117 @@ export function EmailsTab() {
           </button>
         </div>
         <p className="card-desc" style={{ marginTop: 0 }}>
-          Last 10 campaigns. Preview the message, download the analytics report, or remove a row from history
+          {fromDate || toDate
+            ? 'Campaigns in the selected date range (up to 50).'
+            : 'Last 10 campaigns.'}{' '}
+          Preview, download the report, open analytics, or remove a history row
           (does not unsend mail already delivered).
         </p>
+        <div className="row" style={{ marginBottom: 14 }}>
+          <div className="field-wrap">
+            <FieldLabel>From</FieldLabel>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </div>
+          <div className="field-wrap">
+            <FieldLabel>To</FieldLabel>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+          {fromDate || toDate ? (
+            <div className="field-wrap" style={{ flex: '0 0 auto', justifyContent: 'flex-end' }}>
+              <FieldLabel>&nbsp;</FieldLabel>
+              <button
+                type="button"
+                className="ghost sm"
+                onClick={() => {
+                  setFromDate('')
+                  setToDate('')
+                }}
+              >
+                Clear dates
+              </button>
+            </div>
+          ) : null}
+        </div>
         {history.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
         ) : (
-          <div className="sent-mail-grid">
-            {history.slice(0, 10).map((item) => (
-              <article key={item.id} className="sent-mail-card">
-                <div className="sent-mail-card__top">
-                  <time className="sent-mail-card__date">{fmt(item.created_at)}</time>
-                  {statusBadge(item.status)}
-                </div>
-                <h3 className="sent-mail-card__subject">{item.subject || '—'}</h3>
-                <dl className="sent-mail-card__meta">
-                  <div>
-                    <dt>Audience</dt>
-                    <dd>{item.audience_label || item.audience || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Delivery</dt>
-                    <dd>{deliverySummary(item)}</dd>
-                  </div>
-                  {item.url ? (
-                    <div>
-                      <dt>CTA</dt>
-                      <dd className="sent-mail-card__cta">{item.url}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-                {item.last_error ? <p className="sent-mail-card__error">{item.last_error}</p> : null}
-                <div className="sent-mail-card__actions">
-                  <button
-                    type="button"
-                    className="sec sm"
-                    onClick={() =>
-                      setPreview({
-                        subject: item.subject || '',
-                        body: item.body || '',
-                        url: item.url || '',
-                        buttonLabel: item.button_label || 'Open HeyMaa',
-                        includeButton: !!item.url,
-                        images: Array.isArray(item.images)
-                          ? item.images.filter((src) => typeof src === 'string')
-                          : [],
-                      })
-                    }
-                  >
-                    <Eye size={14} /> Preview
-                  </button>
-                  <button
-                    type="button"
-                    className="sec sm"
-                    disabled={downloadingId === item.id}
-                    onClick={() => void downloadCampaignReport(item)}
-                  >
-                    <Download size={14} />
-                    {downloadingId === item.id ? 'Downloading…' : 'Download report'}
-                  </button>
-                  <button
-                    type="button"
-                    className="sec sm"
-                    onClick={() => {
-                      setReportHeading(item.subject || 'Campaign report')
-                      setReportPath(`/admin/emails/${item.id}/report`)
-                    }}
-                  >
-                    <BarChart3 size={14} /> Open report
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost sm"
-                    title="Remove from history"
-                    onClick={() => setDeleteTarget(item)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </article>
-            ))}
+          <div className="table-wrap">
+            <table className="data-table sent-mail-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Subject</th>
+                  <th>Audience</th>
+                  <th>Delivery</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((item) => (
+                  <tr key={item.id}>
+                    <td className="sent-mail-table__when">{fmt(item.created_at)}</td>
+                    <td>
+                      <strong>{item.subject || '—'}</strong>
+                      {item.url ? <div className="muted sent-mail-table__cta">{item.url}</div> : null}
+                      {item.last_error ? <div className="sent-mail-table__error">{item.last_error}</div> : null}
+                    </td>
+                    <td>{item.audience_label || item.audience || '—'}</td>
+                    <td>{deliverySummary(item)}</td>
+                    <td>{statusBadge(item.status)}</td>
+                    <td>
+                      <div className="sent-mail-table__actions">
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() =>
+                            setPreview({
+                              subject: item.subject || '',
+                              body: item.body || '',
+                              url: item.url || '',
+                              buttonLabel: item.button_label || 'Open HeyMaa',
+                              includeButton: !!item.url,
+                              images: Array.isArray(item.images)
+                                ? item.images.filter((src) => typeof src === 'string')
+                                : [],
+                            })
+                          }
+                        >
+                          <Eye size={14} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          disabled={downloadingId === item.id}
+                          onClick={() => void downloadCampaignReport(item)}
+                        >
+                          <Download size={14} />
+                          {downloadingId === item.id ? '…' : 'Download'}
+                        </button>
+                        <button
+                          type="button"
+                          className="sec sm"
+                          onClick={() => {
+                            setReportHeading(item.subject || 'Campaign report')
+                            setReportPath(`/admin/emails/${item.id}/report`)
+                          }}
+                        >
+                          <BarChart3 size={14} /> Report
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost sm"
+                          title="Remove from history"
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

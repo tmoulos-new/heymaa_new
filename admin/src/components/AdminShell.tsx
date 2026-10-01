@@ -273,13 +273,7 @@ export function AdminShell() {
           </div>
         </header>
 
-        <main
-          className={`main${
-            tab === 'testers' || tab === 'chatprompt' || tab === 'emails' || tab === 'notifications'
-              ? ' main-narrow'
-              : ''
-          }`}
-        >
+        <main className="main">
           <Routes>
             <Route
               index

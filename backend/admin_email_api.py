@@ -293,22 +293,42 @@ def register_email_routes(app: FastAPI) -> None:
         }
 
     @app.get("/admin/emails")
-    async def admin_list_emails(x_token: Optional[str] = Header(None)):
+    async def admin_list_emails(
+        x_token: Optional[str] = Header(None),
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+        limit: int = 10,
+    ):
         _require_admin(x_token)
         sb = _main().sb
+        lim = max(1, min(100, int(limit or 10)))
+        start = (from_date or "").strip() or None
+        end = (to_date or "").strip() or None
+        if start and len(start) == 10:
+            start = f"{start}T00:00:00+00:00"
+        if end and len(end) == 10:
+            end = f"{end}T23:59:59.999999+00:00"
         try:
-            res = (
+            q = (
                 sb.table("admin_email_campaigns")
                 .select("*")
                 .order("created_at", desc=True)
-                .limit(10)
-                .execute()
             )
+            if start:
+                q = q.gte("created_at", start)
+            if end:
+                q = q.lte("created_at", end)
+            res = q.limit(lim).execute()
         except Exception as e:
             if _missing_table(e):
                 return {"emails": [], "error": _MISSING}
             raise HTTPException(status_code=500, detail=str(e)) from e
-        return {"emails": res.data or [], "limit": 10}
+        return {
+            "emails": res.data or [],
+            "limit": lim,
+            "from_date": (from_date or "").strip() or None,
+            "to_date": (to_date or "").strip() or None,
+        }
 
     @app.delete("/admin/emails/{campaign_id}")
     async def admin_delete_email(campaign_id: str, x_token: Optional[str] = Header(None)):

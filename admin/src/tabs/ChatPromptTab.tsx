@@ -623,7 +623,7 @@ export function ChatPromptTab() {
       memory.milestones_instruction !== savedMemory.milestones_instruction)
 
   return (
-    <div style={{ display: 'grid', gap: 20, maxWidth: 960 }}>
+    <div style={{ display: 'grid', gap: 20, width: '100%' }}>
       {Message}
       <div className="card">
         <div className="card-head">
