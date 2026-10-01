@@ -1775,10 +1775,15 @@ def get_embedding(text):
     err = None
     values = None
     try:
+        # Must pair with rag_ingest RETRIEVAL_DOCUMENT embeddings.
         r = requests.post(
             _gemini_embed_url(),
-            json={"model": "models/gemini-embedding-001", "content": {"parts": [{"text": snippet}]}},
-            timeout=5,
+            json={
+                "model": "models/gemini-embedding-001",
+                "content": {"parts": [{"text": snippet}]},
+                "taskType": "RETRIEVAL_QUERY",
+            },
+            timeout=12,
         )
         r.raise_for_status()
         values = r.json()["embedding"]["values"]
@@ -1801,38 +1806,53 @@ def get_embedding(text):
         raise RuntimeError(err or "embedding failed")
     return values
 
-def retrieve_context(query, top_k=3, threshold=0.28, *, with_timing: bool = False):
-    """Hybrid-ready vector retrieval over rag_chunks (includes URL sources).
+def retrieve_context(query, top_k=6, threshold=0.22, *, with_timing: bool = False):
+    """Vector retrieval over all ready rag_chunks (babyspace/myparenthood/eody/files).
 
-    When with_timing=True, returns (chunks, timing_dict) instead of chunks only.
+    Tries match_chunks (fast with ANN index). If the RPC times out on a large
+    unindexed corpus, falls back to keyword candidates + local cosine ranking so
+    chat keeps searching every source_key — not only the original two sites.
     """
     import time as _time
 
-    timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": False, "error": None}
+    timing = {
+        "embed_ms": 0.0,
+        "match_ms": 0.0,
+        "ok": False,
+        "error": None,
+        "path": None,
+        "candidates": 0,
+    }
     if not sb:
         return ([], timing) if with_timing else []
     try:
+        try:
+            from .rag_retrieve import retrieve_hybrid
+        except ImportError:
+            from rag_retrieve import retrieve_hybrid
+
         t0 = _time.perf_counter()
         emb = get_embedding(query)
         timing["embed_ms"] = round((_time.perf_counter() - t0) * 1000, 1)
         t1 = _time.perf_counter()
-        result = sb.rpc(
-            "match_chunks",
-            {
-                "query_embedding": emb,
-                "match_count": top_k,
-                "match_threshold": threshold,
-            },
-        ).execute()
+        url, key = _supabase_credentials()
+        rows, meta = retrieve_hybrid(
+            sb,
+            supabase_url=url or "",
+            service_key=key or "",
+            query=query or "",
+            query_embedding=emb,
+            top_k=top_k,
+            threshold=threshold,
+            rpc_timeout=2.5,
+        )
         timing["match_ms"] = round((_time.perf_counter() - t1) * 1000, 1)
-        rows = result.data or []
-        filtered = []
-        for row in rows:
-            if not (row.get("content") or "").strip():
-                continue
-            filtered.append(row)
+        timing["path"] = meta.get("path")
+        timing["candidates"] = meta.get("candidates") or 0
+        if meta.get("error"):
+            timing["error"] = meta["error"]
         timing["ok"] = True
-        return (filtered, timing) if with_timing else filtered
+        return (rows, timing) if with_timing else rows
     except Exception as e:
         timing["error"] = str(e)[:200]
         return ([], timing) if with_timing else []

@@ -40,9 +40,10 @@ _NEED_PATTERNS = [
     r"πώς (να|μπορώ|μπορω|θα|κάνω|κανω)|πως (να|μπορώ|μπορω|θα|κάνω|κανω)|"
     r"τι (να|κάνω|κανω)|πότε|ποτε|είναι (φυσιολογ|ασφαλ)|"
     r"γιατί|γιατι)\b",
-    # nutrition / health
+    # nutrition / health / public health authorities
     r"\b(nutrition|allergy|allerg|symptom|doctor|pediatric|"
-    r"διατροφ|αλλεργ|σύμπτωμ|συμπτωμ|παιδίατρ|παιδιατρ|γιατρ)\w*",
+    r"διατροφ|αλλεργ|σύμπτωμ|συμπτωμ|παιδίατρ|παιδιατρ|γιατρ|"
+    r"eody|εοδυ|εμβολ)\w*",
 ]
 
 # Soft chitchat / meta about the product — usually no RAG
