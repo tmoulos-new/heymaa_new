@@ -254,6 +254,7 @@ def create_source_and_ingest(
     title: str,
     filename: str,
     file_bytes: bytes,
+    source_key: Optional[str] = None,
 ) -> dict:
     origin = validate_upload_filename(filename)
     if len(file_bytes) > MAX_UPLOAD_BYTES:
@@ -263,6 +264,12 @@ def create_source_and_ingest(
 
     text = read_text_bytes(file_bytes, origin)
     source_type = source_type_for_filename(origin)
+    try:
+        from .rag_seed_jobs import slug_from_filename, upsert_knowledge_source
+    except ImportError:
+        from rag_seed_jobs import slug_from_filename, upsert_knowledge_source
+
+    key = (source_key or "").strip().lower() or slug_from_filename(origin)
     inserted = (
         sb.table("rag_sources")
         .insert(
@@ -270,6 +277,7 @@ def create_source_and_ingest(
                 "title": title,
                 "source_type": source_type,
                 "origin": origin,
+                "source_key": key,
                 "status": "processing",
                 "chunk_count": 0,
             }
@@ -287,6 +295,17 @@ def create_source_and_ingest(
     except Exception:
         sb.table("rag_sources").update({"status": "error"}).eq("id", source_id).execute()
         raise
+
+    upsert_knowledge_source(
+        sb,
+        source_key=key,
+        name=title or key,
+        source_type="file",
+        language="el",
+        base_url=None,
+        metadata_extra={"filename": origin, "seed": True},
+        merge_existing=True,
+    )
 
     refreshed = (
         sb.table("rag_sources").select("*").eq("id", source_id).limit(1).execute()

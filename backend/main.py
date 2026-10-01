@@ -8198,9 +8198,20 @@ async def admin_seed_website_sources(
     # Ingest in the same small ticks as Babyspace. Doing every page inside this
     # request embeds for minutes and the browser reports "Failed to fetch".
     try:
-        from .rag_seed_jobs import create_prepared_seed_job, job_public
+        from .rag_seed_jobs import create_prepared_seed_job, job_public, upsert_knowledge_source
     except ImportError:
-        from rag_seed_jobs import create_prepared_seed_job, job_public
+        from rag_seed_jobs import create_prepared_seed_job, job_public, upsert_knowledge_source
+    upsert_knowledge_source(
+        sb,
+        source_key=source_key,
+        name=display_name,
+        base_url=base,
+        language=language,
+        sitemap_url=sitemap,
+        rss_url=rss,
+        max_urls=max_urls,
+        discover="rss" if rss else ("sitemap" if sitemap else "crawl"),
+    )
     try:
         row = create_prepared_seed_job(
             sb,

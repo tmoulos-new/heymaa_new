@@ -94,9 +94,10 @@ CREATE TABLE IF NOT EXISTS public.knowledge_sources (
 
 INSERT INTO public.knowledge_sources (source_key, name, source_type, language, base_url, enabled, metadata)
 VALUES
-  ('babyspace', 'Babyspace', 'website', 'el', 'https://www.babyspace.gr/', true, '{"seed": true}'::jsonb),
+  ('babyspace', 'Babyspace', 'website', 'el', 'https://www.babyspace.gr/', true,
+   '{"seed": true, "discover": "listing_pages", "since_years": 5, "max_urls": 2000, "max_discover_pages": 250}'::jsonb),
   ('myparenthood', 'My Parenthood', 'website', 'el', 'https://myparenthood.gr/blog/', true,
-   '{"seed": true, "sitemap": "https://myparenthood.gr/post-sitemap.xml"}'::jsonb)
+   '{"seed": true, "discover": "sitemap", "sitemap": "https://myparenthood.gr/post-sitemap.xml", "max_urls": 80}'::jsonb)
 ON CONFLICT (source_key) DO UPDATE SET
   name = EXCLUDED.name,
   base_url = EXCLUDED.base_url,

@@ -119,7 +119,33 @@ function canonicalSiteFromHost(host: string): string | null {
   const h = host.replace(/^www\./i, '').toLowerCase()
   if (h === 'babyspace.gr' || h.endsWith('.babyspace.gr')) return 'babyspace'
   if (h === 'myparenthood.gr' || h.endsWith('.myparenthood.gr')) return 'myparenthood'
+  if (h === 'eody.gov.gr' || h.endsWith('.eody.gov.gr')) return 'eody-gov-gr'
   return null
+}
+
+function hostToSiteKey(host: string): string {
+  const canonical = canonicalSiteFromHost(host)
+  if (canonical) return canonical
+  return host
+    .replace(/^www\./i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+}
+
+function slugFromFilename(filename: string): string {
+  const base = filename.replace(/^.*[\\/]/, '') || 'document'
+  const stem = base.replace(/\.[^.]+$/, '')
+  const slug = stem
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (slug) return slug.slice(0, 40)
+  // Greek / non-latin filenames — stable key (never collapse to "file")
+  let hash = 0
+  for (let i = 0; i < base.length; i++) hash = (hash * 31 + base.charCodeAt(i)) >>> 0
+  return `doc-${hash.toString(16).slice(0, 10)}`
 }
 
 function siteKey(row: RagSourceRow): string {
@@ -128,43 +154,65 @@ function siteKey(row: RagSourceRow): string {
   const origin = (row.origin || '').trim()
   if (isHttpUrl(origin)) {
     try {
-      const fromHost = canonicalSiteFromHost(new URL(origin).hostname)
+      const host = new URL(origin).hostname
+      const fromHost = canonicalSiteFromHost(host)
       if (fromHost) return fromHost
-      // Prefer named presets over raw host when source_key is a free-form site id.
       if (key) return key
-      return new URL(origin).hostname.replace(/^www\./i, '').toLowerCase()
+      return hostToSiteKey(host)
     } catch {
       /* fall through */
     }
   }
   if (key) return key
-  return sourceKind(row).label === 'File' ? 'file' : 'other'
+  if (sourceKind(row).label === 'File' && origin) return slugFromFilename(origin)
+  return 'other'
 }
 
 function siteLabel(key: string): string {
   if (key === 'babyspace') return 'Babyspace'
   if (key === 'myparenthood') return 'My Parenthood'
+  if (key === 'eody-gov-gr' || key === 'eody') return 'EODY'
   if (key === 'file') return 'Uploaded files'
   if (key === 'other') return 'Other'
-  return key
+  return key.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-const PRESET_SEEDS: {
+type SyncSiteCard = {
   key: string
   name: string
   blurb: string
   sinceYears?: number
-}[] = [
+  sources?: number
+  broken?: number
+  sourceType?: string
+  canSync?: boolean
+}
+
+const ALWAYS_SYNC_SITES: SyncSiteCard[] = [
   {
     key: 'babyspace',
     name: 'Babyspace',
-    blurb: 'Greek parenting articles. Use Sync for new pages, Fix broken for empty/error rows.',
+    blurb:
+      'https://www.babyspace.gr/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
     sinceYears: 5,
+    sourceType: 'website',
+    canSync: true,
   },
   {
     key: 'myparenthood',
     name: 'My Parenthood',
-    blurb: 'From their post sitemap. Sync skips healthy pages; Fix broken re-ingests failed ones.',
+    blurb:
+      'https://myparenthood.gr/blog/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
+    sourceType: 'website',
+    canSync: true,
+  },
+  {
+    key: 'eody-gov-gr',
+    name: 'EODY',
+    blurb:
+      'https://eody.gov.gr/el/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
+    sourceType: 'website',
+    canSync: true,
   },
 ]
 
@@ -201,6 +249,7 @@ type RagHealth = {
     string,
     { sources: number; ready: number; error: number; empty_chunks: number; broken: number }
   >
+  sites?: SyncSiteCard[]
   active_job?: SeedJobPublic | null
 }
 
@@ -329,6 +378,111 @@ export function RagSourcesTab() {
     for (const row of sources) keys.add(siteKey(row))
     return Array.from(keys).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)))
   }, [sources])
+
+  const syncSites = useMemo((): SyncSiteCard[] => {
+    const map = new Map<string, SyncSiteCard>()
+
+    const put = (site: SyncSiteCard) => {
+      const key = (site.key || '').trim().toLowerCase()
+      if (!key || key === 'file' || key === 'other') return
+      const prev = map.get(key)
+      map.set(key, {
+        key,
+        name: site.name || prev?.name || siteLabel(key),
+        blurb:
+          (site.blurb && site.blurb.trim()) ||
+          prev?.blurb ||
+          'Registered source. Sync discovers additions; Fix broken re-ingests failures.',
+        sinceYears: site.sinceYears ?? prev?.sinceYears,
+        sources: site.sources ?? prev?.sources,
+        broken: site.broken ?? prev?.broken,
+        sourceType: site.sourceType || prev?.sourceType || 'website',
+        canSync:
+          site.canSync ??
+          prev?.canSync ??
+          (site.sourceType || prev?.sourceType || 'website') !== 'file',
+      })
+    }
+
+    // Always show the known websites (independent of API / registry).
+    for (const site of ALWAYS_SYNC_SITES) put(site)
+
+    // Health API sites (registry + library backfill).
+    for (const s of health?.sites || []) {
+      const raw = s as SyncSiteCard & {
+        since_years?: number
+        source_type?: string
+        can_sync?: boolean
+      }
+      put({
+        key: s.key,
+        name: s.name || siteLabel(s.key),
+        blurb: s.blurb || '',
+        sinceYears: raw.sinceYears ?? raw.since_years,
+        sources: s.sources,
+        broken: s.broken,
+        sourceType: raw.sourceType || raw.source_type || 'website',
+        canSync: raw.canSync ?? raw.can_sync ?? (raw.source_type || 'website') !== 'file',
+      })
+    }
+
+    // Every library row contributes — websites by site key, each PDF/file as its own card.
+    for (const row of sources) {
+      const kind = sourceKind(row)
+      const isFile = kind.label === 'File'
+      const key = isFile
+        ? (row.source_key || '').trim().toLowerCase() ||
+          (row.origin ? slugFromFilename(row.origin) : '') ||
+          `doc-${String(row.id || '').slice(0, 8)}`
+        : siteKey(row)
+      if (!key || key === 'file' || key === 'other') continue
+
+      const counts = health?.by_source_key?.[key]
+      const existing = map.get(key)
+      const fileTitle =
+        (row.title || '').trim() ||
+        (row.origin || '').replace(/^.*[\\/]/, '') ||
+        siteLabel(key)
+
+      put({
+        key,
+        name: isFile ? fileTitle : existing?.name || siteLabel(key),
+        blurb: isFile
+          ? `Uploaded document${row.origin ? ` (${row.origin})` : ''}. Re-upload from Add a source if broken.`
+          : existing?.blurb ||
+            'Registered source. Sync discovers additions; Fix broken re-ingests failures.',
+        sources: isFile ? 1 : existing?.sources ?? counts?.sources,
+        broken: isFile
+          ? (row.status || '').toLowerCase() === 'error' ||
+            Number(row.chunk_count ?? row.chunks_live ?? 0) < 1
+            ? 1
+            : 0
+          : existing?.broken ?? counts?.broken,
+        sourceType: isFile ? 'file' : existing?.sourceType || 'website',
+        canSync: !isFile,
+      })
+    }
+
+    for (const [key, site] of map) {
+      const counts = health?.by_source_key?.[key]
+      if (!counts || site.sourceType === 'file') continue
+      if (site.sources == null) site.sources = counts.sources
+      if (site.broken == null) site.broken = counts.broken
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const order = (s: SyncSiteCard) => {
+        if (s.key === 'babyspace') return 0
+        if (s.key === 'myparenthood') return 1
+        if (s.key === 'eody-gov-gr') return 2
+        if (s.sourceType === 'file') return 50
+        return 10
+      }
+      const d = order(a) - order(b)
+      if (d !== 0) return d
+      return a.name.localeCompare(b.name)
+    })
+  }, [health, sources])
 
   const filteredSources = useMemo(() => {
     const q = filterQ.trim().toLowerCase()
@@ -500,7 +654,7 @@ export function RagSourcesTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source_key: sourceKey,
-          since_years: opts?.sinceYears ?? (sourceKey === 'babyspace' ? 5 : undefined),
+          since_years: opts?.sinceYears,
           batch_size: 5,
           mode,
         }),
@@ -778,13 +932,25 @@ export function RagSourcesTab() {
               className="teal sm"
               disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
               onClick={() => {
+                const brokenEntries = Object.entries(health?.by_source_key || {}).sort(
+                  (a, b) => (b[1].broken || 0) - (a[1].broken || 0),
+                )
+                const syncable = syncSites.filter((s) => s.canSync !== false && s.sourceType !== 'file')
                 const key =
-                  (health?.by_source_key &&
-                    Object.entries(health.by_source_key).sort(
-                      (a, b) => (b[1].broken || 0) - (a[1].broken || 0),
-                    )[0]?.[0]) ||
-                  'babyspace'
-                const site = PRESET_SEEDS.find((s) => s.key === key) || PRESET_SEEDS[0]
+                  brokenEntries.find(([k]) => syncable.some((s) => s.key === k))?.[0] ||
+                  syncable[0]?.key ||
+                  syncSites[0]?.key
+                if (!key) {
+                  show('No website sources to rebuild', 'err')
+                  return
+                }
+                const site =
+                  syncSites.find((s) => s.key === key) ||
+                  syncable[0] || {
+                    key,
+                    name: siteLabel(key),
+                    blurb: '',
+                  }
                 void seedSite(site.key, site.name, {
                   sinceYears: site.sinceYears,
                   mode: 'rebuild_empty',
@@ -841,58 +1007,86 @@ export function RagSourcesTab() {
           <div>
             <h2>Site sync</h2>
             <p className="card-desc" style={{ marginBottom: 0 }}>
-              Manual only. Sync new pages discovers additions; Fix broken re-ingests empty/error URLs.
+              {syncSites.length} collection{syncSites.length === 1 ? '' : 's'} — websites and uploaded
+              docs. Sync new pages for sites; Fix broken re-ingests empty/error URLs.
             </p>
           </div>
         </div>
 
         <div className="rag-seed-presets">
+          {syncSites.length === 0 ? (
+            <p className="muted" style={{ margin: '0 0 12px' }}>
+              No collections yet. Upload a PDF or add a website below.
+            </p>
+          ) : null}
           <div className="rag-seed-preset-grid">
-            {PRESET_SEEDS.map((site) => {
+            {syncSites.map((site) => {
               const siteHealth = health?.by_source_key?.[site.key]
-              const broken = siteHealth?.broken || 0
+              const broken = site.broken ?? siteHealth?.broken ?? 0
+              const sourceCount = site.sources ?? siteHealth?.sources
+              const canSync = site.canSync !== false && site.sourceType !== 'file'
               return (
                 <div key={site.key} className="rag-seed-preset">
                   <strong>{site.name}</strong>
                   <p>{site.blurb}</p>
-                  {siteHealth ? (
+                  {typeof sourceCount === 'number' ? (
                     <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                      {siteHealth.sources} sources · {broken} broken
+                      {sourceCount} sources · {broken} broken
+                      {site.sourceType === 'file' ? ' · file' : ''}
                     </p>
                   ) : null}
                   <div className="rag-seed-preset-actions">
-                    <button
-                      type="button"
-                      className="sec"
-                      onClick={() =>
-                        void seedSite(site.key, site.name, {
-                          sinceYears: site.sinceYears,
-                          mode: 'add_new',
-                        })
-                      }
-                      disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
-                    >
-                      <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-                      {seedingKey === site.key ? 'Starting…' : 'Sync new pages'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost sm"
-                      onClick={() =>
-                        void seedSite(site.key, site.name, {
-                          sinceYears: site.sinceYears,
-                          mode: 'rebuild_empty',
-                        })
-                      }
-                      disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
-                      title={
-                        broken > 0
-                          ? `Re-ingest ${broken} broken source${broken === 1 ? '' : 's'}`
-                          : 'Re-ingest empty/error sources for this site'
-                      }
-                    >
-                      {broken > 0 ? `Fix ${broken} broken` : 'Fix broken'}
-                    </button>
+                    {canSync ? (
+                      <button
+                        type="button"
+                        className="sec"
+                        onClick={() =>
+                          void seedSite(site.key, site.name, {
+                            sinceYears: site.sinceYears,
+                            mode: 'add_new',
+                          })
+                        }
+                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
+                      >
+                        <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                        {seedingKey === site.key ? 'Starting…' : 'Sync new pages'}
+                      </button>
+                    ) : null}
+                    {canSync ? (
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() =>
+                          void seedSite(site.key, site.name, {
+                            sinceYears: site.sinceYears,
+                            mode: 'rebuild_empty',
+                          })
+                        }
+                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
+                        title={
+                          broken > 0
+                            ? `Re-ingest ${broken} broken source${broken === 1 ? '' : 's'}`
+                            : 'Re-ingest empty/error sources for this site'
+                        }
+                      >
+                        {broken > 0 ? `Fix ${broken} broken` : 'Fix broken'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() => {
+                          setFilterSite(site.key)
+                          setShowAddPanel(true)
+                          document.getElementById('rag-library')?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          })
+                        }}
+                      >
+                        View in library
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -909,7 +1103,7 @@ export function RagSourcesTab() {
           aria-expanded={showAddPanel}
         >
           <span>{showAddPanel ? '▼' : '▶'} Add a source manually</span>
-          <span className="muted">Upload file · one URL · custom website</span>
+          <span className="muted">Upload file · one URL · website</span>
         </button>
         {showAddPanel ? (
           <>
@@ -989,7 +1183,7 @@ export function RagSourcesTab() {
             </div>
 
             <div className="rag-seed-custom" style={{ marginTop: 16 }}>
-              <div className="rag-seed-presets-label">Custom website</div>
+              <div className="rag-seed-presets-label">Website</div>
               <div className="rag-seed-custom-grid">
                 <div className="field">
                   <FieldLabel>Display name (optional)</FieldLabel>

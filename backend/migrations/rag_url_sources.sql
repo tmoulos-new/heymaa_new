@@ -43,7 +43,7 @@ VALUES
     'el',
     'https://www.babyspace.gr/',
     true,
-    '{"seed": true, "notes": "PKIP initial source"}'::jsonb
+    '{"seed": true, "discover": "listing_pages", "since_years": 5, "max_urls": 2000, "max_discover_pages": 250, "notes": "PKIP initial source"}'::jsonb
   ),
   (
     'myparenthood',
@@ -52,7 +52,7 @@ VALUES
     'el',
     'https://myparenthood.gr/blog/',
     true,
-    '{"seed": true, "notes": "PKIP initial source", "sitemap": "https://myparenthood.gr/post-sitemap.xml"}'::jsonb
+    '{"seed": true, "discover": "sitemap", "sitemap": "https://myparenthood.gr/post-sitemap.xml", "max_urls": 80, "notes": "PKIP initial source"}'::jsonb
   )
 ON CONFLICT (source_key) DO UPDATE SET
   name = EXCLUDED.name,
