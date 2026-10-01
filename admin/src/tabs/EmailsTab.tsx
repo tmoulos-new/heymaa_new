@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Eye, ImagePlus, Mail, RefreshCw, Search, Send } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { BarChart3, Eye, ImagePlus, Mail, RefreshCw, Send } from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
+import { CampaignReportModal } from '../components/CampaignReportModal'
+import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
 import { useAdmin } from '../context/AdminContext'
-
-type UserHit = {
-  id: string
-  email?: string
-  name?: string
-  plan?: string
-  subscription_status?: string
-}
 
 type Campaign = {
   id: string
@@ -52,9 +46,7 @@ export function EmailsTab() {
   const [uploading, setUploading] = useState(false)
   const [audience, setAudience] = useState<'selected' | 'all' | 'plan'>('selected')
   const [plan, setPlan] = useState('trial')
-  const [query, setQuery] = useState('')
-  const [hits, setHits] = useState<UserHit[]>([])
-  const [picked, setPicked] = useState<UserHit[]>([])
+  const [picked, setPicked] = useState<PickerUser[]>([])
   const [sending, setSending] = useState(false)
   const [history, setHistory] = useState<Campaign[]>([])
   const [setupError, setSetupError] = useState('')
@@ -65,9 +57,11 @@ export function EmailsTab() {
   const [previewSubject, setPreviewSubject] = useState('')
   const [previewError, setPreviewError] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [reportPath, setReportPath] = useState<string | null>(null)
+  const [reportHeading, setReportHeading] = useState('Campaign report')
+  const [txDays, setTxDays] = useState(30)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const pickedIds = useMemo(() => new Set(picked.map((u) => u.id)), [picked])
   const stillSending = history.some((item) => item.status === 'sending')
 
   const load = async () => {
@@ -101,20 +95,6 @@ export function EmailsTab() {
     }, 3000)
     return () => window.clearInterval(handle)
   }, [stillSending, adminFetch])
-
-  useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) {
-      setHits([])
-      return
-    }
-    const handle = window.setTimeout(() => {
-      void adminFetch(`/admin/notifications/users?q=${encodeURIComponent(q)}`)
-        .then((d) => setHits((d.users as UserHit[]) || []))
-        .catch(() => setHits([]))
-    }, 250)
-    return () => window.clearTimeout(handle)
-  }, [query, adminFetch])
 
   useEffect(() => {
     if (!preview) return
@@ -204,22 +184,20 @@ export function EmailsTab() {
   }
 
   return (
-    <>
+    <div className="broadcast-stack">
       {Message}
-      <div className="card">
+      <div className="card broadcast-intro">
         <div className="card-head">
-          <div>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-              <Mail size={18} />
-              How email works
-            </h2>
-            <p className="card-desc" style={{ margin: '6px 0 0' }}>
-              The message arrives in the person’s inbox, even if they never opened HeyMaa and never allowed
-              phone alerts. It does not appear on the lock screen. Accounts without an email address are skipped.
-              One send is limited to {mailStatus?.max_per_send ?? 150} people.
-            </p>
-          </div>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Mail size={18} />
+            How email works
+          </h2>
         </div>
+        <p className="card-desc">
+          The message arrives in the person’s inbox, even if they never opened HeyMaa and never allowed
+          phone alerts. It does not appear on the lock screen. Accounts without an email address are skipped.
+          One send is limited to {mailStatus?.max_per_send ?? 150} people.
+        </p>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
           Mail: {mailStatus?.configured ? 'ready' : 'not configured'}
           {mailStatus?.from ? ` · from ${mailStatus.from}` : ''}
@@ -232,13 +210,13 @@ export function EmailsTab() {
         </div>
       ) : null}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>New email</h2>
-        <div className="field">
+      <div className="card broadcast-composer">
+        <h2>New email</h2>
+        <div className="field-wrap">
           <FieldLabel required>Subject</FieldLabel>
           <input value={subject} maxLength={140} onChange={(e) => setSubject(e.target.value)} placeholder="Short subject" />
         </div>
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel required>Message</FieldLabel>
           <textarea
             value={body}
@@ -248,11 +226,11 @@ export function EmailsTab() {
             placeholder="Write the email. Use {name} if you want their name in the text."
           />
         </div>
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel>Button link (optional)</FieldLabel>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/subscription or https://…" />
         </div>
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel>Pictures (optional)</FieldLabel>
           <input
             ref={fileRef}
@@ -265,40 +243,42 @@ export function EmailsTab() {
               e.target.value = ''
             }}
           />
-          <button
-            type="button"
-            className="sec sm"
-            disabled={uploading || images.length >= 4}
-            onClick={() => fileRef.current?.click()}
-          >
-            <ImagePlus size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-            {uploading ? 'Uploading…' : 'Add a picture'}
-          </button>
-          <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
-            JPEG, PNG, WebP, or GIF. Up to 4. They appear in the email under the text.
-          </p>
-          {images.length > 0 ? (
-            <div className="email-visuals">
-              {images.map((src) => (
-                <div className="email-visuals__item" key={src}>
-                  <img src={src} alt="" />
-                  <button
-                    type="button"
-                    className="email-visuals__remove"
-                    aria-label="Remove picture"
-                    onClick={() => setImages((cur) => cur.filter((item) => item !== src))}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <div>
+            <button
+              type="button"
+              className="sec sm"
+              disabled={uploading || images.length >= 4}
+              onClick={() => fileRef.current?.click()}
+            >
+              <ImagePlus size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              {uploading ? 'Uploading…' : 'Add a picture'}
+            </button>
+            <p className="field-hint" style={{ marginTop: 6 }}>
+              JPEG, PNG, WebP, or GIF. Up to 4. They appear in the email under the text.
+            </p>
+            {images.length > 0 ? (
+              <div className="email-visuals">
+                {images.map((src) => (
+                  <div className="email-visuals__item" key={src}>
+                    <img src={src} alt="" />
+                    <button
+                      type="button"
+                      className="email-visuals__remove"
+                      aria-label="Remove picture"
+                      onClick={() => setImages((cur) => cur.filter((item) => item !== src))}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel>Who receives it</FieldLabel>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="audience-toggle">
             {(
               [
                 ['selected', 'Specific people'],
@@ -319,58 +299,16 @@ export function EmailsTab() {
         </div>
 
         {audience === 'plan' ? (
-          <div className="field">
+          <div className="field-wrap">
             <FieldLabel>Plan id or subscription status</FieldLabel>
             <input value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="trial, active, starter, premium" />
           </div>
         ) : null}
 
-        {audience === 'selected' ? (
-          <div className="field">
-            <FieldLabel>Find people</FieldLabel>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Search size={14} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name or email"
-              />
-            </div>
-            {picked.length > 0 ? (
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
-                Selected: {picked.map((u) => u.email || u.name || u.id).join(', ')}
-              </p>
-            ) : null}
-            {hits.length > 0 ? (
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {hits.map((u) => {
-                  const on = pickedIds.has(u.id)
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      className={on ? 'teal sm' : 'ghost sm'}
-                      style={{ justifyContent: 'flex-start' }}
-                      onClick={() =>
-                        setPicked((cur) => (on ? cur.filter((x) => x.id !== u.id) : [...cur, u]))
-                      }
-                    >
-                      {(u.name || 'No name') + ' · ' + (u.email || 'no email')}
-                      {u.subscription_status ? ` · ${u.subscription_status}` : ''}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {audience === 'selected' ? <PeoplePicker picked={picked} onChange={setPicked} /> : null}
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="sec"
-            onClick={() => setPreview({ subject, body, url, images })}
-          >
+        <div className="composer-actions">
+          <button type="button" className="sec" onClick={() => setPreview({ subject, body, url, images })}>
             <Eye size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
             Preview
           </button>
@@ -397,6 +335,36 @@ export function EmailsTab() {
         }}
       />
 
+      <div className="card broadcast-report-card">
+        <div className="card-head">
+          <h2 style={{ margin: 0 }}>Transactional email report</h2>
+        </div>
+        <p className="card-desc">
+          Welcome, reminders, gifts, cancellations and other system mail — filter by period.
+        </p>
+        <div className="report-actions">
+          <label>
+            Last
+            <select value={txDays} onChange={(e) => setTxDays(Number(e.target.value))}>
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="sec"
+            onClick={() => {
+              setReportHeading('Transactional email report')
+              setReportPath(`/admin/emails/reports/transactional?days=${txDays}`)
+            }}
+          >
+            <BarChart3 size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            Open report
+          </button>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-head">
           <h2 style={{ margin: 0 }}>Sent emails</h2>
@@ -405,29 +373,40 @@ export function EmailsTab() {
           </button>
         </div>
         {history.length === 0 ? (
-          <p className="muted">{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
+          <p className="muted" style={{ margin: 0 }}>{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="broadcast-history-list">
             {history.map((item) => (
-              <article key={item.id} style={{ borderTop: '.5px solid var(--border)', paddingTop: 10 }}>
-                <strong>{item.subject}</strong>
-                <button
-                  type="button"
-                  className="ghost sm"
-                  style={{ marginLeft: 8 }}
-                  onClick={() =>
-                    setPreview({
-                      subject: item.subject || '',
-                      body: item.body || '',
-                      url: item.url || '',
-                      images: Array.isArray(item.images) ? item.images.filter((src) => typeof src === 'string') : [],
-                    })
-                  }
-                >
-                  Preview
-                </button>
-                <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{item.body}</p>
-                <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              <article key={item.id} className="broadcast-history-item">
+                <div className="broadcast-history-item__head">
+                  <strong>{item.subject}</strong>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() =>
+                      setPreview({
+                        subject: item.subject || '',
+                        body: item.body || '',
+                        url: item.url || '',
+                        images: Array.isArray(item.images) ? item.images.filter((src) => typeof src === 'string') : [],
+                      })
+                    }
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => {
+                      setReportHeading('Campaign report')
+                      setReportPath(`/admin/emails/${item.id}/report`)
+                    }}
+                  >
+                    Report
+                  </button>
+                </div>
+                <p style={{ whiteSpace: 'pre-wrap' }}>{item.body}</p>
+                <p className="muted" style={{ fontSize: 12 }}>
                   {fmt(item.created_at)} · {item.audience_label || item.audience} · {item.status || 'sent'} ·{' '}
                   delivered {item.delivered ?? 0}/{item.recipient_count ?? 0}
                   {item.failed ? ` · ${item.failed} failed` : ''}
@@ -435,13 +414,20 @@ export function EmailsTab() {
                   {item.url ? ` · button ${item.url}` : ''}
                 </p>
                 {item.last_error ? (
-                  <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>{item.last_error}</p>
+                  <p className="muted" style={{ fontSize: 12 }}>{item.last_error}</p>
                 ) : null}
               </article>
             ))}
           </div>
         )}
       </div>
-    </>
+
+      <CampaignReportModal
+        open={!!reportPath}
+        path={reportPath}
+        heading={reportHeading}
+        onClose={() => setReportPath(null)}
+      />
+    </div>
   )
 }

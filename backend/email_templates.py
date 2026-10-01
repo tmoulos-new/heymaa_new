@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -1092,24 +1093,92 @@ def send_email(
     from_address: str,
     to: str,
     message: EmailMessage,
+    kind: str = "transactional",
+    campaign_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    to_name: Optional[str] = None,
+    tags: Optional[dict[str, str]] = None,
 ) -> Optional[str]:
-    """Send via Resend. Returns None on success, error string on failure."""
+    """Send via Resend. Returns None on success, error string on failure.
+
+    Optional kind/campaign_id/tags are stored for admin email reports when
+    backend/migrations/email_analytics.sql is applied and Resend webhooks fire.
+    """
     if not api_key:
         return "RESEND_API_KEY is not configured on the server."
     import resend as _resend
 
     _resend.api_key = api_key
+    tag_pairs = []
+    merged_tags: dict[str, str] = {}
+    if kind:
+        merged_tags["kind"] = re.sub(r"[^a-zA-Z0-9_\-]", "", str(kind))[:40] or "transactional"
+    if campaign_id:
+        merged_tags["campaign_id"] = re.sub(r"[^a-zA-Z0-9_\-]", "", str(campaign_id))[:60]
+    for key, val in (tags or {}).items():
+        k = re.sub(r"[^a-zA-Z0-9_\-]", "", str(key))[:40]
+        v = re.sub(r"[^a-zA-Z0-9_\-]", "", str(val))[:60]
+        if k and v:
+            merged_tags[k] = v
+    for key, val in merged_tags.items():
+        tag_pairs.append({"name": key, "value": val})
+
     payload: dict = {
         "from": from_address,
         "to": to.strip(),
         "subject": message.subject,
         "html": message.html,
     }
+    if tag_pairs:
+        payload["tags"] = tag_pairs[:20]
     attachment = logo_attachment()
     if attachment:
         payload["attachments"] = [attachment]
+    resend_id = None
     try:
-        _resend.Emails.send(payload)
+        resp = _resend.Emails.send(payload)
+        if isinstance(resp, dict):
+            resend_id = str(resp.get("id") or "") or None
+        else:
+            resend_id = str(getattr(resp, "id", "") or "") or None
     except Exception as e:
+        try:
+            from email_analytics import record_send
+        except ImportError:
+            try:
+                from .email_analytics import record_send
+            except ImportError:
+                record_send = None  # type: ignore
+        if record_send:
+            record_send(
+                resend_id=None,
+                to_email=to,
+                subject=message.subject,
+                kind=kind,
+                campaign_id=campaign_id,
+                user_id=user_id,
+                to_name=to_name,
+                tags=merged_tags,
+                status="failed",
+            )
         return str(e)
+    try:
+        from email_analytics import record_send
+    except ImportError:
+        try:
+            from .email_analytics import record_send
+        except ImportError:
+            record_send = None  # type: ignore
+    if record_send:
+        record_send(
+            resend_id=resend_id,
+            to_email=to,
+            subject=message.subject,
+            kind=kind,
+            campaign_id=campaign_id,
+            user_id=user_id,
+            to_name=to_name,
+            tags=merged_tags,
+            status="sent",
+        )
     return None

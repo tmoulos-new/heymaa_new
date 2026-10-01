@@ -121,6 +121,11 @@ def _deliver_all(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: 
             from_address=from_address,
             to=str(user["email"]),
             message=message,
+            kind="campaign",
+            campaign_id=str(campaign_id),
+            user_id=str(user.get("id") or "") or None,
+            to_name=str(user.get("name") or "").strip() or None,
+            tags={"campaign": "admin_broadcast"},
         )
         if err:
             failed += 1
@@ -299,3 +304,42 @@ def register_email_routes(app: FastAPI) -> None:
             for_preview=True,
         )
         return {"subject": message.subject, "html": message.html}
+
+    @app.get("/admin/emails/reports/transactional")
+    async def admin_transactional_email_report(
+        days: int = 30,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        x_token: Optional[str] = Header(None),
+    ):
+        _require_admin(x_token)
+        from datetime import datetime, timedelta, timezone
+
+        if since:
+            start = since
+        else:
+            d = max(1, min(90, int(days or 30)))
+            start = (datetime.now(timezone.utc) - timedelta(days=d)).isoformat()
+        try:
+            from email_analytics import transactional_email_report
+        except ImportError:
+            from .email_analytics import transactional_email_report
+        result = transactional_email_report(_main().sb, since=start, until=until)
+        if not result.get("ok"):
+            raise HTTPException(status_code=503, detail=result.get("error") or "Report unavailable")
+        return result
+
+    @app.get("/admin/emails/{campaign_id}/report")
+    async def admin_email_campaign_report(campaign_id: str, x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        try:
+            from email_analytics import campaign_email_report
+        except ImportError:
+            from .email_analytics import campaign_email_report
+        result = campaign_email_report(_main().sb, campaign_id)
+        if not result.get("ok"):
+            raise HTTPException(
+                status_code=404 if "not found" in str(result.get("error") or "").lower() else 503,
+                detail=result.get("error") or "Report unavailable",
+            )
+        return result

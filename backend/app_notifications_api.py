@@ -274,7 +274,7 @@ def register_notification_routes(app: FastAPI) -> None:
         sb = _main().sb
         query = (q or "").strip().replace("%", "").replace(",", " ")[:80]
         try:
-            req = sb.table("users").select("id,email,name,plan,subscription_status").limit(25)
+            req = sb.table("users").select("id,email,name,plan,subscription_status").limit(40)
             if query:
                 safe = query.replace("'", "")
                 req = req.or_(f"email.ilike.%{safe}%,name.ilike.%{safe}%")
@@ -445,3 +445,42 @@ def register_notification_routes(app: FastAPI) -> None:
             }
         )
         return {"ok": True, "notification": note}
+
+    @app.get("/admin/notifications/reports/overview")
+    async def admin_notifications_overview_report(
+        days: int = 30,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        x_token: Optional[str] = Header(None),
+    ):
+        _require_admin(x_token)
+        from datetime import datetime, timedelta, timezone
+
+        if since:
+            start = since
+        else:
+            d = max(1, min(90, int(days or 30)))
+            start = (datetime.now(timezone.utc) - timedelta(days=d)).isoformat()
+        try:
+            from email_analytics import notifications_period_report
+        except ImportError:
+            from .email_analytics import notifications_period_report
+        result = notifications_period_report(_main().sb, since=start, until=until)
+        if not result.get("ok"):
+            raise HTTPException(status_code=503, detail=result.get("error") or "Report unavailable")
+        return result
+
+    @app.get("/admin/notifications/{notification_id}/report")
+    async def admin_notification_report(notification_id: str, x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        try:
+            from email_analytics import notification_report
+        except ImportError:
+            from .email_analytics import notification_report
+        result = notification_report(_main().sb, notification_id)
+        if not result.get("ok"):
+            raise HTTPException(
+                status_code=404 if "not found" in str(result.get("error") or "").lower() else 503,
+                detail=result.get("error") or "Report unavailable",
+            )
+        return result

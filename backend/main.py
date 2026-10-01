@@ -4345,6 +4345,8 @@ def register_user(req: RegisterRequest):
                     from_address=RESEND_FROM,
                     to=email,
                     message=welcome,
+                    kind="welcome_trial",
+                    to_name=req.name,
                 )
             except Exception:
                 pass
@@ -4547,6 +4549,7 @@ def cancel_subscription_request(x_token: Optional[str] = Header(None)):
                 from_address=RESEND_FROM,
                 to=support,
                 message=cancel_msg,
+                kind="cancel_request_admin",
             )
         except Exception:
             pass
@@ -9690,6 +9693,7 @@ async def viva_webhook(request: Request):
                     from_address=RESEND_FROM,
                     to=user_email,
                     message=activated,
+                    kind="subscription_activated",
                 )
             except Exception:
                 pass
@@ -9701,6 +9705,31 @@ async def viva_webhook(request: Request):
 
 
 # Lemon Squeezy Webhook
+@app.post("/webhooks/resend")
+async def resend_webhook(request: Request):
+    """Ingest Resend delivery / open / click events for email reports."""
+    secret_header = request.headers.get("x-resend-secret") or request.headers.get("authorization")
+    if secret_header and secret_header.lower().startswith("bearer "):
+        secret_header = secret_header[7:].strip()
+    query_secret = request.query_params.get("secret")
+    try:
+        from .email_analytics import handle_resend_webhook, webhook_secret_ok
+    except ImportError:
+        from email_analytics import handle_resend_webhook, webhook_secret_ok
+    if not webhook_secret_ok(secret_header, query_secret):
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Expected a JSON object")
+    result = handle_resend_webhook(payload)
+    if not result.get("ok"):
+        raise HTTPException(status_code=503, detail=result.get("error") or "Webhook failed")
+    return result
+
+
 @app.post("/webhooks/lemon")
 async def lemon_webhook(request: Request):
     try:

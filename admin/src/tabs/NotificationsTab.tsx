@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Bell, Eye, RefreshCw, Search, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BarChart3, Bell, Eye, RefreshCw, Send } from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
+import { CampaignReportModal } from '../components/CampaignReportModal'
+import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
 import { useAdmin } from '../context/AdminContext'
-
-type UserHit = {
-  id: string
-  email?: string
-  name?: string
-  plan?: string
-  subscription_status?: string
-}
 
 type Campaign = {
   id: string
@@ -49,17 +43,16 @@ export function NotificationsTab() {
   const [url, setUrl] = useState('')
   const [audience, setAudience] = useState<'selected' | 'all' | 'plan'>('selected')
   const [plan, setPlan] = useState('trial')
-  const [query, setQuery] = useState('')
-  const [hits, setHits] = useState<UserHit[]>([])
-  const [picked, setPicked] = useState<UserHit[]>([])
+  const [picked, setPicked] = useState<PickerUser[]>([])
   const [sending, setSending] = useState(false)
   const [history, setHistory] = useState<Campaign[]>([])
   const [setupError, setSetupError] = useState('')
   const [pushStatus, setPushStatus] = useState<PushStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState<{ title: string; body: string; url: string } | null>(null)
-
-  const pickedIds = useMemo(() => new Set(picked.map((u) => u.id)), [picked])
+  const [reportPath, setReportPath] = useState<string | null>(null)
+  const [reportHeading, setReportHeading] = useState('Notification report')
+  const [overviewDays, setOverviewDays] = useState(30)
 
   const load = async () => {
     setLoading(true)
@@ -82,20 +75,6 @@ export function NotificationsTab() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) {
-      setHits([])
-      return
-    }
-    const handle = window.setTimeout(() => {
-      void adminFetch(`/admin/notifications/users?q=${encodeURIComponent(q)}`)
-        .then((d) => setHits((d.users as UserHit[]) || []))
-        .catch(() => setHits([]))
-    }, 250)
-    return () => window.clearTimeout(handle)
-  }, [query, adminFetch])
 
   const send = async () => {
     if (audience === 'selected' && picked.length === 0) {
@@ -134,23 +113,21 @@ export function NotificationsTab() {
   }
 
   return (
-    <>
+    <div className="broadcast-stack">
       {Message}
-      <div className="card">
+      <div className="card broadcast-intro">
         <div className="card-head">
-          <div>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-              <Bell size={18} />
-              How delivery works
-            </h2>
-            <p className="card-desc" style={{ margin: '6px 0 0' }}>
-              Every message is saved in the in-app bell and appears the next time that person opens HeyMaa,
-              including on a phone browser. A lock-screen alert is sent only to phones and browsers that have
-              allowed notifications. Android Chrome can show those immediately. iPhone shows them only after
-              HeyMaa is added to the Home Screen (iOS 16.4 or newer) and alerts are allowed.
-            </p>
-          </div>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Bell size={18} />
+            How delivery works
+          </h2>
         </div>
+        <p className="card-desc">
+          Every message is saved in the in-app bell and appears the next time that person opens HeyMaa,
+          including on a phone browser. A lock-screen alert is sent only to phones and browsers that have
+          allowed notifications. Android Chrome can show those immediately. iPhone shows them only after
+          HeyMaa is added to the Home Screen (iOS 16.4 or newer) and alerts are allowed.
+        </p>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
           Push keys: {pushStatus?.configured ? 'ready' : 'not ready'}
           {' · '}
@@ -165,13 +142,13 @@ export function NotificationsTab() {
         </div>
       ) : null}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>New message</h2>
-        <div className="field">
+      <div className="card broadcast-composer">
+        <h2>New message</h2>
+        <div className="field-wrap">
           <FieldLabel required>Title</FieldLabel>
           <input value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline" />
         </div>
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel required>Message</FieldLabel>
           <textarea
             value={body}
@@ -181,14 +158,14 @@ export function NotificationsTab() {
             placeholder="What should they see?"
           />
         </div>
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel>Open this page when tapped (optional)</FieldLabel>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/subscription" />
         </div>
 
-        <div className="field">
+        <div className="field-wrap">
           <FieldLabel>Who receives it</FieldLabel>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="audience-toggle">
             {(
               [
                 ['selected', 'Specific people'],
@@ -209,55 +186,15 @@ export function NotificationsTab() {
         </div>
 
         {audience === 'plan' ? (
-          <div className="field">
+          <div className="field-wrap">
             <FieldLabel>Plan id or subscription status</FieldLabel>
             <input value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="trial, active, starter, premium" />
           </div>
         ) : null}
 
-        {audience === 'selected' ? (
-          <div className="field">
-            <FieldLabel>Find people</FieldLabel>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Search size={14} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name or email"
-              />
-            </div>
-            {picked.length > 0 ? (
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
-                Selected: {picked.map((u) => u.email || u.name || u.id).join(', ')}
-              </p>
-            ) : null}
-            {hits.length > 0 ? (
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {hits.map((u) => {
-                  const on = pickedIds.has(u.id)
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      className={on ? 'teal sm' : 'ghost sm'}
-                      style={{ justifyContent: 'flex-start' }}
-                      onClick={() =>
-                        setPicked((cur) =>
-                          on ? cur.filter((x) => x.id !== u.id) : [...cur, u],
-                        )
-                      }
-                    >
-                      {(u.name || 'No name') + ' · ' + (u.email || u.id)}
-                      {u.subscription_status ? ` · ${u.subscription_status}` : ''}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {audience === 'selected' ? <PeoplePicker picked={picked} onChange={setPicked} /> : null}
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="composer-actions">
           <button type="button" className="sec" onClick={() => setPreview({ title, body, url })}>
             <Eye size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
             Preview
@@ -275,6 +212,36 @@ export function NotificationsTab() {
         notice={preview}
       />
 
+      <div className="card broadcast-report-card">
+        <div className="card-head">
+          <h2 style={{ margin: 0 }}>Notifications report</h2>
+        </div>
+        <p className="card-desc">
+          Reads, push delivery and campaign totals across all in-app notifications — filter by period.
+        </p>
+        <div className="report-actions">
+          <label>
+            Last
+            <select value={overviewDays} onChange={(e) => setOverviewDays(Number(e.target.value))}>
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="sec"
+            onClick={() => {
+              setReportHeading('Notifications report')
+              setReportPath(`/admin/notifications/reports/overview?days=${overviewDays}`)
+            }}
+          >
+            <BarChart3 size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            Open report
+          </button>
+        </div>
+      </div>
+
       <div className="card">
         <div className="card-head">
           <h2 style={{ margin: 0 }}>Sent messages</h2>
@@ -283,28 +250,40 @@ export function NotificationsTab() {
           </button>
         </div>
         {history.length === 0 ? (
-          <p className="muted">{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
+          <p className="muted" style={{ margin: 0 }}>{loading ? 'Loading…' : 'Nothing sent yet.'}</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="broadcast-history-list">
             {history.map((item) => (
-              <article key={item.id} style={{ borderTop: '.5px solid var(--border)', paddingTop: 10 }}>
-                <strong>{item.title}</strong>
-                <button
-                  type="button"
-                  className="ghost sm"
-                  style={{ marginLeft: 8 }}
-                  onClick={() =>
-                    setPreview({
-                      title: item.title || '',
-                      body: item.body || '',
-                      url: item.url || '',
-                    })
-                  }
-                >
-                  Preview
-                </button>
-                <p style={{ margin: '4px 0' }}>{item.body}</p>
-                <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              <article key={item.id} className="broadcast-history-item">
+                <div className="broadcast-history-item__head">
+                  <strong>{item.title}</strong>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() =>
+                      setPreview({
+                        title: item.title || '',
+                        body: item.body || '',
+                        url: item.url || '',
+                      })
+                    }
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => {
+                      setReportHeading('Notification report')
+                      setReportPath(`/admin/notifications/${item.id}/report`)
+                    }}
+                  >
+                    <BarChart3 size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
+                    Report
+                  </button>
+                </div>
+                <p>{item.body}</p>
+                <p className="muted" style={{ fontSize: 12 }}>
                   {fmt(item.created_at)} · {item.audience_label || item.audience} ·{' '}
                   {item.recipient_count ?? 0} in the bell · {item.read_count ?? 0} opened · push{' '}
                   {item.push_delivered ?? 0}/{item.push_attempted ?? 0}
@@ -312,13 +291,20 @@ export function NotificationsTab() {
                   {item.url ? ` · opens ${item.url}` : ''}
                 </p>
                 {item.last_error ? (
-                  <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>{item.last_error}</p>
+                  <p className="muted" style={{ fontSize: 12 }}>{item.last_error}</p>
                 ) : null}
               </article>
             ))}
           </div>
         )}
       </div>
-    </>
+
+      <CampaignReportModal
+        open={!!reportPath}
+        path={reportPath}
+        heading={reportHeading}
+        onClose={() => setReportPath(null)}
+      />
+    </div>
   )
 }
