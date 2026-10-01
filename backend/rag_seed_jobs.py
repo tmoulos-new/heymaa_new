@@ -240,24 +240,43 @@ def list_seed_jobs(sb, *, limit: int = 20) -> list[dict[str, Any]]:
     return list(res.data or [])
 
 
+_TERMINAL_STATUSES = ("completed", "failed", "cancelled")
+_ACTIVE_STATUSES = ("queued", "discovering", "running")
+
+
 def cancel_seed_job(sb, job_id: str) -> dict[str, Any]:
     row = get_seed_job(sb, job_id)
     if not row:
         raise ValueError("Job not found")
-    if row.get("status") in ("completed", "failed", "cancelled"):
+    if (row.get("status") or "").lower() in _TERMINAL_STATUSES:
         return row
     res = (
         sb.table("rag_seed_jobs")
         .update({"status": "cancelled", "updated_at": _now_iso()})
         .eq("id", job_id)
+        .in_("status", list(_ACTIVE_STATUSES))
         .execute()
     )
-    return (res.data or [row])[0]
+    if res.data:
+        return res.data[0]
+    # Already finished or cancelled by a concurrent request.
+    return get_seed_job(sb, job_id) or row
 
 
 def _save(sb, job_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    """Persist a tick patch only while the job is still active.
+
+    Cancel must win races: an in-flight tick must not overwrite status=cancelled
+    with running/discovering after the user hits Cancel.
+    """
     patch = {**patch, "updated_at": _now_iso()}
-    res = sb.table("rag_seed_jobs").update(patch).eq("id", job_id).execute()
+    res = (
+        sb.table("rag_seed_jobs")
+        .update(patch)
+        .eq("id", job_id)
+        .in_("status", list(_ACTIVE_STATUSES))
+        .execute()
+    )
     if res.data:
         return res.data[0]
     row = get_seed_job(sb, job_id)
@@ -491,7 +510,7 @@ def tick_seed_job(sb, job_id: str) -> dict[str, Any]:
     if not row:
         raise ValueError("Job not found")
     status = (row.get("status") or "").lower()
-    if status in ("completed", "failed", "cancelled"):
+    if status in _TERMINAL_STATUSES:
         return row
     try:
         if status in ("queued", "discovering"):
@@ -502,6 +521,10 @@ def tick_seed_job(sb, job_id: str) -> dict[str, Any]:
             return _tick_ingest(sb, row)
         return row
     except Exception as e:
+        # Don't mark failed if the user already cancelled mid-tick.
+        latest = get_seed_job(sb, job_id)
+        if latest and (latest.get("status") or "").lower() == "cancelled":
+            return latest
         return _save(
             sb,
             job_id,

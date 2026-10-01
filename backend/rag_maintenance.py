@@ -109,7 +109,15 @@ def compute_rag_health(sb) -> dict[str, Any]:
         else:
             totals["files"] += 1
 
-        key = (row.get("source_key") or "").strip().lower() or "other"
+        key = (row.get("source_key") or "").strip().lower()
+        if key not in ("babyspace", "myparenthood"):
+            origin_l = (origin or row.get("source_url") or "").lower()
+            if "babyspace.gr" in origin_l:
+                key = "babyspace"
+            elif "myparenthood.gr" in origin_l:
+                key = "myparenthood"
+            elif not key:
+                key = "other"
         bucket = by_key.setdefault(
             key,
             {"sources": 0, "ready": 0, "error": 0, "empty_chunks": 0, "broken": 0},

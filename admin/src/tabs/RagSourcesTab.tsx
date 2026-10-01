@@ -115,17 +115,29 @@ function shortUrl(url: string, max = 48) {
   }
 }
 
+function canonicalSiteFromHost(host: string): string | null {
+  const h = host.replace(/^www\./i, '').toLowerCase()
+  if (h === 'babyspace.gr' || h.endsWith('.babyspace.gr')) return 'babyspace'
+  if (h === 'myparenthood.gr' || h.endsWith('.myparenthood.gr')) return 'myparenthood'
+  return null
+}
+
 function siteKey(row: RagSourceRow): string {
   const key = (row.source_key || '').trim().toLowerCase()
-  if (key) return key
+  if (key === 'babyspace' || key === 'myparenthood') return key
   const origin = (row.origin || '').trim()
   if (isHttpUrl(origin)) {
     try {
+      const fromHost = canonicalSiteFromHost(new URL(origin).hostname)
+      if (fromHost) return fromHost
+      // Prefer named presets over raw host when source_key is a free-form site id.
+      if (key) return key
       return new URL(origin).hostname.replace(/^www\./i, '').toLowerCase()
     } catch {
       /* fall through */
     }
   }
+  if (key) return key
   return sourceKind(row).label === 'File' ? 'file' : 'other'
 }
 
@@ -274,14 +286,16 @@ export function RagSourcesTab() {
   // While a job is active, poll + nudge ticks (keep this tab open).
   useEffect(() => {
     if (!seedJob?.id || seedJob.done) return
-    let cancelled = false
+    let stopped = false
+    const jobId = seedJob.id
     const pulse = async () => {
-      if (cancelled || seedAbortRef.current) return
+      if (stopped || seedAbortRef.current) return
       try {
-        await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}/tick`, { method: 'POST' })
-        const got = await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}`)
-        const job = (got.job || got) as SeedJobPublic
-        if (cancelled) return
+        const ticked = await adminFetch(`/admin/rag_sources/seed_jobs/${jobId}/tick`, {
+          method: 'POST',
+        })
+        if (stopped || seedAbortRef.current) return
+        const job = (ticked.job || ticked) as SeedJobPublic
         setSeedJob(job)
         if (job.done) {
           void loadSources()
@@ -294,6 +308,8 @@ export function RagSourcesTab() {
             )
           } else if (job.status === 'failed') {
             show(job.last_error || 'Seed job failed', 'err')
+          } else if (job.status === 'cancelled') {
+            show('Job cancelled', 'ok')
           }
         }
       } catch {
@@ -303,7 +319,7 @@ export function RagSourcesTab() {
     const id = window.setInterval(() => void pulse(), 2500)
     void pulse()
     return () => {
-      cancelled = true
+      stopped = true
       window.clearInterval(id)
     }
   }, [seedJob?.id, seedJob?.done, seedJob?.mode, adminFetch, loadSources, show])
@@ -514,14 +530,24 @@ export function RagSourcesTab() {
   const cancelSeedJob = async () => {
     seedAbortRef.current = true
     if (!seedJob?.id || seedJob.done) return
+    const jobId = seedJob.id
+    // Hide the progress card immediately; in-flight ticks must not revive it.
+    setSeedJob((prev) =>
+      prev && prev.id === jobId
+        ? { ...prev, status: 'cancelled', done: true }
+        : prev,
+    )
     try {
-      const cancelled = await adminFetch(`/admin/rag_sources/seed_jobs/${seedJob.id}/cancel`, {
+      const cancelled = await adminFetch(`/admin/rag_sources/seed_jobs/${jobId}/cancel`, {
         method: 'POST',
       })
       setSeedJob((cancelled.job || cancelled) as SeedJobPublic)
       show('Job cancelled', 'ok')
+      void loadSources()
     } catch (e) {
+      seedAbortRef.current = false
       show(e instanceof Error ? e.message : 'Cancel failed', 'err')
+      void loadSources()
     }
   }
 
