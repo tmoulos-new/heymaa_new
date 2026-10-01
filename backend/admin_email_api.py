@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -160,56 +159,85 @@ def _deliver_all(
     images: Optional[list[str]] = None,
     button_label: Optional[str] = None,
 ) -> None:
+    """Send campaign mail via Resend Batch (≤100/request) so Vercel maxDuration is not hit."""
     m = _main()
     api_key = (getattr(m, "RESEND_API_KEY", "") or "").strip()
     from_address = (getattr(m, "RESEND_FROM", "") or "HeyMaa <info@heymaa.ai>").strip()
     try:
-        from email_templates import render_admin_broadcast_email, send_email
+        from email_templates import render_admin_broadcast_email, send_email, send_emails_batch
     except ImportError:
-        from .email_templates import render_admin_broadcast_email, send_email
+        from .email_templates import render_admin_broadcast_email, send_email, send_emails_batch
 
     delivered = 0
     failed = 0
     last_error = None
+    batch_size = 100
     try:
-        for user in users:
-            message = render_admin_broadcast_email(
-                subject=subject,
-                body=body,
-                link=link,
-                button_label=button_label,
-                name=str(user.get("name") or "").strip() or None,
-                images=images,
-            )
-            err = send_email(
+        for offset in range(0, len(users), batch_size):
+            chunk = users[offset : offset + batch_size]
+            items: list[dict[str, Any]] = []
+            for user in chunk:
+                message = render_admin_broadcast_email(
+                    subject=subject,
+                    body=body,
+                    link=link,
+                    button_label=button_label,
+                    name=str(user.get("name") or "").strip() or None,
+                    images=images,
+                )
+                items.append(
+                    {
+                        "to": str(user["email"]),
+                        "message": message,
+                        "kind": "campaign",
+                        "campaign_id": str(campaign_id),
+                        "user_id": str(user.get("id") or "") or None,
+                        "to_name": str(user.get("name") or "").strip() or None,
+                        "tags": {"campaign": "admin_broadcast"},
+                    }
+                )
+
+            results = send_emails_batch(
                 api_key=api_key,
                 from_address=from_address,
-                to=str(user["email"]),
-                message=message,
-                kind="campaign",
-                campaign_id=str(campaign_id),
-                user_id=str(user.get("id") or "") or None,
-                to_name=str(user.get("name") or "").strip() or None,
-                tags={"campaign": "admin_broadcast"},
+                items=items,
+                idempotency_key=f"heymaa-campaign/{campaign_id}/chunk-{offset}",
             )
-            if err:
-                failed += 1
-                last_error = err[:400]
-            else:
-                delivered += 1
-            if (delivered + failed) % 5 == 0:
-                try:
-                    sb.table("admin_email_campaigns").update(
-                        {
-                            "delivered": delivered,
-                            "failed": failed,
-                            "last_error": last_error,
-                        }
-                    ).eq("id", campaign_id).execute()
-                except Exception:
-                    pass
-                # Brief pause to reduce Resend / TLS connection churn on large sends.
-                time.sleep(0.05)
+            # If the whole chunk failed validation/network, fall back to one-by-one.
+            all_failed = bool(results) and all(err for _rid, err in results)
+            if all_failed and len(chunk) > 1:
+                results = []
+                for item in items:
+                    err = send_email(
+                        api_key=api_key,
+                        from_address=from_address,
+                        to=str(item["to"]),
+                        message=item["message"],
+                        kind="campaign",
+                        campaign_id=str(campaign_id),
+                        user_id=item.get("user_id"),
+                        to_name=item.get("to_name"),
+                        tags=item.get("tags"),
+                    )
+                    results.append((None, err))
+
+            for _rid, err in results:
+                if err:
+                    failed += 1
+                    last_error = err[:400]
+                else:
+                    delivered += 1
+
+            try:
+                sb.table("admin_email_campaigns").update(
+                    {
+                        "delivered": delivered,
+                        "failed": failed,
+                        "last_error": last_error,
+                    }
+                ).eq("id", campaign_id).execute()
+            except Exception:
+                pass
     finally:
         status = _campaign_final_status(delivered, failed)
         try:

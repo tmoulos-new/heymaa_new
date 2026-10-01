@@ -1388,3 +1388,126 @@ def send_email(
             status="sent",
         )
     return None
+
+
+def _logo_url_for_batch() -> str:
+    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
+    if explicit:
+        return explicit
+    base = (os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
+    return f"{base}/static/brand/{LOGO_FILENAME}"
+
+
+def _tag_pairs_for_send(
+    *,
+    kind: str,
+    campaign_id: Optional[str],
+    tags: Optional[dict[str, str]],
+) -> tuple[list[dict[str, str]], dict[str, str]]:
+    merged_tags: dict[str, str] = {}
+    if kind:
+        merged_tags["kind"] = re.sub(r"[^a-zA-Z0-9_\-]", "", str(kind))[:40] or "transactional"
+    if campaign_id:
+        merged_tags["campaign_id"] = re.sub(r"[^a-zA-Z0-9_\-]", "", str(campaign_id))[:60]
+    for key, val in (tags or {}).items():
+        k = re.sub(r"[^a-zA-Z0-9_\-]", "", str(key))[:40]
+        v = re.sub(r"[^a-zA-Z0-9_\-]", "", str(val))[:60]
+        if k and v:
+            merged_tags[k] = v
+    pairs = [{"name": key, "value": val} for key, val in merged_tags.items()]
+    return pairs[:20], merged_tags
+
+
+def send_emails_batch(
+    *,
+    api_key: str,
+    from_address: str,
+    items: list[dict],
+    idempotency_key: Optional[str] = None,
+) -> list[tuple[Optional[str], Optional[str]]]:
+    """Send many emails in one Resend Batch request (max 100).
+
+    Each item: {to, message: EmailMessage, kind?, campaign_id?, user_id?, to_name?, tags?}.
+    Returns parallel list of (resend_id|None, error|None). Batch does not support attachments;
+    CID logo is rewritten to a hosted URL.
+    """
+    if not api_key:
+        return [(None, "RESEND_API_KEY is not configured on the server.") for _ in items]
+    if not items:
+        return []
+    if len(items) > 100:
+        raise ValueError("Resend batch accepts at most 100 emails per request")
+
+    import resend as _resend
+
+    _resend.api_key = api_key
+    logo_url = _logo_url_for_batch()
+    payloads: list[dict] = []
+    meta: list[dict] = []
+    for item in items:
+        message: EmailMessage = item["message"]
+        html = (message.html or "").replace(f"cid:{LOGO_CID}", logo_url)
+        pairs, merged_tags = _tag_pairs_for_send(
+            kind=str(item.get("kind") or "transactional"),
+            campaign_id=item.get("campaign_id"),
+            tags=item.get("tags"),
+        )
+        payload: dict = {
+            "from": from_address,
+            "to": [str(item["to"]).strip()],
+            "subject": message.subject,
+            "html": html,
+        }
+        if pairs:
+            payload["tags"] = pairs
+        payloads.append(payload)
+        meta.append({**item, "merged_tags": merged_tags, "subject": message.subject})
+
+    try:
+        if idempotency_key:
+            resp = _resend.Batch.send(payloads, {"idempotency_key": idempotency_key})
+        else:
+            resp = _resend.Batch.send(payloads)
+    except Exception as e:
+        err = str(e)[:400]
+        return [(None, err) for _ in items]
+
+    data = []
+    if isinstance(resp, dict):
+        data = resp.get("data") or []
+    else:
+        data = getattr(resp, "data", None) or []
+
+    results: list[tuple[Optional[str], Optional[str]]] = []
+    try:
+        from email_analytics import record_send
+    except ImportError:
+        try:
+            from .email_analytics import record_send
+        except ImportError:
+            record_send = None  # type: ignore
+
+    for idx, item_meta in enumerate(meta):
+        entry = data[idx] if idx < len(data) else None
+        resend_id = None
+        if isinstance(entry, dict):
+            resend_id = str(entry.get("id") or "") or None
+        elif entry is not None:
+            resend_id = str(getattr(entry, "id", "") or "") or None
+        if record_send:
+            record_send(
+                resend_id=resend_id,
+                to_email=str(item_meta["to"]),
+                subject=str(item_meta.get("subject") or ""),
+                kind=str(item_meta.get("kind") or "transactional"),
+                campaign_id=item_meta.get("campaign_id"),
+                user_id=item_meta.get("user_id"),
+                to_name=item_meta.get("to_name"),
+                tags=item_meta.get("merged_tags") or {},
+                status="sent" if resend_id else "failed",
+            )
+        if resend_id:
+            results.append((resend_id, None))
+        else:
+            results.append((None, "Batch response missing email id"))
+    return results
