@@ -281,7 +281,7 @@ def update_knowledge_source_setup(
     new_lang = (language if language is not None else existing.get("language") or "el").strip()[:12] or "el"
 
     if max_urls is not None:
-        meta["max_urls"] = max(1, min(int(max_urls), 2000))
+        meta["max_urls"] = max(1, min(int(max_urls), 300))
     if since_years is not None:
         meta["since_years"] = float(since_years)
     if max_discover_pages is not None:
@@ -658,71 +658,53 @@ def create_seed_job(
         if since_years is not None
         else float(meta["since_years"])
         if meta.get("since_years") is not None
-        else (5.0 if discover == "listing_pages" else 5.0)
+        else 5.0
     )
 
-    # Paginated listing walk (Babyspace-style) — same registry, different discover mode.
+    # Always queue a discovering job. Discovery runs on /tick so large
+    # max_urls (e.g. 2000) cannot time out the create HTTP request on Vercel.
     if discover == "listing_pages":
         pages = int(meta.get("max_discover_pages") or max_discover_pages or 250)
-        payload = {
-            "source_key": key,
-            "status": "discovering",
-            "since_years": years,
-            "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
-            "discover_page": 1,
-            "max_discover_pages": max(1, min(pages, 400)),
-            "urls": [],
-            "cursor_idx": 0,
-            "discovered": 0,
-            "ingested": 0,
-            "skipped": 0,
-            "failed": 0,
-            "last_error": None,
-            "created_by": created_by,
-            "updated_at": _now_iso(),
-        }
-        try:
-            res = sb.table("rag_seed_jobs").insert(payload).execute()
-        except Exception as e:
-            raise RuntimeError(
-                "rag_seed_jobs table missing or not writable. "
-                "Run backend/migrations/rag_seed_jobs.sql in Supabase, then retry. "
-                f"Detail: {e}"
-            ) from e
-        if not res.data:
-            raise RuntimeError("Failed to create seed job")
-        return res.data[0]
+        pages = max(1, min(pages, 400))
+    else:
+        # One discover tick finds the URL list (sitemap / RSS / crawl).
+        pages = 1
 
-    # Sitemap / RSS / crawl — one-shot discover then prepared ingest (same as Add website).
     base = (ks.get("base_url") or "").strip() or (_base_url_for_source(sb, key) or "")
-    if not base:
+    if discover != "listing_pages" and not base:
         raise ValueError(
-            f"No crawl config for '{key}'. Add it again under Add a source "
-            "(base URL / RSS / sitemap), then Sync will work."
+            f"No crawl config for '{key}'. Open Edit setup, set a base URL "
+            "(and RSS/sitemap if you have them), then Sync again."
         )
-    try:
-        from .url_acquire import discover_source_urls
-    except ImportError:
-        from url_acquire import discover_source_urls
 
-    max_urls = max(1, min(int(meta.get("max_urls") or 50), 2000))
-    urls = discover_source_urls(
-        base_url=base,
-        sitemap_url=(meta.get("sitemap") or None),
-        rss_url=(meta.get("rss") or None),
-        source_key=key,
-        max_urls=max_urls,
-        since_years=years if discover == "listing_pages" else None,
-    )
-    if not urls:
-        raise ValueError("No pages discovered for this site.")
-    return create_prepared_seed_job(
-        sb,
-        source_key=key,
-        urls=urls,
-        created_by=created_by,
-        batch_size=batch_size,
-    )
+    payload = {
+        "source_key": key,
+        "status": "discovering",
+        "since_years": years,
+        "batch_size": max(1, min(int(batch_size or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE)),
+        "discover_page": 1,
+        "max_discover_pages": pages,
+        "urls": [],
+        "cursor_idx": 0,
+        "discovered": 0,
+        "ingested": 0,
+        "skipped": 0,
+        "failed": 0,
+        "last_error": None,
+        "created_by": created_by,
+        "updated_at": _now_iso(),
+    }
+    try:
+        res = sb.table("rag_seed_jobs").insert(payload).execute()
+    except Exception as e:
+        raise RuntimeError(
+            "rag_seed_jobs table missing or not writable. "
+            "Run backend/migrations/rag_seed_jobs.sql in Supabase, then retry. "
+            f"Detail: {e}"
+        ) from e
+    if not res.data:
+        raise RuntimeError("Failed to create seed job")
+    return res.data[0]
 
 
 def create_prepared_seed_job(
@@ -945,7 +927,7 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
-    """One-shot sitemap/RSS discover for legacy discovering jobs."""
+    """One-shot sitemap/RSS/crawl discover for non-listing website jobs."""
     try:
         from .url_acquire import discover_source_urls, normalize_url
     except ImportError:
@@ -955,18 +937,49 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
     source_key = (row.get("source_key") or "myparenthood").strip().lower()
     ks = get_knowledge_source(sb, source_key) or {}
     meta = ks.get("metadata") if isinstance(ks.get("metadata"), dict) else {}
-    base = (ks.get("base_url") or "").strip() or "https://myparenthood.gr/blog/"
+    discover = _discover_mode(ks, source_key)
+    base = (ks.get("base_url") or "").strip() or (_base_url_for_source(sb, source_key) or "")
+    if not base and source_key == "myparenthood":
+        base = "https://myparenthood.gr/blog/"
+    if not base:
+        return _save(
+            sb,
+            job_id,
+            {
+                "status": "failed",
+                "last_error": "No base URL in sync setup — open Edit setup and save a base URL.",
+                "discover_page": int(row.get("max_discover_pages") or 1) + 1,
+            },
+        )
+
     sitemap = meta.get("sitemap") or (
         "https://myparenthood.gr/post-sitemap.xml" if source_key == "myparenthood" else None
     )
+    rss = meta.get("rss")
+    # Hard cap per tick so Sync cannot blow the Vercel time budget (was HTTP 500 with 2000).
+    requested = max(1, min(int(meta.get("max_urls") or 50), 2000))
+    max_urls = min(requested, 300)
     ready = _ready_origins_for_source(sb, source_key)
-    found = discover_source_urls(
-        base_url=base,
-        sitemap_url=sitemap,
-        rss_url=meta.get("rss"),
-        source_key=source_key,
-        max_urls=int(meta.get("max_urls") or 500),
-    )
+    try:
+        found = discover_source_urls(
+            base_url=base,
+            sitemap_url=sitemap,
+            rss_url=rss,
+            source_key=source_key,
+            max_urls=max_urls,
+            prefer=discover,
+        )
+    except Exception as e:
+        return _save(
+            sb,
+            job_id,
+            {
+                "status": "failed",
+                "last_error": f"Discover failed: {e}"[:500],
+                "discover_page": int(row.get("max_discover_pages") or 1) + 1,
+            },
+        )
+
     urls: list[str] = []
     seen: set[str] = set()
     for raw in found:
@@ -980,6 +993,14 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
         seen.add(key)
         urls.append(u)
     max_pages = int(row.get("max_discover_pages") or 250)
+    note = None
+    if requested > max_urls:
+        note = f"Capped discover at {max_urls} pages this sync (requested {requested})."
+    if not urls:
+        note = (
+            "No new pages found (already synced or feed/sitemap empty). "
+            "Check Edit setup RSS/sitemap, or lower expectations — an RSS feed rarely has 2000 items."
+        )
     return _save(
         sb,
         job_id,
@@ -988,6 +1009,7 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             "discovered": len(urls),
             "discover_page": max_pages + 1,
             "status": "running" if urls else "completed",
+            "last_error": note,
         },
     )
 

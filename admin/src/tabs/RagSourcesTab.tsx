@@ -774,7 +774,7 @@ export function RagSourcesTab() {
     }
     setSetupSaving(true)
     try {
-      const maxUrls = Math.max(1, Math.min(Number(setupMax) || 50, 2000))
+      const maxUrls = Math.max(1, Math.min(Number(setupMax) || 50, 300))
       const since = setupSinceYears.trim() ? Number(setupSinceYears) : undefined
       await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(setupKey)}`, {
         method: 'PATCH',
@@ -1670,6 +1670,10 @@ export function RagSourcesTab() {
                   inputMode="numeric"
                   placeholder="50"
                 />
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                  Cap for newly discovered URLs each Sync (not total library size). RSS feeds rarely
+                  have more than ~50–100 items — values like 2000 can time out. Practical max ~300.
+                </p>
               </div>
               {setupDiscover === 'listing_pages' ? (
                 <div className="field">

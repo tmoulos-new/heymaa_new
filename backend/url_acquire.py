@@ -313,23 +313,40 @@ def discover_source_urls(
     source_key: Optional[str] = None,
     max_urls: int = 40,
     since_years: Optional[float] = None,
+    prefer: Optional[str] = None,
 ) -> list[str]:
     urls: list[str] = []
     key = (source_key or "").lower()
+    mode = (prefer or "").strip().lower()
+    # Cap link-crawl fallback so Sync with max_urls=2000 cannot hang a tick.
+    crawl_budget = min(max(max_urls, 20), 80 if mode in ("rss", "sitemap") else 200)
+
     # 1) Explicit RSS feed (our unofficial Babyspace feed, or any other)
-    if rss_url:
+    if rss_url and mode in ("", "rss", "crawl"):
         try:
             urls = discover_rss_urls(rss_url, max_urls=max(max_urls * 2, 40))
         except Exception:
             urls = []
-    # 2) Sitemap (My Parenthood etc.)
-    if len(urls) < 5 and sitemap_url:
-        try:
-            urls = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 3, 80))
-        except Exception:
+        if mode == "rss" and urls:
+            # Respect Edit setup "RSS" — don't fall through to a huge site crawl.
+            pass
+        elif mode == "rss":
             urls = []
+    # 2) Sitemap (My Parenthood etc.)
+    if (len(urls) < 5 or (mode == "sitemap" and not urls)) and sitemap_url and mode in (
+        "",
+        "sitemap",
+        "crawl",
+        "rss",
+    ):
+        if mode != "rss" or len(urls) < 5:
+            try:
+                urls = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 3, 80))
+            except Exception:
+                if mode == "sitemap":
+                    urls = []
     # 3) Babyspace listing scrape (paginated, newest first; optional year window)
-    if len(urls) < 5 and (listing_paths or key == "babyspace"):
+    if len(urls) < 5 and (listing_paths or key == "babyspace" or mode == "listing_pages"):
         try:
             from .babyspace_feed import discover_babyspace_article_urls
         except ImportError:
@@ -347,9 +364,15 @@ def discover_source_urls(
                     urls.append(u)
         except Exception:
             pass
-    # 4) Fallback: crawl seed page links
-    if len(urls) < 5:
-        crawled = discover_site_links(base_url, max_urls=max(max_urls * 2, 40))
+    # 4) Fallback: crawl seed page links (bounded — never 2000×2 requests in one tick)
+    if len(urls) < 5 and mode != "rss" and mode != "sitemap":
+        crawled = discover_site_links(base_url, max_urls=max(crawl_budget * 2, 40))
+        for u in crawled:
+            if u not in urls:
+                urls.append(u)
+    elif len(urls) < 5 and mode in ("rss", "sitemap"):
+        # Soft fallback only if preferred feed/sitemap was empty.
+        crawled = discover_site_links(base_url, max_urls=max(crawl_budget, 40))
         for u in crawled:
             if u not in urls:
                 urls.append(u)
