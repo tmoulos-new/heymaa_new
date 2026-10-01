@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   EMPTY_FAMILY,
@@ -130,7 +130,10 @@ import { FeatureUpgradeGate } from "./components/FeatureUpgradeGate";
 import { useAutoHideTabBar } from "./lib/useAutoHideTabBar";
 import { buildAppNotifications, readNotificationIds } from "./lib/appNotifications";
 import { AppNotificationsBell, notificationSummaryLabel } from "./components/AppNotificationsBell";
+import { PushAlertsPrompt } from "./components/PushAlertsPrompt";
 import { AccountPrivacySheet } from "./components/AccountPrivacySheet";
+import { pushPermission, pushSupported } from "./lib/inboxNotifications";
+import { shouldShowDeferredPushPrompt, shouldShowMarketingPushNudge, recordPushVisit } from "./lib/pushAlerts";
 import { ChatMedicalDisclaimer } from "./components/ChatMedicalDisclaimer";
 import { AppDialog } from "./components/AppDialog";
 import { DialogPanel } from "./components/ui/DialogPanel";
@@ -153,6 +156,14 @@ import {
 } from "./lib/appTour";
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
+import { GiftClaimSheet } from "./components/GiftClaimSheet";
+import {
+  clearPendingGiftCode,
+  giftCodeFromLocation,
+  readPendingGiftCode,
+  stashPendingGiftCode,
+  type GiftClaimResult,
+} from "./lib/giftApi";
 import { AccessExpiryModal } from "./components/AccessExpiryModal";
 import {
   resolveSubscriptionRequiredReason,
@@ -326,6 +337,8 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<S
         children_birthdates: bds,
         consent_marketing: !!profile.consentMarketing,
         consent_date: profile.consentDate || null,
+        push_alerts_opt_in: !!profile.pushAlertsOptIn,
+        push_alerts_opt_in_at: profile.pushAlertsOptInAt || null,
       }),
     });
     let body: { ok?: boolean; error?: string; detail?: unknown } = {};
@@ -353,7 +366,7 @@ async function syncProfileToSupabase(token: string, profile: Profile): Promise<S
 let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
-interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
+interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; pushAlertsOptIn?: boolean; pushAlertsOptInAt?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -1800,7 +1813,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
   const [name, setName] = useState(() => {
     try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; }
   });
-  const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false);
+  const [childName, setChildName] = useState(""); const [childBirthDate, setChildBirthDate] = useState(""); const [lang, setLang] = useState(() => normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en")); const [showLang, setShowLang] = useState(false); const [isPregnant, setIsPregnant] = useState<boolean|null>(null); const [dueDate, setDueDate] = useState(""); const [country, setCountry] = useState(""); const [consentMarketing, setConsentMarketing] = useState(false); const [pushAlertsOptIn, setPushAlertsOptIn] = useState(() => { try { return sessionStorage.getItem("hm_signup_push_opt_in") === "1"; } catch { return false; } });
   useEffect(() => {
     if (isLocalDemoToken(token)) return;
     let cancelled = false;
@@ -1816,8 +1829,8 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
   const save = () => {
     const nextLang = writeStoredAppLang(lang);
     const displayName = name.trim() || (() => { try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; } })();
-    const p: Profile = {name:displayName||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined};
-    try { sessionStorage.removeItem("hm_signup_name"); } catch { /* ignore */ }
+    const p: Profile = {name:displayName||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined,pushAlertsOptIn,pushAlertsOptInAt:pushAlertsOptIn?new Date().toISOString():undefined};
+    try { sessionStorage.removeItem("hm_signup_name"); sessionStorage.removeItem("hm_signup_push_opt_in"); } catch { /* ignore */ }
     markJustOnboarded();
     localStorage.setItem(sk(token,"profile"),JSON.stringify(p));
     void syncProfileToSupabase(token,p);
@@ -1881,7 +1894,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
           {isPregnant===null&&<button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(0)}>{t("back",lang)}</button>}
         </>}
         {step===2&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🌍</div><h1 className="hm-onboarding-title">{t("selectlang",lang)}</h1><button type="button" className="lang-row is-selected" style={{marginBottom:10}} onClick={()=>setShowLang(true)}><span className="lang-row__code">{getLanguagePickerItem(lang).displayCode}</span><span className="lang-row__name">{getLanguagePickerItem(lang).name}</span><span className="lang-row__radio" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.2 6.2l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span></button><button type="button" className="hm-btn hm-btn--secondary hm-btn--block" style={{marginBottom:8}} onClick={()=>setShowLang(true)}>{t("selectlang",lang)}</button><p style={{fontSize:12,fontWeight:500,color:"rgba(43,58,103,.5)",margin:"12px 0 4px",textAlign:"left"}}>{t("country_label",lang)}</p><select style={{width:"100%",padding:"13px 16px",borderRadius:12,border:"1.5px solid rgba(43,58,103,0.18)",fontFamily:"'DM Sans',sans-serif",fontSize:16,color:country?"#2B3A67":"rgba(43,58,103,.4)",background:"#fff",outline:"none",boxSizing:"border-box" as any,marginBottom:10}} value={country} onChange={e=>setCountry(e.target.value)}><option value="" disabled>{t("country_ph",lang)}</option>{COUNTRIES.map(cc=><option key={cc.code} value={cc.code}>{cc.name}</option>)}</select><button type="button" className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={()=>setStep(3)}>{t("continue",lang)}</button><button type="button" className="hm-btn hm-btn--ghost hm-btn--block" style={{marginTop:10}} onClick={()=>setStep(1)}>{t("back",lang)}</button></>}
-        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><button type="button" className="hm-btn hm-btn--accent hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={save}>{t("enterbtn",lang)}</button></>}
+        {step===3&&<><div style={{fontSize:52,marginBottom:16,textAlign:"center"}}>🎉</div><h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,color:"#2B3A67",textAlign:"center",marginBottom:8}}>{t("ready",lang)}, {nameInVocative(name || "Mama", lang)}!</h1><p style={{fontSize:14,color:"rgba(43,58,103,.6)",textAlign:"center",marginBottom:28,lineHeight:1.65}}>{t("readysub",lang)}</p><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:12,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={consentMarketing} onChange={e=>setConsentMarketing(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{t("consent_gdpr",lang)}</span></label><label style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:16,cursor:"pointer",fontSize:13,color:"rgba(43,58,103,.7)",lineHeight:1.5}}><input type="checkbox" checked={pushAlertsOptIn} onChange={e=>setPushAlertsOptIn(e.target.checked)} style={{marginTop:2,accentColor:"#4ABEAA",width:16,height:16,flexShrink:0}}/><span>{lang==="el"?"Θέλω ειδοποιήσεις στο κινητό για σημαντικά μηνύματα (θα τις ενεργοποιήσω όταν είμαι έτοιμη).":lang==="ro"?"Vreau alerte pe telefon pentru mesaje importante (le activez când sunt gata).":"I want phone alerts for important messages (I'll turn them on when I'm ready)."}</span></label><button type="button" className="hm-btn hm-btn--accent hm-btn--block hm-btn--lg" style={{marginTop:8}} onClick={save}>{t("enterbtn",lang)}</button></>}
       </div>
     </div>
   );
@@ -1889,6 +1902,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
 
 // ── Main App ──────────────────────────────────────────────────
 function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onTokenUpdate, trialEndsAt }: { token: string; profile: Profile; onLogout: () => void; onExpired: () => void; onProfileUpdate: (p: Profile) => void; onTokenUpdate?: (t: string) => void; trialEndsAt?: string | null }) {
+  const location = useLocation();
   const { t: tHome, i18n } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const showToast = (
@@ -1942,6 +1956,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [showLevelRewardSheet, setShowLevelRewardSheet] = useState(false);
   const [showAccessExpiryModal, setShowAccessExpiryModal] = useState(false);
   const [pendingLevelReward, setPendingLevelReward] = useState<PendingLevelReward | null>(null);
+  const [showGiftClaimSheet, setShowGiftClaimSheet] = useState(false);
+  const [pendingGiftCode, setPendingGiftCode] = useState('');
   const [rewardsSnapshot, setRewardsSnapshot] = useState<RewardsSnapshot | null>(null);
   const locallyClaimedRewardIds = useRef<Set<number>>(readLocallyClaimedRewardLevels(token));
   const claimedTokenRef = useRef(token);
@@ -1965,6 +1981,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [subSnapshot, setSubSnapshot] = useState<SubscriptionSnapshot | null>(null);
   const [planEntitlements, setPlanEntitlements] = useState<PlanEntitlements | null>(null);
   const [voiceQuota, setVoiceQuota] = useState<VoiceQuota | null>(null);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [openProfileFaqIndex, setOpenProfileFaqIndex] = useState<number | null>(null);
   const homeLng = homeDisplayLocale(lang);
   useEffect(() => {
@@ -2190,6 +2207,57 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
     showToast(claimSuccessMessage(payload.grant, lang), "ok");
   }, [applySubscriptionSnapshot, ingestRewards, lang, token]);
+
+  const handleGiftClaimed = useCallback((result: GiftClaimResult) => {
+    clearPendingGiftCode();
+    invalidateAuthCaches(token);
+    if (result.status && typeof result.status === 'object') {
+      applySubscriptionSnapshot(result.status as SubscriptionSnapshot);
+    }
+    const bits: string[] = [];
+    if (result.grant?.days) {
+      const slot = String(result.grant.plan_slot || 'starter');
+      bits.push(lang === 'el' ? `${result.grant.days} ημέρες ${slot}` : `${result.grant.days} days ${slot}`);
+    }
+    if (result.points) {
+      bits.push(lang === 'el' ? `+${result.points} πόντοι` : `+${result.points} points`);
+    }
+    showToast(bits.join(lang === 'el' ? ' · ' : ' · ') || (lang === 'el' ? 'Το δώρο ενεργοποιήθηκε' : 'Gift activated'), 'ok');
+  }, [applySubscriptionSnapshot, lang, token]);
+
+  // Open gift claim sheet from ?gift=CODE (emails / notifications) or a stashed code after auth.
+  useEffect(() => {
+    if (!token) return;
+    const fromUrl = giftCodeFromLocation(location.search);
+    if (fromUrl) {
+      stashPendingGiftCode(fromUrl);
+      setPendingGiftCode(fromUrl);
+      setShowGiftClaimSheet(true);
+      if (typeof window !== 'undefined') {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('gift')) {
+            url.searchParams.delete('gift');
+            const next = `${url.pathname}${url.search}${url.hash}`;
+            window.history.replaceState({}, '', next);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+  }, [token, location.search]);
+
+  // After sign-in, claim any gift that was stashed while logged out.
+  useEffect(() => {
+    if (!token) return;
+    if (giftCodeFromLocation(location.search)) return;
+    const pending = readPendingGiftCode();
+    if (!pending) return;
+    setPendingGiftCode(pending);
+    setShowGiftClaimSheet(true);
+  }, [token, location.search]);
 
   // Threads state — bootstrap from this account's local keys only
   const [threads, setThreads] = useState<Thread[]>(() => (bootLocalScan(token).threads as Thread[]) || []);
@@ -4696,6 +4764,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return ok;
   };
 
+  const updatePushAlertsOptIn = async (next: boolean): Promise<boolean> => {
+    const updated: Profile = {
+      ...profile,
+      pushAlertsOptIn: next,
+      pushAlertsOptInAt: next ? new Date().toISOString() : profile.pushAlertsOptInAt,
+    };
+    const ok = await syncProfileSafe(updated);
+    if (ok) {
+      onProfileUpdate(updated);
+      localStorage.setItem(sk(token, "profile"), JSON.stringify(updated));
+    }
+    return ok;
+  };
+
   const handleAccountDeleted = async () => {
     setShowAccountPrivacy(false);
     try {
@@ -4796,12 +4878,36 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowNotifications(false);
   }, [tourOpen]);
 
+  // Marketing re-prompt: after enough visits (or soft opt-in), ask users who never activated push.
+  useEffect(() => {
+    if (!token || tourOpen || showPushPrompt) return;
+    if (!pushSupported()) return;
+    const visits = recordPushVisit(token);
+    if (!shouldShowMarketingPushNudge({
+      token,
+      softOptIn: !!profile.pushAlertsOptIn,
+      permission: pushPermission(),
+      visits,
+    })) return;
+    // Soft-opted after tour already handled separately; here wait so we don't collide with first-run flow.
+    if (!hasCompletedAppTour(token)) return;
+    const t = window.setTimeout(() => setShowPushPrompt(true), 1800);
+    return () => window.clearTimeout(t);
+  }, [token, tourOpen, showPushPrompt, profile.pushAlertsOptIn]);
+
   const finishAppTour = useCallback(() => {
     const wasFirst = tourWasFirstRunRef.current;
     tourWasFirstRunRef.current = false;
     markAppTourCompleted(token);
     clearJustOnboarded();
     setTourOpen(false);
+    if (wasFirst && shouldShowDeferredPushPrompt({
+      token,
+      softOptIn: !!profile.pushAlertsOptIn,
+      permission: pushSupported() ? pushPermission() : 'unsupported',
+    })) {
+      window.setTimeout(() => setShowPushPrompt(true), 500);
+    }
     if (!wasFirst) return;
     if (hasCompletedFirstChatGuide(token)) return;
     if (familyChildren.length > 0) {
@@ -4811,7 +4917,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     awaitingFirstChatAfterChildRef.current = true;
     markFirstChatGuidePending(token);
     window.setTimeout(() => setShowAddFirstChildPrompt(true), 280);
-  }, [token, familyChildren.length]);
+  }, [token, familyChildren.length, profile.pushAlertsOptIn]);
 
   const handleTourNext = useCallback(() => {
     if (tourStep >= APP_TOUR_STEPS.length - 1) {
@@ -4989,12 +5095,27 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           lang={lang}
           token={token}
           consentMarketing={!!profile.consentMarketing}
+          pushAlertsOptIn={!!profile.pushAlertsOptIn}
           onConsentChange={updateMarketingConsent}
+          onPushAlertsChange={updatePushAlertsOptIn}
           onAccountDeleted={handleAccountDeleted}
           onClose={() => setShowAccountPrivacy(false)}
           onToast={showToast}
         />
       )}
+
+      <PushAlertsPrompt
+        lang={lang}
+        token={token}
+        open={showPushPrompt}
+        onClose={() => setShowPushPrompt(false)}
+        onGranted={() => {
+          void updatePushAlertsOptIn(true);
+        }}
+        onOptInChange={(next) => {
+          void updatePushAlertsOptIn(next);
+        }}
+      />
 
       {/* FAQ POPUP */}
       <AppDialog
@@ -5517,6 +5638,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           setPendingLevelReward(null);
         }}
         onClaimed={handleLevelRewardClaimed}
+      />
+
+      <GiftClaimSheet
+        open={showGiftClaimSheet && !!pendingGiftCode}
+        lang={lang}
+        token={token}
+        code={pendingGiftCode}
+        onClose={() => {
+          clearPendingGiftCode();
+          setShowGiftClaimSheet(false);
+          setPendingGiftCode('');
+        }}
+        onClaimed={handleGiftClaimed}
       />
 
       <AccessExpiryModal
@@ -7835,7 +7969,14 @@ export default function App() {
     return <ResetScreen token={resetToken} lang={resetLang} onDone={()=>{setResetToken("");window.history.replaceState({},"","/app");}}/>;
   }
   // After logout (or visiting /app without a session), land on sign-in — not signup.
-  if(!token)return <Navigate to={`${APP_ROUTE}/auth?mode=login`} replace />;
+  // Preserve gift codes so claim links survive the auth redirect.
+  if(!token){
+    const gift = giftCodeFromLocation() || readPendingGiftCode();
+    if (gift) stashPendingGiftCode(gift);
+    const qs = new URLSearchParams({ mode: "login" });
+    if (gift) qs.set("gift", gift);
+    return <Navigate to={`${APP_ROUTE}/auth?${qs.toString()}`} replace />;
+  }
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false) {
     const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");

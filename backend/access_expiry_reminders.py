@@ -102,6 +102,8 @@ def maybe_send_access_expiry_reminder(
             from_address=resend_from,
             to=email.strip().lower(),
             message=msg,
+            kind="access_expiry_reminder",
+            user_id=user_id,
         )
         if err:
             return False

@@ -9,6 +9,7 @@ import {
 } from '../lib/authApi'
 import { resumePlanAfterAuth } from '../lib/planCheckoutFlow'
 import { prefetchAppChunk } from '../lib/prefetchApp'
+import { stashPendingGiftCode } from '../lib/giftApi'
 
 function realAuthToken(): string | null {
   const existing = getAuthToken()
@@ -26,12 +27,17 @@ export function AppAuthPage() {
   const [existing, setExisting] = useState<string | null>(() => realAuthToken())
   const [sessionReady, setSessionReady] = useState(() => !!realAuthToken())
   const inviteFromUrl = (search.get('invite') || search.get('code') || '').trim()
-  const mode = inviteFromUrl || search.get('mode') !== 'login' ? 'signup' : 'login'
+  const giftFromUrl = (search.get('gift') || '').trim()
+  const mode = inviteFromUrl || giftFromUrl || search.get('mode') !== 'login' ? 'signup' : 'login'
   const wantsAuthForm = search.get('mode') === 'login' || search.get('mode') === 'signup'
 
   useEffect(() => {
     prefetchAppChunk()
   }, [])
+
+  useEffect(() => {
+    if (giftFromUrl) stashPendingGiftCode(giftFromUrl)
+  }, [giftFromUrl])
 
   useEffect(() => {
     if (sessionReady) return
@@ -52,8 +58,12 @@ export function AppAuthPage() {
 
   useEffect(() => {
     if (!existing || wantsAuthForm) return
+    if (giftFromUrl) {
+      navigate(`/app?gift=${encodeURIComponent(giftFromUrl)}`, { replace: true })
+      return
+    }
     resumePlanAfterAuth(navigate)
-  }, [existing, wantsAuthForm, navigate])
+  }, [existing, wantsAuthForm, navigate, giftFromUrl])
 
   if (!sessionReady) {
     return (
@@ -97,7 +107,14 @@ export function AppAuthPage() {
     <AppAuthScreen
       initialMode={mode}
       initialInvite={inviteFromUrl}
-      onSuccess={() => resumePlanAfterAuth(navigate)}
+      onSuccess={() => {
+        if (giftFromUrl) {
+          stashPendingGiftCode(giftFromUrl)
+          navigate(`/app?gift=${encodeURIComponent(giftFromUrl)}`, { replace: true })
+          return
+        }
+        resumePlanAfterAuth(navigate)
+      }}
     />
   )
 }

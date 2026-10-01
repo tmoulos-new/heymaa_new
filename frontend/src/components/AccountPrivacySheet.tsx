@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { deleteAccount, exportAccountData } from '../lib/accountApi'
+import { disablePush, enablePush, pushPermission, pushSupported } from '../lib/inboxNotifications'
+import { isIosDevice, isStandaloneDisplay } from '../lib/pushAlerts'
 import { AppDialog } from './AppDialog'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DialogPanel } from './ui/DialogPanel'
@@ -10,7 +12,9 @@ type Props = {
   lang: string
   token: string
   consentMarketing: boolean
+  pushAlertsOptIn: boolean
   onConsentChange: (next: boolean) => Promise<boolean>
+  onPushAlertsChange: (next: boolean) => Promise<boolean>
   onAccountDeleted: () => void | Promise<void>
   onClose: () => void
   onToast: (text: string, kind: 'ok' | 'err') => void
@@ -21,7 +25,9 @@ export function AccountPrivacySheet({
   lang,
   token,
   consentMarketing,
+  pushAlertsOptIn,
   onConsentChange,
+  onPushAlertsChange,
   onAccountDeleted,
   onClose,
   onToast,
@@ -29,6 +35,9 @@ export function AccountPrivacySheet({
   const isEl = lang === 'el'
   const [marketing, setMarketing] = useState(consentMarketing)
   const [marketingSaving, setMarketingSaving] = useState(false)
+  const [pushOptIn, setPushOptIn] = useState(pushAlertsOptIn)
+  const [pushSaving, setPushSaving] = useState(false)
+  const [pushState, setPushState] = useState(pushPermission)
   const [exporting, setExporting] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -36,7 +45,18 @@ export function AccountPrivacySheet({
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
+  useEffect(() => {
+    setMarketing(consentMarketing)
+  }, [consentMarketing])
+  useEffect(() => {
+    setPushOptIn(pushAlertsOptIn)
+  }, [pushAlertsOptIn])
+  useEffect(() => {
+    setPushState(pushPermission())
+  }, [open])
+
   const confirmPhrase = isEl ? 'ΔΙΑΓΡΑΦΗ' : 'DELETE'
+  const needsHomeScreen = isIosDevice() && !isStandaloneDisplay()
 
   const toggleMarketing = async () => {
     const next = !marketing
@@ -48,6 +68,43 @@ export function AccountPrivacySheet({
       onToast(isEl ? 'Οι προτιμήσεις marketing ενημερώθηκαν.' : 'Marketing preferences updated.', 'ok')
     } else {
       onToast(isEl ? 'Αποτυχία αποθήκευσης.' : 'Could not save preferences.', 'err')
+    }
+  }
+
+  const togglePush = async () => {
+    setPushSaving(true)
+    try {
+      if (pushState === 'granted' || pushOptIn) {
+        await disablePush(token)
+        const ok = await onPushAlertsChange(false)
+        if (ok) setPushOptIn(false)
+        setPushState(pushPermission())
+        onToast(isEl ? 'Οι ειδοποιήσεις απενεργοποιήθηκαν.' : 'Phone alerts turned off.', 'ok')
+      } else if (needsHomeScreen) {
+        const ok = await onPushAlertsChange(true)
+        if (ok) setPushOptIn(true)
+        onToast(
+          isEl
+            ? 'Πρόσθεσε την HeyMaa στην Αρχική οθόνη και άνοιξέ την από εκεί για ειδοποιήσεις.'
+            : 'Add HeyMaa to your Home Screen and open it from there to enable alerts.',
+          'ok',
+        )
+      } else {
+        const result = await enablePush(token)
+        setPushState(result === 'unsupported' ? 'unsupported' : result)
+        const ok = await onPushAlertsChange(result === 'granted')
+        if (ok) setPushOptIn(result === 'granted')
+        onToast(
+          result === 'granted'
+            ? (isEl ? 'Οι ειδοποιήσεις ενεργοποιήθηκαν.' : 'Phone alerts enabled.')
+            : (isEl ? 'Η άδεια ειδοποιήσεων δεν δόθηκε.' : 'Notification permission was not granted.'),
+          result === 'granted' ? 'ok' : 'err',
+        )
+      }
+    } catch {
+      onToast(isEl ? 'Αποτυχία αποθήκευσης.' : 'Could not save preferences.', 'err')
+    } finally {
+      setPushSaving(false)
     }
   }
 
@@ -130,6 +187,38 @@ export function AccountPrivacySheet({
               </span>
             </label>
           </section>
+
+          {pushSupported() ? (
+            <section className="hm-panel-section">
+              <div className="hm-section-label">
+                {isEl ? 'ΕΙΔΟΠΟΙΗΣΕΙΣ ΚΙΝΗΤΟΥ' : 'PHONE ALERTS'}
+              </div>
+              <p className="hm-dialog-subtitle" style={{ marginBottom: 12 }}>
+                {needsHomeScreen
+                  ? (isEl
+                    ? 'Στο iPhone χρειάζεται «Προσθήκη στην αρχική οθόνη». Μετά μπορείς να επιτρέψεις ειδοποιήσεις κλειδώματος.'
+                    : 'On iPhone, add HeyMaa to the Home Screen first. Then you can allow lock-screen alerts.')
+                  : (isEl
+                    ? 'Μηνύματα ακόμα και όταν η εφαρμογή είναι κλειστή (οθόνη κλειδώματος / μπάρα ειδοποιήσεων).'
+                    : 'Messages even when the app is closed (lock screen / notification tray).')}
+              </p>
+              <label className="hm-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={pushOptIn || pushState === 'granted'}
+                  disabled={pushSaving || pushState === 'unsupported'}
+                  onChange={() => void togglePush()}
+                />
+                <span>
+                  {pushState === 'denied'
+                    ? (isEl
+                      ? 'Έχεις μπλοκάρει τις ειδοποιήσεις στο πρόγραμμα περιήγησης — άλλαξέ το από τις ρυθμίσεις του browser.'
+                      : 'Notifications are blocked in the browser — change this in browser settings.')
+                    : (isEl ? 'Επιτρέπω ειδοποιήσεις στο κινητό' : 'Allow phone alerts')}
+                </span>
+              </label>
+            </section>
+          ) : null}
 
           <section className="hm-panel-section">
             <div className="hm-section-label">

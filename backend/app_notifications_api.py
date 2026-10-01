@@ -87,7 +87,154 @@ def _page_users(sb, *, audience: str, user_ids: list[str], plan: str) -> list[di
         if len(batch) < page:
             break
         offset += page
+
+    if audience == "no_push":
+        subscribed = _user_ids_with_push(sb)
+        rows = [u for u in rows if str(u.get("id") or "") not in subscribed]
     return rows
+
+
+def _user_ids_with_push(sb) -> set[str]:
+    ids: set[str] = set()
+    offset = 0
+    page = 1000
+    while True:
+        try:
+            res = (
+                sb.table("push_subscriptions")
+                .select("user_id")
+                .range(offset, offset + page - 1)
+                .execute()
+            )
+        except Exception:
+            break
+        batch = list(res.data or [])
+        for row in batch:
+            uid = str(row.get("user_id") or "")
+            if uid:
+                ids.add(uid)
+        if len(batch) < page:
+            break
+        offset += page
+    return ids
+
+
+def _count_table(sb, table: str, *, eq: Optional[tuple[str, Any]] = None) -> int:
+    try:
+        q = sb.table(table).select("id", count="exact", head=True)
+        if eq:
+            q = q.eq(eq[0], eq[1])
+        res = q.execute()
+        return int(res.count or 0)
+    except Exception:
+        return 0
+
+
+def push_adoption_report(sb) -> dict[str, Any]:
+    """How many accounts opted in / have an active Web Push device."""
+    if not sb:
+        return {"ok": False, "error": "Database not configured"}
+
+    total_users = _count_table(sb, "users")
+    devices = _count_table(sb, "push_subscriptions")
+    with_device_ids = _user_ids_with_push(sb)
+    with_device = len(with_device_ids)
+
+    soft_opt_in = 0
+    try:
+        soft_opt_in = _count_table(sb, "profiles", eq=("push_alerts_opt_in", True))
+    except Exception:
+        soft_opt_in = 0
+
+    soft_without_device = 0
+    try:
+        # Approximate: soft-opt profiles that have no push row.
+        offset = 0
+        page = 500
+        while True:
+            res = (
+                sb.table("profiles")
+                .select("id")
+                .eq("push_alerts_opt_in", True)
+                .range(offset, offset + page - 1)
+                .execute()
+            )
+            batch = list(res.data or [])
+            for row in batch:
+                uid = str(row.get("id") or "")
+                if uid and uid not in with_device_ids:
+                    soft_without_device += 1
+            if len(batch) < page:
+                break
+            offset += page
+    except Exception:
+        soft_without_device = max(0, soft_opt_in - with_device)
+
+    without_device = max(0, total_users - with_device)
+    never_engaged = max(0, without_device - soft_without_device)
+
+    def _pct(part: int, whole: int) -> float:
+        if whole <= 0:
+            return 0.0
+        return round(100.0 * part / whole, 2)
+
+    return {
+        "ok": True,
+        "report": {
+            "title": "Web Push adoption",
+            "meta": {"kind": "push_adoption"},
+            "kpis": {
+                "recipients": total_users,
+                "campaigns": with_device,
+                "unique_opens": soft_opt_in,
+                "total_opens": soft_without_device,
+                "open_rate": _pct(with_device, total_users),
+                "push_attempted": without_device,
+                "push_delivered": devices,
+                "push_failed": never_engaged,
+                "push_delivery_rate": _pct(soft_opt_in, total_users),
+            },
+            "status_mix": {
+                "opened": with_device,
+                "not_opened": soft_without_device,
+                "push_failed": never_engaged,
+            },
+            "tracking_note": (
+                "Activated = users with at least one browser/device subscription. "
+                "Interested = soft opt-in at signup/settings without a live device yet. "
+                "Not activated = no push subscription (in-app bell still works)."
+            ),
+            "campaigns": [
+                {
+                    "id": "activated",
+                    "title": "Activated (has device)",
+                    "recipients": with_device,
+                    "reads": with_device,
+                    "open_rate": _pct(with_device, total_users),
+                    "push_delivered": devices,
+                    "push_attempted": devices,
+                },
+                {
+                    "id": "interested",
+                    "title": "Interested, no device yet",
+                    "recipients": soft_without_device,
+                    "reads": 0,
+                    "open_rate": _pct(soft_without_device, total_users),
+                    "push_delivered": 0,
+                    "push_attempted": 0,
+                },
+                {
+                    "id": "not_activated",
+                    "title": "Not activated",
+                    "recipients": without_device,
+                    "reads": 0,
+                    "open_rate": _pct(without_device, total_users),
+                    "push_delivered": 0,
+                    "push_attempted": 0,
+                },
+            ],
+        },
+    }
 
 
 def _subscriptions_for(sb, user_ids: list[str]) -> list[dict[str, Any]]:
@@ -123,6 +270,10 @@ class NotificationSendRequest(BaseModel):
     plan: Optional[str] = None
 
 
+class PushPreferenceRequest(BaseModel):
+    opted_in: bool = False
+
+
 def register_notification_routes(app: FastAPI) -> None:
     @app.get("/me/push/public-key")
     async def me_push_public_key(x_token: Optional[str] = Header(None)):
@@ -133,6 +284,31 @@ def register_notification_routes(app: FastAPI) -> None:
         if not status.get("configured"):
             raise HTTPException(status_code=503, detail=status.get("error") or "Push is not configured")
         return {"public_key": status["public_key"]}
+
+    @app.post("/me/push/preference")
+    async def me_push_preference(req: PushPreferenceRequest, x_token: Optional[str] = Header(None)):
+        """Soft opt-in for alerts. Does not replace the browser permission prompt."""
+        user_id = _require_user(x_token)
+        sb = _main().sb
+        opted = bool(req.opted_in)
+        now = _main()._now_iso() if hasattr(_main(), "_now_iso") else None
+        fields = {"push_alerts_opt_in": opted}
+        if now is not None:
+            fields["push_alerts_opt_in_at"] = now if opted else None
+        try:
+            auth = {"kind": "user", "user_id": user_id, "token": x_token}
+            _main().profile_upsert(auth, fields)
+        except Exception as e:
+            # Column may be missing until migration runs — soft-fail.
+            if "push_alerts_opt_in" in str(e).lower() or "42703" in str(e):
+                return {"ok": True, "saved": False, "opted_in": opted}
+            raise HTTPException(status_code=500, detail=str(e)[:200]) from e
+        if not opted:
+            try:
+                sb.table("push_subscriptions").delete().eq("user_id", user_id).execute()
+            except Exception:
+                pass
+        return {"ok": True, "saved": True, "opted_in": opted}
 
     @app.post("/me/push/subscribe")
     async def me_push_subscribe(req: PushSubscribeRequest, x_token: Optional[str] = Header(None)):
@@ -165,6 +341,15 @@ def register_notification_routes(app: FastAPI) -> None:
             if _missing_table(e):
                 raise HTTPException(status_code=503, detail=_MISSING) from e
             raise HTTPException(status_code=500, detail=str(e)) from e
+        # Successful subscribe implies durable opt-in.
+        try:
+            now = _main()._now_iso() if hasattr(_main(), "_now_iso") else None
+            fields = {"push_alerts_opt_in": True}
+            if now:
+                fields["push_alerts_opt_in_at"] = now
+            _main().profile_upsert({"kind": "user", "user_id": user_id, "token": x_token}, fields)
+        except Exception:
+            pass
         return {"ok": True}
 
     @app.delete("/me/push/subscribe")
@@ -177,6 +362,13 @@ def register_notification_routes(app: FastAPI) -> None:
             if _missing_table(e):
                 return {"ok": True}
             raise HTTPException(status_code=500, detail=str(e)) from e
+        try:
+            _main().profile_upsert(
+                {"kind": "user", "user_id": user_id, "token": x_token},
+                {"push_alerts_opt_in": False, "push_alerts_opt_in_at": None},
+            )
+        except Exception:
+            pass
         return {"ok": True}
 
     @app.get("/me/notifications")
@@ -335,8 +527,11 @@ def register_notification_routes(app: FastAPI) -> None:
             raise HTTPException(status_code=400, detail="Message must be 2–500 characters.")
         url = _clean_url(req.url)
         audience = (req.audience or "selected").strip().lower()
-        if audience not in ("selected", "all", "plan"):
-            raise HTTPException(status_code=400, detail="audience must be selected, all, or plan")
+        if audience not in ("selected", "all", "plan", "no_push"):
+            raise HTTPException(
+                status_code=400,
+                detail="audience must be selected, all, plan, or no_push",
+            )
         plan = (req.plan or "").strip()
         if audience == "plan" and not plan:
             raise HTTPException(status_code=400, detail="Choose a plan or status to target.")
@@ -352,6 +547,7 @@ def register_notification_routes(app: FastAPI) -> None:
             "selected": f"{len(users)} selected",
             "all": "Everyone",
             "plan": plan,
+            "no_push": f"Without push ({len(users)})",
         }[audience]
         from datetime import datetime, timezone
 
@@ -445,6 +641,14 @@ def register_notification_routes(app: FastAPI) -> None:
             }
         )
         return {"ok": True, "notification": note}
+
+    @app.get("/admin/notifications/reports/push-adoption")
+    async def admin_push_adoption_report(x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        result = push_adoption_report(_main().sb)
+        if not result.get("ok"):
+            raise HTTPException(status_code=503, detail=result.get("error") or "Report unavailable")
+        return result
 
     @app.get("/admin/notifications/reports/overview")
     async def admin_notifications_overview_report(

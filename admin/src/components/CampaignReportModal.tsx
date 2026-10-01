@@ -115,9 +115,10 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
   const k = report?.kpis || {}
   const mix = report?.status_mix || {}
   const kind = String(report?.meta?.kind || '')
+  const isPushAdoption = kind === 'push_adoption'
   const isNotification = kind === 'notification' || kind === 'notifications_period'
-  const showClicks = k.click_rate != null || k.unique_clicks != null
-  const showPush = isNotification || k.push_attempted != null || k.push_delivered != null
+  const showClicks = !isPushAdoption && (k.click_rate != null || k.unique_clicks != null)
+  const showPush = !isPushAdoption && (isNotification || k.push_attempted != null || k.push_delivered != null)
   const showDevices =
     !!report?.devices &&
     ((report.devices.desktop || 0) + (report.devices.mobile || 0) + (report.devices.unknown || 0) > 0)
@@ -125,7 +126,7 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
   const notOpened = Number(mix.not_opened || 0)
   const bounced = Number(mix.bounced || mix.push_failed || 0)
   const mixTotal = Math.max(1, opened + notOpened + bounced)
-  const openLabel = isNotification ? 'Reads' : 'Opens'
+  const openLabel = isPushAdoption ? 'Activated' : isNotification ? 'Reads' : 'Opens'
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -160,45 +161,72 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
           {report ? (
             <>
               <div className="report-kpi-grid">
-                <Stat
-                  label="Recipients"
-                  value={k.recipients ?? 0}
-                  sub={
-                    k.campaigns != null
-                      ? `${k.campaigns} campaigns`
-                      : k.delivered != null
-                        ? `Delivered ${k.delivered}`
-                        : undefined
-                  }
-                />
-                <Stat
-                  label={openLabel}
-                  value={pct(k.open_rate)}
-                  sub={`${k.unique_opens ?? 0} unique · ${k.total_opens ?? 0} total`}
-                />
-                {showClicks ? (
-                  <Stat
-                    label="Clicks"
-                    value={pct(k.click_rate)}
-                    sub={`${k.unique_clicks ?? 0} unique · ${k.total_clicks ?? 0} total`}
-                  />
-                ) : null}
-                {showPush ? (
-                  <Stat
-                    label="Push delivered"
-                    value={`${k.push_delivered ?? 0}/${k.push_attempted ?? 0}`}
-                    sub={
-                      k.push_delivery_rate != null
-                        ? `${pct(k.push_delivery_rate)} delivery`
-                        : k.push_failed
-                          ? `${k.push_failed} failed`
-                          : undefined
-                    }
-                  />
-                ) : null}
-                {!showClicks && !showPush ? (
-                  <Stat label="Bounced" value={k.bounced ?? 0} sub={k.bounce_rate != null ? pct(k.bounce_rate) : undefined} />
-                ) : null}
+                {isPushAdoption ? (
+                  <>
+                    <Stat
+                      label="Accounts"
+                      value={k.recipients ?? 0}
+                      sub={`${k.campaigns ?? 0} activated (${pct(k.open_rate)})`}
+                    />
+                    <Stat
+                      label="Soft opt-in"
+                      value={k.unique_opens ?? 0}
+                      sub={`${pct(k.push_delivery_rate)} of accounts`}
+                    />
+                    <Stat
+                      label="Devices"
+                      value={k.push_delivered ?? 0}
+                      sub={`${k.total_opens ?? 0} interested, no device`}
+                    />
+                    <Stat
+                      label="Not activated"
+                      value={k.push_attempted ?? 0}
+                      sub={`${k.push_failed ?? 0} never engaged`}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Stat
+                      label="Recipients"
+                      value={k.recipients ?? 0}
+                      sub={
+                        k.campaigns != null
+                          ? `${k.campaigns} campaigns`
+                          : k.delivered != null
+                            ? `Delivered ${k.delivered}`
+                            : undefined
+                      }
+                    />
+                    <Stat
+                      label={openLabel}
+                      value={pct(k.open_rate)}
+                      sub={`${k.unique_opens ?? 0} unique · ${k.total_opens ?? 0} total`}
+                    />
+                    {showClicks ? (
+                      <Stat
+                        label="Clicks"
+                        value={pct(k.click_rate)}
+                        sub={`${k.unique_clicks ?? 0} unique · ${k.total_clicks ?? 0} total`}
+                      />
+                    ) : null}
+                    {showPush ? (
+                      <Stat
+                        label="Push delivered"
+                        value={`${k.push_delivered ?? 0}/${k.push_attempted ?? 0}`}
+                        sub={
+                          k.push_delivery_rate != null
+                            ? `${pct(k.push_delivery_rate)} delivery`
+                            : k.push_failed
+                              ? `${k.push_failed} failed`
+                              : undefined
+                        }
+                      />
+                    ) : null}
+                    {!showClicks && !showPush ? (
+                      <Stat label="Bounced" value={k.bounced ?? 0} sub={k.bounce_rate != null ? pct(k.bounce_rate) : undefined} />
+                    ) : null}
+                  </>
+                )}
               </div>
 
               <div className={`report-panels${showDevices ? '' : ' report-panels--one'}`}>
@@ -212,13 +240,25 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
                       </strong>
                     </li>
                     <li>
-                      <span>{isNotification ? 'Unread' : `Not ${openLabel.toLowerCase()}`}</span>
+                      <span>
+                        {isPushAdoption
+                          ? 'Interested, no device'
+                          : isNotification
+                            ? 'Unread'
+                            : `Not ${openLabel.toLowerCase()}`}
+                      </span>
                       <strong>
                         {notOpened} ({((notOpened / mixTotal) * 100).toFixed(1)}%)
                       </strong>
                     </li>
                     <li>
-                      <span>{isNotification ? 'Push failed' : 'Bounced / failed'}</span>
+                      <span>
+                        {isPushAdoption
+                          ? 'Never engaged'
+                          : isNotification
+                            ? 'Push failed'
+                            : 'Bounced / failed'}
+                      </span>
                       <strong>
                         {bounced} ({((bounced / mixTotal) * 100).toFixed(1)}%)
                       </strong>
@@ -278,16 +318,16 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
 
               {report.campaigns && report.campaigns.length > 0 ? (
                 <section className="report-panel">
-                  <h3>Campaigns in period</h3>
+                  <h3>{isPushAdoption ? 'Segments' : 'Campaigns in period'}</h3>
                   <div className="report-table-wrap">
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Title</th>
-                          <th>Recipients</th>
-                          <th>Reads</th>
-                          <th>Read rate</th>
-                          <th>Push</th>
+                          <th>{isPushAdoption ? 'Segment' : 'Title'}</th>
+                          <th>{isPushAdoption ? 'Users' : 'Recipients'}</th>
+                          <th>{isPushAdoption ? 'Share' : 'Reads'}</th>
+                          <th>{isPushAdoption ? 'Of accounts' : 'Read rate'}</th>
+                          <th>{isPushAdoption ? 'Devices' : 'Push'}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -295,7 +335,7 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
                           <tr key={row.id || row.title}>
                             <td>{row.title || '—'}</td>
                             <td>{row.recipients ?? 0}</td>
-                            <td>{row.reads ?? 0}</td>
+                            <td>{isPushAdoption ? row.recipients ?? 0 : row.reads ?? 0}</td>
                             <td>{pct(row.open_rate)}</td>
                             <td>
                               {row.push_delivered ?? 0}/{row.push_attempted ?? 0}
@@ -308,6 +348,7 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
                 </section>
               ) : null}
 
+              {!isPushAdoption ? (
               <div className="report-panels">
                 <section className="report-panel">
                   <h3>Top recipients</h3>
@@ -388,6 +429,7 @@ export function CampaignReportModal({ open, onClose, path, heading }: Props) {
                   </section>
                 ) : null}
               </div>
+              ) : null}
 
               {(report.timeline || []).length > 0 ? (
                 <section className="report-panel">

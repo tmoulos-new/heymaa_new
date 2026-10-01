@@ -72,9 +72,9 @@ export const APP_TOUR_STEPS: AppTourStep[] = [
       ro: 'Alerte',
     },
     body: {
-      el: 'Καμπανάκι για δοκιμαστική περίοδο, συνδρομή και σημαντικές ενημερώσεις.',
-      en: 'Bell icon for trial reminders, subscription, and important updates.',
-      ro: 'Clopoțelul pentru reminder-uri de probă, abonament și actualizări importante.',
+      el: 'Καμπανάκι για δοκιμαστική περίοδο, συνδρομή και σημαντικές ενημερώσεις. Από εκεί μπορείς και να επιτρέψεις ειδοποιήσεις κλειδώματος.',
+      en: 'Bell icon for trial reminders, subscription, and important updates. You can also allow lock-screen alerts from there.',
+      ro: 'Clopoțelul pentru reminder-uri de probă, abonament și actualizări importante. De acolo poți permite și alertele pe ecranul de blocare.',
     },
   },
   {

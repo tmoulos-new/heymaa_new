@@ -28,6 +28,7 @@ const ADMIN_API_PREFIXES = [
   '/admin/point_settings',
   '/admin/rag_sources',
   '/admin/invite_codes',
+  '/admin/gift_codes',
   '/admin/user_activity',
   '/admin/user_data',
   '/admin/users',
@@ -44,6 +45,7 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/quality',
   '/admin/testers',
   '/admin/invite-codes',
+  '/admin/gifts',
   '/admin/regions',
   '/admin/levels',
   '/admin/plans',
@@ -83,6 +85,14 @@ function isAdminUi(pathname) {
 module.exports = function setupProxy(app) {
   app.use(
     '/auth',
+    createProxyMiddleware({
+      target: API_TARGET,
+      changeOrigin: true,
+    }),
+  )
+
+  app.use(
+    '/gifts',
     createProxyMiddleware({
       target: API_TARGET,
       changeOrigin: true,

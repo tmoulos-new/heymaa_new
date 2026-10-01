@@ -1051,11 +1051,192 @@ def _broadcast_images(urls: Optional[list[str]]) -> str:
     return "".join(parts)
 
 
+def _format_admin_body_html(text: str) -> str:
+    """Escape plain admin copy, then apply a tiny formatting allowlist."""
+    safe = escape(text or "")
+    # Bold / italic (after escape so raw HTML never passes through).
+    safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe, flags=re.DOTALL)
+    safe = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", safe, flags=re.DOTALL)
+
+    lines = safe.split("\n")
+    parts: list[str] = []
+    in_list = False
+    for line in lines:
+        stripped = line.lstrip()
+        is_bullet = stripped.startswith("- ") or stripped.startswith("• ")
+        if is_bullet:
+            item = stripped[2:].strip()
+            if not in_list:
+                parts.append('<ul style="margin:10px 0 10px 18px;padding:0;">')
+                in_list = True
+            parts.append(f'<li style="margin:0 0 6px;">{item}</li>')
+            continue
+        if in_list:
+            parts.append("</ul>")
+            in_list = False
+        if line.strip() == "":
+            parts.append("<br>")
+        else:
+            parts.append(f"{line}<br>")
+    if in_list:
+        parts.append("</ul>")
+    html = "".join(parts)
+    # Drop a trailing <br> from the last paragraph line.
+    if html.endswith("<br>"):
+        html = html[:-4]
+    return html
+
+
+def _gift_code_reward_bits(
+    *,
+    gift_type: str,
+    plan_slot: Optional[str],
+    days: Optional[int],
+    points: Optional[int],
+    lang: str,
+) -> list[str]:
+    bits: list[str] = []
+    gtype = (gift_type or "").strip().lower()
+    if gtype in ("free_plan_days", "combo"):
+        bits.append(_gift_line(int(days or 0), str(plan_slot or "starter"), lang))
+    if gtype in ("bonus_points", "combo") and int(points or 0) > 0:
+        pts = int(points or 0)
+        bits.append(f"+{pts} πόντοι" if lang == "el" else f"+{pts} points")
+    return bits
+
+
+def render_gift_code_offer_email(
+    *,
+    name: Optional[str],
+    code: str,
+    gift_type: str,
+    plan_slot: Optional[str] = None,
+    days: Optional[int] = None,
+    points: Optional[int] = None,
+    label: Optional[str] = None,
+    claim_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    """Announcement for a redeemable marketing gift code."""
+    lang = normalize_email_lang(lang)
+    bits = _gift_code_reward_bits(
+        gift_type=gift_type,
+        plan_slot=plan_slot,
+        days=days,
+        points=points,
+        lang=lang,
+    )
+    reward = " · ".join(bits) if bits else (label or code)
+    title = escape((label or "").strip() or ("HeyMaa gift" if lang == "en" else "Δώρο HeyMaa"))
+    href = (claim_url or "").strip() or "#"
+
+    if lang == "en":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'You have a gift waiting: <strong style="color:{TEXT};">{title}</strong>.'
+            )
+            + _paragraph(f"<strong style=\"color:{TEXT};\">{escape(reward)}</strong>")
+            + _paragraph(
+                "Open HeyMaa and claim it with one tap. If you are signed out, sign in first — "
+                "the gift stays attached to your link."
+            )
+            + _button(href, "Claim your gift")
+            + _help_footer(lang)
+        )
+        subject = f"Your HeyMaa gift: {reward}"[:140]
+        preheader = "Tap to claim your gift in the app"
+    else:
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Έχεις ένα δώρο που σε περιμένει: <strong style="color:{TEXT};">{title}</strong>.'
+            )
+            + _paragraph(f"<strong style=\"color:{TEXT};\">{escape(reward)}</strong>")
+            + _paragraph(
+                "Άνοιξε την HeyMaa και πάρε το με ένα πάτημα. Αν έχεις αποσυνδεθεί, συνδέσου πρώτα — "
+                "το δώρο μένει στο σύνδεσμο."
+            )
+            + _button(href, "Πάρε το δώρο σου")
+            + _help_footer(lang)
+        )
+        subject = f"Το δώρο σου από την HeyMaa: {reward}"[:140]
+        preheader = "Πάτα για να το ενεργοποιήσεις στην εφαρμογή"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
+def render_gift_code_claimed_email(
+    *,
+    name: Optional[str],
+    gift_type: str,
+    plan_slot: Optional[str] = None,
+    days: Optional[int] = None,
+    points: Optional[int] = None,
+    grant: Optional[dict] = None,
+    app_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    """Confirmation after a marketing gift code is successfully claimed."""
+    lang = normalize_email_lang(lang)
+    app_href = f"{app_url.rstrip('/')}/app"
+    bits = _gift_code_reward_bits(
+        gift_type=gift_type,
+        plan_slot=(grant or {}).get("plan_slot") or plan_slot,
+        days=(grant or {}).get("days") if grant and grant.get("days") is not None else days,
+        points=points,
+        lang=lang,
+    )
+    reward = " · ".join(bits) if bits else ("your gift" if lang == "en" else "το δώρο σου")
+    end_label = _format_email_date((grant or {}).get("ends_at"), lang) if grant else ""
+    start_label = _format_email_date((grant or {}).get("starts_at"), lang) if grant else ""
+
+    if lang == "en":
+        timing = ""
+        if grant and grant.get("upgraded"):
+            timing = "Matched to your current plan. Extra days start after your current access ends."
+        elif start_label and end_label:
+            timing = f"Plan days run from {start_label} until {end_label}."
+        elif end_label:
+            timing = f"Plan days are active until {end_label}."
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Done! Your gift is active: <strong style="color:{TEXT};">{escape(reward)}</strong>.'
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Open HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Your HeyMaa gift is active"
+        preheader = "Gift claimed successfully"
+    else:
+        timing = ""
+        if grant and grant.get("upgraded"):
+            timing = "Προσαρμόστηκε στο τρέχον πλάνο σου. Οι επιπλέον μέρες ξεκινούν όταν τελειώσει η τρέχουσα πρόσβαση."
+        elif start_label and end_label:
+            timing = f"Οι μέρες ισχύουν από {start_label} έως {end_label}."
+        elif end_label:
+            timing = f"Οι μέρες ισχύουν έως {end_label}."
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Έγινε! Το δώρο σου ενεργοποιήθηκε: <strong style="color:{TEXT};">{escape(reward)}</strong>.'
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Άνοιξε την HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Το δώρο σου στην HeyMaa ενεργοποιήθηκε"
+        preheader = "Το δώρο διεκδικήθηκε με επιτυχία"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
 def render_admin_broadcast_email(
     *,
     subject: str,
     body: str,
     link: Optional[str] = None,
+    button_label: Optional[str] = None,
     name: Optional[str] = None,
     images: Optional[list[str]] = None,
     for_preview: bool = False,
@@ -1064,15 +1245,16 @@ def render_admin_broadcast_email(
     who = (name or "").strip()
     subj = (subject or "").replace("{name}", who).strip()
     text = (body or "").replace("{name}", who)
-    safe = escape(text).replace("\n", "<br>")
+    formatted = _format_admin_body_html(text)
     html_body = (
-        f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;">{safe}</div>'
+        f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;">{formatted}</div>'
     )
     pictures = _broadcast_images(images)
     if pictures:
         html_body += f'<div style="margin-top:8px;">{pictures}</div>'
     if link:
-        html_body += _button(link, "Open HeyMaa")
+        label = (button_label or "").strip() or "Open HeyMaa"
+        html_body += _button(link, label[:48])
     html = _email_shell(html_body, preheader=subj[:140])
     if for_preview:
         raw = _read_logo_bytes()

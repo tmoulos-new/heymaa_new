@@ -55,6 +55,7 @@ export function AppAuthScreen({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [inviteCode, setInviteCode] = useState(() => initialInvite.trim())
   const [newsletter, setNewsletter] = useState(false)
+  const [pushAlerts, setPushAlerts] = useState(true)
   const [privacy, setPrivacy] = useState(false)
   const [terms, setTerms] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -124,10 +125,17 @@ export function AppAuthScreen({
         want_child: false,
         pregnancy_or_mom: false,
         consent_marketing: newsletter,
+        push_alerts_opt_in: pushAlerts,
         consent_privacy: privacy,
         consent_terms: terms,
         lang,
       })
+      try {
+        const { writeSignupPushOptIn } = await import('../lib/pushAlerts')
+        writeSignupPushOptIn(pushAlerts)
+      } catch {
+        /* ignore */
+      }
       allowAuthSessionPersist()
       persistAuthSession(res.data.token, res.data.refresh_token)
       applyAuthUserName(res.data.token, trimmedName || res.data.name)
@@ -375,6 +383,15 @@ export function AppAuthScreen({
                   disabled={loading}
                 />
                 <span>{s.newsletter}</span>
+              </label>
+              <label className="app-auth-check">
+                <input
+                  type="checkbox"
+                  checked={pushAlerts}
+                  onChange={(e) => setPushAlerts(e.target.checked)}
+                  disabled={loading}
+                />
+                <span>{s.pushAlerts}</span>
               </label>
               <label className="app-auth-check">
                 <input

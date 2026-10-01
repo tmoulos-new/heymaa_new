@@ -102,6 +102,7 @@ export type RegisterPayload = {
   want_child?: boolean
   pregnancy_or_mom?: boolean
   consent_marketing?: boolean
+  push_alerts_opt_in?: boolean
   consent_privacy: boolean
   consent_terms: boolean
   lang?: string

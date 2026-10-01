@@ -8,6 +8,7 @@ import {
   type AppNotification,
 } from '../lib/appNotifications'
 import {
+  disablePush,
   enablePush,
   fetchInbox,
   markInboxRead,
@@ -16,6 +17,7 @@ import {
   subscribePush,
   type InboxNotification,
 } from '../lib/inboxNotifications'
+import { isIosDevice, isStandaloneDisplay } from '../lib/pushAlerts'
 import { AppModalPortal } from './AppModalPortal'
 
 type Props = {
@@ -68,6 +70,7 @@ export function AppNotificationsBell({
   const [pushBusy, setPushBusy] = useState(false)
   const onInboxChangeRef = useRef(onInboxChange)
   onInboxChangeRef.current = onInboxChange
+  const needsHomeScreen = isIosDevice() && !isStandaloneDisplay()
 
   useEffect(() => {
     setReadIds(readNotificationIds(token))
@@ -95,6 +98,17 @@ export function AppNotificationsBell({
   useEffect(() => {
     if (!token || pushPermission() !== 'granted') return
     void subscribePush(token).catch(() => undefined)
+  }, [token])
+
+  useEffect(() => {
+    if (!token || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'heymaa-pushsubscriptionchange') return
+      if (pushPermission() !== 'granted') return
+      void subscribePush(token).catch(() => undefined)
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [token])
 
   const unreadCount = useMemo(() => {
@@ -148,6 +162,18 @@ export function AppNotificationsBell({
     }
   }
 
+  const turnOffPush = async () => {
+    setPushBusy(true)
+    try {
+      await disablePush(token)
+      setPushState(pushPermission())
+    } catch {
+      setPushState(pushPermission())
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
   const empty = notifications.length === 0 && inbox.length === 0
 
   return (
@@ -188,22 +214,71 @@ export function AppNotificationsBell({
               ) : null}
             </div>
 
-            {pushSupported() && pushState !== 'granted' ? (
-              <div className="hm-notif-item" style={{ margin: '0 0 8px' }}>
+            {pushSupported() ? (
+              <div className="hm-notif-item hm-notif-push-card">
                 <div className="hm-notif-item-body">
                   <div className="hm-notif-item-title">
                     {isEl ? 'Ειδοποιήσεις στο κινητό' : 'Alerts on this phone'}
                   </div>
-                  <p className="hm-notif-item-text">
-                    {isEl
-                      ? 'Επίτρεψε τις ειδοποιήσεις για να εμφανίζονται και όταν η HeyMaa είναι κλειστή. Στο iPhone χρειάζεται «Προσθήκη στην αρχική».'
-                      : 'Allow alerts to see messages when HeyMaa is closed. On iPhone, add HeyMaa to the Home Screen first.'}
-                  </p>
-                  <button type="button" className="hm-notif-action" disabled={pushBusy} onClick={() => void allowPush()}>
-                    {pushBusy
-                      ? (isEl ? 'Ενεργοποίηση…' : 'Enabling…')
-                      : (isEl ? 'Να επιτρέπονται οι ειδοποιήσεις' : 'Allow notifications')}
-                  </button>
+                  {pushState === 'granted' ? (
+                    <>
+                      <p className="hm-notif-item-text">
+                        {isEl
+                          ? 'Ενεργές — μπορείς να λαμβάνεις μηνύματα και όταν η HeyMaa είναι κλειστή.'
+                          : 'On — you can get messages even when HeyMaa is closed.'}
+                      </p>
+                      <button type="button" className="hm-notif-push-btn" disabled={pushBusy} onClick={() => void turnOffPush()}>
+                        {pushBusy ? (isEl ? 'Ένα λεπτό…' : 'One moment…') : (isEl ? 'Απενεργοποίηση' : 'Turn off')}
+                      </button>
+                    </>
+                  ) : pushState === 'denied' ? (
+                    <p className="hm-notif-item-text">
+                      {isEl
+                        ? 'Έχουν αποκλειστεί από τον browser. Άνοιξε τις ρυθμίσεις ειδοποιήσεων του site για να τις ενεργοποιήσεις.'
+                        : 'Blocked in the browser. Open site notification settings to turn them back on.'}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="hm-notif-item-text">
+                        {isEl
+                          ? 'Ενεργοποίησέ τες για να μη χάνεις σημαντικά μηνύματα όταν η εφαρμογή είναι κλειστή.'
+                          : 'Turn these on so you don’t miss important updates when the app is closed.'}
+                      </p>
+                      <button type="button" className="hm-notif-push-btn" disabled={pushBusy} onClick={() => void allowPush()}>
+                        {pushBusy ? (isEl ? 'Ένα λεπτό…' : 'One moment…') : (isEl ? 'Ενεργοποίηση' : 'Activate alerts')}
+                      </button>
+                    </>
+                  )}
+                      <button type="button" className="hm-notif-action hm-notif-action--ghost" disabled={pushBusy} onClick={() => void turnOffPush()}>
+                        {pushBusy ? (isEl ? 'Απενεργοποίηση…' : 'Turning off…') : (isEl ? 'Απενεργοποίηση' : 'Turn off')}
+                      </button>
+                    </>
+                  ) : pushState === 'denied' ? (
+                    <p className="hm-notif-item-text">
+                      {isEl
+                        ? 'Έχεις μπλοκάρει τις ειδοποιήσεις στο browser. Άνοιξε τις ρυθμίσεις του προγράμματος περιήγησης για αυτόν τον ιστότοπο και επίτρεψέ τις.'
+                        : 'Notifications are blocked in the browser. Open site settings for this page and allow notifications.'}
+                    </p>
+                  ) : needsHomeScreen ? (
+                    <p className="hm-notif-item-text">
+                      {isEl
+                        ? 'Στο iPhone: Safari → Κοινή χρήση → Προσθήκη στην αρχική οθόνη. Μετά άνοιξε την HeyMaa από την Αρχική και πάτα «Να επιτρέπονται».'
+                        : 'On iPhone: Safari → Share → Add to Home Screen. Then open HeyMaa from Home Screen and tap Allow.'}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="hm-notif-item-text">
+                        {isEl
+                          ? 'Ενεργοποίησέ τες για να μη χάνεις σημαντικά μηνύματα όταν η εφαρμογή είναι κλειστή.'
+                          : 'Turn these on so you don’t miss important updates when the app is closed.'}
+                      </p>
+                      <button type="button" className="hm-notif-action" disabled={pushBusy} onClick={() => void allowPush()}>
+                        {pushBusy
+                          ? (isEl ? 'Ενεργοποίηση…' : 'Enabling…')
+                          : (isEl ? 'Ενεργοποίηση ειδοποιήσεων' : 'Activate alerts')}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}

@@ -10,6 +10,7 @@ export const TAB_TITLES: Record<string, string> = {
   quality: 'Quality',
   testers: 'Testers',
   invites: 'Invite Codes',
+  gifts: 'Gifts',
   regions: 'Regions',
   points: 'Points & Levels',
   plans: 'Plans',
@@ -35,6 +36,7 @@ export const TAB_SUBTITLES: Record<string, string> = {
   quality: 'Thumbs, bad-reply queue, golden tests, and fix proposals',
   testers: 'Invite a person, create their account, assign an invite code',
   invites: 'Codes moms type to sign in during beta / invite-only mode',
+  gifts: 'Redeemable free plan days and bonus points — share claim links in emails',
   regions: 'Language groups used to target offers and promotions',
   points: 'Point rules, daily caps, and level gifts for the app ladder',
   plans: 'What moms see in pricing, plus LLM limits per plan',
@@ -59,7 +61,7 @@ export type TabId = keyof typeof TAB_TITLES
 /** Sidebar information architecture — groups keep the long nav scannable. */
 export const NAV_GROUPS: { label: string; ids: TabId[] }[] = [
   { label: 'Home', ids: ['overview', 'insights', 'quality'] },
-  { label: 'People', ids: ['users', 'cancellations', 'support', 'notifications', 'emails', 'testers', 'invites'] },
+  { label: 'People', ids: ['users', 'cancellations', 'support', 'notifications', 'emails', 'gifts', 'testers', 'invites'] },
   { label: 'Product', ids: ['plans', 'points', 'content', 'regions', 'sources'] },
   {
     label: 'Intelligence',
@@ -75,6 +77,7 @@ export const TAB_PATHS: Record<TabId, string> = {
   quality: 'quality',
   testers: 'testers',
   invites: 'invite-codes',
+  gifts: 'gifts',
   regions: 'regions',
   points: 'points',
   plans: 'plans',

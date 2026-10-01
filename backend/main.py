@@ -3746,6 +3746,8 @@ class ProfileSyncRequest(BaseModel):
     children_birthdates: Optional[list] = None
     consent_marketing: Optional[bool] = None
     consent_date: Optional[str] = None
+    push_alerts_opt_in: Optional[bool] = None
+    push_alerts_opt_in_at: Optional[str] = None
     want_child: Optional[bool] = None
     consent_privacy: Optional[bool] = None
     consent_terms: Optional[bool] = None
@@ -3859,6 +3861,7 @@ class RegisterRequest(BaseModel):
     want_child: Optional[bool] = False
     pregnancy_or_mom: Optional[bool] = False
     consent_marketing: Optional[bool] = False
+    push_alerts_opt_in: Optional[bool] = False
     consent_privacy: bool = False
     consent_terms: bool = False
     lang: Optional[str] = "el"
@@ -4317,6 +4320,8 @@ def register_user(req: RegisterRequest):
             'child_count': 0,
             'consent_marketing': bool(req.consent_marketing),
             'consent_date': now if req.consent_marketing else None,
+            'push_alerts_opt_in': bool(req.push_alerts_opt_in),
+            'push_alerts_opt_in_at': now if req.push_alerts_opt_in else None,
             'consent_privacy': True,
             'consent_privacy_at': now,
             'consent_terms': True,
@@ -4700,6 +4705,8 @@ async def sync_profile(req: ProfileSyncRequest, x_token: Optional[str] = Header(
         if req.children_birthdates is not None: data["children_birthdates"] = req.children_birthdates
         if req.consent_marketing is not None: data["consent_marketing"] = req.consent_marketing
         if req.consent_date is not None: data["consent_date"] = req.consent_date
+        if req.push_alerts_opt_in is not None: data["push_alerts_opt_in"] = req.push_alerts_opt_in
+        if req.push_alerts_opt_in_at is not None: data["push_alerts_opt_in_at"] = req.push_alerts_opt_in_at
         if req.want_child is not None: data["want_child"] = req.want_child
         if req.consent_privacy is not None: data["consent_privacy"] = req.consent_privacy
         if req.consent_terms is not None: data["consent_terms"] = req.consent_terms
@@ -5694,6 +5701,8 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             render_welcome_trial_email,
             render_level_gift_won_email,
             render_level_gift_activated_email,
+            render_gift_code_offer_email,
+            render_gift_code_claimed_email,
             send_email,
         )
     except ImportError:
@@ -5706,6 +5715,8 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             render_welcome_trial_email,
             render_level_gift_won_email,
             render_level_gift_activated_email,
+            render_gift_code_offer_email,
+            render_gift_code_claimed_email,
             send_email,
         )
     name = (req.name or "Gad").strip() or "Gad"
@@ -5773,6 +5784,33 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             app_url=APP_URL,
             lang="el",
         )),
+        ("gift_code_offer", render_gift_code_offer_email(
+            name=name,
+            code="GIFT-SAMPLE",
+            gift_type="combo",
+            plan_slot="starter",
+            days=7,
+            points=50,
+            label="Spring sample gift",
+            claim_url=f"{APP_URL.rstrip('/')}/app/auth?gift=GIFT-SAMPLE",
+            lang="el",
+        )),
+        ("gift_code_claimed", render_gift_code_claimed_email(
+            name=name,
+            gift_type="combo",
+            plan_slot="starter",
+            days=7,
+            points=50,
+            grant={
+                "plan_slot": "starter",
+                "days": 7,
+                "starts_at": "2026-10-20T00:00:00+00:00",
+                "ends_at": "2026-10-27T00:00:00+00:00",
+                "upgraded": False,
+            },
+            app_url=APP_URL,
+            lang="el",
+        )),
     ]
     sent = []
     errors = []
@@ -5782,6 +5820,7 @@ async def admin_send_email_samples(req: SendEmailSamplesRequest, x_token: Option
             from_address=RESEND_FROM,
             to=to,
             message=message,
+            kind=str(label or "transactional")[:60],
         )
         if err:
             errors.append({"template": label, "error": err})
@@ -8783,6 +8822,7 @@ def _send_tester_invite_email(
         from_address=RESEND_FROM,
         to=email,
         message=message,
+        kind="beta_invite",
     )
 
 
@@ -9155,6 +9195,8 @@ async def admin_approve_subscription_cancel(
                     subject="HeyMaa — subscription cancellation confirmed",
                     html=body_html,
                 ),
+                kind="cancellation_confirmed",
+                user_id=user_id,
             )
         except Exception:
             pass
@@ -9380,6 +9422,8 @@ def change_password(req: ChangePasswordRequest, x_token: Optional[str] = Header(
                     from_address=RESEND_FROM,
                     to=email,
                     message=changed,
+                    kind="password_changed",
+                    user_id=user_id,
                 )
             except Exception:
                 pass
@@ -9418,6 +9462,8 @@ def forgot_password(req: EmailRequest):
                 from_address=RESEND_FROM,
                 to=user["email"],
                 message=message,
+                kind="password_reset",
+                user_id=str(user.get("id") or "") or None,
             )
         return {"ok": True}
     except HTTPException:
@@ -9775,6 +9821,7 @@ async def lemon_webhook(request: Request):
                         from_address=RESEND_FROM,
                         to=customer_email,
                         message=welcome,
+                        kind="subscription_welcome",
                     )
                 except Exception:
                     pass
@@ -9838,6 +9885,8 @@ def _support_send_emails_new_thread(*, thread: dict, body: str) -> None:
                 category=thread.get("category") or "general",
                 lang=lang,
             ),
+            kind="support_received",
+            user_id=str(thread.get("user_id") or "") or None,
         )
     support = os.getenv("HEYMAA_SUPPORT_EMAIL", "info@heymaa.ai")
     if support:
@@ -9853,6 +9902,7 @@ def _support_send_emails_new_thread(*, thread: dict, body: str) -> None:
                 body_text=body,
                 thread_id=str(thread.get("id") or ""),
             ),
+            kind="support_admin_alert",
         )
 
 
@@ -9876,6 +9926,8 @@ def _support_send_admin_reply_email(*, thread: dict, reply_body: str) -> None:
             reply_body=reply_body,
             lang=(thread.get("locale") or "el")[:8],
         ),
+        kind="support_admin_reply",
+        user_id=str(thread.get("user_id") or "") or None,
     )
 
 
@@ -10056,6 +10108,7 @@ async def support_user_reply(
                     body_text=req.body,
                     thread_id=str(thread.get("id") or ""),
                 ),
+                kind="support_admin_alert",
             )
         except Exception:
             pass
@@ -10393,7 +10446,7 @@ _API_PATH_PREFIXES = (
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing", "admin/support",
     "public/offers", "public/promotions", "healthz", "functions/",
-    "me/", "admin/notifications", "admin/emails",
+    "me/", "admin/notifications", "admin/emails", "admin/gift_codes", "gifts/",
 )
 
 try:
@@ -10409,6 +10462,13 @@ except ImportError:
     from admin_email_api import register_email_routes
 
 register_email_routes(app)
+
+try:
+    from .gift_codes import register_gift_routes
+except ImportError:
+    from gift_codes import register_gift_routes
+
+register_gift_routes(app)
 
 @app.get("/{spa_path:path}")
 async def spa_fallback(spa_path: str, request: Request):

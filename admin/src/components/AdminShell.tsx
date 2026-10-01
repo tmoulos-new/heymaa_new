@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   KeyRound,
+  Gift,
   MailPlus,
   Megaphone,
   Menu,
@@ -47,6 +48,7 @@ import { UsersTab } from '../tabs/UsersTab'
 import { CancellationsTab } from '../tabs/CancellationsTab'
 import { SupportInboxTab } from '../tabs/SupportInboxTab'
 import { InviteCodesTab } from '../tabs/InviteCodesTab'
+import { GiftsTab } from '../tabs/GiftsTab'
 import { RegionsTab } from '../tabs/RegionsTab'
 import { GamificationTab } from '../tabs/GamificationTab'
 import { PlansTab } from '../tabs/PlansTab'
@@ -68,6 +70,7 @@ const NAV_ICONS: Record<TabId, typeof LayoutDashboard> = {
   quality: MessageSquareWarning,
   testers: MailPlus,
   invites: KeyRound,
+  gifts: Gift,
   regions: Globe2,
   points: Trophy,
   plans: CreditCard,
@@ -289,6 +292,7 @@ export function AdminShell() {
               element={<TestersTab key={`te-${refreshKey}`} onUsersChanged={refreshAll} />}
             />
             <Route path="invite-codes" element={<InviteCodesTab key={`ic-${refreshKey}`} />} />
+            <Route path="gifts" element={<GiftsTab key={`gf-${refreshKey}`} />} />
             <Route path="regions" element={<RegionsTab key={`rg-${refreshKey}`} />} />
             <Route path="points" element={<GamificationTab key={`gm-${refreshKey}`} />} />
             <Route path="levels" element={<Navigate to="/points" replace />} />

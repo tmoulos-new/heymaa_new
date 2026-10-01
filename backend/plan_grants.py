@@ -351,6 +351,49 @@ def resolve_grant_terms(
     return granted_slot, starts, ends, upgraded, original_slot
 
 
+def append_plan_grant(
+    sb,
+    user_id: str,
+    plan_slot: str,
+    days: int,
+    *,
+    source: str,
+    level_id: Optional[int] = None,
+) -> dict[str, Any]:
+    """Append a stackable temporary plan grant to user_data.plan_grants."""
+    days_i = int(days)
+    slot = str(plan_slot or "").strip().lower()
+    if days_i < 1:
+        raise ValueError("Days must be at least 1")
+    if slot not in ("starter", "premium"):
+        raise ValueError("Plan must be starter or premium")
+
+    grants = get_user_plan_grants(sb, user_id)
+    user_row = _fetch_user_row(sb, user_id)
+    granted_slot, starts, ends, upgraded, original_slot = resolve_grant_terms(
+        user_row,
+        grants,
+        slot,
+        days_i,
+    )
+    grant: dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "plan_slot": granted_slot,
+        "starts_at": starts.isoformat(),
+        "ends_at": ends.isoformat(),
+        "source": str(source or "manual")[:120],
+        "claimed_at": _utcnow().isoformat(),
+        "original_plan_slot": original_slot,
+        "upgraded": upgraded,
+        "days": days_i,
+    }
+    if level_id is not None:
+        grant["level_id"] = int(level_id)
+    grants.append(grant)
+    _write_user_data_json(sb, user_id, PLAN_GRANTS_KEY, grants)
+    return grant
+
+
 def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -> dict[str, Any]:
     level_key = int(level_id)
     mapping = load_level_reward_grants(sb)
@@ -366,30 +409,15 @@ def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -
     days = int(cfg["days"])
     reward_plan_slot = str(cfg["plan_slot"])
 
-    grants = get_user_plan_grants(sb, user_id)
-    user_row = _fetch_user_row(sb, user_id)
-    granted_slot, starts, ends, upgraded, original_slot = resolve_grant_terms(
-        user_row,
-        grants,
+    grant = append_plan_grant(
+        sb,
+        user_id,
         reward_plan_slot,
         days,
+        source=f"level_reward:{level_key}",
+        level_id=level_key,
     )
-    grant = {
-        "id": str(uuid.uuid4()),
-        "plan_slot": granted_slot,
-        "starts_at": starts.isoformat(),
-        "ends_at": ends.isoformat(),
-        "source": f"level_reward:{level_key}",
-        "level_id": level_key,
-        "claimed_at": _utcnow().isoformat(),
-        "original_plan_slot": original_slot,
-        "upgraded": upgraded,
-        "days": days,
-    }
-    grants.append(grant)
     claimed.add(level_key)
-
-    _write_user_data_json(sb, user_id, PLAN_GRANTS_KEY, grants)
     _write_user_data_json(sb, user_id, LEVEL_CLAIMS_KEY, sorted(claimed))
 
     return {
@@ -398,7 +426,7 @@ def claim_level_reward(sb, user_id: str, level_id: int, current_level_id: int) -
         "rewards": {
             "pending": pending_level_rewards(current_level_id, claimed, mapping),
             "claimed_level_ids": sorted(claimed),
-            "active_grants": serialize_active_grants(grants),
+            "active_grants": serialize_active_grants(get_user_plan_grants(sb, user_id)),
         },
     }
 

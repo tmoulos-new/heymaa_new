@@ -18,6 +18,8 @@ const STRINGS = {
     pregnantOrMom: 'Είμαι έγκυος ή μαμά',
     newsletter:
       'Επιθυμείς να λαμβάνεις ενημερώσεις ηλεκτρονικά, τηλεφωνικά, ταχυδρομικά και Newsletters από το HeyMaa και τις συνεργαζόμενες εταιρίες της Care Direct, με σκοπό τη διεξαγωγή ερευνών και την προώθηση προϊόντων και υπηρεσιών των συνεργαζόμενων με αυτήν εταιρειών;',
+    pushAlerts:
+      'Θέλω ειδοποιήσεις στο κινητό για σημαντικά μηνύματα (μπορώ να τις ενεργοποιήσω αργότερα — δεν ζητάμε άδεια τώρα).',
     privacy: 'Έχω διαβάσει και αποδέχομαι την',
     privacyLink: 'Πολιτική Απορρήτου & Προστασίας Δεδομένων',
     terms: 'Αποδέχομαι τους',
@@ -63,6 +65,8 @@ const STRINGS = {
     wantChild: 'I want to have a child',
     pregnantOrMom: 'I am pregnant or a mom',
     newsletter: 'I want to receive updates and newsletters with useful motherhood tips.',
+    pushAlerts:
+      'I want phone alerts for important messages (I can turn them on later — we will not ask for browser permission yet).',
     privacy: 'I have read and accept the',
     privacyLink: 'Privacy Policy & Data Protection',
     terms: 'I accept the',
@@ -109,6 +113,8 @@ const STRINGS = {
     pregnantOrMom: 'Sunt gravidă sau mamă',
     newsletter:
       'Doresc să primesc actualizări și newslettere cu sfaturi utile despre maternitate.',
+    pushAlerts:
+      'Vreau alerte pe telefon pentru mesaje importante (le pot activa mai târziu — nu cerem permisiunea acum).',
     privacy: 'Am citit și accept',
     privacyLink: 'Politica de confidențialitate & protecția datelor',
     terms: 'Accept',

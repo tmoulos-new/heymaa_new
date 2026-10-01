@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API } from './authApi'
+import { isIosDevice, isStandaloneDisplay } from './pushAlerts'
 
 export type InboxNotification = {
   id: string
@@ -50,12 +51,55 @@ export function pushPermission(): NotificationPermission | 'unsupported' {
   return Notification.permission
 }
 
+export async function setPushOptInPreference(token: string, optedIn: boolean): Promise<void> {
+  await axios.post(
+    `${API}/me/push/preference`,
+    { opted_in: optedIn },
+    { headers: headers(token) },
+  )
+}
+
+/** Request browser permission (must run from a user gesture), then subscribe. */
 export async function enablePush(token: string): Promise<'granted' | 'denied' | 'unsupported'> {
   if (!pushSupported()) return 'unsupported'
+  if (isIosDevice() && !isStandaloneDisplay()) {
+    // iOS Safari only delivers Web Push from Home Screen apps.
+    // Still allow the preference save; UI should explain install.
+  }
   const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'denied'
+  if (permission !== 'granted') {
+    try {
+      await setPushOptInPreference(token, false)
+    } catch {
+      /* preference sync best-effort */
+    }
+    return 'denied'
+  }
   await subscribePush(token)
+  try {
+    await setPushOptInPreference(token, true)
+  } catch {
+    /* subscription already implies opt-in on the server */
+  }
   return 'granted'
+}
+
+export async function disablePush(token: string): Promise<void> {
+  if (pushSupported()) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      const sub = await reg?.pushManager.getSubscription()
+      if (sub) await sub.unsubscribe()
+    } catch {
+      /* continue clearing server rows */
+    }
+  }
+  await axios.delete(`${API}/me/push/subscribe`, { headers: headers(token) })
+  try {
+    await setPushOptInPreference(token, false)
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function subscribePush(token: string): Promise<void> {

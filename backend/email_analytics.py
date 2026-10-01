@@ -11,6 +11,27 @@ from typing import Any, Optional
 SENDS_TABLE = "email_sends"
 EVENTS_TABLE = "email_events"
 
+# Human labels for admin transactional report filter (kind value → label).
+TRANSACTIONAL_KIND_OPTIONS: list[tuple[str, str]] = [
+    ("", "All system emails"),
+    ("welcome_trial", "Welcome (trial)"),
+    ("subscription_welcome", "Subscription welcome"),
+    ("subscription_activated", "Subscription activated"),
+    ("access_expiry_reminder", "Access expiry reminder"),
+    ("level_gift_won", "Level gift won"),
+    ("level_gift_activated", "Level gift activated"),
+    ("gift_code_claimed", "Gift code claimed"),
+    ("password_reset", "Password reset"),
+    ("password_changed", "Password changed"),
+    ("cancellation_confirmed", "Cancellation confirmed"),
+    ("cancel_request_admin", "Cancel request (admin alert)"),
+    ("support_received", "Support received (user)"),
+    ("support_admin_alert", "Support alert (admin)"),
+    ("support_admin_reply", "Support reply (to user)"),
+    ("beta_invite", "Beta / tester invite"),
+    ("transactional", "Other / untagged"),
+]
+
 _EVENT_MAP = {
     "email.sent": "sent",
     "email.delivered": "delivered",
@@ -411,24 +432,63 @@ def campaign_email_report(sb, campaign_id: str) -> dict[str, Any]:
     return {"ok": True, "report": report}
 
 
-def transactional_email_report(sb, *, since: str, until: Optional[str] = None) -> dict[str, Any]:
+def transactional_kind_options() -> list[dict[str, str]]:
+    return [{"id": k, "label": label} for k, label in TRANSACTIONAL_KIND_OPTIONS]
+
+
+def list_transactional_kinds_in_range(sb, *, since: str, until: Optional[str] = None) -> list[str]:
+    """Distinct kinds actually present in the period (excluding campaigns)."""
+    if not sb:
+        return []
+    try:
+        sends = _paginate_sends(sb, filters={}, since=since, until=until, limit=5000)
+    except Exception:
+        return []
+    found = sorted(
+        {
+            str(s.get("kind") or "transactional")
+            for s in sends
+            if str(s.get("kind") or "") != "campaign"
+        }
+    )
+    return found
+
+
+def transactional_email_report(
+    sb,
+    *,
+    since: str,
+    until: Optional[str] = None,
+    kind: Optional[str] = None,
+) -> dict[str, Any]:
     if not sb:
         return {"ok": False, "error": "Database not configured"}
+    kind_filter = (kind or "").strip()
     try:
-        sends = _paginate_sends(
-            sb,
-            filters={"kind": "transactional"},
-            since=since,
-            until=until,
-        )
-        # Also include other non-campaign kinds (welcome, gift, reminder, …)
-        extra = _paginate_sends(sb, filters={}, since=since, until=until)
-        by_id = {str(s.get("id")): s for s in sends}
-        for s in extra:
-            kind = str(s.get("kind") or "")
-            if kind and kind != "campaign":
-                by_id[str(s.get("id"))] = s
-        sends = list(by_id.values())
+        if kind_filter:
+            sends = _paginate_sends(
+                sb,
+                filters={"kind": kind_filter},
+                since=since,
+                until=until,
+            )
+            # Never mix campaigns into a transactional kind filter.
+            sends = [s for s in sends if str(s.get("kind") or "") != "campaign"]
+        else:
+            sends = _paginate_sends(
+                sb,
+                filters={"kind": "transactional"},
+                since=since,
+                until=until,
+            )
+            # Also include other non-campaign kinds (welcome, gift, reminder, …)
+            extra = _paginate_sends(sb, filters={}, since=since, until=until)
+            by_id = {str(s.get("id")): s for s in sends}
+            for s in extra:
+                k = str(s.get("kind") or "")
+                if k and k != "campaign":
+                    by_id[str(s.get("id"))] = s
+            sends = list(by_id.values())
     except Exception as e:
         if _table_missing(e):
             return {
@@ -439,27 +499,36 @@ def transactional_email_report(sb, *, since: str, until: Optional[str] = None) -
 
     ids = [str(s.get("resend_id")) for s in sends if s.get("resend_id")]
     events = _events_for(sb, ids)
+    label = next((lab for kid, lab in TRANSACTIONAL_KIND_OPTIONS if kid == kind_filter), None)
+    title = label if kind_filter and label else "Transactional emails"
     report = _build_report(
         sends=sends,
         events=events,
-        title="Transactional emails",
-        meta={"kind": "transactional", "since": since, "until": until},
+        title=title,
+        meta={
+            "kind": "transactional",
+            "since": since,
+            "until": until,
+            "filter_kind": kind_filter or None,
+        },
     )
     by_kind: dict[str, dict[str, int]] = defaultdict(lambda: {"sent": 0, "opened": 0, "clicked": 0})
     opened = {e["resend_id"] for e in events if e.get("event_type") == "opened"}
     clicked = {e["resend_id"] for e in events if e.get("event_type") == "clicked"}
     for s in sends:
-        kind = str(s.get("kind") or "transactional")
-        by_kind[kind]["sent"] += 1
+        k = str(s.get("kind") or "transactional")
+        by_kind[k]["sent"] += 1
         rid = s.get("resend_id")
         if rid in opened:
-            by_kind[kind]["opened"] += 1
+            by_kind[k]["opened"] += 1
         if rid in clicked:
-            by_kind[kind]["clicked"] += 1
+            by_kind[k]["clicked"] += 1
     report["by_kind"] = [
         {"kind": k, **v, "open_rate": _pct(v["opened"], v["sent"])}
         for k, v in sorted(by_kind.items(), key=lambda kv: -kv[1]["sent"])
     ]
+    report["kind_options"] = transactional_kind_options()
+    report["kinds_in_period"] = list_transactional_kinds_in_range(sb, since=since, until=until)
     return {"ok": True, "report": report}
 
 

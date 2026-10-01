@@ -1,4 +1,4 @@
-"""Transactional emails for level-up gifts (won + claimed)."""
+"""Transactional emails for level-up gifts and marketing gift codes."""
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -6,6 +6,7 @@ from typing import Any, Optional
 try:
     from .email_templates import (
         normalize_email_lang,
+        render_gift_code_claimed_email,
         render_level_gift_activated_email,
         render_level_gift_won_email,
         send_email,
@@ -14,6 +15,7 @@ try:
 except ImportError:
     from email_templates import (
         normalize_email_lang,
+        render_gift_code_claimed_email,
         render_level_gift_activated_email,
         render_level_gift_won_email,
         send_email,
@@ -196,6 +198,8 @@ def maybe_send_gift_won_email(
             from_address=from_address,
             to=email,
             message=msg,
+            kind="level_gift_won",
+            user_id=user_id,
         )
         if err:
             return False
@@ -238,6 +242,54 @@ def maybe_send_gift_activated_email(
             from_address=from_address,
             to=email,
             message=msg,
+            kind="level_gift_activated",
+            user_id=user_id,
+        )
+        return err is None
+    except Exception:
+        return False
+
+
+def maybe_send_gift_code_claimed_email(
+    sb,
+    *,
+    user_id: str,
+    gift_type: str,
+    plan_slot: Optional[str] = None,
+    days: Optional[int] = None,
+    points: Optional[int] = None,
+    grant: Optional[dict[str, Any]] = None,
+    app_url: str,
+    api_key: str,
+    from_address: str,
+) -> bool:
+    """Confirmation after a redeemable gift_codes claim succeeds."""
+    if not sb or not user_id or not api_key:
+        return False
+    gtype = (gift_type or "").strip().lower()
+    if gtype not in ("free_plan_days", "bonus_points", "combo"):
+        return False
+    email, name, lang = _load_user_contact(sb, user_id)
+    if not email or "@" not in email:
+        return False
+    try:
+        msg = render_gift_code_claimed_email(
+            name=name,
+            gift_type=gtype,
+            plan_slot=plan_slot,
+            days=days,
+            points=points,
+            grant=grant,
+            app_url=app_url,
+            lang=lang,
+        )
+        err = send_email(
+            api_key=api_key,
+            from_address=from_address,
+            to=email,
+            message=msg,
+            kind="gift_code_claimed",
+            user_id=user_id,
         )
         return err is None
     except Exception:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import threading
@@ -84,9 +85,18 @@ def _clean_images(raw: list[str]) -> list[str]:
     return out
 
 
-def _deliver(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: str, body: str, link: Optional[str], images: Optional[list[str]] = None) -> None:
+def _deliver(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: str, body: str, link: Optional[str], images: Optional[list[str]] = None, button_label: Optional[str] = None) -> None:
     try:
-        _deliver_all(sb, campaign_id, users, subject=subject, body=body, link=link, images=images or [])
+        _deliver_all(
+            sb,
+            campaign_id,
+            users,
+            subject=subject,
+            body=body,
+            link=link,
+            images=images or [],
+            button_label=button_label,
+        )
     except Exception as exc:
         try:
             sb.table("admin_email_campaigns").update(
@@ -96,7 +106,17 @@ def _deliver(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: str,
             pass
 
 
-def _deliver_all(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: str, body: str, link: Optional[str], images: Optional[list[str]] = None) -> None:
+def _deliver_all(
+    sb,
+    campaign_id: str,
+    users: list[dict[str, Any]],
+    *,
+    subject: str,
+    body: str,
+    link: Optional[str],
+    images: Optional[list[str]] = None,
+    button_label: Optional[str] = None,
+) -> None:
     m = _main()
     api_key = (getattr(m, "RESEND_API_KEY", "") or "").strip()
     from_address = (getattr(m, "RESEND_FROM", "") or "HeyMaa <info@heymaa.ai>").strip()
@@ -113,6 +133,7 @@ def _deliver_all(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: 
             subject=subject,
             body=body,
             link=link,
+            button_label=button_label,
             name=str(user.get("name") or "").strip() or None,
             images=images,
         )
@@ -154,15 +175,108 @@ def _deliver_all(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: 
         pass
 
 
+def _clean_button_label(raw: Optional[str]) -> Optional[str]:
+    text = re.sub(r"\s+", " ", (raw or "").strip())
+    if not text:
+        return None
+    # Labels are rendered as text inside the email button — keep them short and plain.
+    text = re.sub(r"[<>\"']", "", text)[:48].strip()
+    return text or None
+
+
 class EmailSendRequest(BaseModel):
     subject: str
     body: str
     url: Optional[str] = None
+    button_label: Optional[str] = None
+    include_button: Optional[bool] = None
     images: list[str] = Field(default_factory=list)
     audience: str = "selected"
     user_ids: list[str] = Field(default_factory=list)
     plan: Optional[str] = None
     sample_name: Optional[str] = None
+
+
+class EmailDraftRequest(BaseModel):
+    brief: str
+    tone: str = "warm"
+    lang: str = "en"
+    existing_subject: Optional[str] = None
+    existing_body: Optional[str] = None
+    want_button: bool = True
+
+
+async def _draft_email_with_ai(req: EmailDraftRequest) -> dict[str, Any]:
+    m = _main()
+    brief = (req.brief or "").strip()
+    if len(brief) < 8:
+        raise HTTPException(status_code=400, detail="Describe what the email should say (at least a short brief).")
+    if len(brief) > 1200:
+        raise HTTPException(status_code=400, detail="Brief is too long (max 1200 characters).")
+
+    api_key = (getattr(m, "GROK_API_KEY", "") or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI drafting needs a Grok / xAI API key on the server.")
+
+    tone = (req.tone or "warm").strip().lower()
+    if tone not in ("warm", "promo", "reminder", "support"):
+        tone = "warm"
+    lang = (req.lang or "en").strip().lower()
+    if lang not in ("en", "el"):
+        lang = "en"
+    lang_name = "Greek" if lang == "el" else "English"
+
+    system = (
+        "You write short marketing/transactional emails for HeyMaa, a parenting assistant web app. "
+        "Return ONLY valid JSON with keys: subject, body, button_label, url_suggestion. "
+        "Rules: plain text body (no HTML); you may use **bold**, *italic*, and - bullet lists; "
+        "optional {name} placeholder once in the greeting; subject max 90 chars; body 2–8 short paragraphs; "
+        "button_label max 32 chars; url_suggestion is a path like /subscription, /app, "
+        "/app/auth?gift=CODE (redeemable gift codes from admin Gifts), or empty string; "
+        "when the brief mentions a gift code, prefer Claim your gift + /app/auth?gift=THAT_CODE; "
+        f"write everything in {lang_name}; tone={tone}; never invent discounts or medical claims."
+    )
+    user_parts = [f"Brief:\n{brief}"]
+    if (req.existing_subject or "").strip():
+        user_parts.append(f"Current subject (improve or replace):\n{req.existing_subject.strip()}")
+    if (req.existing_body or "").strip():
+        user_parts.append(f"Current body (improve or replace):\n{req.existing_body.strip()[:2000]}")
+    if not req.want_button:
+        user_parts.append("Do not suggest a button: set button_label and url_suggestion to empty strings.")
+    user_msg = "\n\n".join(user_parts)
+
+    try:
+        raw = await m.call_grok(user_msg, [], system, api_key, history_limit=2, max_tokens=900)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI draft failed: {e}") from e
+
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+    except Exception:
+        # Fallback: treat whole reply as body.
+        data = {"subject": "HeyMaa update", "body": text[:4000], "button_label": "Open HeyMaa", "url_suggestion": "/app"}
+
+    subject = str(data.get("subject") or "").strip()[:140]
+    body = str(data.get("body") or "").strip()[:4000]
+    button_label = _clean_button_label(str(data.get("button_label") or ""))
+    url_suggestion = str(data.get("url_suggestion") or "").strip()[:300]
+    if url_suggestion and not (
+        url_suggestion.startswith("/") or url_suggestion.startswith("https://") or url_suggestion.startswith("http://")
+    ):
+        url_suggestion = ""
+    if len(subject) < 2 or len(body) < 2:
+        raise HTTPException(status_code=502, detail="AI returned an incomplete draft. Try again with a clearer brief.")
+    return {
+        "ok": True,
+        "subject": subject,
+        "body": body,
+        "button_label": button_label or "",
+        "url_suggestion": url_suggestion,
+    }
 
 
 def register_email_routes(app: FastAPI) -> None:
@@ -215,7 +329,10 @@ def register_email_routes(app: FastAPI) -> None:
             from .app_notifications_api import _clean_url, _page_users
 
         stored_url = _clean_url(req.url)
+        if req.include_button is False:
+            stored_url = None
         link = _absolute_link(stored_url)
+        button_label = _clean_button_label(req.button_label)
         images = _clean_images(req.images)
         audience = (req.audience or "selected").strip().lower()
         if audience not in ("selected", "all", "plan"):
@@ -270,7 +387,13 @@ def register_email_routes(app: FastAPI) -> None:
         threading.Thread(
             target=_deliver,
             args=(sb, row["id"], mailable),
-            kwargs={"subject": subject, "body": body, "link": link, "images": images},
+            kwargs={
+                "subject": subject,
+                "body": body,
+                "link": link,
+                "images": images,
+                "button_label": button_label,
+            },
             daemon=True,
         ).start()
         return {"ok": True, "email": row}
@@ -288,7 +411,10 @@ def register_email_routes(app: FastAPI) -> None:
             stored_url = _clean_url(req.url)
         except HTTPException:
             stored_url = None
+        if req.include_button is False:
+            stored_url = None
         link = _absolute_link(stored_url)
+        button_label = _clean_button_label(req.button_label)
         images = _clean_images(req.images)
         sample = (req.sample_name or "Maria").strip() or "Maria"
         try:
@@ -299,17 +425,24 @@ def register_email_routes(app: FastAPI) -> None:
             subject=subject,
             body=body,
             link=link,
+            button_label=button_label,
             name=sample,
             images=images,
             for_preview=True,
         )
         return {"subject": message.subject, "html": message.html}
 
+    @app.post("/admin/emails/draft")
+    async def admin_draft_email(req: EmailDraftRequest, x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        return await _draft_email_with_ai(req)
+
     @app.get("/admin/emails/reports/transactional")
     async def admin_transactional_email_report(
         days: int = 30,
         since: Optional[str] = None,
         until: Optional[str] = None,
+        kind: Optional[str] = None,
         x_token: Optional[str] = Header(None),
     ):
         _require_admin(x_token)
@@ -321,13 +454,30 @@ def register_email_routes(app: FastAPI) -> None:
             d = max(1, min(90, int(days or 30)))
             start = (datetime.now(timezone.utc) - timedelta(days=d)).isoformat()
         try:
-            from email_analytics import transactional_email_report
+            from email_analytics import transactional_email_report, transactional_kind_options
         except ImportError:
-            from .email_analytics import transactional_email_report
-        result = transactional_email_report(_main().sb, since=start, until=until)
+            from .email_analytics import transactional_email_report, transactional_kind_options
+        result = transactional_email_report(
+            _main().sb,
+            since=start,
+            until=until,
+            kind=(kind or "").strip() or None,
+        )
         if not result.get("ok"):
             raise HTTPException(status_code=503, detail=result.get("error") or "Report unavailable")
+        # Always expose filter options even when the period has sparse data.
+        if isinstance(result.get("report"), dict) and not result["report"].get("kind_options"):
+            result["report"]["kind_options"] = transactional_kind_options()
         return result
+
+    @app.get("/admin/emails/reports/kinds")
+    async def admin_email_report_kinds(x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        try:
+            from email_analytics import transactional_kind_options
+        except ImportError:
+            from .email_analytics import transactional_kind_options
+        return {"kinds": transactional_kind_options()}
 
     @app.get("/admin/emails/{campaign_id}/report")
     async def admin_email_campaign_report(campaign_id: str, x_token: Optional[str] = Header(None)):
