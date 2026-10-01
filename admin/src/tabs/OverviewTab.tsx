@@ -136,6 +136,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const capsLock = useEditLock()
   const [savedCaps, setSavedCaps] = useState({ daily: '', monthly: '', threshold: '5' })
   const [balancesLoading, setBalancesLoading] = useState(false)
+  const [healthLoading, setHealthLoading] = useState(false)
   const [pendingCancels, setPendingCancels] = useState<number | null>(null)
   const [ragErrorCount, setRagErrorCount] = useState<number | null>(null)
   const [snapshot, setSnapshot] = useState<{
@@ -164,6 +165,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   }
 
   const loadHealth = useCallback(async () => {
+    setHealthLoading(true)
     setHealthErr(false)
     setHealth(null)
     try {
@@ -171,6 +173,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
       setHealth(d as Record<string, unknown>)
     } catch {
       setHealthErr(true)
+    } finally {
+      setHealthLoading(false)
     }
   }, [adminFetch])
 
@@ -408,8 +412,14 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
               void loadRagErrors()
               void loadSnapshot()
             }}
+            aria-busy={snapshotLoading || balancesLoading || healthLoading || undefined}
           >
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+            <RefreshCw
+              size={14}
+              className={snapshotLoading || balancesLoading || healthLoading ? 'icon-spin' : undefined}
+              style={{ verticalAlign: -2, marginRight: 4 }}
+            />{' '}
+            Refresh
           </button>
         </div>
         <p className="card-desc">
@@ -560,8 +570,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           <h2>
             <Gauge size={16} className="h-icon" /> Live provider headroom
           </h2>
-          <button type="button" className="sec sm" disabled={balancesLoading} onClick={() => void loadUsage()}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+          <button type="button" className="sec sm" onClick={() => void loadUsage()} aria-busy={balancesLoading || undefined}>
+            <RefreshCw size={14} className={balancesLoading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} />
             {balancesLoading ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
@@ -631,8 +641,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
             <h2>
               <Activity size={16} className="h-icon" /> Provider status
             </h2>
-            <button type="button" className="sec sm" onClick={() => void loadHealth()}>
-              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+            <button type="button" className="sec sm" onClick={() => void loadHealth()} aria-busy={healthLoading || undefined}>
+              <RefreshCw size={14} className={healthLoading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
           </div>
           <p className="card-desc">

@@ -190,8 +190,8 @@ export function UserFinancialsTab() {
           <h2>
             <Wallet size={16} className="h-icon" /> User financials
           </h2>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+          <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} />
             Refresh
           </button>
         </div>

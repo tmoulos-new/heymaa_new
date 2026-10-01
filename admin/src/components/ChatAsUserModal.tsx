@@ -358,8 +358,17 @@ export function ChatAsUserModal({
                   {preview?.profile?.childName ? ` · child: ${preview.profile.childName}` : ''}
                   {preview?.profile?.lang ? ` · lang: ${preview.profile.lang}` : ''}
                 </span>
-                <button type="button" className="ghost sm" onClick={() => void loadPreview()} disabled={sending}>
-                  <RefreshCw size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+                <button
+                  type="button"
+                  className="ghost sm"
+                  onClick={() => void loadPreview()}
+                  aria-busy={loadingPreview || undefined}
+                >
+                  <RefreshCw
+                    size={12}
+                    className={loadingPreview ? 'icon-spin' : undefined}
+                    style={{ verticalAlign: -2, marginRight: 4 }}
+                  />
                   Refresh context
                 </button>
               </div>

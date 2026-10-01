@@ -379,8 +379,8 @@ export function NotificationsTab() {
       <div className="card">
         <div className="card-head">
           <h2 style={{ margin: 0 }}>Sent messages</h2>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} /> Refresh
+          <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} /> Refresh
           </button>
         </div>
         {history.length === 0 ? (

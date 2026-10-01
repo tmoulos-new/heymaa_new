@@ -505,8 +505,8 @@ export function UsersTab({ onCount }: { onCount: (n: number) => void }) {
               ${Number(llmTotalCost || 0).toFixed(4)}
             </span>
           </div>
-          <button type="button" className="sec sm" onClick={() => void loadUsers()}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+          <button type="button" className="sec sm" onClick={() => void loadUsers()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
           </button>
         </div>
       </div>

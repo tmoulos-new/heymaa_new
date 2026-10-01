@@ -147,8 +147,8 @@ export function InsightsTab() {
               <option value={60}>Last 60 days</option>
               <option value={90}>Last 90 days</option>
             </select>
-            <button type="button" className="sec sm" disabled={loading} onClick={() => void load()}>
-              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+            <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} />
               {loading ? 'Loading…' : 'Refresh'}
             </button>
           </div>

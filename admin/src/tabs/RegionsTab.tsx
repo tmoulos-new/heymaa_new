@@ -224,8 +224,8 @@ export function RegionsTab() {
               />
               Show deleted
             </label>
-            <button type="button" className="sec sm" onClick={() => void loadRegions()}>
-              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+            <button type="button" className="sec sm" onClick={() => void loadRegions()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
             {!showDeleted && (
               <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>

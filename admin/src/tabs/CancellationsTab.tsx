@@ -149,8 +149,8 @@ export function CancellationsTab() {
               <strong> Restore</strong> undoes a scheduled cancel.
             </p>
           </div>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} /> Refresh
+          <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} /> Refresh
           </button>
         </div>
 

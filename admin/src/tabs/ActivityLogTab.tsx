@@ -151,8 +151,8 @@ export function ActivityLogTab() {
         <h2>
           <ScrollText size={16} className="h-icon" /> Admin Activity
         </h2>
-        <button type="button" className="sec sm" onClick={() => void loadLog()}>
-          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+        <button type="button" className="sec sm" onClick={() => void loadLog()} aria-busy={loading || undefined}>
+          <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
         </button>
       </div>
       <p className="card-desc">

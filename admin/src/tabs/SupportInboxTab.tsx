@@ -152,8 +152,8 @@ export function SupportInboxTab() {
               keep personal data minimal. Rate limits apply on the user side.
             </p>
           </div>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+          <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
           </button>
         </div>
         {Message}

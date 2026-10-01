@@ -839,8 +839,8 @@ export function ContentTab() {
                 />
                 Show deleted
               </label>
-              <button type="button" className="sec sm" onClick={() => void loadOffers()}>
-                <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+              <button type="button" className="sec sm" onClick={() => void loadOffers()} aria-busy={offersLoading || undefined}>
+                <RefreshCw size={14} className={offersLoading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
               </button>
             </div>
           </div>
@@ -925,8 +925,8 @@ export function ContentTab() {
                 />
                 Show deleted
               </label>
-              <button type="button" className="sec sm" onClick={() => void loadPromotions()}>
-                <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+              <button type="button" className="sec sm" onClick={() => void loadPromotions()} aria-busy={promosLoading || undefined}>
+                <RefreshCw size={14} className={promosLoading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
               </button>
             </div>
           </div>

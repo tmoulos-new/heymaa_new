@@ -372,8 +372,8 @@ export function GiftsTab() {
             <button type="button" className="sec sm" onClick={() => setShowDeleted((v) => !v)}>
               {showDeleted ? 'Show active' : 'Show archived'}
             </button>
-            <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-              <RefreshCw size={14} /> Refresh
+            <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} /> Refresh
             </button>
             {!showDeleted ? (
               <>

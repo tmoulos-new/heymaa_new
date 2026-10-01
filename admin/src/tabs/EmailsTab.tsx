@@ -31,6 +31,8 @@ type MailStatus = {
   configured?: boolean
   from?: string | null
   max_per_send?: number
+  webhook_secret_set?: boolean
+  webhook_url?: string
 }
 
 type PreviewState = {
@@ -69,11 +71,13 @@ function statusBadge(status?: string) {
   const cls =
     s === 'sent' || s === 'delivered'
       ? 'badge-ok'
-      : s === 'sending'
+      : s === 'partial'
         ? 'badge-warn'
-        : s === 'failed'
-          ? 'badge-err'
-          : 'badge-muted'
+        : s === 'sending'
+          ? 'badge-warn'
+          : s === 'failed'
+            ? 'badge-err'
+            : 'badge-muted'
   return <span className={`badge ${cls}`}>{s}</span>
 }
 
@@ -487,6 +491,11 @@ export function EmailsTab() {
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
           Mail: {mailStatus?.configured ? 'ready' : 'not configured'}
           {mailStatus?.from ? ` · from ${mailStatus.from}` : ''}
+          {mailStatus?.webhook_secret_set === false
+            ? ' · webhook secret missing'
+            : mailStatus?.webhook_secret_set
+              ? ' · opens/clicks webhook set'
+              : ''}
         </p>
       </div>
 
@@ -618,10 +627,15 @@ export function EmailsTab() {
                   <button
                     type="button"
                     className="ghost sm"
-                    disabled={ctaSourcesLoading}
                     onClick={() => void loadCtaSources()}
+                    aria-busy={ctaSourcesLoading || undefined}
                   >
-                    {ctaSourcesLoading ? 'Loading…' : 'Refresh'}
+                    <RefreshCw
+                      size={12}
+                      className={ctaSourcesLoading ? 'icon-spin' : undefined}
+                      style={{ verticalAlign: -2, marginRight: 4 }}
+                    />
+                    Refresh
                   </button>
                 </div>
                 {ctaSourcesLoading && ctaSources.length === 0 ? (
@@ -846,8 +860,8 @@ export function EmailsTab() {
       <div className="card">
         <div className="card-head">
           <h2 style={{ margin: 0 }}>Sent emails</h2>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} /> Refresh
+          <button type="button" className="sec sm" onClick={() => void load()} aria-busy={loading || undefined}>
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} /> Refresh
           </button>
         </div>
         <p className="card-desc" style={{ marginTop: 0 }}>
@@ -904,7 +918,11 @@ export function EmailsTab() {
                     <td>
                       <strong>{item.subject || '—'}</strong>
                       {item.url ? <div className="muted sent-mail-table__cta">{item.url}</div> : null}
-                      {item.last_error ? <div className="sent-mail-table__error">{item.last_error}</div> : null}
+                      {item.last_error ? (
+                        <div className="sent-mail-table__error" title={item.last_error}>
+                          {item.last_error}
+                        </div>
+                      ) : null}
                     </td>
                     <td>{item.audience_label || item.audience || '—'}</td>
                     <td>{deliverySummary(item)}</td>

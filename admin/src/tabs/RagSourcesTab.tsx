@@ -684,8 +684,8 @@ export function RagSourcesTab() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="sec sm" onClick={() => void loadSources()} disabled={loading}>
-              <RefreshCw size={14} />
+            <button type="button" className="sec sm" onClick={() => void loadSources()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} />
               Refresh
             </button>
           </div>
@@ -1217,7 +1217,7 @@ export function RagSourcesTab() {
                             onClick={() => void rebuildOneSource(row)}
                             disabled={rechunking}
                           >
-                            <RefreshCw size={14} />
+                            <RefreshCw size={14} className={rechunking ? 'icon-spin' : undefined} />
                           </button>
                           <button
                             type="button"

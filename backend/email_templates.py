@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -1317,33 +1318,56 @@ def send_email(
     if attachment:
         payload["attachments"] = [attachment]
     resend_id = None
-    try:
-        resp = _resend.Emails.send(payload)
-        if isinstance(resp, dict):
-            resend_id = str(resp.get("id") or "") or None
-        else:
-            resend_id = str(getattr(resp, "id", "") or "") or None
-    except Exception as e:
+    last_err: Optional[str] = None
+    for attempt in range(3):
         try:
-            from email_analytics import record_send
-        except ImportError:
-            try:
-                from .email_analytics import record_send
-            except ImportError:
-                record_send = None  # type: ignore
-        if record_send:
-            record_send(
-                resend_id=None,
-                to_email=to,
-                subject=message.subject,
-                kind=kind,
-                campaign_id=campaign_id,
-                user_id=user_id,
-                to_name=to_name,
-                tags=merged_tags,
-                status="failed",
+            resp = _resend.Emails.send(payload)
+            if isinstance(resp, dict):
+                resend_id = str(resp.get("id") or "") or None
+            else:
+                resend_id = str(getattr(resp, "id", "") or "") or None
+            last_err = None
+            break
+        except Exception as e:
+            last_err = str(e)
+            transient = any(
+                token in last_err.lower()
+                for token in (
+                    "ssl",
+                    "eof",
+                    "timed out",
+                    "timeout",
+                    "connection",
+                    "temporarily",
+                    "reset",
+                    "max retries",
+                )
             )
-        return str(e)
+            if attempt < 2 and transient:
+                time.sleep(0.4 * (attempt + 1))
+                continue
+            try:
+                from email_analytics import record_send
+            except ImportError:
+                try:
+                    from .email_analytics import record_send
+                except ImportError:
+                    record_send = None  # type: ignore
+            if record_send:
+                record_send(
+                    resend_id=None,
+                    to_email=to,
+                    subject=message.subject,
+                    kind=kind,
+                    campaign_id=campaign_id,
+                    user_id=user_id,
+                    to_name=to_name,
+                    tags=merged_tags,
+                    status="failed",
+                )
+            return last_err
+    if last_err:
+        return last_err
     try:
         from email_analytics import record_send
     except ImportError:

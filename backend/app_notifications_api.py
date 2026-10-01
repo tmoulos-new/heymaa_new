@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 _MISSING = (
@@ -21,6 +22,21 @@ def _main():
     except ImportError:
         import main as m
     return m
+
+
+def _wants_admin_spa(request: Request) -> bool:
+    accept = (request.headers.get("accept") or "").lower()
+    return "text/html" in accept and "application/json" not in accept
+
+
+def _admin_spa_response():
+    import os
+
+    m = _main()
+    path = m._admin_index_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Admin UI not built")
+    return FileResponse(path, media_type="text/html")
 
 
 def _require_user(token: Optional[str]) -> str:
@@ -476,7 +492,9 @@ def register_notification_routes(app: FastAPI) -> None:
         return {"users": res.data or []}
 
     @app.get("/admin/notifications")
-    async def admin_list_notifications(x_token: Optional[str] = Header(None)):
+    async def admin_list_notifications(request: Request, x_token: Optional[str] = Header(None)):
+        if _wants_admin_spa(request):
+            return _admin_spa_response()
         _require_admin(x_token)
         sb = _main().sb
         try:

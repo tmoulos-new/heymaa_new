@@ -204,8 +204,8 @@ export function PlansTab() {
         <h2>
           <CreditCard size={16} className="h-icon" /> Plans
         </h2>
-        <button type="button" className="sec sm" onClick={() => void loadPlans()} disabled={loading}>
-          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+        <button type="button" className="sec sm" onClick={() => void loadPlans()} aria-busy={loading || undefined}>
+          <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} />
           Refresh
         </button>
       </div>

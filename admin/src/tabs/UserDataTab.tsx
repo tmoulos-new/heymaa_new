@@ -464,9 +464,9 @@ export function UserDataTab() {
               void loadUsers()
               void loadData()
             }}
-            disabled={loading}
+            aria-busy={loading || undefined}
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} />
           </button>
         </div>
       </div>

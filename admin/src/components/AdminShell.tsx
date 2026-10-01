@@ -104,6 +104,7 @@ export function AdminShell() {
   const [pendingCancels, setPendingCancels] = useState<number | null>(null)
   const [openSupport, setOpenSupport] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshingAll, setRefreshingAll] = useState(false)
 
   const switchTab = (id: TabId) => {
     navigate(pathForTab(id))
@@ -120,7 +121,9 @@ export function AdminShell() {
   }
 
   const refreshAll = useCallback(() => {
+    setRefreshingAll(true)
     setRefreshKey((k) => k + 1)
+    window.setTimeout(() => setRefreshingAll(false), 600)
   }, [])
 
   const onUserCount = useCallback((n: number) => setUserCount(n), [])
@@ -243,8 +246,14 @@ export function AdminShell() {
         </nav>
 
         <div className="sidebar-footer">
-          <button type="button" className="sec sm sidebar-action" data-tip="Refresh all" onClick={refreshAll}>
-            <RefreshCw size={16} />
+          <button
+            type="button"
+            className="sec sm sidebar-action"
+            data-tip="Refresh all"
+            onClick={refreshAll}
+            aria-busy={refreshingAll || undefined}
+          >
+            <RefreshCw size={16} className={refreshingAll ? 'icon-spin' : undefined} />
             <span className="action-label">Refresh all</span>
           </button>
           <button type="button" className="ghost sm sidebar-action" data-tip="Sign out" onClick={logout}>

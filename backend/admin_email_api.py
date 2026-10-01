@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import os
 import re
-import threading
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 _MISSING = (
@@ -85,6 +86,48 @@ def _clean_images(raw: list[str]) -> list[str]:
     return out
 
 
+def _campaign_final_status(delivered: int, failed: int) -> str:
+    if delivered <= 0:
+        return "failed"
+    if failed > 0:
+        return "partial"
+    return "sent"
+
+
+def _finalize_stale_sending(sb, *, older_than_seconds: int = 180) -> None:
+    """Vercel can kill mid-send work; close out campaigns stuck in sending."""
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=older_than_seconds)).isoformat()
+        stuck = (
+            sb.table("admin_email_campaigns")
+            .select("id,delivered,failed,recipient_count,created_at")
+            .eq("status", "sending")
+            .lt("created_at", cutoff)
+            .limit(50)
+            .execute()
+        )
+    except Exception:
+        return
+    for row in stuck.data or []:
+        delivered = int(row.get("delivered") or 0)
+        failed = int(row.get("failed") or 0)
+        status = _campaign_final_status(delivered, failed)
+        note = (
+            "Send did not finish on the server (likely a timeout). "
+            f"Recorded {delivered} delivered, {failed} failed."
+        )
+        try:
+            sb.table("admin_email_campaigns").update(
+                {
+                    "status": status,
+                    "last_error": note[:400],
+                    "sent_at": _now(),
+                }
+            ).eq("id", row["id"]).eq("status", "sending").execute()
+        except Exception:
+            pass
+
+
 def _deliver(sb, campaign_id: str, users: list[dict[str, Any]], *, subject: str, body: str, link: Optional[str], images: Optional[list[str]] = None, button_label: Optional[str] = None) -> None:
     try:
         _deliver_all(
@@ -128,51 +171,59 @@ def _deliver_all(
     delivered = 0
     failed = 0
     last_error = None
-    for user in users:
-        message = render_admin_broadcast_email(
-            subject=subject,
-            body=body,
-            link=link,
-            button_label=button_label,
-            name=str(user.get("name") or "").strip() or None,
-            images=images,
-        )
-        err = send_email(
-            api_key=api_key,
-            from_address=from_address,
-            to=str(user["email"]),
-            message=message,
-            kind="campaign",
-            campaign_id=str(campaign_id),
-            user_id=str(user.get("id") or "") or None,
-            to_name=str(user.get("name") or "").strip() or None,
-            tags={"campaign": "admin_broadcast"},
-        )
-        if err:
-            failed += 1
-            last_error = err[:400]
-        else:
-            delivered += 1
-        if (delivered + failed) % 15 == 0:
-            try:
-                sb.table("admin_email_campaigns").update(
-                    {"delivered": delivered, "failed": failed, "last_error": last_error}
-                ).eq("id", campaign_id).execute()
-            except Exception:
-                pass
-    status = "sent" if delivered else "failed"
     try:
-        sb.table("admin_email_campaigns").update(
-            {
-                "status": status,
-                "delivered": delivered,
-                "failed": failed,
-                "last_error": last_error,
-                "sent_at": _now(),
-            }
-        ).eq("id", campaign_id).execute()
-    except Exception:
-        pass
+        for user in users:
+            message = render_admin_broadcast_email(
+                subject=subject,
+                body=body,
+                link=link,
+                button_label=button_label,
+                name=str(user.get("name") or "").strip() or None,
+                images=images,
+            )
+            err = send_email(
+                api_key=api_key,
+                from_address=from_address,
+                to=str(user["email"]),
+                message=message,
+                kind="campaign",
+                campaign_id=str(campaign_id),
+                user_id=str(user.get("id") or "") or None,
+                to_name=str(user.get("name") or "").strip() or None,
+                tags={"campaign": "admin_broadcast"},
+            )
+            if err:
+                failed += 1
+                last_error = err[:400]
+            else:
+                delivered += 1
+            if (delivered + failed) % 5 == 0:
+                try:
+                    sb.table("admin_email_campaigns").update(
+                        {
+                            "delivered": delivered,
+                            "failed": failed,
+                            "last_error": last_error,
+                        }
+                    ).eq("id", campaign_id).execute()
+                except Exception:
+                    pass
+                # Brief pause to reduce Resend / TLS connection churn on large sends.
+                time.sleep(0.05)
+    finally:
+        status = _campaign_final_status(delivered, failed)
+        try:
+            sb.table("admin_email_campaigns").update(
+                {
+                    "status": status,
+                    "delivered": delivered,
+                    "failed": failed,
+                    "last_error": last_error,
+                    "sent_at": _now(),
+                }
+            ).eq("id", campaign_id).execute()
+        except Exception:
+            pass
 
 
 def _clean_button_label(raw: Optional[str]) -> Optional[str]:
@@ -279,6 +330,20 @@ async def _draft_email_with_ai(req: EmailDraftRequest) -> dict[str, Any]:
     }
 
 
+def _wants_admin_spa(request: Request) -> bool:
+    """Browser refresh sends text/html; adminFetch sends application/json."""
+    accept = (request.headers.get("accept") or "").lower()
+    return "text/html" in accept and "application/json" not in accept
+
+
+def _admin_spa_response():
+    m = _main()
+    path = m._admin_index_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Admin UI not built")
+    return FileResponse(path, media_type="text/html")
+
+
 def register_email_routes(app: FastAPI) -> None:
     @app.get("/admin/emails/status")
     async def admin_email_status(x_token: Optional[str] = Header(None)):
@@ -286,21 +351,30 @@ def register_email_routes(app: FastAPI) -> None:
         m = _main()
         configured = bool((getattr(m, "RESEND_API_KEY", "") or "").strip())
         from_address = (getattr(m, "RESEND_FROM", "") or "HeyMaa <info@heymaa.ai>").strip()
+        import os as _os
+
+        webhook_secret_set = bool((_os.getenv("RESEND_WEBHOOK_SECRET") or "").strip())
         return {
             "configured": configured,
             "from": from_address if configured else None,
             "max_per_send": _MAX_RECIPIENTS,
+            "webhook_secret_set": webhook_secret_set,
+            "webhook_url": f"{(_os.getenv('APP_URL') or 'https://www.heymaa.ai').rstrip('/')}/webhooks/resend",
         }
 
     @app.get("/admin/emails")
     async def admin_list_emails(
+        request: Request,
         x_token: Optional[str] = Header(None),
         from_date: Optional[str] = None,
         to_date: Optional[str] = None,
         limit: int = 10,
     ):
+        if _wants_admin_spa(request):
+            return _admin_spa_response()
         _require_admin(x_token)
         sb = _main().sb
+        _finalize_stale_sending(sb)
         lim = max(1, min(100, int(limit or 10)))
         start = (from_date or "").strip() or None
         end = (to_date or "").strip() or None
@@ -441,18 +515,30 @@ def register_email_routes(app: FastAPI) -> None:
         if not inserted.data:
             raise HTTPException(status_code=500, detail="Could not save the email")
         row = inserted.data[0]
-        threading.Thread(
-            target=_deliver,
-            args=(sb, row["id"], mailable),
-            kwargs={
-                "subject": subject,
-                "body": body,
-                "link": link,
-                "images": images,
-                "button_label": button_label,
-            },
-            daemon=True,
-        ).start()
+        # Deliver inside the request. Daemon threads die on Vercel after the response
+        # and leave campaigns stuck on "sending" with partial counts.
+        _deliver(
+            sb,
+            row["id"],
+            mailable,
+            subject=subject,
+            body=body,
+            link=link,
+            images=images,
+            button_label=button_label,
+        )
+        try:
+            refreshed = (
+                sb.table("admin_email_campaigns")
+                .select("*")
+                .eq("id", row["id"])
+                .limit(1)
+                .execute()
+            )
+            if refreshed.data:
+                row = refreshed.data[0]
+        except Exception:
+            pass
         return {"ok": True, "email": row}
 
     @app.post("/admin/emails/preview")

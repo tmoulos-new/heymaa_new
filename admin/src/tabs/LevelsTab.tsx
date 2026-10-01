@@ -248,8 +248,8 @@ export function LevelsTab() {
             <Trophy size={16} className="h-icon" /> Levels
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="sec sm" onClick={() => void loadLevels()}>
-              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+            <button type="button" className="sec sm" onClick={() => void loadLevels()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
             <button type="button" className="sec sm" onClick={() => setCreateOpen(true)}>
               <Plus size={14} /> New

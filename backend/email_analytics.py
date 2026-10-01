@@ -227,10 +227,149 @@ def _events_for(sb, resend_ids: list[str]) -> list[dict]:
     return out
 
 
+def _resend_api_key() -> str:
+    key = (os.getenv("RESEND_API_KEY") or "").strip()
+    if key:
+        return key
+    try:
+        import main as m
+    except ImportError:
+        try:
+            from . import main as m
+        except ImportError:
+            return ""
+    return (getattr(m, "RESEND_API_KEY", "") or "").strip()
+
+
+def sync_events_from_resend(sb, resend_ids: list[str], *, limit: int = 120) -> dict[str, Any]:
+    """Backfill email_events from Resend Emails.get(last_event) when webhooks missed events.
+
+    Resend stores the latest lifecycle state on each message. Webhooks are preferred for
+    multi-open / click URLs; this recovers unique open/click rates for admin reports.
+    """
+    if not sb:
+        return {"synced": 0, "checked": 0}
+    ids = [str(rid).strip() for rid in resend_ids if str(rid or "").strip()]
+    ids = ids[: max(1, min(300, int(limit or 120)))]
+    if not ids:
+        return {"synced": 0, "checked": 0}
+    api_key = _resend_api_key()
+    if not api_key:
+        return {"synced": 0, "checked": 0, "error": "RESEND_API_KEY missing"}
+
+    import resend as _resend
+
+    _resend.api_key = api_key
+    existing = _events_for(sb, ids)
+    have: dict[str, set[str]] = defaultdict(set)
+    for e in existing:
+        rid = str(e.get("resend_id") or "")
+        et = str(e.get("event_type") or "")
+        if rid and et:
+            have[rid].add(et)
+
+    synced = 0
+    checked = 0
+    for rid in ids:
+        types = have[rid]
+        if "opened" in types or "clicked" in types:
+            continue
+        checked += 1
+        try:
+            email = _resend.Emails.get(rid)
+        except Exception:
+            continue
+        if isinstance(email, dict):
+            last = str(email.get("last_event") or "").strip().lower()
+            to_list = email.get("to") or []
+        else:
+            last = str(getattr(email, "last_event", "") or "").strip().lower()
+            to_list = getattr(email, "to", None) or []
+        if not last or last in ("queued", "scheduled", "sent"):
+            continue
+
+        chain: list[str] = []
+        if last in ("delivered", "opened", "clicked"):
+            chain.append("delivered")
+        if last in ("opened", "clicked"):
+            chain.append("opened")
+        if last == "clicked":
+            chain.append("clicked")
+        elif last in ("bounced", "complained"):
+            chain = [last]
+        elif last == "failed":
+            chain = ["bounced"]
+        elif last == "delivery_delayed":
+            chain = ["delayed"]
+        else:
+            continue
+
+        to_email = ""
+        if isinstance(to_list, list) and to_list:
+            to_email = _clean_email(str(to_list[0]))
+        elif isinstance(to_list, str):
+            to_email = _clean_email(to_list)
+
+        for mapped in chain:
+            if mapped in types:
+                continue
+            row = {
+                "resend_id": rid,
+                "event_type": mapped,
+                "to_email": to_email or None,
+                "link": None,
+                "user_agent": None,
+                "ip": None,
+                "payload": {"source": "resend_api_sync", "last_event": last},
+                "occurred_at": _iso(_now()),
+            }
+            try:
+                sb.table(EVENTS_TABLE).insert(row).execute()
+                types.add(mapped)
+                synced += 1
+            except Exception:
+                pass
+
+        status = chain[-1] if chain else last
+        if status in ("delivered", "opened", "clicked", "bounced", "complained"):
+            try:
+                sb.table(SENDS_TABLE).update({"status": status}).eq("resend_id", rid).execute()
+            except Exception:
+                pass
+
+    return {"synced": synced, "checked": checked}
+
+
 def _pct(part: int, whole: int) -> float:
     if whole <= 0:
         return 0.0
     return round(100.0 * part / whole, 2)
+
+
+def _tracking_note_for(*, events: list[dict], total_opens: int, total_clicks: int) -> Optional[str]:
+    """Explain missing open/click data; hide once we have opens or clicks."""
+    if total_opens > 0 or total_clicks > 0:
+        return None
+    secret_set = bool((os.getenv("RESEND_WEBHOOK_SECRET") or "").strip())
+    has_lifecycle = any(
+        str(e.get("event_type") or "") in ("delivered", "opened", "clicked", "bounced", "complained")
+        for e in events
+    )
+    if not secret_set:
+        return _webhook_setup_note()
+    if not has_lifecycle:
+        return (
+            "No open/click events yet. Reports also sync from Resend’s API when you open them. "
+            "If rates stay at 0%: (1) turn on Open + Click tracking under Resend → Domains for "
+            "heymaa.ai, (2) confirm the webhook URL "
+            f"{_webhook_endpoint_url()} includes email.opened / email.clicked, and "
+            "(3) make sure Vercel RESEND_WEBHOOK_SECRET matches that webhook’s whsec_ secret "
+            "(a mismatch returns 401 and drops events)."
+        )
+    return (
+        "Delivered events are present but no opens/clicks yet. Enable Open tracking and Click "
+        "tracking on the sending domain in Resend → Domains (required for open/click rates)."
+    )
 
 
 def _build_report(*, sends: list[dict], events: list[dict], title: str, meta: dict[str, Any]) -> dict[str, Any]:
@@ -336,10 +475,8 @@ def _build_report(*, sends: list[dict], events: list[dict], title: str, meta: di
             "unknown": device_counter.get("Unknown", 0),
         },
         "timeline": timeline,
-        "tracking_note": (
-            _webhook_setup_note()
-            if total_opens == 0 and total_clicks == 0
-            else None
+        "tracking_note": _tracking_note_for(
+            events=events, total_opens=total_opens, total_clicks=total_clicks
         ),
     }
 
@@ -414,6 +551,8 @@ def campaign_email_report(sb, campaign_id: str) -> dict[str, Any]:
             },
         }
     ids = [str(s.get("resend_id")) for s in sends if s.get("resend_id")]
+    # Recover opens/clicks from Resend when webhooks never ingested events.
+    sync_meta = sync_events_from_resend(sb, ids, limit=min(200, max(40, len(ids))))
     events = _events_for(sb, ids)
     report = _build_report(
         sends=sends,
@@ -426,6 +565,7 @@ def campaign_email_report(sb, campaign_id: str) -> dict[str, Any]:
             "created_at": campaign.get("created_at"),
             "status": campaign.get("status"),
             "from": "HeyMaa <info@heymaa.ai>",
+            "resend_sync": sync_meta,
         },
     )
     return {"ok": True, "report": report}
@@ -497,6 +637,7 @@ def transactional_email_report(
         return {"ok": False, "error": str(e)[:200]}
 
     ids = [str(s.get("resend_id")) for s in sends if s.get("resend_id")]
+    sync_meta = sync_events_from_resend(sb, ids, limit=min(150, max(40, len(ids))))
     events = _events_for(sb, ids)
     label = next((lab for kid, lab in TRANSACTIONAL_KIND_OPTIONS if kid == kind_filter), None)
     title = label if kind_filter and label else "Transactional emails"
@@ -509,6 +650,7 @@ def transactional_email_report(
             "since": since,
             "until": until,
             "filter_kind": kind_filter or None,
+            "resend_sync": sync_meta,
         },
     )
     by_kind: dict[str, dict[str, int]] = defaultdict(lambda: {"sent": 0, "opened": 0, "clicked": 0})

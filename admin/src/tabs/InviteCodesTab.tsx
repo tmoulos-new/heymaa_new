@@ -245,8 +245,8 @@ export function InviteCodesTab() {
               />
               Show deleted
             </label>
-            <button type="button" className="sec sm" onClick={() => void loadCodes()}>
-              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
+            <button type="button" className="sec sm" onClick={() => void loadCodes()} aria-busy={loading || undefined}>
+              <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} style={{ verticalAlign: -2, marginRight: 4 }} /> Refresh
             </button>
             {!showDeleted && (
               <button type="button" className="teal sm" onClick={() => setCreateOpen(true)}>
