@@ -462,6 +462,43 @@ textarea{min-height:80px;resize:vertical}
 .card > .meta:has(+ .links){margin-bottom:0}
 .ms-wrap + p.field{margin-top:0;margin-bottom:14px;text-transform:none;letter-spacing:0;font-weight:500}
 
+/* Locked-by-default forms — Edit unlocks; prevents accidental edits */
+.form-lock-body{
+  margin:0;
+  padding:0;
+  border:none;
+  min-width:0;
+}
+.form-lock-body.is-locked{
+  opacity:.72;
+}
+.form-lock-body.is-locked input,
+.form-lock-body.is-locked textarea,
+.form-lock-body.is-locked select{
+  background:#F3F1ED;
+  color:#5a6478;
+  cursor:not-allowed;
+  border-color:#E4DFD8;
+}
+.form-lock-body > legend.form-lock-legend{
+  float:left;
+  width:100%;
+  margin:0 0 10px;
+  padding:0;
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  letter-spacing:.01em;
+}
+.form-lock-body > legend.form-lock-legend + *{
+  clear:both;
+}
+.form-lock-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
 /* Form/action buttons: shared/design-system/buttons.css (button, .sec, .del, .ghost, .teal) */
 
 /* ── Stats ── */
@@ -1156,10 +1193,17 @@ code{background:var(--gl);padding:2px 6px;border-radius:4px;font-size:12px}
   display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
 }
 .email-ai__row label{
-  display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);
+  display:flex;flex-direction:column;gap:4px;margin:0;
+  font-size:12px;color:var(--muted);
 }
-.email-ai__row select{min-width:120px}
-.email-ai__row .teal{margin-left:auto}
+.email-ai__row select{
+  min-width:120px;margin:0;height:42px;box-sizing:border-box;
+}
+.email-ai__row .teal{
+  margin:0 0 0 auto;height:42px;box-sizing:border-box;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  white-space:nowrap;
+}
 
 .email-cta-card{
   border:1.5px solid #DDD7D0;border-radius:14px;background:#fff;padding:14px 16px;

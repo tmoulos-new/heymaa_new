@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Bot, Brain, GitBranch, RefreshCw, Save } from 'lucide-react'
-import { FieldLabel, useFlashMessage } from '../components/ui'
+import { FieldLabel, FormLockBody, FormLockControls, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { apiDetail } from '../lib/api'
+import { useEditLock } from '../lib/useEditLock'
 
 type PromptRow = {
   content: string
@@ -350,6 +351,9 @@ export function ChatPromptTab() {
   }>({})
   const [memoryLoading, setMemoryLoading] = useState(true)
   const [memorySaving, setMemorySaving] = useState(false)
+  const promptLock = useEditLock()
+  const memoryLock = useEditLock()
+  const routingLock = useEditLock()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -471,6 +475,7 @@ export function ChatPromptTab() {
       setContent(trimmed)
       setSavedContent(trimmed)
       setMeta({ updated_at: d.updated_at, updated_by_name: d.updated_by_name })
+      promptLock.finishEdit()
       show('Chat prompt saved. New chats will use this version.', 'ok')
     } catch {
       show('Network error while saving', 'err')
@@ -533,6 +538,7 @@ export function ChatPromptTab() {
         updated_by_name: d.updated_by_name,
         source: 'db',
       })
+      routingLock.finishEdit()
       show('LLM routing saved. New chats will use these rules.', 'ok')
     } catch {
       show('Network error while saving routing', 'err')
@@ -577,6 +583,7 @@ export function ChatPromptTab() {
         updated_by_name: d.updated_by_name,
         source: 'db',
       })
+      memoryLock.finishEdit()
       show('Memory continuity instructions saved. New chats will use them.', 'ok')
     } catch {
       show('Network error while saving memory continuity', 'err')
@@ -623,10 +630,22 @@ export function ChatPromptTab() {
           <h2>
             <Bot size={16} className="h-icon" /> Chat system prompt
           </h2>
-          <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-            Reload
-          </button>
+          <div className="card-head-actions">
+            <FormLockControls
+              editing={promptLock.editing}
+              disabled={loading || saving}
+              onEdit={promptLock.startEdit}
+              onCancel={() =>
+                promptLock.cancelEdit(() => {
+                  setContent(savedContent)
+                })
+              }
+            />
+            <button type="button" className="sec sm" onClick={() => void load()} disabled={loading}>
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+              Reload
+            </button>
+          </div>
         </div>
         <p className="card-desc">
           Shared personality instructions sent to <strong>Grok, Gemini, and Claude</strong> on every
@@ -640,7 +659,7 @@ export function ChatPromptTab() {
         {loading ? (
           <p className="muted">Loading…</p>
         ) : (
-          <>
+          <FormLockBody editing={promptLock.editing}>
             <FieldLabel>Instructions</FieldLabel>
             <textarea
               value={content}
@@ -662,12 +681,14 @@ export function ChatPromptTab() {
                   : 'Not saved yet'}
                 {dirty ? ' · unsaved changes' : ''}
               </span>
-              <button type="button" className="teal" disabled={saving || !dirty} onClick={() => void save()}>
-                <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
-                {saving ? 'Saving…' : 'Save prompt'}
-              </button>
+              {promptLock.editing ? (
+                <button type="button" className="teal" disabled={saving || !dirty} onClick={() => void save()}>
+                  <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
+                  {saving ? 'Saving…' : 'Save prompt'}
+                </button>
+              ) : null}
             </div>
-          </>
+          </FormLockBody>
         )}
       </div>
 
@@ -676,10 +697,22 @@ export function ChatPromptTab() {
           <h2>
             <Brain size={16} className="h-icon" /> Memory &amp; continuity
           </h2>
-          <button type="button" className="sec sm" onClick={() => void loadMemory()} disabled={memoryLoading}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-            Reload
-          </button>
+          <div className="card-head-actions">
+            <FormLockControls
+              editing={memoryLock.editing}
+              disabled={memoryLoading || memorySaving}
+              onEdit={memoryLock.startEdit}
+              onCancel={() =>
+                memoryLock.cancelEdit(() => {
+                  if (savedMemory) setMemory(savedMemory)
+                })
+              }
+            />
+            <button type="button" className="sec sm" onClick={() => void loadMemory()} disabled={memoryLoading}>
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+              Reload
+            </button>
+          </div>
         </div>
         <p className="card-desc">
           How HeyMaa keeps a personal thread with each mother: what is injected into the system prompt,
@@ -752,32 +785,14 @@ export function ChatPromptTab() {
               </>
             ) : null}
 
-            <FieldLabel>Memories section instruction</FieldLabel>
-            <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
-              Becomes the <code>--- … ---</code> header above the mother&apos;s saved notes in the system prompt.
-            </p>
-            <textarea
-              value={memory.memories_instruction}
-              onChange={(e) => setMemory({ ...memory, memories_instruction: e.target.value })}
-              rows={3}
-              spellCheck={false}
-              style={{
-                width: '100%',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                fontSize: 13,
-                lineHeight: 1.5,
-                resize: 'vertical',
-              }}
-            />
-
-            <div style={{ marginTop: 14 }}>
-              <FieldLabel>Milestones section instruction</FieldLabel>
+            <FormLockBody editing={memoryLock.editing}>
+              <FieldLabel>Memories section instruction</FieldLabel>
               <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
-                Same pattern for ticked development milestones.
+                Becomes the <code>--- … ---</code> header above the mother&apos;s saved notes in the system prompt.
               </p>
               <textarea
-                value={memory.milestones_instruction}
-                onChange={(e) => setMemory({ ...memory, milestones_instruction: e.target.value })}
+                value={memory.memories_instruction}
+                onChange={(e) => setMemory({ ...memory, memories_instruction: e.target.value })}
                 rows={3}
                 spellCheck={false}
                 style={{
@@ -788,25 +803,47 @@ export function ChatPromptTab() {
                   resize: 'vertical',
                 }}
               />
-            </div>
 
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-              <span className="muted" style={{ fontSize: 12 }}>
-                {memoryMeta.updated_at
-                  ? `Last saved ${new Date(memoryMeta.updated_at).toLocaleString()}${memoryMeta.updated_by_name ? ` by ${memoryMeta.updated_by_name}` : ''}`
-                  : 'Using defaults until saved'}
-                {memoryDirty ? ' · unsaved changes' : ''}
-              </span>
-              <button
-                type="button"
-                className="teal"
-                disabled={memorySaving || !memoryDirty}
-                onClick={() => void saveMemory()}
-              >
-                <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
-                {memorySaving ? 'Saving…' : 'Save memory instructions'}
-              </button>
-            </div>
+              <div style={{ marginTop: 14 }}>
+                <FieldLabel>Milestones section instruction</FieldLabel>
+                <p className="muted" style={{ fontSize: 12, margin: '2px 0 6px' }}>
+                  Same pattern for ticked development milestones.
+                </p>
+                <textarea
+                  value={memory.milestones_instruction}
+                  onChange={(e) => setMemory({ ...memory, milestones_instruction: e.target.value })}
+                  rows={3}
+                  spellCheck={false}
+                  style={{
+                    width: '100%',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {memoryMeta.updated_at
+                    ? `Last saved ${new Date(memoryMeta.updated_at).toLocaleString()}${memoryMeta.updated_by_name ? ` by ${memoryMeta.updated_by_name}` : ''}`
+                    : 'Using defaults until saved'}
+                  {memoryDirty ? ' · unsaved changes' : ''}
+                </span>
+                {memoryLock.editing ? (
+                  <button
+                    type="button"
+                    className="teal"
+                    disabled={memorySaving || !memoryDirty}
+                    onClick={() => void saveMemory()}
+                  >
+                    <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
+                    {memorySaving ? 'Saving…' : 'Save memory instructions'}
+                  </button>
+                ) : null}
+              </div>
+            </FormLockBody>
           </>
         )}
       </div>
@@ -816,10 +853,26 @@ export function ChatPromptTab() {
           <h2>
             <GitBranch size={16} className="h-icon" /> LLM routing
           </h2>
-          <button type="button" className="sec sm" onClick={() => void loadRouting()} disabled={routingLoading}>
-            <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-            Reload
-          </button>
+          <div className="card-head-actions">
+            <FormLockControls
+              editing={routingLock.editing}
+              disabled={routingLoading || routingSaving}
+              onEdit={routingLock.startEdit}
+              onCancel={() =>
+                routingLock.cancelEdit(() => {
+                  if (!savedRouting) return
+                  setRouting(savedRouting)
+                  setLangsText((savedRouting.gemini_first_langs || []).join(', '))
+                  setKeywordsText((savedRouting.complex_keywords || []).join('\n'))
+                  setPlacesKeywordsText((savedRouting.places_keywords || []).join('\n'))
+                })
+              }
+            />
+            <button type="button" className="sec sm" onClick={() => void loadRouting()} disabled={routingLoading}>
+              <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+              Reload
+            </button>
+          </div>
         </div>
         <p className="card-desc">
           Which model is tried first, then failover order. Drag to reorder; missing API keys are
@@ -837,6 +890,7 @@ export function ChatPromptTab() {
               placesKeywordsText={placesKeywordsText}
             />
 
+            <FormLockBody editing={routingLock.editing}>
             {ORDER_FIELDS.map((field) => (
               <div key={field.key} style={{ marginBottom: 18 }}>
                 <FieldLabel>{field.label}</FieldLabel>
@@ -918,16 +972,19 @@ export function ChatPromptTab() {
                   : 'Using defaults until saved'}
                 {routingDirty ? ' · unsaved changes' : ''}
               </span>
-              <button
-                type="button"
-                className="teal"
-                disabled={routingSaving || !routingDirty}
-                onClick={() => void saveRouting()}
-              >
-                <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
-                {routingSaving ? 'Saving…' : 'Save routing'}
-              </button>
+              {routingLock.editing ? (
+                <button
+                  type="button"
+                  className="teal"
+                  disabled={routingSaving || !routingDirty}
+                  onClick={() => void saveRouting()}
+                >
+                  <Save size={15} style={{ verticalAlign: -2, marginRight: 6 }} />
+                  {routingSaving ? 'Saving…' : 'Save routing'}
+                </button>
+              ) : null}
             </div>
+            </FormLockBody>
           </>
         )}
       </div>

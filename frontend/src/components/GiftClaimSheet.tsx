@@ -160,8 +160,12 @@ export function GiftClaimSheet({ open, lang, token, code, onClose, onClaimed }: 
               <p className="hm-reward-sheet__level">{giftLine}</p>
               <p className="hm-reward-sheet__body">
                 {isEl
-                  ? 'Πάτα για να το ενεργοποιήσεις στον λογαριασμό σου.'
-                  : 'Tap to activate this on your account.'}
+                  ? (preview?.gift_type === 'bonus_points'
+                    ? 'Πάτα για να προστεθούν οι πόντοι στο επίπεδό σου.'
+                    : 'Πάτα για να το ενεργοποιήσεις στον λογαριασμό σου.')
+                  : (preview?.gift_type === 'bonus_points'
+                    ? 'Tap to add these points to your level ladder.'
+                    : 'Tap to activate this on your account.')}
               </p>
             </>
           )}

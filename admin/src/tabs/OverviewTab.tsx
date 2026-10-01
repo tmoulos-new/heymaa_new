@@ -11,9 +11,10 @@ import {
   Save,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { FieldLabel, useFlashMessage } from '../components/ui'
+import { FieldLabel, FormLockBody, FormLockControls, useFlashMessage } from '../components/ui'
 import { useAdmin } from '../context/AdminContext'
 import { pathForTab } from '../lib/constants'
+import { useEditLock } from '../lib/useEditLock'
 import type { ProviderStatus } from '../lib/types'
 
 type AttentionSeverity = 'action' | 'alert'
@@ -132,6 +133,8 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
   const [dailyInput, setDailyInput] = useState('')
   const [monthlyInput, setMonthlyInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const capsLock = useEditLock()
+  const [savedCaps, setSavedCaps] = useState({ daily: '', monthly: '', threshold: '5' })
   const [balancesLoading, setBalancesLoading] = useState(false)
   const [pendingCancels, setPendingCancels] = useState<number | null>(null)
   const [ragErrorCount, setRagErrorCount] = useState<number | null>(null)
@@ -176,9 +179,15 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
     try {
       const d = (await adminFetch('/admin/usage')) as unknown as UsageState
       setUsage(d)
-      if (d.alert_threshold_usd != null) setThresholdInput(String(d.alert_threshold_usd))
-      setDailyInput(d.daily_budget_usd != null ? String(d.daily_budget_usd) : '')
-      setMonthlyInput(d.monthly_budget_usd != null ? String(d.monthly_budget_usd) : '')
+      const next = {
+        daily: d.daily_budget_usd != null ? String(d.daily_budget_usd) : '',
+        monthly: d.monthly_budget_usd != null ? String(d.monthly_budget_usd) : '',
+        threshold: d.alert_threshold_usd != null ? String(d.alert_threshold_usd) : '5',
+      }
+      setThresholdInput(next.threshold)
+      setDailyInput(next.daily)
+      setMonthlyInput(next.monthly)
+      setSavedCaps(next)
     } catch {
       /* ignore */
     } finally {
@@ -280,6 +289,7 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
         return
       }
       await loadUsage()
+      capsLock.finishEdit()
       show('Spend caps saved.', 'ok')
     } catch {
       show('Could not save caps', 'err')
@@ -726,50 +736,66 @@ export function OverviewTab({ userCount }: { userCount: number | null }) {
           <h2>
             <AlertTriangle size={16} className="h-icon" /> Internal spend caps
           </h2>
+          <FormLockControls
+            editing={capsLock.editing}
+            disabled={saving}
+            onEdit={capsLock.startEdit}
+            onCancel={() =>
+              capsLock.cancelEdit(() => {
+                setDailyInput(savedCaps.daily)
+                setMonthlyInput(savedCaps.monthly)
+                setThresholdInput(savedCaps.threshold)
+              })
+            }
+          />
         </div>
         <p className="card-desc">
           Optional HeyMaa alerts when <strong>our tracked chat spend</strong> crosses a daily or
           monthly cap. Changing caps does <strong>not</strong> stop API calls — it only triggers
           alerts. This is not the vendor prepaid balance.
         </p>
-        <div className="row">
-          <div className="field-wrap">
-            <FieldLabel>Daily spend cap $</FieldLabel>
-            <input
-              type="number"
-              min={0}
-              step="0.5"
-              value={dailyInput}
-              onChange={(e) => setDailyInput(e.target.value)}
-              placeholder="off"
-            />
+        <FormLockBody editing={capsLock.editing}>
+          <div className="row">
+            <div className="field-wrap">
+              <FieldLabel>Daily spend cap $</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                step="0.5"
+                value={dailyInput}
+                onChange={(e) => setDailyInput(e.target.value)}
+                placeholder="off"
+              />
+            </div>
+            <div className="field-wrap">
+              <FieldLabel>Monthly spend cap $</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={monthlyInput}
+                onChange={(e) => setMonthlyInput(e.target.value)}
+                placeholder="off"
+              />
+            </div>
+            <div className="field-wrap">
+              <FieldLabel>Alert below remaining $</FieldLabel>
+              <input
+                type="number"
+                min={0}
+                step="0.5"
+                value={thresholdInput}
+                onChange={(e) => setThresholdInput(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="field-wrap">
-            <FieldLabel>Monthly spend cap $</FieldLabel>
-            <input
-              type="number"
-              min={0}
-              step="1"
-              value={monthlyInput}
-              onChange={(e) => setMonthlyInput(e.target.value)}
-              placeholder="off"
-            />
-          </div>
-          <div className="field-wrap">
-            <FieldLabel>Alert below remaining $</FieldLabel>
-            <input
-              type="number"
-              min={0}
-              step="0.5"
-              value={thresholdInput}
-              onChange={(e) => setThresholdInput(e.target.value)}
-            />
-          </div>
-        </div>
-        <button type="button" className="teal" disabled={saving} onClick={() => void saveCaps()}>
-          <Save size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-          {saving ? 'Saving…' : 'Save caps'}
-        </button>
+          {capsLock.editing ? (
+            <button type="button" className="teal" disabled={saving} onClick={() => void saveCaps()}>
+              <Save size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              {saving ? 'Saving…' : 'Save caps'}
+            </button>
+          ) : null}
+        </FormLockBody>
       </div>
     </>
   )

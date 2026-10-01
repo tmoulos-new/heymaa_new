@@ -227,7 +227,7 @@ export function EmailAiAssist({
               disabled={busy || brief.trim().length < 8}
               onClick={onDraft}
             >
-              <Sparkles size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              <Sparkles size={14} aria-hidden="true" />
               {busy ? 'Drafting…' : 'Generate draft'}
             </button>
           </div>

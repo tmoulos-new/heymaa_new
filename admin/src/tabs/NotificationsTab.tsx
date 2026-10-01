@@ -5,7 +5,7 @@ import { ComposerPreview } from '../components/ComposerPreview'
 import { CampaignReportModal } from '../components/CampaignReportModal'
 import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
 import { useAdmin } from '../context/AdminContext'
-import { consumeComposeDraft } from '../lib/composeDraft'
+import { consumeComposeDraft, giftCodeIsOfferable } from '../lib/composeDraft'
 
 type Campaign = {
   id: string
@@ -83,9 +83,12 @@ export function NotificationsTab() {
         days?: number | null
         points?: number | null
         label?: string | null
+        expires_at?: string | null
+        max_claims?: number | null
+        claim_count?: number | null
       }>) || []) {
         const code = String(row.code || '').trim()
-        if (!code || (row.status || 'active') !== 'active') continue
+        if (!code || !giftCodeIsOfferable(row)) continue
         const bits: string[] = []
         if (row.gift_type === 'free_plan_days' || row.gift_type === 'combo') {
           bits.push(`${row.days || 0}d ${row.plan_slot || 'plan'}`)

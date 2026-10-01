@@ -26,6 +26,8 @@ export type GiftClaimResult = {
   points?: number
   points_balance?: number
   status?: unknown
+  gamification?: unknown
+  rewards?: unknown
   detail?: string
 }
 
@@ -59,11 +61,28 @@ export function clearPendingGiftCode() {
 
 export function giftCodeFromLocation(search = typeof window !== 'undefined' ? window.location.search : ''): string {
   try {
-    const params = new URLSearchParams(search)
+    const params = new URLSearchParams(search.startsWith('?') || !search ? search : `?${search}`)
     return (params.get('gift') || '').trim().toUpperCase()
   } catch {
     return ''
   }
+}
+
+/** True when a gift code row can still be offered in CTAs. */
+export function giftCodeIsClaimable(row: {
+  status?: string | null
+  expires_at?: string | null
+  max_claims?: number | null
+  claim_count?: number | null
+}): boolean {
+  if ((row.status || 'active') !== 'active') return false
+  if (row.expires_at) {
+    const ends = new Date(row.expires_at).getTime()
+    if (!Number.isNaN(ends) && ends <= Date.now()) return false
+  }
+  const max = row.max_claims
+  if (max != null && Number(max) > 0 && Number(row.claim_count || 0) >= Number(max)) return false
+  return true
 }
 
 export async function previewGift(code: string): Promise<GiftPreview> {

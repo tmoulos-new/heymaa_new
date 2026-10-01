@@ -36,7 +36,7 @@ export const TAB_SUBTITLES: Record<string, string> = {
   quality: 'Thumbs, bad-reply queue, golden tests, and fix proposals',
   testers: 'Invite a person, create their account, assign an invite code',
   invites: 'Codes moms type to sign in during beta / invite-only mode',
-  gifts: 'Redeemable free plan days and bonus points — share claim links in emails',
+  gifts: 'Level-up rewards live under Points & Levels; gift codes here are shareable claim links',
   regions: 'Language groups used to target offers and promotions',
   points: 'Point rules, daily caps, and level gifts for the app ladder',
   plans: 'What moms see in pricing, plus LLM limits per plan',

@@ -188,6 +188,7 @@ def claim_gift(
     *,
     award_points: Callable[..., int],
 ) -> dict[str, Any]:
+    """Claim a gift code. Inserts the claim row first so concurrent retries cannot double-grant."""
     row = _lookup_gift(sb, code)
     if not row:
         raise HTTPException(status_code=404, detail="Gift code not found.")
@@ -215,60 +216,21 @@ def claim_gift(
             raise HTTPException(status_code=503, detail=_MISSING) from e
         raise
 
-    gtype = str(row.get("gift_type") or "")
-    result: dict[str, Any] = {"gift_type": gtype, "code": code_key}
-    grant = None
-    points_balance = None
-
+    # Reserve the claim before awarding so races hit unique(gift_code_id, user_id).
     try:
-        from plan_grants import append_plan_grant
-    except ImportError:
-        from .plan_grants import append_plan_grant
-
-    if gtype in ("free_plan_days", "combo"):
-        grant = append_plan_grant(
-            sb,
-            user_id,
-            str(row.get("plan_slot") or ""),
-            int(row.get("days") or 0),
-            source=f"gift:{code_key}",
+        inserted = (
+            sb.table("gift_claims")
+            .insert(
+                {
+                    "gift_code_id": gift_id,
+                    "code": code_key,
+                    "user_id": user_id,
+                    "result": {"pending": True},
+                }
+            )
+            .execute()
         )
-        result["grant"] = {
-            "id": grant.get("id"),
-            "plan_slot": grant.get("plan_slot"),
-            "days": grant.get("days"),
-            "starts_at": grant.get("starts_at"),
-            "ends_at": grant.get("ends_at"),
-            "upgraded": grant.get("upgraded"),
-        }
-
-    if gtype in ("bonus_points", "combo"):
-        pts = int(row.get("points") or 0)
-        points_balance = award_points(
-            user_id,
-            pts,
-            f"gift:{code_key}",
-            "gift",
-            "/gift/claim",
-        )
-        result["points"] = pts
-        result["points_balance"] = points_balance
-
-    try:
-        sb.table("gift_claims").insert(
-            {
-                "gift_code_id": gift_id,
-                "code": code_key,
-                "user_id": user_id,
-                "result": result,
-            }
-        ).execute()
-        sb.table("gift_codes").update(
-            {
-                "claim_count": int(row.get("claim_count") or 0) + 1,
-                "updated_at": _utcnow().isoformat(),
-            }
-        ).eq("id", gift_id).execute()
+        claim_id = (inserted.data or [{}])[0].get("id")
     except Exception as e:
         if _missing_table(e):
             raise HTTPException(status_code=503, detail=_MISSING) from e
@@ -276,6 +238,91 @@ def claim_gift(
         if "duplicate" in err or "unique" in err:
             raise HTTPException(status_code=409, detail="You already claimed this gift.") from e
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+    # Re-check global max after reserve (best-effort against concurrent claimants).
+    max_claims = row.get("max_claims")
+    if max_claims is not None:
+        try:
+            counted = (
+                sb.table("gift_claims")
+                .select("id", count="exact")
+                .eq("gift_code_id", gift_id)
+                .execute()
+            )
+            total = int(getattr(counted, "count", None) or len(counted.data or []))
+            if total > int(max_claims):
+                if claim_id:
+                    sb.table("gift_claims").delete().eq("id", claim_id).execute()
+                raise HTTPException(status_code=400, detail="This gift has reached its claim limit.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    gtype = str(row.get("gift_type") or "")
+    result: dict[str, Any] = {"gift_type": gtype, "code": code_key}
+
+    try:
+        from plan_grants import append_plan_grant
+    except ImportError:
+        from .plan_grants import append_plan_grant
+
+    try:
+        if gtype in ("free_plan_days", "combo"):
+            grant = append_plan_grant(
+                sb,
+                user_id,
+                str(row.get("plan_slot") or ""),
+                int(row.get("days") or 0),
+                source=f"gift:{code_key}",
+            )
+            result["grant"] = {
+                "id": grant.get("id"),
+                "plan_slot": grant.get("plan_slot"),
+                "days": grant.get("days"),
+                "starts_at": grant.get("starts_at"),
+                "ends_at": grant.get("ends_at"),
+                "upgraded": grant.get("upgraded"),
+            }
+
+        if gtype in ("bonus_points", "combo"):
+            pts = int(row.get("points") or 0)
+            points_balance = award_points(
+                user_id,
+                pts,
+                f"gift:{code_key}",
+                "gift",
+                "/gift/claim",
+            )
+            result["points"] = pts
+            result["points_balance"] = points_balance
+    except HTTPException:
+        if claim_id:
+            try:
+                sb.table("gift_claims").delete().eq("id", claim_id).execute()
+            except Exception:
+                pass
+        raise
+    except Exception as e:
+        if claim_id:
+            try:
+                sb.table("gift_claims").delete().eq("id", claim_id).execute()
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    try:
+        if claim_id:
+            sb.table("gift_claims").update({"result": result}).eq("id", claim_id).execute()
+        sb.table("gift_codes").update(
+            {
+                "claim_count": int(row.get("claim_count") or 0) + 1,
+                "updated_at": _utcnow().isoformat(),
+            }
+        ).eq("id", gift_id).execute()
+    except Exception:
+        # Awards already applied; claim row exists — still succeed for the user.
+        pass
 
     return {"ok": True, **result, "_gift_row": row}
 
@@ -517,8 +564,26 @@ def register_gift_routes(app: FastAPI) -> None:
     async def gifts_claim(req: GiftClaimRequest, x_token: Optional[str] = Header(None)):
         user_id = _require_user(x_token)
         m = _main()
+
+        previous_level = 0
         try:
-            result = claim_gift(m.sb, user_id, req.code, award_points=m._award_points)
+            previous_level = int(m._get_user_level_id(user_id) or 0)
+        except Exception:
+            previous_level = 0
+
+        def _award_with_level_notify(uid: str, amount: int, reason: str, action: str = "", path: str = "") -> int:
+            before = previous_level
+            balance = m._award_points(uid, amount, reason, action, path)
+            try:
+                after = int(m._get_user_level_id(uid) or before)
+                if after > before:
+                    m._notify_level_gifts_won(uid, before, after)
+            except Exception:
+                pass
+            return balance
+
+        try:
+            result = claim_gift(m.sb, user_id, req.code, award_points=_award_with_level_notify)
         except HTTPException:
             raise
         except Exception as e:
@@ -551,13 +616,28 @@ def register_gift_routes(app: FastAPI) -> None:
 
         status = None
         try:
+            subscription = {"ok": True}
             if result.get("grant"):
-                subscription = {"ok": True, "subscription_active": True}
-                subscription.update(m._subscription_status_for_user(user_id))
-                auth = m.resolve_auth(x_token or "", context="app")
-                status = m.build_status_payload(m.sb, auth, subscription)
+                subscription["subscription_active"] = True
+            subscription.update(m._subscription_status_for_user(user_id))
+            auth = m.resolve_auth(x_token or "", context="app")
+            status = m.build_status_payload(m.sb, auth, subscription)
         except Exception:
             status = None
         if status:
             result["status"] = status
+
+        # Always attach live ladder state so points gifts refresh the UI / unlock level gifts.
+        try:
+            result["gamification"] = m._user_gamification(user_id)
+            level_id = int(m._get_user_level_id(user_id) or 0)
+            try:
+                from .plan_grants import rewards_payload
+            except ImportError:
+                from plan_grants import rewards_payload
+            result["rewards"] = rewards_payload(m.sb, user_id, level_id)
+            if status is not None and isinstance(status, dict):
+                status["rewards"] = result["rewards"]
+        except Exception:
+            pass
         return result

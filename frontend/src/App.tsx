@@ -2214,6 +2214,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (result.status && typeof result.status === 'object') {
       applySubscriptionSnapshot(result.status as SubscriptionSnapshot);
     }
+    if (result.gamification && typeof result.gamification === 'object') {
+      applyLivePointRulesFrom(result.gamification);
+      setGamification(result.gamification as GamificationStatus);
+    } else if (typeof result.points === 'number' && result.points > 0) {
+      setGamification((prev) => applyPointsDelta(prev || defaultGamificationStatus(), result.points || 0));
+    }
+    if (result.rewards) {
+      const next = ingestRewards(result.rewards as RewardsSnapshot);
+      openPendingReward(next, { force: true, userInitiated: true });
+    }
     const bits: string[] = [];
     if (result.grant?.days) {
       const slot = String(result.grant.plan_slot || 'starter');
@@ -2223,7 +2233,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       bits.push(lang === 'el' ? `+${result.points} πόντοι` : `+${result.points} points`);
     }
     showToast(bits.join(lang === 'el' ? ' · ' : ' · ') || (lang === 'el' ? 'Το δώρο ενεργοποιήθηκε' : 'Gift activated'), 'ok');
-  }, [applySubscriptionSnapshot, lang, token]);
+  }, [applyLivePointRulesFrom, applySubscriptionSnapshot, ingestRewards, lang, openPendingReward, token]);
 
   // Open gift claim sheet from ?gift=CODE (emails / notifications) or a stashed code after auth.
   useEffect(() => {
@@ -7818,6 +7828,7 @@ export default function App() {
   const [sessionReady, setSessionReady] = useState(() => !!resolveAppAuthToken() || !!new URLSearchParams(window.location.search).get("reset"));
   const handleLogout = () => {
     const tk = token;
+    const giftToKeep = giftCodeFromLocation() || readPendingGiftCode();
     // Block cookie/refresh restore first, then wipe local user content so the next
     // signup/login on this device cannot resurrect the previous account's data.
     blockAuthSessionPersist();
@@ -7827,6 +7838,7 @@ export default function App() {
       } catch {
         /* best effort — still clear the session */
       }
+      if (giftToKeep) stashPendingGiftCode(giftToKeep);
       clearAuthToken();
       invalidateAuthCaches(tk);
       setToken(null);
@@ -7980,12 +7992,45 @@ export default function App() {
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
   if(subActive===false) {
     const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");
+    const pendingGift = giftCodeFromLocation() || readPendingGiftCode();
+    if (pendingGift) stashPendingGiftCode(pendingGift);
+    const applyGiftStatus = (result: GiftClaimResult) => {
+      clearPendingGiftCode();
+      const status = result.status as { subscription_active?: boolean; subscription_status?: string } | undefined;
+      if (status?.subscription_active || result.grant) {
+        writeCachedSubscriptionActive(token, true);
+        setSubActive(true);
+        if (status?.subscription_status) setSubStatus(String(status.subscription_status));
+        return;
+      }
+      // Already claimed / points-only: refresh live status in case access was restored earlier.
+      void fetchSubscriptionStatus(token)
+        .then((data) => {
+          const active = data.subscription_active !== false;
+          writeCachedSubscriptionActive(token, active);
+          setSubActive(active);
+          if (data.subscription_status) setSubStatus(String(data.subscription_status));
+        })
+        .catch(() => undefined);
+    };
     return (
-      <SubscriptionRequiredScreen
-        lang={gateLang}
-        reason={resolveSubscriptionRequiredReason(subStatus)}
-        onLogout={handleLogout}
-      />
+      <>
+        <SubscriptionRequiredScreen
+          lang={gateLang}
+          reason={resolveSubscriptionRequiredReason(subStatus)}
+          onLogout={handleLogout}
+        />
+        {pendingGift ? (
+          <GiftClaimSheet
+            open
+            lang={gateLang}
+            token={token}
+            code={pendingGift}
+            onClose={() => clearPendingGiftCode()}
+            onClaimed={applyGiftStatus}
+          />
+        ) : null}
+      </>
     );
   }
   if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;

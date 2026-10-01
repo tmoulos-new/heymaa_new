@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Copy, Gift, Mail, Pencil, Plus, RefreshCw, RotateCcw, Trash2, X, AlertTriangle } from 'lucide-react'
+import { Bell, Copy, Gift, Mail, Pencil, Plus, RefreshCw, RotateCcw, Trash2, Trophy, X, AlertTriangle } from 'lucide-react'
 import { useAdmin } from '../context/AdminContext'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { datetimeLocalInputValue } from '../lib/datetime'
 import { giftEmailDraft, giftNotificationDraft, stashComposeDraft } from '../lib/composeDraft'
+import type { LevelRow } from '../lib/types'
 
 type GiftRow = {
   id?: string
@@ -30,9 +31,21 @@ const STATUS_OPTIONS = [
 ]
 
 const TYPE_OPTIONS = [
-  { value: 'free_plan_days', label: 'Free plan days' },
-  { value: 'bonus_points', label: 'Bonus points' },
-  { value: 'combo', label: 'Days + points' },
+  {
+    value: 'bonus_points',
+    label: 'Bonus points',
+    hint: 'Adds points to her ladder — can unlock the next level',
+  },
+  {
+    value: 'free_plan_days',
+    label: 'Free plan days',
+    hint: 'Temporary Starter or Premium access days',
+  },
+  {
+    value: 'combo',
+    label: 'Days + points',
+    hint: 'Both free plan days and ladder points in one code',
+  },
 ]
 
 function statusBadge(status: string) {
@@ -47,7 +60,7 @@ function rewardSummary(row: GiftRow) {
     parts.push(`${row.days || 0} days ${(row.plan_slot || '').trim() || 'plan'}`)
   }
   if (row.gift_type === 'bonus_points' || row.gift_type === 'combo') {
-    parts.push(`+${row.points || 0} pts`)
+    parts.push(`+${row.points || 0} ladder pts`)
   }
   return parts.join(' · ') || '—'
 }
@@ -107,10 +120,11 @@ export function GiftsTab() {
   const [loading, setLoading] = useState(true)
   const [setupError, setSetupError] = useState('')
   const [showDeleted, setShowDeleted] = useState(false)
+  const [levelGifts, setLevelGifts] = useState<Array<{ id: string; name: string; gift: string }>>([])
 
   const [createOpen, setCreateOpen] = useState(false)
   const [newCode, setNewCode] = useState(randomCode())
-  const [newType, setNewType] = useState('free_plan_days')
+  const [newType, setNewType] = useState('bonus_points')
   const [newSlot, setNewSlot] = useState('starter')
   const [newDays, setNewDays] = useState('7')
   const [newPoints, setNewPoints] = useState('50')
@@ -134,9 +148,26 @@ export function GiftsTab() {
     setLoading(true)
     try {
       const qs = showDeleted ? '?deleted_only=true' : ''
-      const d = await adminFetch(`/admin/gift_codes${qs}`)
-      setGifts((d.gifts as GiftRow[]) || [])
-      setSetupError(d.error ? String(d.error) : '')
+      const [codes, levels] = await Promise.all([
+        adminFetch(`/admin/gift_codes${qs}`),
+        adminFetch('/admin/levels').catch(() => ({ levels: [] })),
+      ])
+      setGifts((codes.gifts as GiftRow[]) || [])
+      setSetupError(codes.error ? String(codes.error) : '')
+      const linked: Array<{ id: string; name: string; gift: string }> = []
+      for (const row of (levels.levels as LevelRow[]) || []) {
+        const slot = String(row.reward_plan_slot || '').trim()
+        const days = Number(row.reward_days) || 0
+        if (!slot || days < 1) continue
+        const name = String(row.name_en || row.name_el || `Level ${row.id}`).trim()
+        const plan = slot.charAt(0).toUpperCase() + slot.slice(1)
+        linked.push({
+          id: String(row.id),
+          name,
+          gift: `${days} days free ${plan}`,
+        })
+      }
+      setLevelGifts(linked)
     } catch (e) {
       setSetupError(e instanceof Error ? e.message : 'Could not load gifts')
       setGifts([])
@@ -151,7 +182,7 @@ export function GiftsTab() {
 
   const resetCreate = () => {
     setNewCode(randomCode())
-    setNewType('free_plan_days')
+    setNewType('bonus_points')
     setNewSlot('starter')
     setNewDays('7')
     setNewPoints('50')
@@ -159,6 +190,12 @@ export function GiftsTab() {
     setNewStatus('active')
     setNewExpires('')
     setNewMaxClaims('1')
+  }
+
+  const openCreate = (type: string = 'bonus_points') => {
+    resetCreate()
+    setNewType(type)
+    setCreateOpen(true)
   }
 
   const create = async () => {
@@ -272,13 +309,54 @@ export function GiftsTab() {
         <div className="card-head">
           <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
             <Gift size={18} />
-            Gift codes
+            Two kinds of gifts
           </h2>
         </div>
-        <p className="card-desc">
-          Create redeemable gifts for moms: free Starter/Premium days, bonus points, or both.
-          Copy the claim link, or open Emails / Notifications with a ready draft that uses the real gift CTA.
+        <p className="card-desc" style={{ marginBottom: 0 }}>
+          <strong>Gift codes</strong> (this page) are marketing links you share in email or notifications —
+          moms redeem with <code>?gift=CODE</code>. Create <strong>bonus points</strong> (adds to her level ladder),
+          <strong> free plan days</strong>, or <strong>both</strong>.{' '}
+          <strong>Level gifts</strong> are automatic rewards on the points ladder — moms claim them in-app
+          after leveling up. Both can grant free plan days; only gift codes can also award claimable points.
         </p>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <Trophy size={16} />
+            Level gifts
+          </h2>
+          <button type="button" className="sec sm" onClick={() => navigate('/points')}>
+            Edit in Points &amp; Levels
+          </button>
+        </div>
+        {levelGifts.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            No level gifts configured yet. Set free Starter/Premium days on a level under Points &amp; Levels.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Level</th>
+                  <th>Reward</th>
+                  <th>How moms get it</th>
+                </tr>
+              </thead>
+              <tbody>
+                {levelGifts.map((row) => (
+                  <tr key={row.id}>
+                    <td><strong>{row.name}</strong></td>
+                    <td>{row.gift}</td>
+                    <td className="muted">Earn points → level up → claim in app</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {setupError ? (
@@ -289,7 +367,7 @@ export function GiftsTab() {
 
       <div className="card">
         <div className="card-head">
-          <h2 style={{ margin: 0 }}>{showDeleted ? 'Archived gifts' : 'Active gifts'}</h2>
+          <h2 style={{ margin: 0 }}>{showDeleted ? 'Archived gift codes' : 'Gift codes'}</h2>
           <div className="card-head-actions">
             <button type="button" className="sec sm" onClick={() => setShowDeleted((v) => !v)}>
               {showDeleted ? 'Show active' : 'Show archived'}
@@ -298,16 +376,17 @@ export function GiftsTab() {
               <RefreshCw size={14} /> Refresh
             </button>
             {!showDeleted ? (
-              <button
-                type="button"
-                className="teal sm"
-                onClick={() => {
-                  resetCreate()
-                  setCreateOpen(true)
-                }}
-              >
-                <Plus size={14} /> New gift
-              </button>
+              <>
+                <button type="button" className="sec sm" onClick={() => openCreate('bonus_points')}>
+                  <Plus size={14} /> Points gift
+                </button>
+                <button type="button" className="sec sm" onClick={() => openCreate('free_plan_days')}>
+                  <Plus size={14} /> Plan days
+                </button>
+                <button type="button" className="teal sm" onClick={() => openCreate('combo')}>
+                  <Plus size={14} /> Days + points
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -315,7 +394,11 @@ export function GiftsTab() {
         {loading ? (
           <p className="muted" style={{ margin: 0 }}>Loading…</p>
         ) : gifts.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>{showDeleted ? 'No archived gifts.' : 'No gifts yet.'}</p>
+          <p className="muted" style={{ margin: 0 }}>
+            {showDeleted
+              ? 'No archived gift codes.'
+              : 'No gift codes yet. Use Points gift to add ladder points, Plan days for free access, or Days + points for both — then share the claim link.'}
+          </p>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -390,7 +473,7 @@ export function GiftsTab() {
       </div>
 
       {createOpen ? (
-        <Modal title="New gift" onClose={() => setCreateOpen(false)}>
+        <Modal title="New gift code" onClose={() => setCreateOpen(false)}>
           <div className="field-wrap">
             <FieldLabel required>Code</FieldLabel>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -401,12 +484,22 @@ export function GiftsTab() {
             </div>
           </div>
           <div className="field-wrap">
-            <FieldLabel required>Type</FieldLabel>
-            <select value={newType} onChange={(e) => setNewType(e.target.value)}>
+            <FieldLabel required>What she gets</FieldLabel>
+            <div className="audience-toggle" style={{ flexWrap: 'wrap' }}>
               {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <button
+                  key={o.value}
+                  type="button"
+                  className={newType === o.value ? 'teal sm' : 'sec sm'}
+                  onClick={() => setNewType(o.value)}
+                >
+                  {o.label}
+                </button>
               ))}
-            </select>
+            </div>
+            <p className="field-hint" style={{ marginTop: 8 }}>
+              {TYPE_OPTIONS.find((o) => o.value === newType)?.hint}
+            </p>
           </div>
           {newType === 'free_plan_days' || newType === 'combo' ? (
             <div className="email-cta-grid">
@@ -425,8 +518,9 @@ export function GiftsTab() {
           ) : null}
           {newType === 'bonus_points' || newType === 'combo' ? (
             <div className="field-wrap">
-              <FieldLabel required>Points</FieldLabel>
+              <FieldLabel required>Points to add</FieldLabel>
               <input type="number" min={1} max={100000} value={newPoints} onChange={(e) => setNewPoints(e.target.value)} />
+              <p className="field-hint">Added to her total — can push her into the next level and unlock that level’s gift.</p>
             </div>
           ) : null}
           <div className="field-wrap">
