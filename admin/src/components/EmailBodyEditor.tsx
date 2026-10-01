@@ -161,6 +161,11 @@ type AiProps = {
   onLangChange: (v: string) => void
   busy: boolean
   onDraft: () => void
+  /** Defaults tailored for email; override for notifications. */
+  description?: string
+  briefLabel?: string
+  briefPlaceholder?: string
+  briefId?: string
 }
 
 export function EmailAiAssist({
@@ -174,6 +179,10 @@ export function EmailAiAssist({
   onLangChange,
   busy,
   onDraft,
+  description = 'Optional — draft subject, message, and button from a short brief.',
+  briefLabel = 'What should this email do?',
+  briefPlaceholder = 'e.g. Remind trial users their access ends in 3 days and invite them to subscribe',
+  briefId = 'email-ai-brief',
 }: AiProps) {
   return (
     <div className={`email-ai${open ? ' email-ai--open' : ''}`}>
@@ -184,7 +193,7 @@ export function EmailAiAssist({
           </span>
           <div>
             <strong>AI writing assist</strong>
-            <p>Optional — draft subject, message, and button from a short brief.</p>
+            <p>{description}</p>
           </div>
         </div>
         <button type="button" className={open ? 'sec sm' : 'teal sm'} onClick={onToggle}>
@@ -193,16 +202,16 @@ export function EmailAiAssist({
       </div>
       {open ? (
         <div className="email-ai__panel">
-          <label className="email-ai__brief-label" htmlFor="email-ai-brief">
-            What should this email do?
+          <label className="email-ai__brief-label" htmlFor={briefId}>
+            {briefLabel}
           </label>
           <textarea
-            id="email-ai-brief"
+            id={briefId}
             value={brief}
             maxLength={1200}
             rows={3}
             onChange={(e) => onBriefChange(e.target.value)}
-            placeholder="e.g. Remind trial users their access ends in 3 days and invite them to subscribe"
+            placeholder={briefPlaceholder}
           />
           <div className="email-ai__row">
             <label>

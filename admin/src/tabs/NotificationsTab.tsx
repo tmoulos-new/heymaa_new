@@ -4,6 +4,7 @@ import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
 import { CampaignReportModal } from '../components/CampaignReportModal'
 import { PeoplePicker, type PickerUser } from '../components/PeoplePicker'
+import { EmailAiAssist } from '../components/EmailBodyEditor'
 import { useAdmin } from '../context/AdminContext'
 import { consumeComposeDraft, giftCodeIsOfferable } from '../lib/composeDraft'
 
@@ -69,6 +70,11 @@ export function NotificationsTab() {
   const [overviewDays, setOverviewDays] = useState(30)
   const [giftCtas, setGiftCtas] = useState<GiftCta[]>([])
   const [giftCtasLoading, setGiftCtasLoading] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiBrief, setAiBrief] = useState('')
+  const [aiTone, setAiTone] = useState('warm')
+  const [aiLang, setAiLang] = useState('en')
+  const [aiBusy, setAiBusy] = useState(false)
 
   const loadGiftCtas = async () => {
     setGiftCtasLoading(true)
@@ -183,6 +189,33 @@ export function NotificationsTab() {
     show('Composer filled for users without lock-screen alerts — review and send when ready', 'ok')
   }
 
+  const draftWithAi = async () => {
+    setAiBusy(true)
+    try {
+      const d = await adminFetch('/admin/notifications/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brief: aiBrief.trim(),
+          tone: aiTone,
+          lang: aiLang,
+          existing_title: title.trim() || undefined,
+          existing_body: body.trim() || undefined,
+          want_url: true,
+        }),
+      })
+      if (d.title) setTitle(String(d.title).slice(0, 120))
+      if (d.body) setBody(String(d.body).slice(0, 500))
+      const suggestedUrl = String(d.url_suggestion || '').trim()
+      if (suggestedUrl) setUrl(suggestedUrl)
+      show('Draft ready — edit anything, then Preview before sending', 'ok')
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'AI draft failed', 'err')
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
   return (
     <div className="broadcast-stack">
       {Message}
@@ -240,7 +273,30 @@ export function NotificationsTab() {
       ) : null}
 
       <div className="card broadcast-composer">
-        <h2>New message</h2>
+        <div className="broadcast-composer__head">
+          <div>
+            <h2>New message</h2>
+            <p className="broadcast-composer__sub">Write freely, or let AI start a draft you can refine.</p>
+          </div>
+        </div>
+
+        <EmailAiAssist
+          open={aiOpen}
+          onToggle={() => setAiOpen((v) => !v)}
+          brief={aiBrief}
+          onBriefChange={setAiBrief}
+          tone={aiTone}
+          onToneChange={setAiTone}
+          lang={aiLang}
+          onLangChange={setAiLang}
+          busy={aiBusy}
+          onDraft={() => void draftWithAi()}
+          description="Optional — draft title, message, and tap link from a short brief."
+          briefLabel="What should this notification say?"
+          briefPlaceholder="e.g. Nudge moms without push to turn on lock-screen alerts in Account → Privacy"
+          briefId="notif-ai-brief"
+        />
+
         <div className="field-wrap">
           <FieldLabel required>Title</FieldLabel>
           <input value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline" />

@@ -290,6 +290,91 @@ class PushPreferenceRequest(BaseModel):
     opted_in: bool = False
 
 
+class NotificationDraftRequest(BaseModel):
+    brief: str
+    tone: str = "warm"
+    lang: str = "en"
+    existing_title: Optional[str] = None
+    existing_body: Optional[str] = None
+    want_url: bool = True
+
+
+def _clean_notif_url(raw: str) -> str:
+    url = (raw or "").strip()[:300]
+    if not url:
+        return ""
+    if url.startswith("/") or url.startswith("https://") or url.startswith("http://"):
+        return url
+    return ""
+
+
+async def _draft_notification_with_ai(req: NotificationDraftRequest) -> dict[str, Any]:
+    import json
+
+    m = _main()
+    brief = (req.brief or "").strip()
+    if len(brief) < 8:
+        raise HTTPException(status_code=400, detail="Describe what the notification should say (at least a short brief).")
+    if len(brief) > 1200:
+        raise HTTPException(status_code=400, detail="Brief is too long (max 1200 characters).")
+
+    api_key = (getattr(m, "GROK_API_KEY", "") or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI drafting needs a Grok / xAI API key on the server.")
+
+    tone = (req.tone or "warm").strip().lower()
+    if tone not in ("warm", "promo", "reminder", "support"):
+        tone = "warm"
+    lang = (req.lang or "en").strip().lower()
+    if lang not in ("en", "el"):
+        lang = "en"
+    lang_name = "Greek" if lang == "el" else "English"
+
+    system = (
+        "You write short in-app / push notifications for HeyMaa, a parenting assistant web app. "
+        "Return ONLY valid JSON with keys: title, body, url_suggestion. "
+        "Rules: plain text only (no HTML, no markdown); title max 80 chars (ideally under 50); "
+        "body max 180 chars for lock-screen + in-app bell (1–2 short sentences); "
+        "url_suggestion is a path like /subscription, /app, /app?gift=CODE, or empty string; "
+        "when the brief mentions a gift code, prefer /app?gift=THAT_CODE; "
+        f"write everything in {lang_name}; tone={tone}; never invent discounts or medical claims."
+    )
+    user_parts = [f"Brief:\n{brief}"]
+    if (req.existing_title or "").strip():
+        user_parts.append(f"Current title (improve or replace):\n{req.existing_title.strip()}")
+    if (req.existing_body or "").strip():
+        user_parts.append(f"Current body (improve or replace):\n{req.existing_body.strip()[:800]}")
+    if not req.want_url:
+        user_parts.append("Do not suggest a link: set url_suggestion to an empty string.")
+    user_msg = "\n\n".join(user_parts)
+
+    try:
+        raw = await m.call_grok(user_msg, [], system, api_key, history_limit=2, max_tokens=500)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI draft failed: {e}") from e
+
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+    except Exception:
+        data = {"title": "HeyMaa update", "body": text[:500], "url_suggestion": "/app"}
+
+    title = str(data.get("title") or "").strip()[:120]
+    body = str(data.get("body") or "").strip()[:500]
+    url_suggestion = _clean_notif_url(str(data.get("url_suggestion") or ""))
+    if len(title) < 2 or len(body) < 2:
+        raise HTTPException(status_code=502, detail="AI returned an incomplete draft. Try again with a clearer brief.")
+    return {
+        "ok": True,
+        "title": title,
+        "body": body,
+        "url_suggestion": url_suggestion,
+    }
+
+
 def register_notification_routes(app: FastAPI) -> None:
     @app.get("/me/push/public-key")
     async def me_push_public_key(x_token: Optional[str] = Header(None)):
@@ -475,6 +560,11 @@ def register_notification_routes(app: FastAPI) -> None:
             devices = 0
         status["devices"] = devices
         return status
+
+    @app.post("/admin/notifications/draft")
+    async def admin_draft_notification(req: NotificationDraftRequest, x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        return await _draft_notification_with_ai(req)
 
     @app.get("/admin/notifications/users")
     async def admin_notification_users(q: str = "", x_token: Optional[str] = Header(None)):
