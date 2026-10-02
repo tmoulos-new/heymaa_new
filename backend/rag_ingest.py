@@ -219,6 +219,8 @@ def ingest_text_into_source(
                     "source_id": source_id,
                     "content": chunk,
                     "embedding": embedding,
+                    # Dedicated halfvec column powers HNSW match_chunks (see migration).
+                    "embedding_half": embedding,
                     "metadata": meta,
                 }
             ).execute()
@@ -226,6 +228,23 @@ def ingest_text_into_source(
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
         except Exception as e:
+            # Fallback if embedding_half column is not migrated yet
+            if "embedding_half" in str(e):
+                try:
+                    sb.table("rag_chunks").insert(
+                        {
+                            "source_id": source_id,
+                            "content": chunk,
+                            "embedding": embedding,
+                            "metadata": meta,
+                        }
+                    ).execute()
+                    success += 1
+                    if sleep_seconds > 0:
+                        time.sleep(sleep_seconds)
+                    continue
+                except Exception as e2:
+                    e = e2
             msg = str(e)
             # Never leak API keys that may appear in exception URLs
             msg = re.sub(r"(key=)[^&\s]+", r"\1***", msg, flags=re.I)
