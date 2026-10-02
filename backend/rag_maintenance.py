@@ -126,6 +126,8 @@ def compute_rag_health(sb) -> dict[str, Any]:
                 key = "myparenthood"
             elif "eody.gov.gr" in origin_l:
                 key = "eody-gov-gr"
+            elif "moh.gov.gr" in origin_l:
+                key = "moh-gov-gr"
             elif stype_l in ("pdf", "text", "markdown", "file") or (
                 origin and not origin.startswith("http")
             ):
@@ -146,13 +148,15 @@ def compute_rag_health(sb) -> dict[str, Any]:
                     key = "other"
             else:
                 key = "other"
-        elif key not in ("babyspace", "myparenthood", "eody-gov-gr"):
+        elif key not in ("babyspace", "myparenthood", "eody-gov-gr", "moh-gov-gr"):
             if "babyspace.gr" in origin_l:
                 key = "babyspace"
             elif "myparenthood.gr" in origin_l:
                 key = "myparenthood"
             elif "eody.gov.gr" in origin_l:
                 key = "eody-gov-gr"
+            elif "moh.gov.gr" in origin_l:
+                key = "moh-gov-gr"
         bucket = by_key.setdefault(
             key,
             {"sources": 0, "ready": 0, "error": 0, "empty_chunks": 0, "broken": 0},

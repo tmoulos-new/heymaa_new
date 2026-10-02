@@ -166,6 +166,7 @@ def match_chunks_rpc(
 
 _SOURCE_HINTS = (
     (("eody", "εοδυ", "εθνικ"), "eody-gov-gr"),
+    (("moh", "υπουργείο υγείας", "υπουργειο υγειας", "ministry of health"), "moh-gov-gr"),
     (("babyspace", "μπέιμπισπέις", "μπεημπισπεης"), "babyspace"),
     (("myparenthood", "parenthood", "μαιπάρεντ", "μαιπαρεντ"), "myparenthood"),
 )

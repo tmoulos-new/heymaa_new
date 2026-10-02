@@ -154,11 +154,32 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         "name": "EODY",
         "source_type": "website",
         "language": "el",
-        "base_url": "https://eody.gov.gr/el/",
+        "base_url": (
+            "https://eody.gov.gr/el/nosimata/metadotika/"
+            "nosimata-kai-themata-ygeias.html"
+        ),
         "metadata": {
-            "discover": "rss",
-            "rss": "https://eody.gov.gr/el/?format=feed&type=rss",
-            "max_urls": 50,
+            # Crawl disease catalog; Sync keeps only baby/childhood/vaccine topics.
+            "discover": "crawl",
+            "max_urls": 80,
+            "topic_filter": "baby_childhood",
+            "seed": True,
+        },
+    },
+    {
+        "source_key": "moh-gov-gr",
+        "name": "Υπουργείο Υγείας (MOH)",
+        "source_type": "website",
+        "language": "el",
+        "base_url": (
+            "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/"
+            "emboliasmoi/ethniko-programma-emboliasmwn-epe-paidiwn-kai-efhbwn"
+        ),
+        "metadata": {
+            # Crawl vaccine/childhood sections; Sync keeps baby/childhood topics only.
+            "discover": "crawl",
+            "max_urls": 80,
+            "topic_filter": "baby_childhood",
             "seed": True,
         },
     },
@@ -988,6 +1009,19 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
                 "urls": [],
             },
         )
+
+    try:
+        from .rag_topic_filters import filter_urls_by_topic
+    except ImportError:
+        from rag_topic_filters import filter_urls_by_topic
+
+    found = filter_urls_by_topic(
+        found,
+        source_key=source_key,
+        topic_filter=meta.get("topic_filter"),
+        include_regex=meta.get("topic_include_regex"),
+        exclude_regex=meta.get("topic_exclude_regex"),
+    )
 
     urls: list[str] = []
     seen: set[str] = set()

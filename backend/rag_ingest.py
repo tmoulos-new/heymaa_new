@@ -31,19 +31,68 @@ def _gemini_api_key() -> str:
 
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    words = text.split()
+    """Word-window chunking that keeps markdown tables / fact blocks intact when possible."""
+    blocks = re.split(r"\n\s*\n", (text or "").strip())
     chunks: list[str] = []
-    start = 0
-    while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end]).strip()
-        if len(chunk) > MIN_CHUNK_CHARS:
-            chunks.append(chunk)
-        start = end - overlap
-        if start < 0:
-            start = 0
-        if end >= len(words):
-            break
+
+    def flush_words(words: list[str]) -> None:
+        start = 0
+        while start < len(words):
+            end = start + chunk_size
+            chunk = " ".join(words[start:end]).strip()
+            if len(chunk) > MIN_CHUNK_CHARS:
+                chunks.append(chunk)
+            if end >= len(words):
+                break
+            start = max(0, end - overlap)
+
+    pending: list[str] = []
+    for block in blocks:
+        b = (block or "").strip()
+        if not b:
+            continue
+        is_tableish = (
+            b.startswith("|")
+            or b.startswith("[Πίνακας")
+            or b.startswith("[ΠΙΝΑΚΑΣ")
+            or "\n| ---" in b
+            or "\n|---" in b
+        )
+        if is_tableish:
+            if pending:
+                flush_words(pending)
+                pending = []
+            # Keep whole table if reasonably sized; otherwise split by rows.
+            words = b.split()
+            if len(words) <= chunk_size * 2:
+                if len(b) > MIN_CHUNK_CHARS:
+                    chunks.append(b)
+            else:
+                rows = b.splitlines()
+                buf: list[str] = []
+                header_prefix: list[str] = []
+                if rows and rows[0].startswith("|"):
+                    header_prefix = rows[:2] if len(rows) > 1 and "---" in rows[1] else rows[:1]
+                for row in rows[len(header_prefix) :]:
+                    trial_rows = header_prefix + buf + [row]
+                    trial = "\n".join(trial_rows).strip()
+                    if buf and len(trial.split()) > chunk_size:
+                        chunks.append("\n".join(header_prefix + buf).strip())
+                        buf = [row]
+                    else:
+                        buf.append(row)
+                if buf:
+                    piece = "\n".join(header_prefix + buf).strip()
+                    if len(piece) > MIN_CHUNK_CHARS:
+                        chunks.append(piece)
+            continue
+        pending.extend(b.split())
+        if len(pending) >= chunk_size:
+            flush_words(pending)
+            pending = pending[-overlap:] if overlap else []
+
+    if pending:
+        flush_words(pending)
     return chunks
 
 
@@ -59,7 +108,139 @@ def read_text_bytes(data: bytes, filename: str = "") -> str:
     raise ValueError("Could not decode text file.")
 
 
+def _pdf_clean_cell(value: object) -> str:
+    return re.sub(r"\s+", " ", str(value or "").replace("\n", " ")).strip()
+
+
+def _pdf_coalesce_table(data: list[list], *, min_fill: float = 0.08) -> list[list[str]]:
+    """Collapse over-split PDF table columns into a usable grid."""
+    if not data:
+        return []
+    nrows = len(data)
+    ncols = max((len(r) for r in data), default=0)
+    if ncols == 0:
+        return []
+    grid = [list(r) + [""] * (ncols - len(r)) for r in data]
+    fill = []
+    for c in range(ncols):
+        nonempty = sum(1 for r in range(nrows) if _pdf_clean_cell(grid[r][c]))
+        fill.append(nonempty / max(nrows, 1))
+    kept = [i for i, f in enumerate(fill) if f >= min_fill]
+    if not kept:
+        kept = list(range(ncols))
+    if 0 not in kept:
+        kept = [0] + kept
+    kept = sorted(set(kept))
+
+    out: list[list[str]] = []
+    for r in range(nrows):
+        row_out = [""] * len(kept)
+        for c in range(ncols):
+            val = _pdf_clean_cell(grid[r][c])
+            if not val:
+                continue
+            nearest = min(kept, key=lambda k: abs(k - c))
+            j = kept.index(nearest)
+            row_out[j] = f"{row_out[j]} {val}".strip() if row_out[j] else val
+        if any(row_out):
+            out.append(row_out)
+    # Drop columns that stayed empty after coalesce.
+    if not out:
+        return []
+    keep_cols = [c for c in range(len(out[0])) if any(_pdf_clean_cell(r[c]) for r in out)]
+    return [[r[c] for c in keep_cols] for r in out]
+
+
+def _pdf_table_to_markdown(rows: list[list[str]]) -> str:
+    if not rows:
+        return ""
+    width = max(len(r) for r in rows)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    # Cap extremely wide tables by pairwise merge.
+    while len(rows[0]) > 18:
+        merged: list[list[str]] = []
+        for r in rows:
+            nr: list[str] = []
+            i = 0
+            while i < len(r):
+                if i + 1 < len(r):
+                    nr.append(f"{r[i]} {r[i + 1]}".strip())
+                    i += 2
+                else:
+                    nr.append(r[i])
+                    i += 1
+            merged.append(nr)
+        rows = merged
+    header = [c or " " for c in rows[0]]
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join(["---"] * len(header)) + " |",
+    ]
+    for r in rows[1:]:
+        lines.append("| " + " | ".join(c or "" for c in r) + " |")
+    return "\n".join(lines)
+
+
+def _pdf_table_to_facts(rows: list[list[str]]) -> str:
+    """Row-wise facts — better for RAG than a huge markdown grid alone."""
+    if len(rows) < 2:
+        return ""
+    headers = [_pdf_clean_cell(h) for h in rows[0]]
+    # If first header looks broken, synthesize age-like labels from remaining headers.
+    facts: list[str] = []
+    for r in rows[1:]:
+        vaccine = _pdf_clean_cell(r[0] if r else "")
+        if not vaccine or len(vaccine) < 2:
+            continue
+        # Skip continuation fragments that are only dose markers
+        pairs = []
+        for i in range(1, min(len(r), len(headers))):
+            cell = _pdf_clean_cell(r[i])
+            if not cell:
+                continue
+            age = headers[i] or f"στήλη-{i}"
+            # Avoid pure unit leftovers
+            if age.lower() in {"μηνός", "μηνών", "μηνώ", "ηνών", "ετών", "ν", "μ"}:
+                continue
+            pairs.append(f"{age}: {cell}")
+        if pairs:
+            facts.append(f"- {vaccine} → " + "; ".join(pairs))
+        else:
+            # still keep vaccine row text if body cells exist without useful headers
+            body = [_pdf_clean_cell(c) for c in r[1:] if _pdf_clean_cell(c)]
+            if body:
+                facts.append(f"- {vaccine} → " + " | ".join(body))
+    if not facts:
+        return ""
+    return "[Πίνακας εμβολιασμών — ανά εμβόλιο]\n" + "\n".join(facts)
+
+
+def _pdf_extract_page_tables(page) -> str:
+    try:
+        finder = page.find_tables()
+        tables = list(getattr(finder, "tables", []) or [])
+    except Exception:
+        return ""
+    parts: list[str] = []
+    for idx, tab in enumerate(tables, 1):
+        try:
+            raw = tab.extract() or []
+        except Exception:
+            continue
+        rows = _pdf_coalesce_table(raw)
+        if len(rows) < 2 or len(rows[0]) < 2:
+            continue
+        md = _pdf_table_to_markdown(rows)
+        facts = _pdf_table_to_facts(rows)
+        block = f"[Πίνακας {idx}]\n{md}"
+        if facts:
+            block += "\n\n" + facts
+        parts.append(block)
+    return "\n\n".join(parts).strip()
+
+
 def extract_text_from_pdf_bytes(data: bytes) -> str:
+    """Extract PDF text with table preservation (markdown + per-vaccine facts)."""
     try:
         import fitz  # PyMuPDF
     except ImportError as e:
@@ -69,9 +250,16 @@ def extract_text_from_pdf_bytes(data: bytes) -> str:
     doc = fitz.open(stream=data, filetype="pdf")
     try:
         parts: list[str] = []
-        for page in doc:
-            parts.append(page.get_text() or "")
-        return "\n".join(parts).strip()
+        for page_i, page in enumerate(doc, 1):
+            plain = (page.get_text("text") or "").strip()
+            tables = _pdf_extract_page_tables(page)
+            page_bits = [f"[Σελίδα {page_i}]"]
+            if plain:
+                page_bits.append(plain)
+            if tables:
+                page_bits.append(tables)
+            parts.append("\n\n".join(page_bits))
+        return "\n\n".join(parts).strip()
     finally:
         doc.close()
 
