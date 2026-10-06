@@ -1,3 +1,8 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+
+# Private/utility routes use X-Robots-Tag: noindex (see vercel.json).
+# Do not Disallow them here so crawlers can fetch the noindex signal.
+
+Sitemap: https://www.heymaa.ai/sitemap.xml

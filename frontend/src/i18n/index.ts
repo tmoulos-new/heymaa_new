@@ -49,21 +49,22 @@ export function homeDisplayLocale(stored: string): string {
 export { legalDocumentLang, legalUiLang };
 
 type LegalShellEntry = {
-  cookie: (typeof enLegal)["cookie"];
-  shell: (typeof enLegal)["shell"];
-};
+  cookie: Partial<(typeof enLegal)["cookie"]> &
+    Pick<(typeof enLegal)["cookie"], "title" | "body" | "privacyLink" | "accept" | "reject">
+  shell: (typeof enLegal)["shell"]
+}
 
 function legalBundleForUiLang(code: string): typeof enLegal {
-  if (code === "el") return elLegal;
-  if (code === "en") return enLegal;
-  if (code === "ro") return roLegal;
-  const shell = (legalShell as Record<string, LegalShellEntry>)[code];
-  if (!shell) return enLegal;
+  if (code === "el") return elLegal
+  if (code === "en") return enLegal
+  if (code === "ro") return roLegal
+  const shell = (legalShell as unknown as Record<string, LegalShellEntry>)[code]
+  if (!shell) return enLegal
   return {
     ...enLegal,
-    cookie: shell.cookie,
+    cookie: { ...enLegal.cookie, ...shell.cookie },
     shell: shell.shell,
-  };
+  }
 }
 
 function buildI18nResources() {

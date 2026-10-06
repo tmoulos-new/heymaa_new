@@ -64,10 +64,6 @@ export function AppAuthScreen({
   useStableMobileViewport()
 
   useEffect(() => {
-    document.title = 'HeyMaa'
-  }, [])
-
-  useEffect(() => {
     const next = initialInvite.trim()
     if (next) setInviteCode(next)
   }, [initialInvite])
@@ -139,6 +135,12 @@ export function AppAuthScreen({
       allowAuthSessionPersist()
       persistAuthSession(res.data.token, res.data.refresh_token)
       applyAuthUserName(res.data.token, trimmedName || res.data.name)
+      try {
+        const { trackSignUp } = await import('../lib/analytics')
+        trackSignUp('email')
+      } catch {
+        /* ignore analytics failures */
+      }
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }
@@ -166,6 +168,12 @@ export function AppAuthScreen({
       allowAuthSessionPersist()
       persistAuthSession(res.data.token, res.data.refresh_token)
       applyAuthUserName(res.data.token, res.data.name)
+      try {
+        const { trackLogin } = await import('../lib/analytics')
+        trackLogin('email')
+      } catch {
+        /* ignore analytics failures */
+      }
       onSuccess(res.data.token)
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }

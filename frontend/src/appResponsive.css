@@ -2644,6 +2644,7 @@ body.hm-app-active #root {
   min-width: 56px;
   padding-top: 12px;
   padding-bottom: 12px;
+  overflow: visible;
 }
 
 .hm-chat-typing {
@@ -2658,35 +2659,27 @@ body.hm-app-active #root {
   height: 7px;
   border-radius: 50%;
   background: var(--hm-navy, #2b3a67);
-  opacity: 0.35;
-  animation: hmChatTypingDot 1.2s ease-in-out infinite;
+  opacity: 0.28;
+  transform: translateY(0) scale(0.92);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
 }
 
-.hm-chat-typing span:nth-child(2) {
-  animation-delay: 0.18s;
-}
-
-.hm-chat-typing span:nth-child(3) {
-  animation-delay: 0.36s;
-}
-
-@keyframes hmChatTypingDot {
-  0%,
-  80%,
-  100% {
-    opacity: 0.28;
-    transform: translateY(0) scale(0.92);
-  }
-  40% {
-    opacity: 1;
-    transform: translateY(-3px) scale(1);
-  }
+.hm-chat-typing span.is-active {
+  opacity: 1;
+  transform: translateY(-3px) scale(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hm-chat-typing span {
-    animation: none;
-    opacity: 0.55;
+    transition: opacity 0.35s ease;
+    transform: none;
+  }
+
+  .hm-chat-typing span.is-active {
+    transform: none;
+    opacity: 0.95;
   }
 }
 

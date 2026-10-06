@@ -60,7 +60,10 @@ frontend/build/
 admin/node_modules/
 admin/dist/
 dist/
-public/
+# Ignore accidental root /backend public dirs; keep CRA static assets tracked.
+/public/
 backend/public/
+!frontend/public/
+!frontend/public/**
 .vercel
 .env*

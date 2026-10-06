@@ -212,10 +212,6 @@ export default function Home() {
   }, [currentPlanIndex, userPickedPlan]);
 
   useEffect(() => {
-    document.title = "HeyMaa";
-  }, []);
-
-  useEffect(() => {
     const nodes = Array.from(
       document.querySelectorAll<HTMLElement>(".hm-reveal"),
     );

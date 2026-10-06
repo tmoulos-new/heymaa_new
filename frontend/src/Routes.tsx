@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -17,11 +17,17 @@ import { TermsPage } from "./pages/TermsPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { BrandFavicon } from "./components/BrandFavicon";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
+import { SeoHead } from "./components/SeoHead";
 import { APP_ROUTE } from "./publicRoutes";
 import { hasAuthToken } from "./lib/authApi";
-import reportWebVitals from "./reportWebVitals";
 import { analyticsCookiesAllowed } from "./lib/cookieConsent";
-import { initGoogleAnalytics, trackPageView } from "./lib/gtag";
+import {
+  applyConsentDefaultsDenied,
+  initGoogleTagManager,
+  setDispatchEnabled,
+  shouldSkipPageViewPath,
+  trackPageView,
+} from "./lib/analytics";
 
 const App = lazy(() => import("./App"));
 
@@ -78,21 +84,23 @@ function PublicHome() {
 
 function AnalyticsConsentGate() {
   const location = useLocation();
-  const [analyticsOn, setAnalyticsOn] = useState(() => analyticsCookiesAllowed());
+  const [analyticsOn, setAnalyticsOn] = useState(false);
+  /** Dedupe StrictMode double-invoke; still allow back/forward via location.key. */
+  const lastNavKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Consent Mode defaults as early as possible (denied) before any Google script.
+    applyConsentDefaultsDenied();
+  }, []);
 
   const enableAnalytics = useCallback(() => {
-    initGoogleAnalytics();
+    if (!analyticsCookiesAllowed()) return;
+    const ok = initGoogleTagManager(location.pathname);
+    if (!ok) return;
+    setDispatchEnabled(true);
+    lastNavKeyRef.current = null;
     setAnalyticsOn(true);
-    reportWebVitals((metric) => {
-      if (typeof window.gtag !== "function") return;
-      window.gtag("event", metric.name, {
-        event_category: "Web Vitals",
-        value: Math.round(metric.name === "CLS" ? metric.delta * 1000 : metric.delta),
-        event_label: metric.id,
-        non_interaction: true,
-      });
-    });
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (analyticsCookiesAllowed()) enableAnalytics();
@@ -100,12 +108,25 @@ function AnalyticsConsentGate() {
 
   useEffect(() => {
     if (!analyticsOn) return;
-    trackPageView(`${location.pathname}${location.search}`);
-  }, [analyticsOn, location.pathname, location.search]);
+    if (shouldSkipPageViewPath(location.pathname, location.search, hasAuthToken())) {
+      return;
+    }
+    // Ignore query-only changes: key includes pathname, not search.
+    const navKey = `${location.key}::${location.pathname}`;
+    if (lastNavKeyRef.current === navKey) return;
+    lastNavKeyRef.current = navKey;
+    trackPageView(location.pathname, location.search);
+  }, [analyticsOn, location.key, location.pathname, location.search]);
 
   const onConsentChange = useCallback(
     (analytics: boolean) => {
-      if (analytics) enableAnalytics();
+      if (analytics) {
+        lastNavKeyRef.current = null;
+        enableAnalytics();
+      } else {
+        setDispatchEnabled(false);
+        setAnalyticsOn(false);
+      }
     },
     [enableAnalytics],
   );
@@ -117,6 +138,7 @@ export default function AppRoutes() {
   return (
     <BrowserRouter>
       <BrandFavicon />
+      <SeoHead />
       <ScrollToTop />
       <AnalyticsConsentGate />
       <Routes>

@@ -50,6 +50,7 @@ import {
 import { InAppSubscriptionSheet } from "./components/InAppSubscriptionSheet";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ChatRichText } from "./components/ChatRichText";
+import ChatTypingIndicator from "./components/ChatTypingIndicator";
 import { SupportContactPanel } from "./components/SupportContactPanel";
 import { ProfileActivePlanCard } from "./components/ProfileActivePlanCard";
 import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
@@ -7031,9 +7032,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             {loading&&<div className="hm-chat-message-row" aria-live="polite" aria-busy="true" aria-label={t("thinking", lang)}>
               <HeyMaaAvatar size={32} />
               <div className="hm-chat-bubble hm-chat-bubble--assistant hm-chat-bubble--typing" style={{background:chatAssistantBg}}>
-                <span className="hm-chat-typing" aria-hidden="true">
-                  <span /><span /><span />
-                </span>
+                <ChatTypingIndicator />
               </div>
             </div>}
             <div ref={bottomRef}/>

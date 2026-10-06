@@ -81,6 +81,12 @@ export function CheckoutPage() {
     setPurchasing(true)
     try {
       const data = await createVivaCheckout(plan, locale, token)
+      try {
+        const { trackBeginCheckout } = await import('../lib/analytics')
+        trackBeginCheckout(data.plan || plan, data.amount)
+      } catch {
+        /* ignore analytics failures */
+      }
       window.location.href = data.checkoutUrl
     } catch (e: unknown) {
       const err = e as { response?: { data?: unknown } }

@@ -34,6 +34,8 @@ export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure'
     } catch {
       /* ignore */
     }
+    // purchase analytics: not emitted here — requires backend-verified paid
+    // transaction belonging to the authenticated user (see trackPurchaseUnsupportedReason).
   }, [isSuccess])
 
   const title = isSuccess

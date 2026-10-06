@@ -5,6 +5,75 @@
       "maxDuration": 120
     }
   },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "heymaa.ai" }],
+      "destination": "https://www.heymaa.ai/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/home",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/home/",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": ".*\\.vercel\\.app" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/app",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/app/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/auth",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/auth/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/checkout",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/checkout/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/admin",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/admin/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/subscription",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
+    }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     {
@@ -18,7 +87,7 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat(?:/|$)|tts(?:/|$)|offers(?:/|$)|support(?:/|$)|public/offers|public/promotions|public/places_map|public/babyspace-rss|userdata(?:/|$)|user_activity(?:/|$)|gamification(?:/|$)|webhooks(?:/|$)|checkout/viva(?:/|$)|healthz$|functions(?:/|$)|admin(?:/|$)|me(?:/|$)|static/).*)",
+      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat(?:/|$)|tts(?:/|$)|offers(?:/|$)|support(?:/|$)|public/offers|public/promotions|public/places_map|public/babyspace-rss|userdata(?:/|$)|user_activity(?:/|$)|gamification(?:/|$)|webhooks(?:/|$)|checkout/viva(?:/|$)|healthz$|functions(?:/|$)|admin(?:/|$)|me(?:/|$)|static/|robots\\.txt$|sitemap\\.xml$|favicon\\.ico$|manifest\\.json$|logo192\\.png$|logo512\\.png$|sw\\.js$).*)",
       "destination": "/index.html"
     }
   ]

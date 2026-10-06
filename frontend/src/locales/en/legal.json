@@ -1,10 +1,14 @@
 ﻿{
   "cookie": {
     "title": "Cookies & privacy",
-    "body": "We use essential cookies/session storage for sign-in and app operation, and optional statistics cookies (Google Analytics) to improve HeyMaa. You can accept all or essential-only. Details in our",
+    "body": "We use essential cookies/session storage for sign-in and app operation, and optional statistics cookies (Google Tag Manager / Google Analytics) to improve HeyMaa. You can accept all or essential-only. Details in our",
     "privacyLink": "Privacy Policy (Cookies section)",
     "accept": "Accept all",
-    "reject": "Essential only"
+    "reject": "Essential only",
+    "settingsTitle": "Cookie settings",
+    "settingsBody": "You can allow optional statistics cookies or keep essential-only. Changing to essential-only stops analytics and reloads the page. Details in our",
+    "revoke": "Essential only",
+    "manage": "Manage cookie settings"
   },
   "shell": {
     "home": "Home",
@@ -157,7 +161,7 @@
         "paragraphs": [
           "Data may be processed by providers that support us under instruction (hosting, databases, email, payments, LLM models for chat replies), under contractual confidentiality and security commitments.",
           "For marketing with your consent, recipients may include Care Direct partner companies. The partner list is available at caredirect.com/partners.aspx.",
-          "If you accept statistics cookies, Google Analytics is loaded (Google Ireland Limited / Google LLC, measurement ID G-JDCYL7LLHS). Technical data may be transferred outside the EEA (e.g. USA) with appropriate safeguards (e.g. EU standard contractual clauses / equivalent measures).",
+          "If you accept statistics cookies, Google Tag Manager loads Google Analytics (Google Ireland Limited / Google LLC, measurement ID G-JDCYL7LLHS, container GTM-N39D5NBV) on www.heymaa.ai only. Technical data may be transferred outside the EEA (e.g. USA) with appropriate safeguards (e.g. EU standard contractual clauses / equivalent measures).",
           "Care Direct takes steps to protect data; however, the internet involves inherent risks. Do not send information you wish to keep confidential via unencrypted email."
         ],
         "htmlParagraphs": [
@@ -193,9 +197,9 @@
         "paragraphs": [
           "Cookies are small text files stored on your device. They do not \"read\" other files on your computer. On HeyMaa we use:",
           "Essential cookies / session storage: for sign-in, security, language preferences, and basic operation. Without them the Service may not work correctly.",
-          "Optional statistics cookies: Google Analytics (G-JDCYL7LLHS) to understand website/app usage for improvements. These activate only if you choose \"Accept all\" on the banner.",
+          "Optional statistics cookies: Google Tag Manager / Google Analytics (G-JDCYL7LLHS, GTM-N39D5NBV) to understand website/app usage for improvements. These activate only if you choose \"Accept all\" on the banner, and only on www.heymaa.ai.",
           "You may change browser settings to block or delete cookies. If you block essential cookies, some features (e.g. staying signed in) may be unavailable.",
-          "Consent for optional cookies may be given or refused via the banner on your first visit. More on data processing is set out in the rest of this Privacy Policy."
+          "Consent for optional cookies may be given or refused via the banner on your first visit, and changed later via Cookie settings (Privacy & data in the app, or Manage cookie settings). More on data processing is set out in the rest of this Privacy Policy."
         ]
       },
       {

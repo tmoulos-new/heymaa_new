@@ -222,6 +222,27 @@ export function AccountPrivacySheet({
 
           <section className="hm-panel-section">
             <div className="hm-section-label">
+              {isEl ? 'COOKIES' : 'COOKIES'}
+            </div>
+            <p className="hm-dialog-subtitle" style={{ marginBottom: 12 }}>
+              {isEl
+                ? 'Διαχειρίσου τα προαιρετικά cookies στατιστικών (Google Tag Manager / Analytics).'
+                : 'Manage optional statistics cookies (Google Tag Manager / Analytics).'}
+            </p>
+            <button
+              type="button"
+              className="hm-btn hm-btn--outline hm-btn--block"
+              onClick={() => {
+                onClose()
+                void import('../lib/cookieConsent').then((m) => m.openCookieSettings())
+              }}
+            >
+              {isEl ? 'Ρυθμίσεις cookies' : 'Cookie settings'}
+            </button>
+          </section>
+
+          <section className="hm-panel-section">
+            <div className="hm-section-label">
               {isEl ? 'ΕΞΑΓΩΓΗ ΔΕΔΟΜΕΝΩΝ' : 'DATA EXPORT'}
             </div>
             <p className="hm-dialog-subtitle" style={{ marginBottom: 12 }}>

@@ -1,10 +1,14 @@
 {
   "cookie": {
     "title": "Cookie-uri È™i confidenÈ›ialitate",
-    "body": "Folosim cookie-uri/stocare de sesiune esenÈ›iale pentru autentificare È™i funcÈ›ionarea aplicaÈ›iei, precum È™i cookie-uri opÈ›ionale de statistici (Google Analytics) pentru a Ã®mbunÄƒtÄƒÈ›i HeyMaa. PoÈ›i accepta toate sau doar pe cele esenÈ›iale. Detalii Ã®n",
+    "body": "Folosim cookie-uri/stocare de sesiune esențiale pentru autentificare și funcționarea aplicației, precum și cookie-uri opționale de statistici (Google Tag Manager / Google Analytics) pentru a îmbunătăți HeyMaa. Poți accepta toate sau doar pe cele esențiale. Detalii în",
     "privacyLink": "Politica de confidenÈ›ialitate (secÈ›iunea Cookie-uri)",
     "accept": "AcceptÄƒ toate",
-    "reject": "Doar esenÈ›iale"
+    "reject": "Doar esenÈ›iale",
+    "settingsTitle": "Setări cookie",
+    "settingsBody": "Poți permite cookie-urile opționale de statistici sau poți păstra doar pe cele esențiale. Trecerea la esențiale oprește analytics și reîncarcă pagina. Detalii în",
+    "revoke": "Doar esențiale",
+    "manage": "Gestionează cookie-urile"
   },
   "shell": {
     "home": "AcasÄƒ",
@@ -195,7 +199,7 @@
           "Cookie-uri esenÈ›iale / stocare de sesiune: pentru autentificare, securitate, preferinÈ›e de limbÄƒ È™i funcÈ›ionare de bazÄƒ. FÄƒrÄƒ ele, Serviciul poate sÄƒ nu funcÈ›ioneze corect.",
           "Cookie-uri opÈ›ionale de statistici: Google Analytics (G-JDCYL7LLHS) pentru a Ã®nÈ›elege utilizarea site-ului/aplicaÈ›iei Ã®n vederea Ã®mbunÄƒtÄƒÈ›irilor. Acestea se activeazÄƒ doar dacÄƒ alegeÈ›i â€žAcceptÄƒ toateâ€ pe banner.",
           "PuteÈ›i modifica setÄƒrile browserului pentru a bloca sau È™terge cookie-urile. DacÄƒ blocaÈ›i cookie-urile esenÈ›iale, unele funcÈ›ii (de ex. rÄƒmÃ¢nerea autentificat) pot fi indisponibile.",
-          "ConsimÈ›ÄƒmÃ¢ntul pentru cookie-urile opÈ›ionale poate fi acordat sau refuzat prin banner la prima vizitÄƒ. Mai multe despre prelucrarea datelor sunt prevÄƒzute Ã®n restul acestei Politici de confidenÈ›ialitate."
+          "Consimțământul pentru cookie-urile opționale poate fi acordat sau refuzat prin banner la prima vizită și modificat ulterior din Setări cookie. Mai multe despre prelucrarea datelor în restul acestei Politici de confidențialitate."
         ]
       },
       {

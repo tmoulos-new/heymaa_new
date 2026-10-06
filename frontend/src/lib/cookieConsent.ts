@@ -1,4 +1,5 @@
 export const COOKIE_CONSENT_KEY = 'hm_cookie_consent_v1'
+export const COOKIE_SETTINGS_EVENT = 'hm-open-cookie-settings'
 
 export type CookieConsent = {
   necessary: true
@@ -40,4 +41,10 @@ export function hasCookieConsentDecision(): boolean {
 
 export function analyticsCookiesAllowed(): boolean {
   return readCookieConsent()?.analytics === true
+}
+
+/** Open the cookie banner again (settings / revoke). */
+export function openCookieSettings(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(COOKIE_SETTINGS_EVENT))
 }
