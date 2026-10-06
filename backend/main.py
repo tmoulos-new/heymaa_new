@@ -10534,18 +10534,46 @@ async def serve_frontend_root():
         return FileResponse(index, media_type="text/html")
     return RedirectResponse("/index.html", status_code=307)
 
-_SPA_PUBLIC_FILES = ("favicon.ico", "manifest.json", "robots.txt", "asset-manifest.json", "restore.html", "logo192.png", "logo512.png")
+_SPA_PUBLIC_FILES = (
+    "favicon.ico",
+    "manifest.json",
+    "robots.txt",
+    "sitemap.xml",
+    "asset-manifest.json",
+    "restore.html",
+    "logo192.png",
+    "logo512.png",
+    "sw.js",
+)
+
+# Explicit media types so Googlebot (often Accept: */* without text/html) still
+# receives a real file instead of falling through spa_fallback → 404.
+_SPA_PUBLIC_MEDIA_TYPES = {
+    "robots.txt": "text/plain; charset=utf-8",
+    "sitemap.xml": "application/xml; charset=utf-8",
+    "manifest.json": "application/json; charset=utf-8",
+    "asset-manifest.json": "application/json; charset=utf-8",
+    "sw.js": "application/javascript; charset=utf-8",
+}
+
 
 def _register_public_root_files():
     for name in _SPA_PUBLIC_FILES:
         path = os.path.join(PUBLIC_DIR, name)
         if not os.path.isfile(path):
             continue
-        def _make_handler(file_path: str):
+        media = _SPA_PUBLIC_MEDIA_TYPES.get(name)
+
+        def _make_handler(file_path: str, media_type: Optional[str]):
             async def _handler():
+                if media_type:
+                    return FileResponse(file_path, media_type=media_type)
                 return FileResponse(file_path)
+
             return _handler
-        app.get(f"/{name}")(_make_handler(path))
+
+        app.get(f"/{name}")(_make_handler(path, media))
+
 
 _register_public_root_files()
 
