@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getAuthToken } from '../lib/authApi'
+import { getAuthToken, verifyVivaCheckout } from '../lib/authApi'
 import { AUTH_LOGO_SRC } from '../auth/authLogo'
 import { APP_ROUTE } from '../publicRoutes'
 import { clearPlanIntent } from '../lib/planCheckoutFlow'
 import { useHomeI18nSync } from '../lib/useHomeI18nSync'
+import { trackPurchase } from '../lib/analytics'
 import '../auth/appAuth.css'
 import './checkoutResult.css'
 
@@ -34,9 +35,28 @@ export function CheckoutResultPage({ outcome }: { outcome: 'success' | 'failure'
     } catch {
       /* ignore */
     }
-    // purchase analytics: not emitted here — requires backend-verified paid
-    // transaction belonging to the authenticated user (see trackPurchaseUnsupportedReason).
-  }, [isSuccess])
+
+    if (!tx || !token) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const verified = await verifyVivaCheckout(tx, token)
+        if (cancelled || !verified?.ok) return
+        if (
+          typeof verified.plan === 'string' &&
+          typeof verified.amountCents === 'number' &&
+          verified.transactionId
+        ) {
+          trackPurchase(verified.plan, verified.amountCents, verified.transactionId)
+        }
+      } catch {
+        /* analytics only — never block the success UI */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isSuccess, tx, token])
 
   const title = isSuccess
     ? t('checkoutResult.successTitle')

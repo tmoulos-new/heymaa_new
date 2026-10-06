@@ -20,7 +20,7 @@ import {
   trackBeginCheckout,
   trackLogin,
   trackPageView,
-  trackPurchaseUnsupportedReason,
+  trackPurchase,
   trackSignUp,
 } from './index'
 import { COOKIE_CONSENT_KEY, writeCookieConsent } from '../cookieConsent'
@@ -101,6 +101,7 @@ describe('consent and event dispatch', () => {
     process.env.REACT_APP_GTM_ID = 'GTM-N39D5NBV'
     mockHost('www.heymaa.ai', 'https://www.heymaa.ai/subscription')
     localStorage.clear()
+    sessionStorage.clear()
     document.head.innerHTML = ''
     window.dataLayer = []
     resetGtmLoaderForTests()
@@ -184,8 +185,26 @@ describe('consent and event dispatch', () => {
     expect(ev.ecommerce.items[0].price).toBe(39)
   })
 
-  it('documents purchase blocker', () => {
-    expect(trackPurchaseUnsupportedReason()).toMatch(/backend-verified/i)
+  it('emits purchase ecommerce after verified payment fields', () => {
+    writeCookieConsent(true)
+    initGoogleTagManager('/checkout/success')
+    setDispatchEnabled(true)
+    expect(trackPurchase('premium', 3900, 'TX-123')).toBe(true)
+    expect(trackPurchase('premium', 3900, 'TX-123')).toBe(false) // session dedupe
+    const ev = [...window.dataLayer]
+      .reverse()
+      .find((x) => x && (x as { event?: string }).event === 'purchase') as {
+      ecommerce: {
+        transaction_id: string
+        currency: string
+        value: number
+        items: { item_id: string; price: number }[]
+      }
+    }
+    expect(ev.ecommerce.transaction_id).toBe('TX-123')
+    expect(ev.ecommerce.currency).toBe('EUR')
+    expect(ev.ecommerce.value).toBe(39)
+    expect(ev.ecommerce.items[0].item_id).toBe('premium')
   })
 
   it('plan catalog matches Viva major amounts', () => {

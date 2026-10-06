@@ -14,7 +14,7 @@ export {
   trackSignUp,
   trackLogin,
   trackBeginCheckout,
-  trackPurchaseUnsupportedReason,
+  trackPurchase,
   setDispatchEnabled,
   isDispatchEnabled,
 } from './track'

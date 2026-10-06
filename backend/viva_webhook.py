@@ -252,6 +252,49 @@ async def activate_subscription(
     }
 
 
+
+async def verify_transaction_for_user(transaction_id: str, auth_user_id: str) -> dict:
+    """Confirm a Viva payment is successful and belongs to the authenticated user."""
+    if not viva_configured():
+        return {"ok": False, "reason": "viva_not_configured"}
+    tid = (transaction_id or "").strip()
+    uid = (auth_user_id or "").strip()
+    if not tid or not uid:
+        return {"ok": False, "reason": "missing_params"}
+
+    tx = await retrieve_transaction(tid)
+    status_id = str(_payload_value(tx, "statusId", "StatusId") or "").upper()
+    if status_id not in VIVA_SUCCESS_STATUS_IDS:
+        return {"ok": False, "reason": "not_paid", "statusId": status_id or None}
+
+    merchant_trns = _payload_value(tx, "merchantTrns", "MerchantTrns")
+    plan_key, tx_user_id = parse_merchant_trns(
+        str(merchant_trns) if merchant_trns is not None else None
+    )
+    if not plan_key:
+        return {"ok": False, "reason": "unknown_plan"}
+    if not tx_user_id or tx_user_id != uid:
+        return {"ok": False, "reason": "user_mismatch"}
+
+    amount_raw = _payload_value(tx, "amount", "Amount")
+    if not amount_matches_plan(amount_raw, plan_key):
+        return {
+            "ok": False,
+            "reason": "amount_mismatch",
+            "plan": plan_key,
+            "amount": amount_raw,
+        }
+
+    return {
+        "ok": True,
+        "transactionId": tid,
+        "plan": plan_key,
+        "amountCents": _amount_cents(amount_raw),
+        "currency": "EUR",
+        "orderCode": _payload_value(tx, "orderCode", "OrderCode"),
+    }
+
+
 async def handle_viva_payment_created(payload: dict, sb) -> dict:
     if not viva_configured():
         raise ValueError("Viva Wallet is not configured on the server.")

@@ -24,7 +24,10 @@ describe('seoConfigForPath', () => {
     expect(seoConfigForPath('/app').canonicalPath).toBe('/app')
   })
 
-  it('strips query influence via pathname-only API', () => {
-    expect(seoConfigForPath('/privacy').canonicalPath).toBe('/privacy')
+  it('noindexes unknown paths without advertising landing SEO', () => {
+    const seo = seoConfigForPath('/this-page-does-not-exist')
+    expect(seo.robots).toBe('noindex,nofollow')
+    expect(seo.canonicalPath).toBe('/this-page-does-not-exist')
+    expect(seo.title).toMatch(/not found/i)
   })
 })

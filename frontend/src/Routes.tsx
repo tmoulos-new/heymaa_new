@@ -15,6 +15,7 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { CheckoutResultPage } from "./pages/CheckoutResultPage";
 import { TermsPage } from "./pages/TermsPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { BrandFavicon } from "./components/BrandFavicon";
 import { CookieConsentBanner } from "./components/CookieConsentBanner";
 import { SeoHead } from "./components/SeoHead";
@@ -161,7 +162,7 @@ export default function AppRoutes() {
             </Suspense>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

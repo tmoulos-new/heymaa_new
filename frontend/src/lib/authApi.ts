@@ -407,3 +407,25 @@ export async function createVivaCheckout(plan: string, lang: string, token: stri
   )
   return res.data
 }
+
+export type VivaVerifyResponse = {
+  ok: boolean
+  transactionId?: string
+  plan?: string
+  amountCents?: number
+  currency?: string
+  reason?: string
+}
+
+/** Authenticated confirm that Viva payment succeeded for the current user. */
+export async function verifyVivaCheckout(transactionId: string, token: string) {
+  const res = await axios.get<VivaVerifyResponse>(
+    `${getCheckoutApiBase()}/checkout/viva/verify`,
+    {
+      params: { transactionId },
+      headers: { 'x-token': token },
+      validateStatus: (s) => s < 500,
+    },
+  )
+  return res.data
+}

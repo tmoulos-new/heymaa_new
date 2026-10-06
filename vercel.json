@@ -86,9 +86,18 @@
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
       "destination": "/admin/index.html"
     },
-    {
-      "source": "/((?!auth(?:/|$)|profile(?:/|$)|chat(?:/|$)|tts(?:/|$)|offers(?:/|$)|support(?:/|$)|public/offers|public/promotions|public/places_map|public/babyspace-rss|userdata(?:/|$)|user_activity(?:/|$)|gamification(?:/|$)|webhooks(?:/|$)|checkout/viva(?:/|$)|healthz$|functions(?:/|$)|admin(?:/|$)|me(?:/|$)|static/|robots\\.txt$|sitemap\\.xml$|favicon\\.ico$|manifest\\.json$|logo192\\.png$|logo512\\.png$|sw\\.js$).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/auth", "destination": "/index.html" },
+    { "source": "/auth/(.*)", "destination": "/index.html" },
+    { "source": "/app", "destination": "/index.html" },
+    { "source": "/app/(.*)", "destination": "/index.html" },
+    { "source": "/subscription", "destination": "/index.html" },
+    { "source": "/subscription/", "destination": "/index.html" },
+    { "source": "/checkout", "destination": "/index.html" },
+    { "source": "/checkout/", "destination": "/index.html" },
+    { "source": "/checkout/(success|failure|failed)", "destination": "/index.html" },
+    { "source": "/terms", "destination": "/index.html" },
+    { "source": "/terms/", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/privacy/", "destination": "/index.html" }
   ]
 }

@@ -9733,6 +9733,42 @@ async def checkout_viva(req: VivaCheckoutRequest, x_token: Optional[str] = Heade
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/checkout/viva/verify")
+async def checkout_viva_verify(
+    transactionId: Optional[str] = Query(None),
+    t: Optional[str] = Query(None),
+    x_token: Optional[str] = Header(None),
+):
+    """Authenticated check that a Viva transaction is paid and belongs to the caller."""
+    token = (x_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    tid = (transactionId or t or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="transactionId is required")
+    try:
+        auth = resolve_auth(token)
+        if auth.get("kind") != "user" or not auth.get("user_id"):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        try:
+            from .viva_webhook import verify_transaction_for_user
+            from .viva_checkout import viva_configured
+        except ImportError:
+            from viva_webhook import verify_transaction_for_user
+            from viva_checkout import viva_configured
+        if not viva_configured():
+            raise HTTPException(status_code=503, detail="Viva Wallet is not configured on the server.")
+        result = await verify_transaction_for_user(tid, str(auth["user_id"]))
+        if not result.get("ok"):
+            return JSONResponse(status_code=404, content=result)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/functions/getCompletedOrders")
 async def get_completed_orders(
     request: Request,
@@ -10586,6 +10622,35 @@ _API_PATH_PREFIXES = (
     "me/", "admin/notifications", "admin/emails", "admin/gift_codes", "gifts/",
 )
 
+# First path segment for SPA HTML shells (unknown segments get a real HTTP 404).
+_SPA_HTML_ROOTS = frozenset({
+    "auth",
+    "app",
+    "subscription",
+    "checkout",
+    "terms",
+    "privacy",
+    "home",
+})
+
+
+def _is_allowlisted_spa_html_path(spa_path: str) -> bool:
+    cleaned = (spa_path or "").strip("/")
+    if not cleaned:
+        return True
+    root = cleaned.split("/", 1)[0].lower()
+    return root in _SPA_HTML_ROOTS
+
+
+_NOT_FOUND_HTML = (
+    "<!DOCTYPE html><html lang=\"en\"><head>"
+    "<meta charset=\"utf-8\"/>"
+    "<meta name=\"robots\" content=\"noindex,nofollow\"/>"
+    "<title>Page not found — HeyMaa</title>"
+    "</head><body><h1>404</h1><p>Page not found.</p>"
+    "<p><a href=\"/\">Home</a></p></body></html>"
+)
+
 try:
     from .app_notifications_api import register_notification_routes
 except ImportError:
@@ -10614,6 +10679,16 @@ async def spa_fallback(spa_path: str, request: Request):
     if any(spa_path == p.rstrip("/") or spa_path.startswith(p) for p in _API_PATH_PREFIXES):
         raise HTTPException(status_code=404, detail="Not Found")
     accept = request.headers.get("accept", "")
+    wants_html = "text/html" in accept or accept.strip() in ("", "*/*")
+    if not _is_allowlisted_spa_html_path(spa_path):
+        if wants_html:
+            return Response(
+                content=_NOT_FOUND_HTML,
+                status_code=404,
+                media_type="text/html; charset=utf-8",
+                headers={"X-Robots-Tag": "noindex, nofollow"},
+            )
+        raise HTTPException(status_code=404, detail="Not Found")
     if "text/html" not in accept:
         raise HTTPException(status_code=404, detail="Not Found")
     index = os.path.join(PUBLIC_DIR, "index.html")

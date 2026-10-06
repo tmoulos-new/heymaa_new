@@ -93,10 +93,10 @@ function resolveSeo(pathname: string): SeoConfig {
     }
   }
 
-  // Unknown SPA paths: do not advertise as the homepage.
+  // Unknown SPA paths: keep the bad URL, never advertise as the homepage.
   return {
-    title: 'HeyMaa',
-    description: 'HeyMaa — AI companion for pregnancy and motherhood.',
+    title: 'Page not found — HeyMaa',
+    description: 'This page does not exist on HeyMaa.',
     canonicalPath: path,
     robots: 'noindex,nofollow',
   }

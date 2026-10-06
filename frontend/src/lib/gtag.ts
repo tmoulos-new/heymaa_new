@@ -15,7 +15,7 @@ export {
   trackSignUp,
   trackLogin,
   trackBeginCheckout,
-  trackPurchaseUnsupportedReason,
+  trackPurchase,
 } from './analytics/track'
 
 export { canLoadAnalytics, isAnalyticsHostAllowed, getGtmContainerId } from './analytics/env'

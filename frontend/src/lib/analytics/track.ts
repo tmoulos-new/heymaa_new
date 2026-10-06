@@ -125,16 +125,62 @@ export function trackBeginCheckout(plan: string, amountCents: number): boolean {
 }
 
 /**
- * purchase is intentionally unimplemented client-side.
- * There is no authenticated API that confirms a Viva transaction is paid and
- * belongs to the current user before the success page renders; webhooks are
- * server-only. Emitting from /checkout/success + query params would fabricate revenue.
+ * Fire once after `/checkout/viva/verify` confirms payment for this user.
+ * `transactionId` is the Viva transaction id; `amountCents` from verify response.
  */
-export function trackPurchaseUnsupportedReason(): string {
-  return (
-    'purchase requires a backend-verified endpoint (transaction paid + belongs to ' +
-    'authenticated customer) before client dataLayer emission; Viva webhook is server-only today'
-  )
+export function trackPurchase(
+  plan: string,
+  amountCents: number,
+  transactionId: string,
+): boolean {
+  const item = analyticsPlanItem(plan, amountCents)
+  const tid = (transactionId || '').trim()
+  if (!item || !tid) return false
+  if (!analyticsCookiesAllowed() || !isDispatchEnabled() || !canLoadAnalytics()) return false
+  if (typeof window === 'undefined') return false
+
+  const dedupeKey = `hm_purchase_tracked_${tid}`
+  try {
+    if (sessionStorage.getItem(dedupeKey) === '1') return false
+  } catch {
+    /* ignore */
+  }
+
+  ensureDataLayerPushReady()
+  const ctx = buildSafePageContext(window.location.pathname, '')
+  setSafeGooglePageContext(ctx)
+
+  window.dataLayer.push({ ecommerce: null })
+
+  const items: EcommerceItem[] = [
+    {
+      item_id: item.item_id,
+      item_name: item.item_name,
+      price: item.price,
+      quantity: 1,
+    },
+  ]
+
+  window.dataLayer.push({
+    event: 'purchase',
+    page_location: ctx.page_location,
+    page_path: ctx.page_path,
+    page_title: ctx.page_title,
+    page_referrer: ctx.page_referrer,
+    ecommerce: {
+      transaction_id: tid,
+      currency: 'EUR',
+      value: item.price,
+      items,
+    },
+  })
+
+  try {
+    sessionStorage.setItem(dedupeKey, '1')
+  } catch {
+    /* ignore */
+  }
+  return true
 }
 
 export { setDispatchEnabled, isDispatchEnabled }
