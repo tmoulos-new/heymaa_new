@@ -1997,11 +1997,22 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
   }, [tHome, homeLng, pointRulesVersion]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
-  const helpPhone = String(tHome("footer.phone", { lng: homeLng }) || "+30 2109287420");
-  const helpPhoneTel = String(tHome("footer.phoneTel", { lng: homeLng }) || "+302109287420");
-  const helpPhoneLabel = String(tHome("footer.phoneLabel", { lng: homeLng }) || (lang === "el" ? "Γραμμή Εξυπηρέτησης" : "Support line"));
-  const helpPhoneHours = String(tHome("footer.phoneHours", { lng: homeLng }) || (lang === "el" ? "Δευτέρα–Παρασκευή 09:00–17:00" : "Monday–Friday 09:00–17:00"));
-  const helpAddress = String(tHome("footer.address", { lng: homeLng }) || "");
+  const showGreekContact = homeLng === "el" || lang === "el";
+  const helpPhone = showGreekContact
+    ? String(tHome("footer.phone", { lng: "el" }) || "+30 2109287420")
+    : "";
+  const helpPhoneTel = showGreekContact
+    ? String(tHome("footer.phoneTel", { lng: "el" }) || "+302109287420")
+    : "";
+  const helpPhoneLabel = showGreekContact
+    ? String(tHome("footer.phoneLabel", { lng: "el" }) || "Γραμμή Εξυπηρέτησης")
+    : "";
+  const helpPhoneHours = showGreekContact
+    ? String(tHome("footer.phoneHours", { lng: "el" }) || "Δευτέρα–Παρασκευή 09:00–17:00")
+    : "";
+  const helpAddress = showGreekContact
+    ? String(tHome("footer.address", { lng: "el" }) || "")
+    : "";
 
   const applyLivePointRulesFrom = useCallback((payload: unknown) => {
     if (!payload || typeof payload !== "object") return;
@@ -5232,18 +5243,20 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                   <span style={{display:"block",fontSize:12,color:"var(--hm-muted)",marginTop:2}}>{helpEmail}</span>
                 </span>
               </a>
-              <a
-                href={`tel:${helpPhoneTel}`}
-                className="hm-contact-row"
-                style={{ color: "var(--hm-navy)", marginBottom: helpAddress ? 10 : 0 }}
-              >
-                <span className="hm-contact-icon hm-contact-icon--teal" aria-hidden="true">📞</span>
-                <span>
-                  <span style={{display:"block",fontSize:13,fontWeight:700}}>{helpPhoneLabel}</span>
-                  <span style={{display:"block",fontSize:15,fontWeight:600,letterSpacing:"0.02em",marginTop:2}}>{helpPhone}</span>
-                  <span className="hm-contact-hours">{helpPhoneHours}</span>
-                </span>
-              </a>
+              {helpPhone && helpPhoneTel ? (
+                <a
+                  href={`tel:${helpPhoneTel}`}
+                  className="hm-contact-row"
+                  style={{ color: "var(--hm-navy)", marginBottom: helpAddress ? 10 : 0 }}
+                >
+                  <span className="hm-contact-icon hm-contact-icon--teal" aria-hidden="true">📞</span>
+                  <span>
+                    <span style={{display:"block",fontSize:13,fontWeight:700}}>{helpPhoneLabel}</span>
+                    <span style={{display:"block",fontSize:15,fontWeight:600,letterSpacing:"0.02em",marginTop:2}}>{helpPhone}</span>
+                    <span className="hm-contact-hours">{helpPhoneHours}</span>
+                  </span>
+                </a>
+              ) : null}
               {helpAddress ? (
                 <div className="hm-contact-row" style={{ color: "rgba(43,58,103,.7)" }}>
                   <span className="hm-contact-icon hm-contact-icon--muted" aria-hidden="true">📍</span>

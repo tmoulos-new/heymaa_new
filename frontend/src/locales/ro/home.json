@@ -8,7 +8,7 @@
   },
   "langPicker": {
     "title": "Alege limba",
-    "search": "Caută limba...",
+    "search": "Caută limba..",
     "select": "Selectează",
     "empty": "Nicio limbă găsită",
     "close": "Închide"
@@ -81,21 +81,21 @@
     "items": [
       {
         "quote": "\"Prima dată când m-am trezit la 3 dimineața, am vorbit pur și simplu cu telefonul. HeyMaa mi-a răspuns la îngrijorare și a înregistrat totul. Nu m-am simțit singură.\"",
-        "initial": "E",
-        "name": "Eleni, mamă a unui bebeluș de 8 luni",
-        "location": "Thessaloniki"
+        "initial": "A",
+        "name": "Andreea, mamă a unui bebeluș de 8 luni",
+        "location": "București"
       },
       {
         "quote": "\"Când îmi pierdeam calmul din cauza somnului și a schimbărilor la hrănire, HeyMaa a fost acolo pentru mine. Am primit sfaturi cu adevărat utile, imediat, pentru copilul meu de 1 an, exact când aveam nevoie!\"",
-        "initial": "S",
-        "name": "Sofia, mamă a unui copil de 12 luni",
-        "location": "Patras"
+        "initial": "I",
+        "name": "Ioana, mamă a unui copil de 12 luni",
+        "location": "Cluj-Napoca"
       },
       {
         "quote": "\"Am reușit să salvez toate amintirile prețioase ale copilului meu și să țin totul perfect organizat într-un singur loc! De la primul dințișor la primii pași, niciun moment nu se pierde.\"",
         "initial": "M",
         "name": "Maria, mamă a unui copil de 14 luni",
-        "location": "Athens"
+        "location": "Timișoara"
       }
     ]
   },
@@ -128,11 +128,25 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Chat nelimitat" },
-          { "label": "50 răspunsuri vocale/lună", "hint": "voice_listen" },
-          { "label": "Memorie zilnică", "hint": "memory_daily" },
-          { "label": "Arhivă documente & Album", "hint": "docs_album_view" },
-          { "label": "3 conversații arhivate", "hint": "archived_threads" }
+          {
+            "label": "Chat nelimitat"
+          },
+          {
+            "label": "50 răspunsuri vocale/lună",
+            "hint": "voice_listen"
+          },
+          {
+            "label": "Memorie zilnică",
+            "hint": "memory_daily"
+          },
+          {
+            "label": "Arhivă documente & Album",
+            "hint": "docs_album_view"
+          },
+          {
+            "label": "3 conversații arhivate",
+            "hint": "archived_threads"
+          }
         ],
         "button": "Selectează planul",
         "buttonClass": "btn-plan-idle"
@@ -148,12 +162,26 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Chat nelimitat" },
-          { "label": "150 răspunsuri vocale/lună" },
-          { "label": "Memorie de bază", "hint": "memory_partial" },
-          { "label": "Arhivă documente & Album", "hint": "docs_album_full" },
-          { "label": "45 conversații arhivate" },
-          { "label": "Suport prin email" }
+          {
+            "label": "Chat nelimitat"
+          },
+          {
+            "label": "150 răspunsuri vocale/lună"
+          },
+          {
+            "label": "Memorie de bază",
+            "hint": "memory_partial"
+          },
+          {
+            "label": "Arhivă documente & Album",
+            "hint": "docs_album_full"
+          },
+          {
+            "label": "45 conversații arhivate"
+          },
+          {
+            "label": "Suport prin email"
+          }
         ],
         "button": "Alege planul",
         "buttonClass": "btn-plan-idle"
@@ -169,12 +197,26 @@
         "featured": true,
         "save": "",
         "features": [
-          { "label": "Chat nelimitat" },
-          { "label": "400 răspunsuri vocale/lună" },
-          { "label": "Memorie completă", "hint": "memory_strong" },
-          { "label": "Descărcare & partajare documente/album", "hint": "docs_album_export" },
-          { "label": "90 conversații arhivate" },
-          { "label": "Suport telefonic" }
+          {
+            "label": "Chat nelimitat"
+          },
+          {
+            "label": "400 răspunsuri vocale/lună"
+          },
+          {
+            "label": "Memorie completă",
+            "hint": "memory_strong"
+          },
+          {
+            "label": "Descărcare & partajare documente/album",
+            "hint": "docs_album_export"
+          },
+          {
+            "label": "90 conversații arhivate"
+          },
+          {
+            "label": "Suport telefonic"
+          }
         ],
         "button": "Alege planul",
         "buttonClass": "btn-plan-idle"
@@ -190,12 +232,24 @@
         "featured": false,
         "save": "",
         "features": [
-          { "label": "Toate beneficiile Premium" },
-          { "label": "700 răspunsuri vocale/lună" },
-          { "label": "Memorie completă" },
-          { "label": "Descărcare & partajare documente/album" },
-          { "label": "90 conversații arhivate" },
-          { "label": "Suport prioritar" }
+          {
+            "label": "Toate beneficiile Premium"
+          },
+          {
+            "label": "700 răspunsuri vocale/lună"
+          },
+          {
+            "label": "Memorie completă"
+          },
+          {
+            "label": "Descărcare & partajare documente/album"
+          },
+          {
+            "label": "90 conversații arhivate"
+          },
+          {
+            "label": "Suport prioritar"
+          }
         ],
         "button": "Alege planul",
         "buttonClass": "btn-plan-idle"
@@ -282,7 +336,7 @@
       },
       {
         "question": "Ce se întâmplă când se termină proba?",
-        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai sau pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai."
       },
       {
         "question": "HeyMaa oferă sfaturi medicale?",
@@ -290,7 +344,7 @@
       },
       {
         "question": "Cum anulez abonamentul?",
-        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai sau sună pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai."
       },
       {
         "question": "Sunt datele mele în siguranță?",
@@ -312,7 +366,7 @@
       },
       {
         "question": "Ce se întâmplă când se termină proba?",
-        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai sau pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+        "answer": "Dacă nu treci la un plan plătit, accesul la aplicație se oprește. Vei primi un reminder înainte de expirare. Alege un plan din Setări → Abonament sau contactează-ne la info@heymaa.ai."
       },
       {
         "question": "Cum funcționează mesajele vocale?",
@@ -352,7 +406,7 @@
       },
       {
         "question": "Cum anulez abonamentul?",
-        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai sau sună pe linia de Support +30 2109287420 (luni–vineri 09:00–17:00)."
+        "answer": "Anulează în aplicație: Setări → Abonament → Anulează abonamentul. Păstrezi accesul până la sfârșitul perioadei deja plătite; nu există taxare automată. Până atunci poți restaura abonamentul. Pentru ajutor, scrie la info@heymaa.ai."
       },
       {
         "question": "Am uitat parola",
@@ -381,11 +435,11 @@
     "about": "Aplicația HeyMaa este dezvoltată de <company>Care Direct</company>.",
     "contactTitle": "Contact",
     "email": "info@heymaa.ai",
-    "phoneLabel": "Linie de support",
-    "phone": "+30 2109287420",
-    "phoneTel": "+302109287420",
-    "phoneHours": "Luni–vineri 09:00–17:00",
-    "address": "Premetis 2, Agios Dimitrios, 173 42 Athens",
+    "phoneLabel": "",
+    "phone": "",
+    "phoneTel": "",
+    "phoneHours": "",
+    "address": "",
     "infoTitle": "Informații",
     "linkContact": "Contact",
     "linkPrivacy": "Politica de confidențialitate",

@@ -36,6 +36,10 @@ export function SiteFooter({
   const t = (key: string, opts?: Record<string, unknown>) =>
     tBase(key, { ns: 'home', lng, ...opts })
   const email = t('footer.email')
+  const showGreekContact = contentLang === 'el'
+  const phone = String(t('footer.phone') || '').trim()
+  const phoneTel = String(t('footer.phoneTel') || '').trim()
+  const address = String(t('footer.address') || '').trim()
 
   const infoLinks = [
     { label: t('footer.linkPrivacy'), href: PRIVACY_URL },
@@ -86,23 +90,27 @@ export function SiteFooter({
                   <span aria-hidden="true">✉️</span> {email}
                 </a>
               </li>
-              <li>
-                <div className="footer-phone">
-                  <a href={`tel:${t('footer.phoneTel')}`}>
-                    <span aria-hidden="true">📞</span>
-                    <span>
-                      <span className="footer-phone__label">{t('footer.phoneLabel')}</span>
-                      <span className="footer-phone__num">{t('footer.phone')}</span>
-                    </span>
-                  </a>
-                  <p className="footer-phone__hours">{t('footer.phoneHours')}</p>
-                </div>
-              </li>
-              <li>
-                <span className="footer-list-static">
-                  <span aria-hidden="true">📍</span> {t('footer.address')}
-                </span>
-              </li>
+              {showGreekContact && phone && phoneTel ? (
+                <li>
+                  <div className="footer-phone">
+                    <a href={`tel:${phoneTel}`}>
+                      <span aria-hidden="true">📞</span>
+                      <span>
+                        <span className="footer-phone__label">{t('footer.phoneLabel')}</span>
+                        <span className="footer-phone__num">{phone}</span>
+                      </span>
+                    </a>
+                    <p className="footer-phone__hours">{t('footer.phoneHours')}</p>
+                  </div>
+                </li>
+              ) : null}
+              {showGreekContact && address ? (
+                <li>
+                  <span className="footer-list-static">
+                    <span aria-hidden="true">📍</span> {address}
+                  </span>
+                </li>
+              ) : null}
             </ul>
           </div>
 

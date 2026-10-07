@@ -43,6 +43,10 @@ import phoneChat from "../assets/heymaa-phone-chat.png";
 import phoneMemories from "../assets/heymaa-phone-memories.png";
 import phoneFamily from "../assets/heymaa-phone-family.png";
 import phoneMilestones from "../assets/heymaa-phone-milestones.png";
+import phoneChatRo from "../assets/heymaa-phone-chat-ro.png";
+import phoneMemoriesRo from "../assets/heymaa-phone-memories-ro.png";
+import phoneFamilyRo from "../assets/heymaa-phone-family-ro.png";
+import phoneMilestonesRo from "../assets/heymaa-phone-milestones-ro.png";
 import { displayUppercase } from "../lib/greekText";
 import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
 import {
@@ -57,12 +61,24 @@ import { useLandingI18n } from "../lib/useLandingI18n";
 import "../auth/appAuth.css";
 import "./home.css";
 
-const INSIDE_IMAGES: Record<string, string> = {
+const INSIDE_IMAGES_DEFAULT: Record<string, string> = {
   chat: phoneChat,
   memories: phoneMemories,
   family: phoneFamily,
   milestones: phoneMilestones,
 };
+
+/** Romanian UI screenshots for the “Inside HeyMaa” phone cards. */
+const INSIDE_IMAGES_RO: Record<string, string> = {
+  chat: phoneChatRo,
+  memories: phoneMemoriesRo,
+  family: phoneFamilyRo,
+  milestones: phoneMilestonesRo,
+};
+
+function insideImagesForLang(lang: string): Record<string, string> {
+  return lang === "ro" ? INSIDE_IMAGES_RO : INSIDE_IMAGES_DEFAULT;
+}
 
 const HOW_PHOTOS = [
   { src: momentsExpecting, altKey: "moments.altExpecting" },
@@ -145,6 +161,10 @@ export default function Home() {
   );
   const featuredInside = insideItems.find((item) => item.id === "chat");
   const insideCards = insideItems.filter((item) => item.id !== "chat");
+  const insideImages = useMemo(
+    () => insideImagesForLang(contentLang),
+    [contentLang],
+  );
   const basePlans = asObjectArray<HomePlan>(
     t("pricing.plans", { returnObjects: true })
   );
@@ -538,7 +558,7 @@ export default function Home() {
                 </div>
                 <div className="inside-phone inside-phone--card">
                   <img
-                    src={INSIDE_IMAGES[featuredInside.id]}
+                    src={insideImages[featuredInside.id] || INSIDE_IMAGES_DEFAULT[featuredInside.id]}
                     alt={featuredInside.imageAlt}
                   />
                 </div>
@@ -551,7 +571,10 @@ export default function Home() {
                 <h3 className="inside-card-title">{item.title}</h3>
                 <p className="inside-card-body">{item.body}</p>
                 <div className="inside-phone inside-phone--card">
-                  <img src={INSIDE_IMAGES[item.id]} alt={item.imageAlt} />
+                  <img
+                    src={insideImages[item.id] || INSIDE_IMAGES_DEFAULT[item.id]}
+                    alt={item.imageAlt}
+                  />
                 </div>
               </article>
             ))}
