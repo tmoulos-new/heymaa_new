@@ -245,7 +245,10 @@ export default function Home() {
     if (!userPickedPlan) setSelectedPlanIndex(currentPlanIndex);
   }, [currentPlanIndex, userPickedPlan]);
 
-  useEffect(() => {
+  // Reveal animations add `.is-in` via the DOM. React re-renders (e.g. language
+  // change) rewrite `className` and wipe that class, leaving cards invisible.
+  // Re-apply after paint whenever the landing language changes.
+  useLayoutEffect(() => {
     const nodes = Array.from(
       document.querySelectorAll<HTMLElement>(".hm-reveal"),
     );
@@ -259,6 +262,17 @@ export default function Home() {
       return;
     }
 
+    const revealIfVisible = (node: HTMLElement) => {
+      const rect = node.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.98 && rect.bottom > 0) {
+        node.classList.add("is-in");
+        return true;
+      }
+      return false;
+    };
+
+    nodes.forEach(revealIfVisible);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -267,12 +281,14 @@ export default function Home() {
           observer.unobserve(entry.target);
         });
       },
-      { threshold: 0.14, rootMargin: "0px 0px -6% 0px" },
+      { threshold: 0.08, rootMargin: "0px 0px -4% 0px" },
     );
 
-    nodes.forEach((node) => observer.observe(node));
+    nodes.forEach((node) => {
+      if (!node.classList.contains("is-in")) observer.observe(node);
+    });
     return () => observer.disconnect();
-  }, []);
+  }, [contentLang, landingLng]);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -503,7 +519,7 @@ export default function Home() {
                 />
                 <ul className="what-is-modes">
                   {howItems.map((item) => (
-                    <li className="what-is-mode" key={item.title}>
+                    <li className="what-is-mode" key={item.icon || `mode-${item.title}`}>
                       <span
                         className="what-is-mode-icon"
                         style={{ background: item.bg, color: item.color }}
@@ -531,7 +547,7 @@ export default function Home() {
             {howItems.map((item, index) => {
               const photo = HOW_PHOTOS[index];
               return (
-              <div className={`how-card hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.title}>
+              <div className={`how-card hm-reveal is-in hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.icon || `how-${index}`}>
                 {photo ? (
                   <div className="how-photo">
                     <img src={photo.src} alt={t(photo.altKey)} />
@@ -596,7 +612,7 @@ export default function Home() {
           {insideExtras.length > 0 ? (
             <div className="inside-extras">
               {insideExtras.map((extra, index) => (
-                <article className={`inside-extra hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={extra.title}>
+                <article className={`inside-extra hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={extra.icon || `extra-${index}`}>
                   <div className="inside-extra-icon" aria-hidden="true">
                     <i className={`ti ${extra.icon}`} />
                   </div>
