@@ -47,6 +47,10 @@ import phoneChatRo from "../assets/heymaa-phone-chat-ro.png";
 import phoneMemoriesRo from "../assets/heymaa-phone-memories-ro.png";
 import phoneFamilyRo from "../assets/heymaa-phone-family-ro.png";
 import phoneMilestonesRo from "../assets/heymaa-phone-milestones-ro.png";
+import phoneChatEn from "../assets/heymaa-phone-chat-en.png";
+import phoneMemoriesEn from "../assets/heymaa-phone-memories-en.png";
+import phoneFamilyEn from "../assets/heymaa-phone-family-en.png";
+import phoneMilestonesEn from "../assets/heymaa-phone-milestones-en.png";
 import { displayUppercase } from "../lib/greekText";
 import { continueWithPlan, setPlanIntent } from "../lib/planCheckoutFlow";
 import {
@@ -76,8 +80,18 @@ const INSIDE_IMAGES_RO: Record<string, string> = {
   milestones: phoneMilestonesRo,
 };
 
+/** English UI screenshots for the “Inside HeyMaa” phone cards. */
+const INSIDE_IMAGES_EN: Record<string, string> = {
+  chat: phoneChatEn,
+  memories: phoneMemoriesEn,
+  family: phoneFamilyEn,
+  milestones: phoneMilestonesEn,
+};
+
 function insideImagesForLang(lang: string): Record<string, string> {
-  return lang === "ro" ? INSIDE_IMAGES_RO : INSIDE_IMAGES_DEFAULT;
+  if (lang === "ro") return INSIDE_IMAGES_RO;
+  if (lang === "en") return INSIDE_IMAGES_EN;
+  return INSIDE_IMAGES_DEFAULT;
 }
 
 const HOW_PHOTOS = [
