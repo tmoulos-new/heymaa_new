@@ -143,10 +143,10 @@ def _display_name(name: Optional[str], lang: str) -> str:
 def _plan_label(plan: str, lang: str) -> str:
     key = (plan or "").strip().lower()
     labels = {
-        "starter": ("Starter — €19/μήνα", "Starter — €19/month"),
-        "premium": ("Premium — €39/μήνα", "Premium — €39/month"),
-        "annual": ("Ετήσιο Premium — €199/έτος", "Annual Premium — €199/year"),
-        "annual_premium": ("Ετήσιο Premium — €199/έτος", "Annual Premium — €199/year"),
+        "starter": ("Starter — €13.99/μήνα", "Starter — €13.99/month"),
+        "premium": ("Premium — €24.99/μήνα", "Premium — €24.99/month"),
+        "annual": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year"),
+        "annual_premium": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year"),
         "trial": ("Δωρεάν δοκιμή", "Free trial"),
     }
     pair = labels.get(key)

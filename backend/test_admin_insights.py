@@ -28,9 +28,9 @@ class AdminInsightsHelpersTests(unittest.TestCase):
         self.assertFalse(is_admin_user(users[1]))
 
     def test_monthly_prices(self):
-        self.assertEqual(monthly_price_eur("starter"), 19.0)
-        self.assertEqual(monthly_price_eur("premium"), 39.0)
-        self.assertAlmostEqual(monthly_price_eur("annual"), 199.0 / 12.0, places=3)
+        self.assertEqual(monthly_price_eur("starter"), 13.99)
+        self.assertEqual(monthly_price_eur("premium"), 24.99)
+        self.assertAlmostEqual(monthly_price_eur("annual"), 119.99 / 12.0, places=3)
         self.assertEqual(monthly_price_eur("trial"), 0.0)
 
     def test_period_still_active(self):
@@ -101,8 +101,8 @@ class AdminInsightsHelpersTests(unittest.TestCase):
         cancels = {"b": {"cancel_status": "pending", "cancel_requested": True}}
         mrr = compute_mrr(users, cancels, now=now)
         self.assertEqual(mrr["paying_active"], 2)
-        self.assertEqual(mrr["recognized_mrr_eur"], 58.0)
-        self.assertEqual(mrr["renewing_mrr_eur"], 19.0)
+        self.assertEqual(mrr["recognized_mrr_eur"], 38.98)
+        self.assertEqual(mrr["renewing_mrr_eur"], 13.99)
         self.assertEqual(mrr["renewing_count"], 1)
 
 

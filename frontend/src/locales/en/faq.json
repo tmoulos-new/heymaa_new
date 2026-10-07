@@ -68,7 +68,7 @@
           ]
         },
         {
-          "title": "Starter — €19/month",
+          "title": "Starter — €13.99/month",
           "bullets": [
             "150 voice replies / month",
             "Basic memory (32 messages + 24 memories + 24 milestones)",
@@ -79,7 +79,7 @@
           ]
         },
         {
-          "title": "Premium — €39/month",
+          "title": "Premium — €24.99/month",
           "bullets": [
             "400 voice replies / month",
             "Full memory (64 messages + 45 memories + 45 milestones)",
@@ -89,7 +89,7 @@
           ]
         },
         {
-          "title": "Annual Premium — €199/year",
+          "title": "Annual Premium — €119.99/year",
           "bullets": [
             "All Premium benefits",
             "700 voice replies / month",
@@ -256,7 +256,7 @@
           ]
         },
         {
-          "title": "Starter (€19/month)",
+          "title": "Starter (€13.99/month)",
           "bullets": [
             "150 voice replies, Basic memory",
             "Document Archive & Album, memory videos",
@@ -264,7 +264,7 @@
           ]
         },
         {
-          "title": "Premium (€39/month)",
+          "title": "Premium (€24.99/month)",
           "bullets": [
             "400 voice replies, Full memory",
             "Download & share",
@@ -272,7 +272,7 @@
           ]
         },
         {
-          "title": "Annual Premium (€199/year)",
+          "title": "Annual Premium (€119.99/year)",
           "bullets": [
             "700 voice replies, Full memory",
             "All Premium benefits + priority support"

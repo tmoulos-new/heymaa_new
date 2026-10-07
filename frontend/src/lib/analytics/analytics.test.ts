@@ -171,7 +171,7 @@ describe('consent and event dispatch', () => {
     writeCookieConsent(true)
     initGoogleTagManager('/checkout')
     setDispatchEnabled(true)
-    expect(trackBeginCheckout('premium', 3900)).toBe(true)
+    expect(trackBeginCheckout('premium', 2499)).toBe(true)
     const clears = window.dataLayer.filter((x) => x && (x as { ecommerce?: unknown }).ecommerce === null)
     expect(clears.length).toBeGreaterThanOrEqual(1)
     const ev = [...window.dataLayer]
@@ -180,17 +180,17 @@ describe('consent and event dispatch', () => {
       ecommerce: { currency: string; value: number; items: { item_id: string; price: number }[] }
     }
     expect(ev.ecommerce.currency).toBe('EUR')
-    expect(ev.ecommerce.value).toBe(39)
+    expect(ev.ecommerce.value).toBe(24.99)
     expect(ev.ecommerce.items[0].item_id).toBe('premium')
-    expect(ev.ecommerce.items[0].price).toBe(39)
+    expect(ev.ecommerce.items[0].price).toBe(24.99)
   })
 
   it('emits purchase ecommerce after verified payment fields', () => {
     writeCookieConsent(true)
     initGoogleTagManager('/checkout/success')
     setDispatchEnabled(true)
-    expect(trackPurchase('premium', 3900, 'TX-123')).toBe(true)
-    expect(trackPurchase('premium', 3900, 'TX-123')).toBe(false) // session dedupe
+    expect(trackPurchase('premium', 2499, 'TX-123')).toBe(true)
+    expect(trackPurchase('premium', 2499, 'TX-123')).toBe(false) // session dedupe
     const ev = [...window.dataLayer]
       .reverse()
       .find((x) => x && (x as { event?: string }).event === 'purchase') as {
@@ -203,15 +203,15 @@ describe('consent and event dispatch', () => {
     }
     expect(ev.ecommerce.transaction_id).toBe('TX-123')
     expect(ev.ecommerce.currency).toBe('EUR')
-    expect(ev.ecommerce.value).toBe(39)
+    expect(ev.ecommerce.value).toBe(24.99)
     expect(ev.ecommerce.items[0].item_id).toBe('premium')
   })
 
   it('plan catalog matches Viva major amounts', () => {
-    expect(ANALYTICS_CHECKOUT_PLANS.starter.price).toBe(19)
-    expect(ANALYTICS_CHECKOUT_PLANS.premium.price).toBe(39)
-    expect(ANALYTICS_CHECKOUT_PLANS.annual.price).toBe(199)
-    expect(analyticsPlanItem('starter', 1900)?.price).toBe(19)
+    expect(ANALYTICS_CHECKOUT_PLANS.starter.price).toBe(13.99)
+    expect(ANALYTICS_CHECKOUT_PLANS.premium.price).toBe(24.99)
+    expect(ANALYTICS_CHECKOUT_PLANS.annual.price).toBe(119.99)
+    expect(analyticsPlanItem('starter', 1399)?.price).toBe(13.99)
   })
 
   it('keeps stored consent decisions readable', () => {

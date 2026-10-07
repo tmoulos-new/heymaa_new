@@ -5,22 +5,22 @@ import httpx
 
 VIVA_PLANS = {
     "starter": {
-        "amount": 1900,
+        "amount": 1399,
         "plan": "starter",
-        "label_el": "Starter — €19/μήνα",
-        "label_en": "Starter — €19/month",
+        "label_el": "Starter — €13.99/μήνα",
+        "label_en": "Starter — €13.99/month",
     },
     "premium": {
-        "amount": 3900,
+        "amount": 2499,
         "plan": "premium",
-        "label_el": "Premium — €39/μήνα",
-        "label_en": "Premium — €39/month",
+        "label_el": "Premium — €24.99/μήνα",
+        "label_en": "Premium — €24.99/month",
     },
     "annual": {
-        "amount": 19900,
+        "amount": 11999,
         "plan": "annual",
-        "label_el": "Ετήσιο Premium — €199/έτος",
-        "label_en": "Annual Premium — €199/year",
+        "label_el": "Ετήσιο Premium — €119.99/έτος",
+        "label_en": "Annual Premium — €119.99/year",
     },
 }
 

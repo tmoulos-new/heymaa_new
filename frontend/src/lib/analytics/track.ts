@@ -85,7 +85,7 @@ export function trackLogin(method: 'email' = 'email'): boolean {
 
 /**
  * Fire once when Viva checkout URL is about to open.
- * `amountCents` from `/checkout/viva` (e.g. 1900 → €19).
+ * `amountCents` from `/checkout/viva` (e.g. 1399 → €13.99).
  */
 export function trackBeginCheckout(plan: string, amountCents: number): boolean {
   const item = analyticsPlanItem(plan, amountCents)

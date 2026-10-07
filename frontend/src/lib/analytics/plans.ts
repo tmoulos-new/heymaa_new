@@ -12,9 +12,9 @@ export const ANALYTICS_CHECKOUT_PLANS: Record<
   CheckoutPlanId,
   { item_id: CheckoutPlanId; item_name: string; price: number }
 > = {
-  starter: { item_id: 'starter', item_name: 'Starter', price: 19 },
-  premium: { item_id: 'premium', item_name: 'Premium', price: 39 },
-  annual: { item_id: 'annual', item_name: 'Annual Premium', price: 199 },
+  starter: { item_id: 'starter', item_name: 'Starter', price: 13.99 },
+  premium: { item_id: 'premium', item_name: 'Premium', price: 24.99 },
+  annual: { item_id: 'annual', item_name: 'Annual Premium', price: 119.99 },
 }
 
 export function analyticsPlanItem(

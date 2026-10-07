@@ -140,7 +140,7 @@
       {
         "icon": "⚡",
         "name": "Starter",
-        "price": "€19",
+        "price": "€13.99",
         "period": "/month",
         "badge": "",
         "badgeColor": "",
@@ -161,7 +161,7 @@
       {
         "icon": "👑",
         "name": "Premium",
-        "price": "€39",
+        "price": "€24.99",
         "period": "/month",
         "badge": "Popular",
         "badgeColor": "#2B3A67",
@@ -182,9 +182,9 @@
       {
         "icon": "💎",
         "name": "Annual Premium",
-        "price": "€199",
+        "price": "€119.99",
         "period": "/year",
-        "badge": "Save 57%",
+        "badge": "Save 60%",
         "badgeColor": "#2D9E6B",
         "variant": "annual",
         "featured": false,
@@ -278,7 +278,7 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€39/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€13.99/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€24.99/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€119.99/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
         "question": "What happens when the trial ends?",
@@ -320,7 +320,7 @@
       },
       {
         "question": "What's the difference between plans?",
-        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€19/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€39/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€199/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
+        "answer": "All plans include unlimited chat. Voice, memory, documents/album, and archiving differ:\n\n• Trial: 50 voice, Daily memory (20+10+10), docs/album view-only, 3 archived\n• Starter (€13.99/month): 150 voice, Basic memory (32+24+24), docs/album without download or share, 45 archived, email\n• Premium (€24.99/month): 400 voice, Full memory (64+45+45), download & share, 90 archived, phone\n• Annual Premium (€119.99/year): all Premium + 700 voice, Full memory (64+50+50), priority support\n\nTap (i) next to any plan line for details. UPGRADE appears when a higher plan is required."
       },
       {
         "question": "What is Daily, Basic, and Full memory?",

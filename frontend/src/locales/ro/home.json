@@ -140,7 +140,7 @@
       {
         "icon": "⚡",
         "name": "Starter",
-        "price": "€19",
+        "price": "€13.99",
         "period": "/lună",
         "badge": "",
         "badgeColor": "",
@@ -161,7 +161,7 @@
       {
         "icon": "👑",
         "name": "Premium",
-        "price": "€39",
+        "price": "€24.99",
         "period": "/lună",
         "badge": "Popular",
         "badgeColor": "#2B3A67",
@@ -182,9 +182,9 @@
       {
         "icon": "💎",
         "name": "Premium anual",
-        "price": "€199",
+        "price": "€119.99",
         "period": "/an",
-        "badge": "Economisești 57%",
+        "badge": "Economisești 60%",
         "badgeColor": "#2D9E6B",
         "variant": "annual",
         "featured": false,
@@ -278,7 +278,7 @@
       },
       {
         "question": "Care este diferența dintre planuri?",
-        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€19/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€39/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€199/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
+        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€13.99/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€24.99/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€119.99/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
       },
       {
         "question": "Ce se întâmplă când se termină proba?",
@@ -320,7 +320,7 @@
       },
       {
         "question": "Care este diferența dintre planuri?",
-        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€19/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€39/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€199/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
+        "answer": "Toate planurile includ chat nelimitat. Vocea, memoria, documentele/albumul și arhivarea diferă:\n\n• Probă: 50 voce, Memorie zilnică (20+10+10), documente/album doar vizualizare, 3 arhivate\n• Starter (€13.99/lună): 150 voce, Memorie de bază (32+24+24), documente/album fără descărcare sau partajare, 45 arhivate, email\n• Premium (€24.99/lună): 400 voce, Memorie completă (64+45+45), descărcare & partajare, 90 arhivate, telefon\n• Premium anual (€119.99/an): tot Premium + 700 voce, Memorie completă (64+50+50), suport prioritar\n\nAtinge (i) lângă orice linie de plan pentru detalii. UPGRADE apare când este necesar un plan superior."
       },
       {
         "question": "Ce înseamnă Memorie zilnică, de bază și completă?",

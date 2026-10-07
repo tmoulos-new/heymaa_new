@@ -9931,9 +9931,10 @@ async def lemon_webhook(request: Request):
         customer_email = attrs.get("user_email") or attrs.get("customer_email") or ""
         product_name = attrs.get("product_name", "HeyMaa")
         plan = "starter"
-        if "199" in product_name.lower() or "annual" in product_name.lower():
+        pname = product_name.lower()
+        if "119" in pname or "199" in pname or "annual" in pname:
             plan = "annual_premium"
-        elif "39" in product_name.lower() or "premium" in product_name.lower():
+        elif "24.99" in pname or "24,99" in pname or "39" in pname or "premium" in pname:
             plan = "premium"
         invite_code = "LS-" + _secrets.token_urlsafe(12)
         created_at = _dt.utcnow().isoformat()

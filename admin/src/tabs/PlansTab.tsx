@@ -325,7 +325,7 @@ export function PlansTab() {
               <input
                 value={priceLabel}
                 onChange={(e) => setPriceLabel(e.target.value)}
-                placeholder="€19"
+                placeholder="€13.99"
               />
             </div>
             <div>

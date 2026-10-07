@@ -32,21 +32,21 @@ class CompletedOrdersTests(unittest.TestCase):
                 "transactionId": "tx-1",
                 "orderCode": 123456,
                 "statusId": "F",
-                "amount": 19.0,
+                "amount": 13.99,
                 "email": "mom@example.com",
                 "fullName": "Maria Papadaki",
                 "insDate": "2026-09-10T12:00:00Z",
                 "currencyCode": 978,
                 "merchantTrns": "heymaa:starter:user-1",
-                "customerTrns": "Starter — €19/μήνα",
+                "customerTrns": "Starter — €13.99/μήνα",
             }
         )
         self.assertIsNotNone(order)
         self.assertEqual(order["id"], "tx-1")
         self.assertEqual(order["plan"], "starter")
         self.assertEqual(order["product"], "HM-STARTER")
-        self.assertEqual(order["amount"], 19.0)
-        self.assertEqual(order["amountCents"], 1900)
+        self.assertEqual(order["amount"], 13.99)
+        self.assertEqual(order["amountCents"], 1399)
         self.assertEqual(order["email"], "mom@example.com")
         self.assertEqual(order["userId"], "user-1")
         self.assertEqual(order["status"], "completed")
@@ -56,7 +56,7 @@ class CompletedOrdersTests(unittest.TestCase):
             {
                 "transactionId": "tx-fail",
                 "statusId": "E",
-                "amount": 19.0,
+                "amount": 13.99,
                 "merchantTrns": "heymaa:starter",
                 "insDate": "2026-09-10T12:00:00Z",
             }
@@ -65,7 +65,7 @@ class CompletedOrdersTests(unittest.TestCase):
             {
                 "transactionId": "tx-other",
                 "statusId": "F",
-                "amount": 19.0,
+                "amount": 13.99,
                 "merchantTrns": "babysong:monthly",
                 "insDate": "2026-09-10T12:00:00Z",
             }
@@ -79,20 +79,20 @@ class CompletedOrdersTests(unittest.TestCase):
                 "transactionId": "tx-2",
                 "orderCode": "999",
                 "statusId": "C",
-                "amount": 3900,
+                "amount": 2499,
                 "email": "a@b.com",
                 "fullName": "Ann",
                 "insDate": "2026-09-01T00:00:00Z",
                 "merchantTrns": "heymaa:premium",
-                "customerTrns": "Premium — €39/month",
+                "customerTrns": "Premium — €24.99/month",
             }
         )
         back = co.row_to_order(co.order_to_row(order))
         self.assertEqual(back["transactionId"], "tx-2")
         self.assertEqual(back["plan"], "premium")
         self.assertEqual(back["product"], "HM-PREMIUM")
-        self.assertEqual(back["amountCents"], 3900)
-        self.assertEqual(back["amount"], 39.0)
+        self.assertEqual(back["amountCents"], 2499)
+        self.assertEqual(back["amount"], 24.99)
 
     def test_erp_key_optional_until_configured(self):
         os.environ.pop("ERP_ORDERS_API_KEY", None)

@@ -42,7 +42,7 @@ def monthly_price_eur(plan_id: Optional[str]) -> float:
     """Catalog monthly-equivalent EUR from Viva checkout amounts."""
     pid = (plan_id or "").lower().strip()
     if pid == "annual":
-        cents = int((VIVA_PLANS.get("annual") or {}).get("amount") or 19900)
+        cents = int((VIVA_PLANS.get("annual") or {}).get("amount") or 11999)
         return round(cents / 100.0 / 12.0, 4)
     if pid in VIVA_PLANS:
         cents = int((VIVA_PLANS[pid] or {}).get("amount") or 0)
@@ -180,7 +180,7 @@ def compute_mrr(
         "by_plan": by_plan,
         "note": (
             "Modelled from Viva catalog prices × active subscriptions "
-            "(annual = €199/12). Not invoiced recurring billing."
+            "(annual = €119.99/12). Not invoiced recurring billing."
         ),
     }
 
@@ -614,7 +614,7 @@ def build_insights(sb, *, days: int = 30, now: Optional[datetime] = None) -> dic
             "premium": monthly_price_eur("premium"),
             "annual_monthly_equiv": monthly_price_eur("annual"),
             "annual_yearly": round(
-                int((VIVA_PLANS.get("annual") or {}).get("amount") or 19900) / 100.0, 2
+                int((VIVA_PLANS.get("annual") or {}).get("amount") or 11999) / 100.0, 2
             ),
         },
     }
@@ -677,6 +677,6 @@ def _empty_payload(days: int, now: datetime, notes: list[str]) -> dict:
             "starter": monthly_price_eur("starter"),
             "premium": monthly_price_eur("premium"),
             "annual_monthly_equiv": monthly_price_eur("annual"),
-            "annual_yearly": 199.0,
+            "annual_yearly": 119.99,
         },
     }

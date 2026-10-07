@@ -140,7 +140,7 @@
       {
         "icon": "⚡",
         "name": "Starter",
-        "price": "€19",
+        "price": "€13.99",
         "period": "/μήνα",
         "badge": "",
         "badgeColor": "",
@@ -161,7 +161,7 @@
       {
         "icon": "👑",
         "name": "Premium",
-        "price": "€39",
+        "price": "€24.99",
         "period": "/μήνα",
         "badge": "Δημοφιλές",
         "badgeColor": "#2B3A67",
@@ -182,9 +182,9 @@
       {
         "icon": "💎",
         "name": "Ετήσιο Premium",
-        "price": "€199",
+        "price": "€119.99",
         "period": "/έτος",
-        "badge": "Εξοικονόμηση 57%",
+        "badge": "Εξοικονόμηση 60%",
         "badgeColor": "#2D9E6B",
         "variant": "annual",
         "featured": false,
