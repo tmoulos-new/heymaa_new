@@ -86,8 +86,11 @@
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
       "destination": "/admin/index.html"
     },
-    { "source": "/auth", "destination": "/index.html" },
-    { "source": "/auth/(.*)", "destination": "/index.html" },
+    {
+      "source": "/auth",
+      "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
+      "destination": "/index.html"
+    },
     { "source": "/app", "destination": "/index.html" },
     { "source": "/app/(.*)", "destination": "/index.html" },
     { "source": "/subscription", "destination": "/index.html" },
