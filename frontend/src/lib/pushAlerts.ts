@@ -3,6 +3,8 @@
  * Browser Notification.requestPermission must only run from a clear user gesture.
  */
 
+import { storageScope } from './memoriesSync'
+
 const DISMISS_PREFIX = 'hm_push_prompt_dismissed_'
 const DISMISS_AT_PREFIX = 'hm_push_prompt_dismissed_at_'
 const VISIT_PREFIX = 'hm_push_visit_'
@@ -51,15 +53,36 @@ export function isStandaloneDisplay(): boolean {
   return Boolean(mq || iosStandalone)
 }
 
-function _tokenKey(token: string) {
+/** User-scoped key (survives JWT refresh). Never use JWT header prefixes — those are shared. */
+function _scopeKey(token: string): string {
+  return storageScope(token)
+}
+
+/** Legacy buggy key (JWT header slice) — migrate once then remove. */
+function _legacyKey(token: string): string {
   return token.slice(0, 24)
+}
+
+function _readWithLegacyMigrate(stableKey: string, legacyKey: string): string | null {
+  try {
+    const stable = localStorage.getItem(stableKey)
+    if (stable != null) return stable
+    const legacy = localStorage.getItem(legacyKey)
+    if (legacy == null) return null
+    localStorage.setItem(stableKey, legacy)
+    localStorage.removeItem(legacyKey)
+    return legacy
+  } catch {
+    return null
+  }
 }
 
 export function pushPromptDismissed(token: string): boolean {
   if (!token) return true
   try {
-    const key = _tokenKey(token)
-    const at = localStorage.getItem(DISMISS_AT_PREFIX + key)
+    const scope = _scopeKey(token)
+    const legacy = _legacyKey(token)
+    const at = _readWithLegacyMigrate(DISMISS_AT_PREFIX + scope, DISMISS_AT_PREFIX + legacy)
     if (at) {
       const ts = Number(at)
       if (Number.isFinite(ts)) {
@@ -68,9 +91,10 @@ export function pushPromptDismissed(token: string): boolean {
       }
     }
     // Legacy forever-dismiss flag — treat as still cooling down once, then convert.
-    if (localStorage.getItem(DISMISS_PREFIX + key) === '1') {
-      localStorage.setItem(DISMISS_AT_PREFIX + key, String(Date.now()))
-      localStorage.removeItem(DISMISS_PREFIX + key)
+    const forever = _readWithLegacyMigrate(DISMISS_PREFIX + scope, DISMISS_PREFIX + legacy)
+    if (forever === '1') {
+      localStorage.setItem(DISMISS_AT_PREFIX + scope, String(Date.now()))
+      localStorage.removeItem(DISMISS_PREFIX + scope)
       return true
     }
     return false
@@ -82,9 +106,12 @@ export function pushPromptDismissed(token: string): boolean {
 export function dismissPushPrompt(token: string) {
   if (!token) return
   try {
-    const key = _tokenKey(token)
-    localStorage.setItem(DISMISS_AT_PREFIX + key, String(Date.now()))
-    localStorage.removeItem(DISMISS_PREFIX + key)
+    const scope = _scopeKey(token)
+    localStorage.setItem(DISMISS_AT_PREFIX + scope, String(Date.now()))
+    localStorage.removeItem(DISMISS_PREFIX + scope)
+    // Drop legacy shared key so it cannot suppress other accounts.
+    localStorage.removeItem(DISMISS_AT_PREFIX + _legacyKey(token))
+    localStorage.removeItem(DISMISS_PREFIX + _legacyKey(token))
   } catch {
     /* ignore */
   }
@@ -94,13 +121,15 @@ export function dismissPushPrompt(token: string) {
 export function recordPushVisit(token: string): number {
   if (!token) return 0
   try {
-    const key = VISIT_PREFIX + _tokenKey(token)
-    const sessionFlag = `hm_push_visit_session_${_tokenKey(token)}`
+    const scope = _scopeKey(token)
+    const key = VISIT_PREFIX + scope
+    const sessionFlag = `hm_push_visit_session_${scope}`
     if (sessionStorage.getItem(sessionFlag) === '1') {
       return Number(localStorage.getItem(key) || '0') || 0
     }
     sessionStorage.setItem(sessionFlag, '1')
-    const next = (Number(localStorage.getItem(key) || '0') || 0) + 1
+    const migrated = _readWithLegacyMigrate(key, VISIT_PREFIX + _legacyKey(token))
+    const next = (Number(migrated || '0') || 0) + 1
     localStorage.setItem(key, String(next))
     return next
   } catch {
@@ -111,7 +140,9 @@ export function recordPushVisit(token: string): number {
 export function pushVisitCount(token: string): number {
   if (!token) return 0
   try {
-    return Number(localStorage.getItem(VISIT_PREFIX + _tokenKey(token)) || '0') || 0
+    const scope = _scopeKey(token)
+    const migrated = _readWithLegacyMigrate(VISIT_PREFIX + scope, VISIT_PREFIX + _legacyKey(token))
+    return Number(migrated || '0') || 0
   } catch {
     return 0
   }

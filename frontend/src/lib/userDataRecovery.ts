@@ -437,6 +437,7 @@ const LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE = new Set([
 function shouldKeepOnboardingPrefKey(key: string): boolean {
   return (
     key.startsWith("hm_app_tour_v1_") ||
+    key.startsWith("hm_profile_onboarding_v1_") ||
     key.startsWith("hm_first_chat_guide_v1_") ||
     key.startsWith("hm_first_chat_guide_pending_v1_")
   );

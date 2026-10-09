@@ -299,32 +299,58 @@ export function RagSourcesTab() {
   const [rechunking, setRechunking] = useState(false)
   const apiBase = getApiBase()
 
-  const loadSources = useCallback(async () => {
-    setLoading(true)
-    setErr(false)
-    try {
-      const [d, h] = await Promise.all([
-        adminFetch('/admin/rag_sources'),
-        adminFetch('/admin/rag_sources/health').catch(() => null),
-      ])
-      setSources((d.sources as RagSourceRow[]) || [])
-      if (h && typeof h === 'object') {
-        setHealth(h as RagHealth)
-        const active = (h as RagHealth).active_job
-        if (active && !active.done) {
-          // Keep the job this tab is already ticking. Replacing it mid-run
-          // stops that sync, because only one job is advanced from the page.
-          setSeedJob((current) => (current && !current.done ? current : active))
+  const loadSources = useCallback(
+    async (opts?: { quiet?: boolean }) => {
+      // Default quiet: post-action reloads already toast their own result.
+      // Refresh button passes { quiet: false } for explicit feedback.
+      const quiet = opts?.quiet !== false
+      setLoading(true)
+      setErr(false)
+      try {
+        // List uses stored chunk_count (fast). Health fills global tiles + Site sync.
+        // Avoid live per-source chunk recounts — that hung Refresh on large libraries.
+        const [d, h] = await Promise.all([
+          adminFetch('/admin/rag_sources'),
+          adminFetch('/admin/rag_sources/health').catch((e: unknown) => {
+            if (!quiet) {
+              show(
+                e instanceof Error
+                  ? `Health refresh failed: ${e.message}`
+                  : 'Health refresh failed',
+                'err',
+              )
+            }
+            return null
+          }),
+        ])
+        setSources((d.sources as RagSourceRow[]) || [])
+        if (h && typeof h === 'object') {
+          setHealth(h as RagHealth)
+          const active = (h as RagHealth).active_job
+          if (active && !active.done) {
+            // Keep the job this tab is already ticking. Replacing it mid-run
+            // stops that sync, because only one job is advanced from the page.
+            setSeedJob((current) => (current && !current.done ? current : active))
+          }
         }
+        if (d.error) {
+          show(String(d.error), 'err')
+        } else if (!quiet) {
+          const n = Array.isArray(d.sources) ? d.sources.length : 0
+          show(`Library refreshed — ${n} sources`, 'ok')
+        }
+      } catch (e) {
+        setErr(true)
+        setSources([])
+        if (!quiet) {
+          show(e instanceof Error ? e.message : 'Refresh failed', 'err')
+        }
+      } finally {
+        setLoading(false)
       }
-      if (d.error) show(String(d.error), 'err')
-    } catch {
-      setErr(true)
-      setSources([])
-    } finally {
-      setLoading(false)
-    }
-  }, [adminFetch, show])
+    },
+    [adminFetch, show],
+  )
 
   useEffect(() => {
     void loadSources()
@@ -940,9 +966,16 @@ export function RagSourcesTab() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="sec sm" onClick={() => void loadSources()} aria-busy={loading || undefined}>
+            <button
+              type="button"
+              className="sec sm"
+              onClick={() => void loadSources({ quiet: false })}
+              disabled={loading}
+              aria-busy={loading || undefined}
+              title="Reload library list and health totals"
+            >
               <RefreshCw size={14} className={loading ? 'icon-spin' : undefined} />
-              Refresh
+              {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
         </div>

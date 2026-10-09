@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { normalizeAppLang } from './appLang'
+import { storageScope } from './memoriesSync'
 import { stableSk } from './userDataRecovery'
 import {
   HM_TOKEN_KEY,
@@ -116,7 +117,10 @@ export async function loginUser(email: string, password: string) {
   return axios.post(`${API}/auth/login`, { email, password })
 }
 
-/** Persist the account display name from signup/login into the local profile. */
+/**
+ * Prefill signup name + update display name on an *existing* onboarded profile.
+ * Never create a name-only stub profile — that skipped Onboarding / tour / first-run prompts.
+ */
 export function applyAuthUserName(token: string, name: string | null | undefined) {
   const trimmed = String(name || '').trim()
   if (!token || !trimmed) return
@@ -128,19 +132,25 @@ export function applyAuthUserName(token: string, name: string | null | undefined
   try {
     const key = stableSk(token, 'profile')
     const raw = localStorage.getItem(key)
-    const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : null
+    if (!raw) return
+    const existing = JSON.parse(raw) as Record<string, unknown>
+    if (!existing || typeof existing !== 'object') return
+    // Stub detection: onboarding always writes both consent keys; name-only rows lack them.
+    const looksOnboarded =
+      'consentMarketing' in existing ||
+      'pushAlertsOptIn' in existing ||
+      Boolean(existing.consentDate || existing.dueDate || existing.childBirthDate || existing.country) ||
+      Boolean(String(existing.childName || '').trim())
+    if (!looksOnboarded) {
+      // Drop leftover stubs so cold start cannot treat them as a finished profile.
+      localStorage.removeItem(key)
+      return
+    }
     const lang = normalizeAppLang(
-      String(existing?.lang || localStorage.getItem('hm_pre_lang') || 'el'),
+      String(existing.lang || localStorage.getItem('hm_pre_lang') || 'el'),
       'el',
     )
-    const next = {
-      childName: '',
-      childAge: '',
-      ...(existing && typeof existing === 'object' ? existing : {}),
-      name: trimmed,
-      lang,
-    }
-    localStorage.setItem(key, JSON.stringify(next))
+    localStorage.setItem(key, JSON.stringify({ ...existing, name: trimmed, lang }))
   } catch {
     /* ignore */
   }
@@ -249,7 +259,8 @@ export function invalidateAuthCaches(token?: string | null) {
 }
 
 function subActiveCacheKey(token: string): string {
-  return `${SUB_ACTIVE_CACHE_PREFIX}${token.slice(-16)}`
+  // User-scoped (survives JWT refresh). Legacy used token.slice(-16).
+  return `${SUB_ACTIVE_CACHE_PREFIX}${storageScope(token)}`
 }
 
 export function readCachedSubscriptionActive(token: string): boolean | null {
@@ -287,7 +298,7 @@ export async function fetchSubscriptionStatus(token: string, opts?: { force?: bo
     const res = await axios.get<SubscriptionSnapshot>(`${API}/auth/status`, {
       headers: { 'x-token': token },
     })
-    writeCachedSubscriptionActive(token, res.data.subscription_active !== false)
+    writeCachedSubscriptionActive(token, res.data.subscription_active === true)
     return res.data
   }, opts?.force)
 }

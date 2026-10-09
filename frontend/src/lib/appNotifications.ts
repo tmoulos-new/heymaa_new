@@ -1,4 +1,5 @@
 import type { SubscriptionSnapshot } from './authApi'
+import { storageScope } from './memoriesSync'
 import { formatTrialEnd } from './subscriptionPlans'
 
 export type AppNotificationAction = 'subscription' | 'subscription_sheet'
@@ -149,12 +150,25 @@ export function buildAppNotifications(
 }
 
 function readStorageKey(token: string) {
+  return `${READ_KEY_PREFIX}${storageScope(token)}`
+}
+
+function legacyReadStorageKey(token: string) {
   return `${READ_KEY_PREFIX}${token}`
 }
 
 export function readNotificationIds(token: string): Set<string> {
   try {
-    const raw = localStorage.getItem(readStorageKey(token))
+    const key = readStorageKey(token)
+    let raw = localStorage.getItem(key)
+    if (!raw) {
+      const legacy = localStorage.getItem(legacyReadStorageKey(token))
+      if (legacy) {
+        localStorage.setItem(key, legacy)
+        localStorage.removeItem(legacyReadStorageKey(token))
+        raw = legacy
+      }
+    }
     if (!raw) return new Set()
     const parsed = JSON.parse(raw)
     return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [])
@@ -166,6 +180,11 @@ export function readNotificationIds(token: string): Set<string> {
 export function writeNotificationIds(token: string, ids: Set<string>) {
   try {
     localStorage.setItem(readStorageKey(token), JSON.stringify(Array.from(ids)))
+    try {
+      localStorage.removeItem(legacyReadStorageKey(token))
+    } catch {
+      /* ignore */
+    }
   } catch {
     /* ignore */
   }

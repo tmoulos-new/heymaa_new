@@ -146,15 +146,23 @@ import { AppTourGuide } from "./components/AppTourGuide";
 import {
   APP_TOUR_STEPS,
   clearJustOnboarded,
+  firstRunPromptCopy,
   hasCompletedAppTour,
   hasCompletedFirstChatGuide,
+  hasCompletedProfileOnboarding,
   isFirstChatGuidePending,
+  isFirstChatGuideSnoozed,
+  isFirstChildPromptSnoozed,
   isJustOnboarded,
   markAppTourCompleted,
   markFirstChatGuideCompleted,
   markFirstChatGuidePending,
   markJustOnboarded,
+  markProfileOnboardingComplete,
+  snoozeFirstChatGuide,
+  snoozeFirstChildPrompt,
 } from "./lib/appTour";
+import { storageScope } from "./lib/memoriesSync";
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
 import { GiftClaimSheet } from "./components/GiftClaimSheet";
@@ -1832,6 +1840,7 @@ function Onboarding({ token, onDone }: { token: string; onDone: (p: Profile) => 
     const displayName = name.trim() || (() => { try { return (sessionStorage.getItem("hm_signup_name") || "").trim(); } catch { return ""; } })();
     const p: Profile = {name:displayName||"Mama",childName:isPregnant?"":(childName||""),childAge:isPregnant?"":formatChildAge(childBirthDate||undefined,nextLang),childBirthDate:isPregnant?undefined:(childBirthDate||undefined),lang:nextLang,dueDate:isPregnant?dueDate:undefined,country:country||undefined,consentMarketing,consentDate:consentMarketing?new Date().toISOString():undefined,pushAlertsOptIn,pushAlertsOptInAt:pushAlertsOptIn?new Date().toISOString():undefined};
     try { sessionStorage.removeItem("hm_signup_name"); sessionStorage.removeItem("hm_signup_push_opt_in"); } catch { /* ignore */ }
+    markProfileOnboardingComplete(token);
     markJustOnboarded();
     localStorage.setItem(sk(token,"profile"),JSON.stringify(p));
     void syncProfileToSupabase(token,p);
@@ -1921,6 +1930,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), ms);
   };
   const lang = normalizeAppLang(profile.lang, "en"); const L = getLang(lang);
+  const firstRun = useMemo(() => firstRunPromptCopy(lang), [lang]);
   const calendarDay = useCalendarDay();
   const nowForAge = useMemo(() => {
     const [y, mo, d] = calendarDay.split("-").map(Number);
@@ -4920,10 +4930,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       clearJustOnboarded();
       return;
     }
-    if (tourAutoStartedForTokenRef.current === token) return;
+    const scope = storageScope(token);
+    if (tourAutoStartedForTokenRef.current === scope) return;
     tourWasFirstRunRef.current = true;
     const t = window.setTimeout(() => {
-      tourAutoStartedForTokenRef.current = token;
+      tourAutoStartedForTokenRef.current = scope;
       showTabBar();
       setTab("chat");
       startAppTour(0);
@@ -4936,6 +4947,33 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowAccountMenu(false);
     setShowNotifications(false);
   }, [tourOpen]);
+
+  // Resume first-child / first-chat prompts on later visits if the user snoozed with "Later".
+  useEffect(() => {
+    if (!token || tourOpen || showPushPrompt) return;
+    if (!hasCompletedAppTour(token)) return;
+    if (hasCompletedFirstChatGuide(token)) return;
+    if (!isFirstChatGuidePending(token)) return;
+    if (isJustOnboarded()) return; // fresh onboarding — tour finish handles prompts
+    if (showAddFirstChildPrompt || showStartFirstChatPrompt) return;
+    const t = window.setTimeout(() => {
+      if (familyChildren.length === 0 && !isFirstChildPromptSnoozed(token)) {
+        setShowAddFirstChildPrompt(true);
+        return;
+      }
+      if (!isFirstChatGuideSnoozed(token)) {
+        setShowStartFirstChatPrompt(true);
+      }
+    }, 1100);
+    return () => window.clearTimeout(t);
+  }, [
+    token,
+    tourOpen,
+    showPushPrompt,
+    showAddFirstChildPrompt,
+    showStartFirstChatPrompt,
+    familyChildren.length,
+  ]);
 
   // Marketing re-prompt: after enough visits (or soft opt-in), ask users who never activated push.
   useEffect(() => {
@@ -4970,12 +5008,19 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (!wasFirst) return;
     if (hasCompletedFirstChatGuide(token)) return;
     if (familyChildren.length > 0) {
-      window.setTimeout(() => setShowStartFirstChatPrompt(true), 280);
+      if (!isFirstChatGuideSnoozed(token)) {
+        window.setTimeout(() => setShowStartFirstChatPrompt(true), 280);
+      }
       return;
     }
     awaitingFirstChatAfterChildRef.current = true;
     markFirstChatGuidePending(token);
-    window.setTimeout(() => setShowAddFirstChildPrompt(true), 280);
+    if (!isFirstChildPromptSnoozed(token)) {
+      window.setTimeout(() => setShowAddFirstChildPrompt(true), 280);
+    } else if (!isFirstChatGuideSnoozed(token)) {
+      // Child snoozed — still offer first chat this session.
+      window.setTimeout(() => setShowStartFirstChatPrompt(true), 280);
+    }
   }, [token, familyChildren.length, profile.pushAlertsOptIn]);
 
   const handleTourNext = useCallback(() => {
@@ -4996,7 +5041,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [finishAppTour]);
 
   const dismissStartFirstChatPrompt = useCallback(() => {
-    markFirstChatGuideCompleted(token);
+    // "Later" = snooze this session only; do not permanently complete the guide.
+    snoozeFirstChatGuide(token);
+    markFirstChatGuidePending(token);
     setShowStartFirstChatPrompt(false);
   }, [token]);
 
@@ -5014,6 +5061,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowAddFirstChildPrompt(false);
     setTab("family");
     openAddChildForm();
+  }, [token]);
+
+  const dismissFirstChildPrompt = useCallback(() => {
+    snoozeFirstChildPrompt(token);
+    setShowAddFirstChildPrompt(false);
+    // Still nudge first chat in the same session.
+    if (!hasCompletedFirstChatGuide(token) && !isFirstChatGuideSnoozed(token)) {
+      window.setTimeout(() => setShowStartFirstChatPrompt(true), 320);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -7745,9 +7801,9 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     />
     <AppDialog
       open={showAddFirstChildPrompt}
-      onClose={() => setShowAddFirstChildPrompt(false)}
+      onClose={dismissFirstChildPrompt}
       size="sm"
-      ariaLabel={lang === "el" ? "Καταχώρισε το 1ο σου παιδί" : "Add your first child"}
+      ariaLabel={firstRun.child.title}
     >
       <div className="hm-confirm-dialog hm-first-child-prompt">
         <div className="hm-first-child-prompt__icon" aria-hidden="true">
@@ -7757,12 +7813,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </svg>
         </div>
         <div className="hm-confirm-dialog__title">
-          {lang === "el" ? "Καταχώρισε το 1ο σου παιδί" : "Add your first child"}
+          {firstRun.child.title}
         </div>
         <p className="hm-confirm-dialog__message">
-          {lang === "el"
-            ? "Πήγαινε στην καρτέλα Οικογένεια, άνοιξε Η Οικογένειά μου και πάτα ＋ Πρόσθεσε παιδί — όνομα, ημερομηνία γέννησης (ή τοκετού) και φύλο."
-            : "Open the Family tab, go to My Family, and tap ＋ Add child — name, birth date (or due date), and gender."}
+          {firstRun.child.body}
         </p>
         <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
           <button
@@ -7770,14 +7824,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             className="hm-btn hm-btn--primary hm-btn--block"
             onClick={openFirstChildFromPrompt}
           >
-            {lang === "el" ? "Πρόσθεσε παιδί" : "Add child"}
+            {firstRun.child.cta}
           </button>
           <button
             type="button"
             className="hm-btn hm-btn--ghost hm-btn--block"
-            onClick={() => setShowAddFirstChildPrompt(false)}
+            onClick={dismissFirstChildPrompt}
           >
-            {lang === "el" ? "Αργότερα" : "Later"}
+            {firstRun.child.later}
           </button>
         </div>
       </div>
@@ -7786,7 +7840,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       open={showStartFirstChatPrompt}
       onClose={dismissStartFirstChatPrompt}
       size="sm"
-      ariaLabel={lang === "el" ? "Ξεκίνα την πρώτη σου συνομιλία" : "Start your first chat"}
+      ariaLabel={firstRun.chat.title}
     >
       <div className="hm-confirm-dialog hm-first-child-prompt">
         <div className="hm-first-child-prompt__icon" aria-hidden="true">
@@ -7801,12 +7855,10 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </svg>
         </div>
         <div className="hm-confirm-dialog__title">
-          {lang === "el" ? "Ξεκίνα την πρώτη σου συνομιλία" : "Start your first chat with HeyMaa"}
+          {firstRun.chat.title}
         </div>
         <p className="hm-confirm-dialog__message">
-          {lang === "el"
-            ? "Ρώτησε ό,τι σε απασχολεί — ύπνο, διατροφή, ανάπτυξη ή την ημέρα σου. Η HeyMaa απαντά με βάση το προφίλ της οικογένειάς σου."
-            : "Ask anything on your mind — sleep, feeding, development, or your day. HeyMaa answers with your family profile in mind."}
+          {firstRun.chat.body}
         </p>
         <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
           <button
@@ -7814,14 +7866,14 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             className="hm-btn hm-btn--primary hm-btn--block"
             onClick={openFirstChatFromPrompt}
           >
-            {lang === "el" ? "Άνοιξε το chat" : "Open chat"}
+            {firstRun.chat.cta}
           </button>
           <button
             type="button"
             className="hm-btn hm-btn--ghost hm-btn--block"
             onClick={dismissStartFirstChatPrompt}
           >
-            {lang === "el" ? "Αργότερα" : "Later"}
+            {firstRun.chat.later}
           </button>
         </div>
       </div>
@@ -7958,26 +8010,14 @@ export default function App() {
           setProfile(cached);
           return;
         }
-        if (!apiName) {
-          // Prefer signup name while profile is still being created.
+        // Do NOT seed a name-only Profile into React state here.
+        // That skipped Onboarding (and the tour / first-child / first-chat prompts)
+        // for new subscribers after the Supabase rebuild. Prefill name only.
+        if (apiName) {
           try {
-            const seeded = sessionStorage.getItem("hm_signup_name");
-            if (seeded?.trim()) {
-              const p: Profile = {
-                name: seeded.trim(),
-                childName: "",
-                childAge: "",
-                lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el"),
-              };
-              localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
-              setProfile(p);
-            }
+            sessionStorage.setItem("hm_signup_name", apiName);
           } catch { /* ignore */ }
-          return;
         }
-        const p: Profile = { name: apiName, childName: "", childAge: "", lang: normalizeAppLang(localStorage.getItem("hm_pre_lang") || "el", "el") };
-        localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
-        setProfile(p);
       })
       .catch(async (err: any) => {
         if (err?.response?.status === 401) {
@@ -7998,29 +8038,45 @@ export default function App() {
     if (!token) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
     if (isLocalDemoToken(token)) { setSubActive(null); setSubStatus(null); setTrialEndsAt(null); return; }
     let cancelled = false;
-    fetchSubscriptionStatus(token)
-      .then(res => {
-        if (cancelled) return;
-        const active = res.subscription_active !== false;
-        writeCachedSubscriptionActive(token, active);
-        setSubActive(active);
-        setSubStatus(res.subscription_status || null);
-        setTrialEndsAt(res.is_trial ? (res.trial_ends_at || null) : null);
-      })
-      .catch(async (err) => {
-        if (cancelled) return;
-        if (err.response?.status === 401) {
-          const next = await refreshAuthSession();
+    const applyStatus = (res: { subscription_active?: boolean; subscription_status?: string | null; is_trial?: boolean; trial_ends_at?: string | null }) => {
+      if (cancelled) return;
+      const active = res.subscription_active === true;
+      writeCachedSubscriptionActive(token, active);
+      setSubActive(active);
+      setSubStatus(res.subscription_status || null);
+      setTrialEndsAt(res.is_trial ? (res.trial_ends_at || null) : null);
+    };
+    const loadStatus = (isRetry = false): void => {
+      void fetchSubscriptionStatus(token)
+        .then((res) => applyStatus(res))
+        .catch(async (err) => {
           if (cancelled) return;
-          if (next && next !== token) {
-            setToken(next);
+          if (err.response?.status === 401) {
+            const next = await refreshAuthSession();
+            if (cancelled) return;
+            if (next && next !== token) {
+              setToken(next);
+              return;
+            }
+            handleLogoutRef.current();
             return;
           }
-          handleLogoutRef.current();
-          return;
-        }
-        setSubActive(true); // fail open on network/server errors
-      });
+          // Never invent access. Prefer cache; otherwise one retry, then fail closed.
+          const cached = readCachedSubscriptionActive(token);
+          if (cached != null) {
+            setSubActive(cached);
+            return;
+          }
+          if (!isRetry) {
+            window.setTimeout(() => {
+              if (!cancelled) loadStatus(true);
+            }, 1600);
+            return;
+          }
+          setSubActive(false);
+        });
+    };
+    loadStatus(false);
     return () => { cancelled = true; };
   }, [token]);
 
@@ -8046,6 +8102,15 @@ export default function App() {
     return <Navigate to={`${APP_ROUTE}/auth?${qs.toString()}`} replace />;
   }
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
+  // Wait until subscription status is known — do not enter the app on `null`.
+  if (subActive === null) {
+    const isEl = (localStorage.getItem("hm_pre_lang") || profile?.lang || "el").toLowerCase().startsWith("el");
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#D4DCE8", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ fontSize: 15, color: "#2B3A67", fontWeight: 500 }}>{isEl ? "Έλεγχος πρόσβασης…" : "Checking access…"}</div>
+      </div>
+    );
+  }
   if(subActive===false) {
     const gateLang = normalizeAppLang(profile?.lang || localStorage.getItem("hm_pre_lang") || "el", "el");
     const pendingGift = giftCodeFromLocation() || readPendingGiftCode();
@@ -8053,7 +8118,7 @@ export default function App() {
     const applyGiftStatus = (result: GiftClaimResult) => {
       clearPendingGiftCode();
       const status = result.status as { subscription_active?: boolean; subscription_status?: string } | undefined;
-      if (status?.subscription_active || result.grant) {
+      if (status?.subscription_active === true || result.grant) {
         writeCachedSubscriptionActive(token, true);
         setSubActive(true);
         if (status?.subscription_status) setSubStatus(String(status.subscription_status));
@@ -8062,7 +8127,7 @@ export default function App() {
       // Already claimed / points-only: refresh live status in case access was restored earlier.
       void fetchSubscriptionStatus(token)
         .then((data) => {
-          const active = data.subscription_active !== false;
+          const active = data.subscription_active === true;
           writeCachedSubscriptionActive(token, active);
           setSubActive(active);
           if (data.subscription_status) setSubStatus(String(data.subscription_status));
@@ -8089,7 +8154,18 @@ export default function App() {
       </>
     );
   }
-  if(!profile)return <Onboarding token={token} onDone={p=>setProfile(p)}/>;
+  // Name-only stubs must still run Onboarding so the tour + first-run popups fire.
+  if (!profile || !hasCompletedProfileOnboarding(token, profile)) {
+    return (
+      <Onboarding
+        token={token}
+        onDone={(p) => {
+          markProfileOnboardingComplete(token);
+          setProfile(p);
+        }}
+      />
+    );
+  }
   return (
     <AppErrorBoundary lang={profile.lang}>
       <MainApp token={token} profile={profile} onLogout={handleLogout} onExpired={()=>{ writeCachedSubscriptionActive(token, false); setSubStatus((prev) => prev || "trial"); setSubActive(false); }} onProfileUpdate={p=>{setProfile(p);localStorage.setItem(sk(token,"profile"),JSON.stringify(p));}} onTokenUpdate={tk=>{persistAuthSession(tk);setToken(tk);}} trialEndsAt={trialEndsAt}/>

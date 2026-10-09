@@ -1,6 +1,7 @@
 /** Defaults — live values from GET /gamification/rules (admin Levels gifts). */
 
 import { GAMIFICATION_LEVELS, getLevelPlanRewards } from './gamificationCard'
+import { storageScope } from './memoriesSync'
 import { uiDateLocale } from './uiLocale'
 
 export type LevelPlanReward = {
@@ -269,7 +270,8 @@ function writeStoredLevelIds(key: string, ids: Set<number>): void {
 }
 
 function rewardStorageKey(prefix: string, token: string): string {
-  return `${prefix}${token.slice(-12)}`
+  // User-scoped — survives JWT refresh (legacy used token.slice(-12)).
+  return `${prefix}${storageScope(token)}`
 }
 
 export function readDismissedRewardLevels(token: string): Set<number> {

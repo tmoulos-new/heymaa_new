@@ -1,4 +1,5 @@
 import type { AppNavTabId } from '../components/AppNavIcons'
+import { normalizeAppLang, type AppLangCode } from './appLang'
 import { stableSk } from './userDataRecovery'
 
 const TOUR_SUFFIX = 'app_tour_v1'
@@ -186,6 +187,7 @@ export function resetAppTour(token: string): void {
 }
 
 const JUST_ONBOARDED_KEY = 'hm_just_onboarded'
+const PROFILE_ONBOARDING_SUFFIX = 'profile_onboarding_v1'
 const FIRST_CHAT_GUIDE_SUFFIX = 'first_chat_guide_v1'
 
 /** Set when onboarding finishes so the first in-app visit always runs the full tour. */
@@ -213,6 +215,73 @@ export function clearJustOnboarded(): void {
   }
 }
 
+export function profileOnboardingStorageKey(token: string): string {
+  return stableSk(token, PROFILE_ONBOARDING_SUFFIX)
+}
+
+export function markProfileOnboardingComplete(token: string): void {
+  try {
+    localStorage.setItem(profileOnboardingStorageKey(token), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * True when the user finished the in-app profile onboarding wizard.
+ * Name-only stubs seeded from auth/me must NOT count — those skipped the
+ * tour + first-child / first-chat prompts after the Supabase rebuild.
+ */
+export function profileLooksOnboarded(profile: {
+  consentMarketing?: boolean
+  pushAlertsOptIn?: boolean
+  consentDate?: string
+  dueDate?: string
+  childBirthDate?: string
+  childName?: string
+  country?: string
+  pushAlertsOptInAt?: string
+} | null | undefined): boolean {
+  if (!profile) return false
+  // Name-only stubs never have these. Onboarding always writes both consent keys.
+  if ('consentMarketing' in profile && 'pushAlertsOptIn' in profile) return true
+  if (profile.consentDate || profile.dueDate || profile.childBirthDate) return true
+  if (profile.pushAlertsOptInAt) return true
+  if ((profile.childName || '').trim()) return true
+  if ((profile.country || '').trim()) return true
+  return false
+}
+
+export function hasCompletedProfileOnboarding(
+  token: string,
+  profile?: {
+    consentMarketing?: boolean
+    pushAlertsOptIn?: boolean
+    consentDate?: string
+    dueDate?: string
+    childBirthDate?: string
+    childName?: string
+    country?: string
+    pushAlertsOptInAt?: string
+  } | null,
+): boolean {
+  try {
+    if (localStorage.getItem(profileOnboardingStorageKey(token)) === '1') return true
+  } catch {
+    /* ignore */
+  }
+  // Legacy accounts: finished tour or saved a real onboarding profile.
+  if (hasCompletedAppTour(token)) {
+    markProfileOnboardingComplete(token)
+    return true
+  }
+  if (profileLooksOnboarded(profile)) {
+    markProfileOnboardingComplete(token)
+    return true
+  }
+  return false
+}
+
 export function firstChatGuideStorageKey(token: string): string {
   return stableSk(token, FIRST_CHAT_GUIDE_SUFFIX)
 }
@@ -229,6 +298,8 @@ export function markFirstChatGuideCompleted(token: string): void {
   try {
     localStorage.setItem(firstChatGuideStorageKey(token), '1')
     localStorage.removeItem(stableSk(token, 'first_chat_guide_pending_v1'))
+    sessionStorage.removeItem(stableSk(token, 'first_chat_guide_snooze_v1'))
+    sessionStorage.removeItem(stableSk(token, 'first_child_prompt_snooze_v1'))
   } catch {
     /* ignore */
   }
@@ -251,10 +322,99 @@ export function isFirstChatGuidePending(token: string): boolean {
   }
 }
 
+/** "Later" on first-chat — snooze this browser session only (do not mark completed). */
+export function snoozeFirstChatGuide(token: string): void {
+  try {
+    sessionStorage.setItem(stableSk(token, 'first_chat_guide_snooze_v1'), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isFirstChatGuideSnoozed(token: string): boolean {
+  try {
+    return sessionStorage.getItem(stableSk(token, 'first_chat_guide_snooze_v1')) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** "Later" on first-child — snooze this session; keep pending so chat prompt can still fire. */
+export function snoozeFirstChildPrompt(token: string): void {
+  try {
+    sessionStorage.setItem(stableSk(token, 'first_child_prompt_snooze_v1'), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isFirstChildPromptSnoozed(token: string): boolean {
+  try {
+    return sessionStorage.getItem(stableSk(token, 'first_child_prompt_snooze_v1')) === '1'
+  } catch {
+    return false
+  }
+}
+
 export function tourText(
   map: Record<string, string>,
   lang: string,
   fallback = 'en',
 ): string {
   return map[lang] || map[fallback] || Object.values(map)[0] || ''
+}
+
+type FirstRunPromptStrings = {
+  title: string
+  body: string
+  cta: string
+  later: string
+}
+
+const FIRST_CHILD_COPY: Record<AppLangCode, FirstRunPromptStrings> = {
+  en: {
+    title: 'Add your first child',
+    body: 'Open the Family tab, go to My Family, and tap ＋ Add child — name, birth date (or due date), and gender.',
+    cta: 'Add child',
+    later: 'Later',
+  },
+  el: {
+    title: 'Καταχώρισε το 1ο σου παιδί',
+    body: 'Πήγαινε στην καρτέλα Οικογένεια, άνοιξε Η Οικογένειά μου και πάτα ＋ Πρόσθεσε παιδί — όνομα, ημερομηνία γέννησης (ή τοκετού) και φύλο.',
+    cta: 'Πρόσθεσε παιδί',
+    later: 'Αργότερα',
+  },
+  ro: {
+    title: 'Adaugă primul copil',
+    body: 'Deschide tab-ul Familie, mergi la Familia mea și apasă ＋ Adaugă copil — nume, data nașterii (sau a nașterii estimate) și genul.',
+    cta: 'Adaugă copil',
+    later: 'Mai târziu',
+  },
+}
+
+const FIRST_CHAT_COPY: Record<AppLangCode, FirstRunPromptStrings> = {
+  en: {
+    title: 'Start your first chat with HeyMaa',
+    body: 'Ask anything on your mind — sleep, feeding, development, or your day. HeyMaa answers with your family profile in mind.',
+    cta: 'Open chat',
+    later: 'Later',
+  },
+  el: {
+    title: 'Ξεκίνα την πρώτη σου συνομιλία',
+    body: 'Ρώτησε ό,τι σε απασχολεί — ύπνο, διατροφή, ανάπτυξη ή την ημέρα σου. Η HeyMaa απαντά με βάση το προφίλ της οικογένειάς σου.',
+    cta: 'Άνοιξε το chat',
+    later: 'Αργότερα',
+  },
+  ro: {
+    title: 'Începe primul chat cu HeyMaa',
+    body: 'Întreabă orice te preocupă — somn, alimentație, dezvoltare sau ziua ta. HeyMaa răspunde ținând cont de profilul familiei tale.',
+    cta: 'Deschide chatul',
+    later: 'Mai târziu',
+  },
+}
+
+/** First-child / first-chat prompt copy (en / el / ro). */
+export function firstRunPromptCopy(lang: string) {
+  const code = normalizeAppLang(lang, 'en')
+  return { child: FIRST_CHILD_COPY[code], chat: FIRST_CHAT_COPY[code] }
 }

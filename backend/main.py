@@ -7926,11 +7926,25 @@ def _rag_chunk_counts(source_ids: List[str]) -> dict:
 
 
 @app.get("/admin/rag_sources")
-async def admin_list_rag_sources(x_token: Optional[str] = Header(None)):
+async def admin_list_rag_sources(
+    x_token: Optional[str] = Header(None),
+    live_counts: bool = False,
+):
+    """List library sources.
+
+    By default uses stored ``chunk_count`` (fast — needed with 2k+ sources).
+    Pass ``live_counts=true`` only when you need a slow per-source recount of
+    ``rag_chunks`` (can take tens of seconds on a large corpus).
+    """
     verify_admin(x_token)
     if not sb:
         return {"sources": [], "error": "Database not configured"}
     try:
+        # Slim columns — ``select(*)`` was dragging Refresh for large libraries.
+        columns = (
+            "id,title,source_type,origin,source_url,source_key,status,"
+            "chunk_count,language,created_at,updated_at"
+        )
         # Page past PostgREST's default ~1000-row max so large libraries aren't truncated.
         rows: list = []
         page_size = 1000
@@ -7938,7 +7952,7 @@ async def admin_list_rag_sources(x_token: Optional[str] = Header(None)):
         while True:
             result = (
                 sb.table("rag_sources")
-                .select("*")
+                .select(columns)
                 .order("created_at", desc=True)
                 .range(offset, offset + page_size - 1)
                 .execute()
@@ -7948,19 +7962,25 @@ async def admin_list_rag_sources(x_token: Optional[str] = Header(None)):
             if len(batch) < page_size:
                 break
             offset += page_size
-        live = _rag_chunk_counts([r["id"] for r in rows if r.get("id")])
-        for row in rows:
-            sid = row.get("id")
-            stored = int(row.get("chunk_count") or 0)
-            live_count = int(live.get(sid, 0) or 0)
-            row["chunks_live"] = live_count
-            # Prefer live when it found chunks; never overwrite a healthy stored
-            # count with 0 (that usually means the recount failed / was capped).
-            if live_count > 0:
-                row["chunk_count"] = live_count
-            else:
+        if live_counts:
+            live = _rag_chunk_counts([r["id"] for r in rows if r.get("id")])
+            for row in rows:
+                sid = row.get("id")
+                stored = int(row.get("chunk_count") or 0)
+                live_count = int(live.get(sid, 0) or 0)
+                row["chunks_live"] = live_count
+                # Prefer live when it found chunks; never overwrite a healthy stored
+                # count with 0 (that usually means the recount failed / was capped).
+                if live_count > 0:
+                    row["chunk_count"] = live_count
+                else:
+                    row["chunk_count"] = stored
+        else:
+            for row in rows:
+                stored = int(row.get("chunk_count") or 0)
+                row["chunks_live"] = stored
                 row["chunk_count"] = stored
-        return {"sources": rows}
+        return {"sources": rows, "live_counts": bool(live_counts)}
     except Exception as e:
         return {"sources": [], "error": str(e)}
 
