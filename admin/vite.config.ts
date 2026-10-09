@@ -31,6 +31,8 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/chat-prompt',
   '/admin/llm-transactions',
   '/admin/user-financials',
+  '/admin/cancellations',
+  '/admin/support',
 ])
 
 function adminApiBypass(req: { method?: string; headers?: { accept?: string }; url?: string }) {

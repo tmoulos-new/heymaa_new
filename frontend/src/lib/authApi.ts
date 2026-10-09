@@ -369,7 +369,18 @@ export async function restoreAuthSession(): Promise<string | null> {
     /* ignore */
   }
   const existing = getAuthToken()
-  if (existing) return existing
+  if (existing) {
+    // Access JWTs expire sooner than refresh; prefer a fresh session over a stale token.
+    try {
+      const res = await axios.get<AuthSessionPayload>(`${API}/auth/session`)
+      const next = applySessionPayload(res.data)
+      if (next) return next
+    } catch {
+      const refreshed = await refreshAuthSession()
+      if (refreshed) return refreshed
+    }
+    return existing
+  }
   try {
     const res = await axios.get<AuthSessionPayload>(`${API}/auth/session`)
     return applySessionPayload(res.data)

@@ -90,8 +90,9 @@ const INSIDE_IMAGES_EN: Record<string, string> = {
 
 function insideImagesForLang(lang: string): Record<string, string> {
   if (lang === "ro") return INSIDE_IMAGES_RO;
-  if (lang === "en") return INSIDE_IMAGES_EN;
-  return INSIDE_IMAGES_DEFAULT;
+  if (lang === "el") return INSIDE_IMAGES_DEFAULT;
+  // English + any other / legacy codes use EN phone art (copy may still be EN).
+  return INSIDE_IMAGES_EN;
 }
 
 const HOW_PHOTOS = [
@@ -509,7 +510,7 @@ export default function Home() {
         </section>
 
         <section className="what-is section" id="what-is">
-          <div className="what-is-panel hm-reveal">
+          <div className="what-is-panel hm-reveal is-in">
             <div className="what-is-grid">
               <div className="what-is-copy">
                 <h2 className="sec-title">{t("whatIs.title")}</h2>
@@ -580,7 +581,7 @@ export default function Home() {
           <h2 className="sec-title" id="inside-title">{t("inside.title")}</h2>
           <p className="sec-sub">{t("inside.subtitle")}</p>
           {featuredInside ? (
-            <div className="inside-featured-shell hm-reveal">
+            <div className="inside-featured-shell hm-reveal is-in">
               <div className="inside-featured">
                 <div className="inside-featured-copy">
                   <h3 className="inside-card-title">{featuredInside.title}</h3>
@@ -597,7 +598,7 @@ export default function Home() {
           ) : null}
           <div className="inside-grid">
             {insideCards.map((item, index) => (
-              <article className={`inside-card hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.id}>
+              <article className={`inside-card hm-reveal is-in hm-reveal-delay-${Math.min(index + 1, 4)}`} key={item.id}>
                 <h3 className="inside-card-title">{item.title}</h3>
                 <p className="inside-card-body">{item.body}</p>
                 <div className="inside-phone inside-phone--card">
@@ -612,7 +613,7 @@ export default function Home() {
           {insideExtras.length > 0 ? (
             <div className="inside-extras">
               {insideExtras.map((extra, index) => (
-                <article className={`inside-extra hm-reveal hm-reveal-delay-${Math.min(index + 1, 4)}`} key={extra.icon || `extra-${index}`}>
+                <article className={`inside-extra hm-reveal is-in hm-reveal-delay-${Math.min(index + 1, 4)}`} key={extra.icon || `extra-${index}`}>
                   <div className="inside-extra-icon" aria-hidden="true">
                     <i className={`ti ${extra.icon}`} />
                   </div>
@@ -627,7 +628,7 @@ export default function Home() {
         </section>
 
         <div className="section story-section">
-          <div className="story-stage hm-reveal">
+          <div className="story-stage hm-reveal is-in">
             <div className="testimonial-carousel">
               <button
                 type="button"
@@ -703,7 +704,7 @@ export default function Home() {
         </div>
 
         <div className="section pricing-section">
-          <div className="pricing-panel hm-reveal">
+          <div className="pricing-panel hm-reveal is-in">
             <div className="pricing-panel-header">
               <h2 className="sec-title pricing-panel-title">{t("pricing.title")}</h2>
               <p className="pricing-panel-sub">{t("pricing.subtitle")}</p>
@@ -736,7 +737,7 @@ export default function Home() {
         </div>
 
         <section className="section safety-section" aria-labelledby="safety-title">
-          <div className="safety-panel hm-reveal">
+          <div className="safety-panel hm-reveal is-in">
             <div className="safety-panel-glow" aria-hidden="true" />
             <div className="safety-panel-mark" aria-hidden="true">
               <i className="ti ti-shield-lock" />
@@ -758,7 +759,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="section faq-section hm-reveal">
+        <div className="section faq-section hm-reveal is-in">
           <div className="sec-title">{t("faq.label")}</div>
           <FaqAccordionList
             items={faqItems}
@@ -769,7 +770,7 @@ export default function Home() {
         </div>
 
         <section className="cta-section section" aria-label={t("cta.button")}>
-          <div className="cta-wrap hm-reveal">
+          <div className="cta-wrap hm-reveal is-in">
             <img
               className="cta-photo"
               src={ctaMomImage}

@@ -54,7 +54,7 @@ import ChatTypingIndicator from "./components/ChatTypingIndicator";
 import { SupportContactPanel } from "./components/SupportContactPanel";
 import { ProfileActivePlanCard } from "./components/ProfileActivePlanCard";
 import { ChatPlacesMap, type ChatPlacePin } from "./components/ChatPlacesMap";
-import { ChatSourcesDrawer, parseChatSources, type ChatSourceLink } from "./components/ChatSourcesDrawer";
+import { ChatSourcesDrawer, chatSourcesCopy, parseChatSources, type ChatSourceLink } from "./components/ChatSourcesDrawer";
 import "./appResponsive.css";
 
 import { useTranslation } from "react-i18next";
@@ -1930,7 +1930,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     ? "Η σύνδεσή σου έληξε ή δεν είναι έγκυρη. Συνδέσου ξανά."
     : "Your session has expired or is not valid. Please sign in again.";
   const syncProfileSafe = async (p: Profile, opts?: { silent?: boolean }): Promise<boolean> => {
-    const result = await syncProfileToSupabase(token, p);
+    let activeToken = token;
+    let result = await syncProfileToSupabase(activeToken, p);
+    if (!result.ok && "authExpired" in result && result.authExpired) {
+      const next = await refreshAuthSession();
+      if (next && next !== activeToken) {
+        activeToken = next;
+        onTokenUpdate?.(next);
+        result = await syncProfileToSupabase(activeToken, p);
+      }
+    }
     if (!result.ok && "authExpired" in result && result.authExpired) {
       showToast(sessionExpiredMsg, "err");
       window.setTimeout(() => onLogout(), 1200);
@@ -3334,45 +3343,59 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           role: m.role,
           content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
         }));
+    const chatPayload = {
+      message: apiMessage,
+      history: historyForApi,
+      attachments: durableAttachments.map(attachmentPayloadForApi),
+      profile: {
+        name: displayName || profile.name || null,
+        childName: profile.childName,
+        childAge: primaryChild
+          ? formatChildAge(primaryChild.birthDate, lang, nowForAge) || profile.childAge
+          : profile.childAge,
+        childBirthDate: profile.childBirthDate || null,
+        dueDate: profile.dueDate || null,
+        lang: lang,
+        country: profile.country || null,
+        city: profile.city || null,
+        children: familyChildren.map((c) => ({
+          name: c.name,
+          birthDate: c.birthDate || null,
+          gender: c.gender || null,
+        })),
+        familyMembers: familyData.members.map((m) => ({
+          name: m.name,
+          relationship: m.relationship,
+          birthDate: m.birthDate || null,
+          note: m.note || null,
+        })),
+        pregnancyStatus:
+          profile.pregnancyStatus ||
+          (profile.dueDate ? (isDueDatePassed(profile.dueDate, nowForAge) ? "awaiting_update" : "active") : undefined),
+      },
+      recentMemories,
+      recentMilestones,
+      recentDocs,
+    };
     try {
-      const res = await axios.post(
-        `${API}/chat`,
-        {
-          message: apiMessage,
-          history: historyForApi,
-          attachments: durableAttachments.map(attachmentPayloadForApi),
-          profile: {
-            name: displayName || profile.name || null,
-            childName: profile.childName,
-            childAge: primaryChild
-              ? formatChildAge(primaryChild.birthDate, lang, nowForAge) || profile.childAge
-              : profile.childAge,
-            childBirthDate: profile.childBirthDate || null,
-            dueDate: profile.dueDate || null,
-            lang: lang,
-            country: profile.country || null,
-            city: profile.city || null,
-            children: familyChildren.map((c) => ({
-              name: c.name,
-              birthDate: c.birthDate || null,
-              gender: c.gender || null,
-            })),
-            familyMembers: familyData.members.map((m) => ({
-              name: m.name,
-              relationship: m.relationship,
-              birthDate: m.birthDate || null,
-              note: m.note || null,
-            })),
-            pregnancyStatus:
-              profile.pregnancyStatus ||
-              (profile.dueDate ? (isDueDatePassed(profile.dueDate, nowForAge) ? "awaiting_update" : "active") : undefined),
-          },
-          recentMemories,
-          recentMilestones,
-          recentDocs,
-        },
-        { headers: { "x-token": token }, timeout: 90000 },
-      );
+      let chatToken = token;
+      let res;
+      try {
+        res = await axios.post(`${API}/chat`, chatPayload, {
+          headers: { "x-token": chatToken },
+          timeout: 90000,
+        });
+      } catch (firstErr: any) {
+        if (firstErr.response?.status !== 401) throw firstErr;
+        const next = await refreshAuthSession();
+        if (!next || next === chatToken) throw firstErr;
+        chatToken = next;
+        onTokenUpdate?.(next);
+        res = await axios.post(`${API}/chat`, chatPayload, {
+          headers: { "x-token": chatToken },
+          timeout: 90000,
+        });
+      }
       const reply = typeof res.data?.reply === "string" ? res.data.reply.trim() : "";
       if (!reply) {
         throw new Error("empty_reply");
@@ -6663,7 +6686,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           newChatLabel={t("newthread", lang)}
           searchLabel={t("search_chats", lang)}
           libraryLabel={t("chat_library", lang)}
-          sourcesLabel={lang === "el" ? "Πηγές" : "Sources"}
+          sourcesLabel={chatSourcesCopy(lang).label}
           sourcesCount={(() => {
             for (let i = messages.length - 1; i >= 0; i -= 1) {
               const sources = messages[i]?.sources;
@@ -6915,7 +6938,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
                             className="hm-chat-sources-btn"
                             onClick={() => setChatSources(msg.sources || null)}
                           >
-                            {lang === "el" ? "Πηγές" : "Sources"}
+                            {chatSourcesCopy(lang).label}
                             <span>{msg.sources.length}</span>
                           </button>
                         ) : null}
@@ -7956,7 +7979,14 @@ export default function App() {
         localStorage.setItem(sk(token,"profile"), JSON.stringify(p));
         setProfile(p);
       })
-      .catch(() => {
+      .catch(async (err: any) => {
+        if (err?.response?.status === 401) {
+          const next = await refreshAuthSession();
+          if (next && next !== token) {
+            setToken(next);
+            return;
+          }
+        }
         // Keep offline/local cached profile when the API is down.
         if (cached) setProfile(cached);
         else setProfile(null);

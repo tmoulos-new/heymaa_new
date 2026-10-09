@@ -1806,12 +1806,18 @@ def get_embedding(text):
         raise RuntimeError(err or "embedding failed")
     return values
 
-def retrieve_context(query, top_k=6, threshold=0.22, *, with_timing: bool = False):
+def retrieve_context(
+    query,
+    top_k=6,
+    threshold=0.22,
+    *,
+    with_timing: bool = False,
+    prefer_lang: Optional[str] = None,
+):
     """Vector retrieval over all ready rag_chunks (babyspace/myparenthood/eody/files).
 
-    Tries match_chunks (fast with ANN index). If the RPC times out on a large
-    unindexed corpus, falls back to keyword candidates + local cosine ranking so
-    chat keeps searching every source_key — not only the original two sites.
+    Soft-prioritizes the user's language (then English). Tries match_chunks when
+    enabled; otherwise keyword candidates + local cosine across every source_key.
     """
     import time as _time
 
@@ -1822,6 +1828,7 @@ def retrieve_context(query, top_k=6, threshold=0.22, *, with_timing: bool = Fals
         "error": None,
         "path": None,
         "candidates": 0,
+        "prefer_lang": prefer_lang,
     }
     if not sb:
         return ([], timing) if with_timing else []
@@ -1845,10 +1852,13 @@ def retrieve_context(query, top_k=6, threshold=0.22, *, with_timing: bool = Fals
             top_k=top_k,
             threshold=threshold,
             rpc_timeout=2.5,
+            prefer_lang=prefer_lang,
         )
         timing["match_ms"] = round((_time.perf_counter() - t1) * 1000, 1)
         timing["path"] = meta.get("path")
         timing["candidates"] = meta.get("candidates") or 0
+        if meta.get("prefer_languages"):
+            timing["prefer_languages"] = meta["prefer_languages"]
         if meta.get("error"):
             timing["error"] = meta["error"]
         timing["ok"] = True
@@ -1881,11 +1891,30 @@ def _serialize_rag_matches(chunks: list) -> list:
     return out
 
 
-def public_chat_sources(chunks: list) -> list:
-    """Unique public URLs that actually backed this reply. Empty when RAG found nothing linkable."""
+def public_chat_sources(chunks: list, prefer_lang: Optional[str] = None) -> list:
+    """Unique public URLs that actually backed this reply. Empty when RAG found nothing linkable.
+
+    Soft-orders matching user language first (then English) while preserving
+    relevance order within each language tier.
+    """
     seen: set[str] = set()
-    out: list[dict] = []
-    pending: list[tuple[str, str]] = []
+    collected: list[dict] = []
+    pending: list[tuple[str, str, str]] = []
+
+    try:
+        from .rag_retrieve import (
+            SOURCE_KEY_LANG,
+            chunk_language,
+            prefer_languages_for_user,
+        )
+    except ImportError:
+        from rag_retrieve import (  # type: ignore
+            SOURCE_KEY_LANG,
+            chunk_language,
+            prefer_languages_for_user,
+        )
+
+    prefer_langs = prefer_languages_for_user(prefer_lang)
 
     def _meta(row: dict) -> dict:
         meta = row.get("metadata") or {}
@@ -1897,7 +1926,7 @@ def public_chat_sources(chunks: list) -> list:
                 meta = {}
         return meta if isinstance(meta, dict) else {}
 
-    def _add(url: str, title: str) -> bool:
+    def _add(url: str, title: str, lang: str = "") -> bool:
         raw = (url or "").strip()
         if not raw.startswith("http"):
             return False
@@ -1912,8 +1941,14 @@ def public_chat_sources(chunks: list) -> list:
                 label = urlparse(raw).netloc.replace("www.", "")
             except Exception:
                 label = raw
-        out.append({"title": label[:160], "url": raw[:500]})
-        return len(out) >= 4
+        collected.append(
+            {
+                "title": label[:160],
+                "url": raw[:500],
+                "_lang": (lang or "").strip().lower()[:12],
+            }
+        )
+        return len(collected) >= 12
 
     for row in chunks or []:
         if not isinstance(row, dict):
@@ -1921,33 +1956,53 @@ def public_chat_sources(chunks: list) -> list:
         meta = _meta(row)
         url = str(meta.get("source_url") or meta.get("url") or row.get("source_url") or row.get("origin") or "")
         title = str(meta.get("title") or meta.get("source_title") or row.get("title") or "")
-        if _add(url, title):
-            return out
+        sk = str(meta.get("source_key") or "")
+        lang = chunk_language(meta, source_key=sk)
+        if _add(url, title, lang):
+            break
         sid = str(meta.get("source_id") or row.get("source_id") or "").strip()
         if sid and not url.startswith("http"):
-            pending.append((sid, title))
+            pending.append((sid, title, lang))
 
-    if pending and sb and len(out) < 4:
+    if pending and sb and len(collected) < 12:
         ids: list[str] = []
-        for sid, _title in pending:
+        for sid, _title, _lang in pending:
             if sid not in ids:
                 ids.append(sid)
         try:
             res = (
                 sb.table("rag_sources")
-                .select("id,title,origin,source_url")
+                .select("id,title,origin,source_url,language,source_key")
                 .in_("id", ids[:12])
                 .execute()
             )
             by_id = {str(r.get("id")): r for r in (res.data or [])}
         except Exception:
             by_id = {}
-        for sid, fallback_title in pending:
+        for sid, fallback_title, fallback_lang in pending:
             row = by_id.get(sid) or {}
             url = str(row.get("source_url") or row.get("origin") or "")
             title = str(row.get("title") or fallback_title or "")
-            if _add(url, title):
+            lang = (
+                str(row.get("language") or "").strip().lower().split("-")[0]
+                or fallback_lang
+                or SOURCE_KEY_LANG.get(str(row.get("source_key") or "").strip().lower(), "")
+            )
+            if _add(url, title, lang):
                 break
+
+    def _tier(item: dict) -> int:
+        lang = item.get("_lang") or ""
+        if prefer_langs and lang == prefer_langs[0]:
+            return 0
+        if lang in prefer_langs:
+            return 1
+        return 2
+
+    ordered = sorted(enumerate(collected), key=lambda pair: (_tier(pair[1]), pair[0]))
+    out: list[dict] = []
+    for _, item in ordered[:4]:
+        out.append({"title": item["title"], "url": item["url"]})
     return out
 
 
@@ -1958,7 +2013,7 @@ def asks_for_sources(message: str) -> bool:
         return False
     return bool(
         _re.search(
-            r"(πηγές|πηγες|sources?\b|\blinks?\b|σύνδεσμ|συνδεσμ|παραπομπ)",
+            r"(πηγές|πηγες|sources?\b|surse\b|\blinks?\b|linkuri\b|σύνδεσμ|συνδεσμ|παραπομπ)",
             text,
             _re.IGNORECASE,
         )
@@ -1980,17 +2035,32 @@ def previous_substantive_question(history) -> str:
 
 
 def source_request_reply(lang: str, has_sources: bool) -> str:
-    el = (lang or "").lower().startswith("el")
+    code = (lang or "").strip().lower().split("-")[0]
     if has_sources:
+        if code == "el":
+            return (
+                "Οι σελίδες που στήριξαν την απάντηση είναι στο κουμπί Πηγές, "
+                "ακριβώς κάτω από αυτό το μήνυμα."
+            )
+        if code == "ro":
+            return (
+                "Paginile care au susținut răspunsul sunt la butonul Surse, "
+                "chiar sub acest mesaj."
+            )
+        return "The pages that backed the answer are under Sources, just below this message."
+    if code == "el":
         return (
-            "Οι σελίδες που στήριξαν την απάντηση είναι στο κουμπί Πηγές, ακριβώς κάτω από αυτό το μήνυμα."
-            if el
-            else "The pages that backed the answer are under Sources, just below this message."
+            "Αυτή η απάντηση δεν στηρίχτηκε σε συγκεκριμένη σελίδα της βιβλιοθήκης, "
+            "οπότε δεν υπάρχει σύνδεσμος να ανοίξεις."
+        )
+    if code == "ro":
+        return (
+            "Acest răspuns nu s-a bazat pe o pagină anume din bibliotecă, "
+            "așa că nu există un link de deschis."
         )
     return (
-        "Αυτή η απάντηση δεν στηρίχτηκε σε συγκεκριμένη σελίδα της βιβλιοθήκης, οπότε δεν υπάρχει σύνδεσμος να ανοίξεις."
-        if el
-        else "That answer was not backed by a specific page in the library, so there is no link to open."
+        "That answer was not backed by a specific page in the library, "
+        "so there is no link to open."
     )
 
 
@@ -4190,6 +4260,70 @@ async def public_babyspace_rss(
     )
 
 
+def _supabase_connectivity_probe() -> dict:
+    """Hostname + DNS + lightweight REST check (no secrets in response)."""
+    import socket
+    from urllib.parse import urlparse
+
+    url, key = _supabase_credentials()
+    if not url:
+        return {"ok": False, "error": "missing_url"}
+    host = urlparse(url).hostname
+    if not host:
+        return {"ok": False, "error": "missing_host", "url_len": len(url)}
+    out: dict = {"host": host, "url_len": len(url)}
+    # Probe both AF_UNSPEC (httpx default) and AF_INET — Vercel/Lambda has
+    # reported Errno 16 on getaddrinfo for some hosts with AF_UNSPEC.
+    for label, family in (("unspec", socket.AF_UNSPEC), ("inet", socket.AF_INET)):
+        try:
+            infos = socket.getaddrinfo(host, 443, family, socket.SOCK_STREAM)
+            out[f"dns_{label}_ok"] = True
+            out[f"dns_{label}_addrs"] = len(infos)
+            if infos:
+                out[f"dns_{label}_sample"] = infos[0][4][0]
+        except OSError as e:
+            out[f"dns_{label}_ok"] = False
+            out[f"dns_{label}_error"] = f"{type(e).__name__}: {e}"
+    # Control probes — if these also fail, the whole runtime DNS is broken.
+    for other in ("www.google.com", "api.anthropic.com"):
+        key = "ctrl_" + other.replace(".", "_")
+        try:
+            socket.getaddrinfo(other, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            out[key] = True
+        except OSError as e:
+            out[key] = f"{type(e).__name__}: {e}"
+    if not out.get("dns_unspec_ok") and not out.get("dns_inet_ok"):
+        out["dns_ok"] = False
+        out["dns_error"] = out.get("dns_unspec_error") or out.get("dns_inet_error")
+        out["ok"] = False
+        return out
+    out["dns_ok"] = True
+    if not key:
+        out["ok"] = False
+        out["error"] = "missing_key"
+        return out
+    try:
+        import urllib.request
+
+        # Prefer GET with Accept — some CDNs reject HEAD / bare GETs with 401.
+        req = urllib.request.Request(
+            f"{url.rstrip('/')}/rest/v1/",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            out["rest_status"] = getattr(resp, "status", None) or resp.getcode()
+        out["ok"] = True
+    except Exception as e:
+        out["ok"] = False
+        out["rest_error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
 @app.get("/healthz")
 def root():
     client = ensure_supabase()
@@ -4209,6 +4343,7 @@ def root():
         "supabase_url_set": bool(url),
         "supabase_key_set": bool(key),
         "supabase_key_is_jwt": bool(key and key.count(".") == 2),
+        "supabase_probe": _supabase_connectivity_probe(),
         "vercel": bool(os.getenv("VERCEL")),
         "llm": {name: bool(val) for name, val in llm.items()},
         "llm_provider_mode": "legacy",
@@ -4847,20 +4982,30 @@ async def _run_chat_core(
             retrieval_query = prior
             needs_rag = True
 
+    profile_lang_early = (
+        (req.profile.lang if req.profile and req.profile.lang else "") or ""
+    ).strip()
+    prefer_lang = detect_msg_lang(retrieval_query or req.message or "", profile_lang_early)
+
     t_rag0 = _time.perf_counter()
     rag_chunks: list = []
     rag_timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
     if needs_rag:
         if include_debug:
             rag_chunks, rag_timing = await asyncio.to_thread(
-                retrieve_context, retrieval_query, with_timing=True
+                retrieve_context,
+                retrieval_query,
+                with_timing=True,
+                prefer_lang=prefer_lang,
             )
             timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
             timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
             if rag_timing.get("error"):
                 timing["rag_error"] = rag_timing["error"]
         else:
-            rag_chunks = await asyncio.to_thread(retrieve_context, retrieval_query)
+            rag_chunks = await asyncio.to_thread(
+                retrieve_context, retrieval_query, prefer_lang=prefer_lang
+            )
     else:
         timing["rag_embed_ms"] = 0
         timing["rag_match_ms"] = 0
@@ -4868,7 +5013,9 @@ async def _run_chat_core(
         rag_timing["skipped"] = True
     timing["rag_total_ms"] = round((_time.perf_counter() - t_rag0) * 1000, 1)
     rag_matches = _serialize_rag_matches(rag_chunks) if include_debug else None
-    chat_sources = public_chat_sources(rag_chunks) if rag_chunks else []
+    chat_sources = (
+        public_chat_sources(rag_chunks, prefer_lang=prefer_lang) if rag_chunks else []
+    )
     rag_context = build_rag_context(rag_chunks)
     t_ctx0 = _time.perf_counter()
     family_context = build_profile_context(req.profile)

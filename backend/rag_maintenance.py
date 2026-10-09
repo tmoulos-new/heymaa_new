@@ -128,6 +128,14 @@ def compute_rag_health(sb) -> dict[str, Any]:
                 key = "eody-gov-gr"
             elif "moh.gov.gr" in origin_l:
                 key = "moh-gov-gr"
+            elif "insp.gov.ro" in origin_l:
+                key = "insp-gov-ro"
+            elif "who.int" in origin_l:
+                key = "who-int"
+            elif "ms.ro" in origin_l:
+                key = "ms-gov-ro"
+            elif "babyspace.com.ro" in origin_l:
+                key = "babyspace-ro"
             elif stype_l in ("pdf", "text", "markdown", "file") or (
                 origin and not origin.startswith("http")
             ):
@@ -148,7 +156,16 @@ def compute_rag_health(sb) -> dict[str, Any]:
                     key = "other"
             else:
                 key = "other"
-        elif key not in ("babyspace", "myparenthood", "eody-gov-gr", "moh-gov-gr"):
+        elif key not in (
+            "babyspace",
+            "myparenthood",
+            "eody-gov-gr",
+            "moh-gov-gr",
+            "insp-gov-ro",
+            "who-int",
+            "ms-gov-ro",
+            "babyspace-ro",
+        ):
             if "babyspace.gr" in origin_l:
                 key = "babyspace"
             elif "myparenthood.gr" in origin_l:
@@ -157,6 +174,14 @@ def compute_rag_health(sb) -> dict[str, Any]:
                 key = "eody-gov-gr"
             elif "moh.gov.gr" in origin_l:
                 key = "moh-gov-gr"
+            elif "insp.gov.ro" in origin_l:
+                key = "insp-gov-ro"
+            elif "who.int" in origin_l:
+                key = "who-int"
+            elif "ms.ro" in origin_l:
+                key = "ms-gov-ro"
+            elif "babyspace.com.ro" in origin_l:
+                key = "babyspace-ro"
         bucket = by_key.setdefault(
             key,
             {"sources": 0, "ready": 0, "error": 0, "empty_chunks": 0, "broken": 0},
@@ -291,11 +316,13 @@ def compute_rag_health(sb) -> dict[str, Any]:
         )
         known.add(key)
 
-    # Websites first (syncable), then files; alphabetical within each.
+    # Websites first (syncable), then files; alphabetical within each — no pinned keys.
     def _site_sort(s: dict[str, Any]) -> tuple:
         st = (s.get("source_type") or "website").lower()
-        order = {"babyspace": 0, "myparenthood": 1}.get(s.get("key") or "", 10)
-        return (0 if st == "website" else 1, order, (s.get("name") or s.get("key") or "").lower())
+        return (
+            0 if st == "website" else 1,
+            (s.get("name") or s.get("key") or "").lower(),
+        )
 
     sites.sort(key=_site_sort)
 

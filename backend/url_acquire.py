@@ -188,10 +188,92 @@ def extract_html_document(html: str, base_url: str) -> dict:
     }
 
 
+def _fetch_bytes(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str, bytes]:
+    """Returns (final_url, content_type, raw_bytes). Used for PDF URL ingest."""
+    import time as _time
+
+    headers = dict(DEFAULT_HEADERS)
+    headers["Accept"] = "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8"
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            try:
+                res = requests.get(
+                    url, headers=headers, timeout=timeout, allow_redirects=True
+                )
+            except requests.exceptions.SSLError:
+                res = requests.get(
+                    url,
+                    headers=headers,
+                    timeout=timeout,
+                    allow_redirects=True,
+                    verify=False,
+                )
+            if res.status_code == 503 and attempt < 2:
+                _time.sleep(1.5 * (attempt + 1))
+                continue
+            res.raise_for_status()
+            ctype = (res.headers.get("content-type") or "").split(";")[0].strip().lower()
+            return res.url, ctype, res.content
+        except Exception as e:
+            last_err = e
+            if attempt < 2:
+                _time.sleep(1.2 * (attempt + 1))
+                continue
+            raise
+    raise last_err or RuntimeError(f"fetch bytes failed: {url}")
+
+
+def _acquire_pdf_url(normalized: str) -> dict:
+    """Download a PDF URL and extract text for RAG ingest."""
+    try:
+        from .rag_ingest import extract_text_from_pdf_bytes
+    except ImportError:
+        from rag_ingest import extract_text_from_pdf_bytes
+
+    final_url, ctype, raw = _fetch_bytes(normalized)
+    if "pdf" not in (ctype or "") and not urlparse(final_url).path.lower().endswith(".pdf"):
+        raise ValueError(f"Expected PDF, got content-type: {ctype or 'unknown'}")
+    content = (extract_text_from_pdf_bytes(raw) or "").strip()
+    if len(content.split()) < 40:
+        raise ValueError("Extracted PDF text is too short to ingest.")
+    source_url = normalize_url(final_url)
+    path = urlparse(source_url).path
+    stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0].replace("-", " ").replace("_", " ")
+    title = stem.strip() or source_url
+    return {
+        "source_type": "url",
+        "source_reference": source_url,
+        "original_location": normalized,
+        "title": title[:300],
+        "language": "ro",
+        "content": content,
+        "metadata": {
+            "content_type": ctype or "application/pdf",
+            "url_hash": url_hash(source_url),
+            "word_count": len(content.split()),
+        },
+        "provenance": {
+            "source_type": "url",
+            "original_location": normalized,
+            "content_hash": hashlib.sha256(
+                content.encode("utf-8", errors="ignore")
+            ).hexdigest(),
+        },
+        "links": [],
+    }
+
+
 def acquire_url(url: str) -> dict:
     """Fetch + extract a single URL into a canonical content object."""
     normalized = normalize_url(url)
+    path_l = (urlparse(normalized).path or "").lower()
+    if path_l.endswith(".pdf"):
+        return _acquire_pdf_url(normalized)
+
     final_url, ctype, body = fetch_url(normalized)
+    if "pdf" in (ctype or ""):
+        return _acquire_pdf_url(normalized)
     if "html" not in ctype and "xml" not in ctype and not body.lstrip().startswith("<"):
         raise ValueError(f"Unsupported content-type for URL ingest: {ctype or 'unknown'}")
     doc = extract_html_document(body, final_url)
@@ -425,9 +507,15 @@ def discover_source_urls(
     def usable(u: str) -> bool:
         p = urlparse(u)
         path = (p.path or "").lower()
-        if path.endswith(skip_ext):
+        # Gov/WHO publish childhood vaccine calendars / guides as PDFs.
+        allow_topic_pdf = (
+            key in ("insp-gov-ro", "who-int", "ms-gov-ro") and path.endswith(".pdf")
+        )
+        if path.endswith(skip_ext) and not allow_topic_pdf:
             return False
-        if "/files/" in path or "/wp-content/uploads/" in path:
+        if "/files/" in path and not allow_topic_pdf:
+            return False
+        if "/wp-content/uploads/" in path and not allow_topic_pdf:
             return False
         if any(x in path for x in ("/cart", "/checkout", "/account", "/login", "/wp-admin", "/tag/", "/author/")):
             return False

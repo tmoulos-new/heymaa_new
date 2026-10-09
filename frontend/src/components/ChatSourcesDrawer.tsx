@@ -1,9 +1,38 @@
 import { useEffect } from 'react'
+import { normalizeAppLang, type AppLangCode } from '../lib/appLang'
 import { AppModalPortal } from './AppModalPortal'
 
 export type ChatSourceLink = {
   title: string
   url: string
+}
+
+const SOURCES_COPY: Record<
+  AppLangCode,
+  { label: string; title: string; subtitle: string; close: string }
+> = {
+  en: {
+    label: 'Sources',
+    title: 'Sources',
+    subtitle: 'Pages that backed this answer.',
+    close: 'Close',
+  },
+  el: {
+    label: 'Πηγές',
+    title: 'Πηγές',
+    subtitle: 'Σελίδες που στήριξαν αυτή την απάντηση.',
+    close: 'Κλείσιμο',
+  },
+  ro: {
+    label: 'Surse',
+    title: 'Surse',
+    subtitle: 'Pagini care au susținut acest răspuns.',
+    close: 'Închide',
+  },
+}
+
+export function chatSourcesCopy(lang: string) {
+  return SOURCES_COPY[normalizeAppLang(lang, 'en')]
 }
 
 function hostOf(url: string) {
@@ -40,7 +69,7 @@ type Props = {
 
 export function ChatSourcesDrawer({ lang, sources, onClose }: Props) {
   const open = !!sources && sources.length > 0
-  const isEl = lang === 'el'
+  const copy = chatSourcesCopy(lang)
 
   useEffect(() => {
     if (!open) return
@@ -56,14 +85,14 @@ export function ChatSourcesDrawer({ lang, sources, onClose }: Props) {
   return (
     <AppModalPortal>
       <div className="hm-sources-root" role="presentation">
-        <button type="button" className="hm-sources-backdrop" aria-label={isEl ? 'Κλείσιμο' : 'Close'} onClick={onClose} />
-        <aside className="hm-sources-drawer" role="dialog" aria-modal="true" aria-label={isEl ? 'Πηγές' : 'Sources'}>
+        <button type="button" className="hm-sources-backdrop" aria-label={copy.close} onClick={onClose} />
+        <aside className="hm-sources-drawer" role="dialog" aria-modal="true" aria-label={copy.title}>
           <div className="hm-sources-drawer__head">
             <div>
-              <h2>{isEl ? 'Πηγές' : 'Sources'}</h2>
-              <p>{isEl ? 'Σελίδες που στήριξαν αυτή την απάντηση.' : 'Pages that backed this answer.'}</p>
+              <h2>{copy.title}</h2>
+              <p>{copy.subtitle}</p>
             </div>
-            <button type="button" className="hm-sources-drawer__close" onClick={onClose} aria-label={isEl ? 'Κλείσιμο' : 'Close'}>
+            <button type="button" className="hm-sources-drawer__close" onClick={onClose} aria-label={copy.close}>
               ×
             </button>
           </div>

@@ -1,0 +1,173 @@
+"""Build _who_offline_docs.jsonl from curated WHO childhood extracts."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent / "_who_offline_docs.jsonl"
+
+DOCS = [
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding",
+        "title": "Infant and young child feeding — WHO fact sheet",
+        "content": """
+WHO and UNICEF recommend that all infants initiate breastfeeding within 1 hour of birth, breastfeed exclusively (are fed only breast milk) for the first 6 months of life, and then continue breastfeeding up to 2 years of age or beyond while nutritionally adequate, safe complementary (solid) foods are introduced from six months.
+
+The first two years of a child's life are particularly important, as optimal nutrition during this period lowers morbidity and mortality, reduces the risk of chronic disease, and fosters better development overall.
+
+Early, exclusive and continued breastfeeding can prevent pneumonia and diarrhoea, which are amongst the leading causes of child death. Infants who are mixed fed (partially breastfed) or not breastfed are much more likely to die from diarrhoea, pneumonia and other infectious diseases.
+
+WHO recommends providing supportive health services with infant and young child feeding counselling during antenatal and postnatal care, well-child and sick-child visits, and immunization contacts.
+
+Families and children in difficult circumstances require special attention, including: low-birth-weight or premature infants; mothers living with HIV in settings where mortality due to diarrhoea, pneumonia and malnutrition remain prevalent; adolescent mothers; infants and young children who are malnourished; and families suffering the consequences of complex emergencies.
+
+WHO is committed to supporting countries to increase the rate of exclusive breastfeeding for the first 6 months of life to at least 60% by 2030.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/newborn-mortality",
+        "title": "Newborn mortality — WHO fact sheet",
+        "content": """
+Most neonatal deaths (75%) occur during the first week of life, and about 1 million newborns die within the first 24 hours. Leading causes of neonatal death include premature birth, birth complications (birth asphyxia/trauma), neonatal infections and congenital anomalies.
+
+Essential newborn care includes:
+- thermal protection (e.g. promoting skin-to-skin contact between mother and infant);
+- hygienic umbilical cord and skin care;
+- early and exclusive breastfeeding;
+- assessment for signs of serious health problems or need of additional care (e.g. low-birth-weight, sick, or HIV-exposed newborns);
+- preventive treatment (e.g. immunization with BCG and Hepatitis B, vitamin K and ocular prophylaxis).
+
+Families should seek prompt medical care for danger signs including feeding problems, reduced activity, difficult breathing, fever, fits or convulsions, jaundice in the first 24 hours after birth, yellow palms and soles, or if the baby feels cold. Bring the baby for timely vaccination according to national schedules.
+
+For low-birth-weight and preterm babies: keep the newborn warm including skin-to-skin care; assist with initiation of breastfeeding (including expressed breast milk if needed); extra attention to hygiene and danger signs; additional support for breastfeeding and growth monitoring.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/preterm-birth",
+        "title": "Preterm birth — WHO fact sheet",
+        "content": """
+Globally, prematurity is the leading cause of death in children under the age of 5 years. In low-income settings, half of the babies born at or below 32 weeks (2 months early) die due to a lack of feasible, cost-effective care such as warmth, breastfeeding support and basic care for infections and breathing difficulties. In high-income countries, almost all of these babies survive.
+
+Preventing deaths and complications from preterm birth starts with a healthy pregnancy. WHO antenatal care guidelines include counselling on healthy diet and nutrition, tobacco and substance use; early ultrasound to help determine gestational age and detect multiple pregnancies; and a minimum of 8 contacts with health professionals throughout pregnancy — starting before 12 weeks.
+
+If a woman experiences preterm labour or is at risk of preterm childbirth, treatments can help protect the preterm baby, including antenatal steroids, tocolytic treatments to delay labour, and antibiotics for preterm prelabour rupture of membranes (PPROM).
+
+WHO recommendations on care of the preterm infant include kangaroo mother care immediately after birth, early initiation of breastfeeding, continuous positive airway pressure (CPAP) and medicines such as caffeine for breathing problems, which can substantially reduce mortality in preterm and low-birthweight babies.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/measles",
+        "title": "Measles — WHO fact sheet",
+        "content": """
+Measles is a highly contagious viral disease. Unvaccinated young children and pregnant persons are at highest risk of severe measles complications. If a woman catches measles during pregnancy, this can be dangerous for the mother and can result in miscarriage or her baby being born prematurely with a low birth weight.
+
+Community-wide vaccination is the most effective way to prevent measles. All children should be vaccinated against measles. The vaccine is safe, effective and inexpensive.
+
+Children should receive two doses of the vaccine to ensure they are immune. The first dose is usually given at 9 months of age in countries where measles is common and 12–15 months in other countries. A second dose should be given later in childhood, usually at 15–18 months.
+
+Routine measles vaccination, combined with mass immunization campaigns in countries with high case rates, are crucial for reducing global measles deaths. The measles vaccine has been in use for about 60 years. Two doses are recommended to ensure immunity and prevent outbreaks, as not all children develop immunity from the first dose.
+
+In outbreaks and high-risk settings, a supplementary measles vaccine dose may be given to infants from 6 months of age; doses given before 9 months should be recorded as MCV0, and children should still receive MCV1 and MCV2 according to the national schedule.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/immunization-coverage",
+        "title": "Immunization coverage — WHO fact sheet",
+        "content": """
+Immunization is a critical public health intervention that protects infants and children from vaccine-preventable diseases.
+
+Hepatitis B: Hepatitis B vaccine for infants has been introduced nationwide in most WHO Member States. Global coverage with 3 doses of hepatitis B vaccine is estimated around 84%. Many countries also give 1 dose of hepatitis B vaccine to newborns within the first 24 hours of life.
+
+Pneumococcal disease: Pneumococcal conjugate vaccine protects against pneumonia, meningitis and other serious infections in children. Global last-dose coverage is estimated around 71%, with large regional variation.
+
+Polio: Coverage of infants receiving inactivated polio vaccine (IPV) remains a priority for eradication. Wild poliovirus remains endemic only in Afghanistan and Pakistan; all countries remain at risk until transmission is interrupted.
+
+Rotavirus: Rotavirus is a leading cause of severe diarrhoeal disease in young children; rotavirus vaccine coverage continues to expand.
+
+Rubella: Rubella is usually mild in children, but infection during early pregnancy may cause fetal death or congenital rubella syndrome (defects of the brain, heart, eyes and ears). Rubella-containing vaccine coverage is expanding globally.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/docs/default-source/immunization/tables/immunization-routine-table2.pdf",
+        "title": "WHO recommended routine immunizations for children (Table 2)",
+        "content": """
+Summary of WHO Position Papers — Recommended Routine Immunizations for Children.
+
+Measles-containing vaccine (MCV):
+- Reaching all children with 2 doses of measles vaccine should be the standard for all national immunization programmes.
+- In addition to the first routine dose (MCV1), all countries should add a second routine dose (MCV2) regardless of MCV1 coverage.
+- Typical schedule: first dose at 9 months (high-risk settings) or 12 months (lower-risk settings); second dose later in childhood (often 15–18 months). Minimum interval between doses is generally 4 weeks.
+- A supplementary dose (MCV0) from 6 months of age may be given during outbreaks, campaigns in high-risk settings, for refugees/displaced populations, contacts of cases, travel to outbreak areas, or HIV-infected/exposed infants. Children who receive MCV0 should still receive MCV1 and MCV2 later.
+
+Other routine childhood antigens covered in WHO position papers include BCG, hepatitis B (including birth dose), polio, DTP-containing vaccines (diphtheria, tetanus, pertussis), Hib, pneumococcal conjugate, rotavirus, rubella, and HPV in adolescent programmes as applicable to national schedules.
+
+Combination vaccines and special considerations (e.g. HIV early vaccination, pregnancy contraindications for live vaccines such as MMR) are detailed in the corresponding WHO position papers.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/docs/librariesprovider2/default-document-library/factsheet_pregnancy.pdf",
+        "title": "Vaccination before and during pregnancy — WHO",
+        "content": """
+Vaccination before and during pregnancy — what you need to know (WHO).
+
+Pertussis (whooping cough): can be serious for any child, but very young infants are at greatest risk of severe complications, even death. Vaccination during pregnancy is a safe and effective way to protect your baby from pertussis. Even if previously vaccinated, WHO recommends one dose of tetanus, diphtheria and acellular pertussis vaccine (Tdap) during pregnancy — in the 2nd or 3rd trimester and preferably at least 15 days before the end of pregnancy. Maternal antibodies pass through the placenta and protect the baby during the first weeks of life until they are old enough to receive the vaccine at 6–8 weeks of age. Tdap also provides protection against tetanus for newborns.
+
+Rubella / measles / mumps: If rubella infection occurs during pregnancy, the virus can pass to the unborn baby and cause congenital rubella syndrome (hearing loss, heart defects, cataracts). Infection with measles, mumps, or rubella during pregnancy may increase the chance of miscarriage and stillbirth. If you have never received the MMR vaccine or are unsure of your status, WHO recommends vaccination before becoming pregnant. As a precaution, MMR (live vaccine) should not be given during pregnancy.
+""".strip(),
+    },
+    {
+        "url": (
+            "https://www.who.int/teams/maternal-newborn-child-adolescent-health-and-ageing/"
+            "handbooks/programme-manager-s-handbook-mncah/"
+            "recommendations-on-interventions-along-life-course/newborn"
+        ),
+        "title": "WHO newborn health interventions (MNCAH handbook)",
+        "content": """
+WHO maternal, newborn, child and adolescent health (MNCAH) recommendations for newborn care.
+
+Immediate newborn care interventions (community, primary, referral levels):
+- Immediate and thorough drying of the newborn
+- Immediate skin-to-skin contact
+- Early initiation of breastfeeding (within the first hour)
+- Exclusive breastfeeding counselling
+- Immunizations according to national guidelines
+
+Postnatal contacts: initiate and support early breastfeeding at the first visit within 24 hours after birth; conduct newborn immunization as per national schedule within 24 hours where indicated; further immunization contacts (e.g. at 6 weeks postpartum); counselling on infant care, breastfeeding and family planning at 6 weeks.
+
+For preterm or low-birth-weight newborns: thermal care (drying, skin-to-skin contact, warm environment), early and exclusive breastfeeding, and immunizations at scheduled visits (e.g. 6 weeks).
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/hepatitis-b",
+        "title": "Hepatitis B — WHO fact sheet (infant focus)",
+        "content": """
+Hepatitis B is a viral infection that attacks the liver and can cause both acute and chronic disease. Mother-to-child transmission is a major route of infection for infants.
+
+WHO recommends that all infants receive the hepatitis B vaccine as soon as possible after birth, preferably within 24 hours, followed by 2 or 3 doses of hepatitis B vaccine to complete the primary series. Timely birth-dose vaccination is critical to prevent perinatal transmission.
+
+Infants born to mothers with hepatitis B infection are at high risk of developing chronic infection if not vaccinated promptly. Hepatitis B vaccination of infants is a cornerstone of national immunization programmes worldwide.
+""".strip(),
+    },
+    {
+        "url": "https://www.who.int/news-room/fact-sheets/detail/pneumonia",
+        "title": "Pneumonia — WHO fact sheet (child focus)",
+        "content": """
+Pneumonia is a leading infectious cause of death in children worldwide. Children with weakened immune systems, undernourished children, and infants who are not exclusively breastfed are at higher risk.
+
+Prevention strategies include exclusive breastfeeding for the first 6 months, adequate nutrition, reducing indoor air pollution, and immunization — particularly vaccines against Haemophilus influenzae type b (Hib), pneumococcus (PCV), measles, and pertussis (whooping cough), which prevent illnesses that can lead to pneumonia.
+
+Prompt care-seeking for danger signs (fast or difficult breathing, chest indrawing, inability to drink, convulsions, lethargy) is essential. Appropriate antibiotics and oxygen therapy save lives when bacterial pneumonia is present.
+""".strip(),
+    },
+]
+
+
+def main() -> None:
+    with OUT.open("w", encoding="utf-8") as f:
+        for doc in DOCS:
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+    print(f"wrote {len(DOCS)} docs -> {OUT}")
+
+
+if __name__ == "__main__":
+    main()

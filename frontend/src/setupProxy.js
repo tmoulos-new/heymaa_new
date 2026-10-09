@@ -58,6 +58,8 @@ const ADMIN_UI_GET_PATHS = new Set([
   '/admin/chat-prompt',
   '/admin/llm-transactions',
   '/admin/user-financials',
+  '/admin/cancellations',
+  '/admin/support',
   '/admin/tools',
   '/admin/activity-log',
   '/admin/notifications',

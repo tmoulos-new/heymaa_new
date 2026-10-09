@@ -183,6 +183,62 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
             "seed": True,
         },
     },
+    {
+        "source_key": "insp-gov-ro",
+        "name": "INSP (România)",
+        "source_type": "website",
+        "language": "ro",
+        "base_url": "https://insp.gov.ro/",
+        "metadata": {
+            # Crawl RO site (+ /en mirror); Sync keeps baby/childhood/vaccine topics.
+            "discover": "crawl",
+            "max_urls": 80,
+            "topic_filter": "baby_childhood",
+            "seed": True,
+        },
+    },
+    {
+        "source_key": "who-int",
+        "name": "WHO",
+        "source_type": "website",
+        "language": "en",
+        "base_url": "https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding",
+        "metadata": {
+            # Crawl fact sheets / immunization; Sync keeps baby/childhood topics.
+            "discover": "crawl",
+            "max_urls": 80,
+            "topic_filter": "baby_childhood",
+            "seed": True,
+        },
+    },
+    {
+        "source_key": "ms-gov-ro",
+        "name": "Ministerul Sănătății (MS)",
+        "source_type": "website",
+        "language": "ro",
+        "base_url": "https://www.ms.ro/ro/",
+        "metadata": {
+            # Crawl press + campaigns; Sync keeps baby/childhood/vaccine topics (RO).
+            "discover": "crawl",
+            "max_urls": 80,
+            "topic_filter": "baby_childhood",
+            "seed": True,
+        },
+    },
+    {
+        "source_key": "babyspace-ro",
+        "name": "Babyspace România",
+        "source_type": "website",
+        "language": "ro",
+        "base_url": "https://www.babyspace.com.ro/ro",
+        "metadata": {
+            # Parenting portal (RO) — crawl category hubs; keep /ro article pages.
+            "discover": "crawl",
+            "max_urls": 120,
+            "topic_filter": "baby_childhood",
+            "seed": True,
+        },
+    },
 ]
 
 

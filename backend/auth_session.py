@@ -59,5 +59,13 @@ def refresh_token_from_request(request: Request) -> Optional[str]:
 
 
 def clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(key=SESSION_COOKIE, path="/")
-    response.delete_cookie(key=REFRESH_COOKIE, path="/")
+    # Must match set_cookie attributes (secure/samesite) or browsers keep Secure cookies.
+    secure = _cookie_secure()
+    for key in (SESSION_COOKIE, REFRESH_COOKIE):
+        response.delete_cookie(
+            key=key,
+            path="/",
+            secure=secure,
+            httponly=True,
+            samesite="lax",
+        )

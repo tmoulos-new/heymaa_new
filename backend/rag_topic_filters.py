@@ -6,6 +6,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 # Shared keep: pregnancy / newborn / infant / child / school-age vaccines & related
+# Includes Greek (EODY/MOH), English, and Romanian (INSP) terms.
 BABY_CHILDHOOD_INCLUDE_RE = re.compile(
     r"παιδ|βρέφ|νεογν|μωρ|εμβολ|κυήσ|εγκυμ|θηλασ|ανεμευλογ|ιλαρ|κοκκύτ|κοκκυτ|"
     r"παρωτίτ|ερυθρ|ροτα[ιϊ]|μηνιγγιτ|πολιομυελ|διφθερ|τεταν|αιμοφιλ|"
@@ -22,14 +23,28 @@ BABY_CHILDHOOD_INCLUDE_RE = re.compile(
     r"νεογνικ.?τέταν|συγγενή.?ερυθρ|συγγενή.?σύφιλ|συγγενή.?τοξο|"
     r"μητρότ|μητροτ|μαιευτ|κυλικε|διατροφ.?παιδ|diatrofh.?paid|"
     r"nirsevimab|pcv20|brefwn|paidiwn|efhbwn|paidioy|efhboy|"
-    r"antigripikos.?emboliasmos|epoxikh.?griph",
+    r"antigripikos.?emboliasmos|epoxikh.?griph|"
+    # Romanian (INSP) — children, pregnancy, vaccines, nutrition
+    r"copil|copii|copilul|vaccin|vaccinare|imuniz|sarcin[aă]|gravid|"
+    r"al[aă]pt|nou-?n[aă]sc|prematur|rujeol|rubeol|oreion|pneumococ|"
+    r"hepatit|poliomiel|difter|tetanos|tuse.?convuls|prenatal|pediatr|"
+    r"nutri[tț]ie.?infantil|adolescent|calendar.?na[tț]ional.?de.?vaccin|"
+    r"program.?na[tț]ional.?de.?vaccin|BCG|DTPa|ROR|Haemophilus|"
+    r"recomandari.?pentru.?o.?sarcina|consulta[tț]i[ae].?preventiv.?integrat.?la.?copil|"
+    # WHO English hubs
+    r"newborn|preterm|complementary.?feeding|young.?child.?feeding|"
+    r"immunization.?coverage|immunization.?routine|kangaroo.?mother|"
+    r"maternal.?newborn|child.?health|adolescent.?health|"
+    r"congenital.?rubella|birth.?defect|low.?birth.?weight",
     re.I,
 )
 
 BABY_CHILDHOOD_EXCLUDE_RE = re.compile(
     r"prokirykseis|prokhryk|organismos|organogram|diktyo-ergastirion|"
     r"promitheion|promhthe|prosopikoy|proslhps|diorism|"
-    r"διαγωνισ|προκήρυξ|προκηρυξ|cookie|privacy|gdpr|wp-content|"
+    r"διαγωνισ|προκήρυξ|προκηρυξ|cookie|privacy|gdpr|"
+    # Allow topical PDFs under wp-content/uploads; drop image/media assets only.
+    r"wp-content/uploads/.*\.(?:jpg|jpeg|png|gif|webp|svg|zip)(?:$|\?)|"
     r"kapnisma-atmisma|αλκοόλ|αλκοολ|ναρκωτικ|alkool|"
     r"times-farmakwn|deltia-timwn|ajax/redirect|accessibility|"
     r"tameioy-anakampshs|strathgikh-kata-ths-apaths|"
@@ -44,6 +59,10 @@ EODY_BABY_CHILDHOOD_EXCLUDE_RE = BABY_CHILDHOOD_EXCLUDE_RE
 _HOST_BY_KEY = {
     "eody-gov-gr": "eody.gov.gr",
     "moh-gov-gr": "moh.gov.gr",
+    "insp-gov-ro": "insp.gov.ro",
+    "who-int": "who.int",
+    "ms-gov-ro": "ms.ro",
+    "babyspace-ro": "babyspace.com.ro",
 }
 
 
@@ -78,6 +97,40 @@ def is_moh_baby_childhood_url(url: str, *, title: str = "", snippet: str = "") -
     )
 
 
+def is_insp_baby_childhood_url(url: str, *, title: str = "", snippet: str = "") -> bool:
+    return is_baby_childhood_url(
+        url, title=title, snippet=snippet, host="insp.gov.ro"
+    )
+
+
+def is_who_baby_childhood_url(url: str, *, title: str = "", snippet: str = "") -> bool:
+    return is_baby_childhood_url(
+        url, title=title, snippet=snippet, host="who.int"
+    )
+
+
+def is_ms_baby_childhood_url(url: str, *, title: str = "", snippet: str = "") -> bool:
+    return is_baby_childhood_url(
+        url, title=title, snippet=snippet, host="ms.ro"
+    )
+
+
+def is_babyspace_ro_url(url: str, *, title: str = "", snippet: str = "") -> bool:
+    """Babyspace RO is parenting-focused; keep most article URLs under /ro/."""
+    u = (url or "").strip()
+    if "babyspace.com.ro" not in u.lower():
+        return False
+    if BABY_CHILDHOOD_EXCLUDE_RE.search(u):
+        return False
+    path = urlparse(u).path.lower()
+    if any(x in path for x in ("/e-shop", "/conecteaza", "/inscrie", "/termeni", "/cookie")):
+        return False
+    # Whole site is childhood/parenting — keep articles and guides.
+    if "/ro/" in path or path.rstrip("/").endswith("/ro"):
+        return True
+    return is_baby_childhood_url(u, title=title, snippet=snippet, host="babyspace.com.ro")
+
+
 def filter_urls_by_topic(
     urls: list[str],
     *,
@@ -89,7 +142,14 @@ def filter_urls_by_topic(
     """Filter discovered URLs using knowledge_sources topic metadata."""
     key = (source_key or "").strip().lower()
     topic = (topic_filter or "").strip().lower()
-    default_topic_keys = {"eody-gov-gr", "moh-gov-gr"}
+    default_topic_keys = {
+        "eody-gov-gr",
+        "moh-gov-gr",
+        "insp-gov-ro",
+        "who-int",
+        "ms-gov-ro",
+        "babyspace-ro",
+    }
     if not topic and key not in default_topic_keys:
         return urls
 
@@ -122,12 +182,15 @@ def filter_urls_by_topic(
         if required_host and required_host not in u.lower():
             continue
         path = urlparse(u).path.rstrip("/").lower()
-        if path in ("", "/", "/el", "/en"):
+        if path in ("", "/", "/el", "/en", "/ro"):
             continue
         # Drop pure listing pagination hubs
         if "?start=" in u and not re.search(r"/\d{3,}-", path):
             continue
-        if include.search(u):
+        keep = bool(include.search(u))
+        if key == "babyspace-ro" and not keep:
+            keep = is_babyspace_ro_url(u)
+        if keep:
             seen.add(u)
             out.append(u)
     return out

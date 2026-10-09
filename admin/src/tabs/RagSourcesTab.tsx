@@ -170,8 +170,13 @@ function siteKey(row: RagSourceRow): string {
 
 function siteLabel(key: string): string {
   if (key === 'babyspace') return 'Babyspace'
+  if (key === 'babyspace-ro') return 'Babyspace România'
   if (key === 'myparenthood') return 'My Parenthood'
   if (key === 'eody-gov-gr' || key === 'eody') return 'EODY'
+  if (key === 'moh-gov-gr') return 'MOH'
+  if (key === 'insp-gov-ro') return 'INSP'
+  if (key === 'who-int') return 'WHO'
+  if (key === 'ms-gov-ro') return 'Ministerul Sănătății'
   if (key === 'file') return 'Uploaded files'
   if (key === 'other') return 'Other'
   return key.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -181,6 +186,7 @@ type SyncSiteCard = {
   key: string
   name: string
   blurb: string
+  baseUrl?: string
   sinceYears?: number
   sources?: number
   broken?: number
@@ -189,33 +195,12 @@ type SyncSiteCard = {
   enabled?: boolean
 }
 
-const ALWAYS_SYNC_SITES: SyncSiteCard[] = [
-  {
-    key: 'babyspace',
-    name: 'Babyspace',
-    blurb:
-      'https://www.babyspace.gr/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
-    sinceYears: 5,
-    sourceType: 'website',
-    canSync: true,
-  },
-  {
-    key: 'myparenthood',
-    name: 'My Parenthood',
-    blurb:
-      'https://myparenthood.gr/blog/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
-    sourceType: 'website',
-    canSync: true,
-  },
-  {
-    key: 'eody-gov-gr',
-    name: 'EODY',
-    blurb:
-      'https://eody.gov.gr/el/ — Sync discovers additions; Fix broken re-ingests empty/error rows.',
-    sourceType: 'website',
-    canSync: true,
-  },
-]
+function syncSiteBaseUrl(site: SyncSiteCard): string {
+  const fromField = (site.baseUrl || '').trim()
+  if (fromField) return fromField
+  const m = (site.blurb || '').match(/https?:\/\/[^\s—]+/)
+  return m ? m[0] : ''
+}
 
 type SeedJobPublic = {
   id: string
@@ -406,6 +391,7 @@ export function RagSourcesTab() {
           (site.blurb && site.blurb.trim()) ||
           prev?.blurb ||
           'Registered source. Sync discovers additions; Fix broken re-ingests failures.',
+        baseUrl: site.baseUrl || prev?.baseUrl,
         sinceYears: site.sinceYears ?? prev?.sinceYears,
         sources: site.sources ?? prev?.sources,
         broken: site.broken ?? prev?.broken,
@@ -419,22 +405,21 @@ export function RagSourcesTab() {
       })
     }
 
-    // Always show the known websites (independent of API / registry).
-    for (const site of ALWAYS_SYNC_SITES) put(site)
-
-    // Health API sites (registry + library backfill).
+    // Health API sites (knowledge_sources registry + INITIAL seeds + library backfill).
     for (const s of health?.sites || []) {
       const raw = s as SyncSiteCard & {
         since_years?: number
         source_type?: string
         can_sync?: boolean
         enabled?: boolean
+        base_url?: string
       }
       const enabled = raw.enabled !== false
       put({
         key: s.key,
         name: s.name || siteLabel(s.key),
         blurb: s.blurb || '',
+        baseUrl: raw.baseUrl || raw.base_url || undefined,
         sinceYears: raw.sinceYears ?? raw.since_years,
         sources: s.sources,
         broken: s.broken,
@@ -491,17 +476,12 @@ export function RagSourcesTab() {
       if (site.broken == null) site.broken = counts.broken
     }
 
+    // Websites A–Z, then uploaded files A–Z — no pinned “legacy” collections.
     return Array.from(map.values()).sort((a, b) => {
-      const order = (s: SyncSiteCard) => {
-        if (s.key === 'babyspace') return 0
-        if (s.key === 'myparenthood') return 1
-        if (s.key === 'eody-gov-gr') return 2
-        if (s.sourceType === 'file') return 50
-        return 10
-      }
-      const d = order(a) - order(b)
-      if (d !== 0) return d
-      return a.name.localeCompare(b.name)
+      const aFile = a.sourceType === 'file' ? 1 : 0
+      const bFile = b.sourceType === 'file' ? 1 : 0
+      if (aFile !== bFile) return aFile - bFile
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
     })
   }, [health, sources])
 
@@ -1114,98 +1094,155 @@ export function RagSourcesTab() {
             <p className="muted" style={{ margin: '0 0 12px' }}>
               No collections yet. Upload a PDF or add a website below.
             </p>
-          ) : null}
-          <div className="rag-seed-preset-grid">
-            {syncSites.map((site) => {
-              const siteHealth = health?.by_source_key?.[site.key]
-              const broken = site.broken ?? siteHealth?.broken ?? 0
-              const sourceCount = site.sources ?? siteHealth?.sources
-              const canSync = site.canSync !== false && site.sourceType !== 'file' && site.enabled !== false
-              return (
-                <div key={site.key} className="rag-seed-preset">
-                  <strong>
-                    {site.name}
-                    {site.enabled === false ? (
-                      <span className="muted" style={{ fontWeight: 500, marginLeft: 6 }}>
-                        (disabled)
-                      </span>
-                    ) : null}
-                  </strong>
-                  <p>{site.blurb}</p>
-                  {typeof sourceCount === 'number' ? (
-                    <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                      {sourceCount} sources · {broken} broken
-                      {site.sourceType === 'file' ? ' · file' : ''}
-                    </p>
-                  ) : null}
-                  <div className="rag-seed-preset-actions">
-                    {site.sourceType !== 'file' ? (
-                      <button
-                        type="button"
-                        className="ghost sm"
-                        onClick={() => void openSetup(site)}
-                        title="Edit name, URL, sitemap, RSS, and sync options"
+          ) : (
+            <div className="table-wrap rag-table-wrap">
+              <table className="rag-table rag-sync-table">
+                <thead>
+                  <tr>
+                    <th>Collection</th>
+                    <th>Base URL</th>
+                    <th>Type</th>
+                    <th className="num">Sources</th>
+                    <th className="num">Broken</th>
+                    <th>Status</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {syncSites.map((site) => {
+                    const siteHealth = health?.by_source_key?.[site.key]
+                    const broken = site.broken ?? siteHealth?.broken ?? 0
+                    const sourceCount = site.sources ?? siteHealth?.sources
+                    const canSync =
+                      site.canSync !== false &&
+                      site.sourceType !== 'file' &&
+                      site.enabled !== false
+                    const base = syncSiteBaseUrl(site)
+                    const jobBusy = seedingKey !== null || Boolean(seedJob && !seedJob.done)
+                    return (
+                      <tr
+                        key={site.key}
+                        className={broken > 0 ? 'rag-row-warn' : undefined}
                       >
-                        <Pencil size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
-                        Edit setup
-                      </button>
-                    ) : null}
-                    {canSync ? (
-                      <button
-                        type="button"
-                        className="sec"
-                        onClick={() =>
-                          void seedSite(site.key, site.name, {
-                            sinceYears: site.sinceYears,
-                            mode: 'add_new',
-                          })
-                        }
-                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
-                      >
-                        <Sprout size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-                        {seedingKey === site.key ? 'Starting…' : 'Sync new pages'}
-                      </button>
-                    ) : null}
-                    {canSync ? (
-                      <button
-                        type="button"
-                        className="ghost sm"
-                        onClick={() =>
-                          void seedSite(site.key, site.name, {
-                            sinceYears: site.sinceYears,
-                            mode: 'rebuild_empty',
-                          })
-                        }
-                        disabled={seedingKey !== null || Boolean(seedJob && !seedJob.done)}
-                        title={
-                          broken > 0
-                            ? `Re-ingest ${broken} broken source${broken === 1 ? '' : 's'}`
-                            : 'Re-ingest empty/error sources for this site'
-                        }
-                      >
-                        {broken > 0 ? `Fix ${broken} broken` : 'Fix broken'}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="ghost sm"
-                        onClick={() => {
-                          setFilterSite(site.key)
-                          setShowAddPanel(true)
-                          document.getElementById('rag-library')?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start',
-                          })
-                        }}
-                      >
-                        View in library
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                        <td>
+                          <strong className="rag-title">{site.name}</strong>
+                        </td>
+                        <td className="rag-origin">
+                          {base ? (
+                            <a
+                              href={base}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={base}
+                              className="rag-url"
+                            >
+                              <span>{shortUrl(base)}</span>
+                              <ExternalLink size={12} aria-hidden />
+                            </a>
+                          ) : (
+                            <span className="muted" title={site.blurb || undefined}>
+                              {site.sourceType === 'file' ? 'Uploaded file' : '—'}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="rag-kind">
+                            {site.sourceType === 'file' ? 'File' : 'Website'}
+                          </span>
+                        </td>
+                        <td className="num">
+                          {typeof sourceCount === 'number' ? sourceCount : '—'}
+                        </td>
+                        <td className="num">
+                          <span className={broken > 0 ? 'rag-chunks warn' : undefined}>
+                            {broken}
+                          </span>
+                        </td>
+                        <td>
+                          {site.enabled === false ? (
+                            <span className="badge badge-muted">Disabled</span>
+                          ) : (
+                            <span className="badge badge-ok">Enabled</span>
+                          )}
+                        </td>
+                        <td className="rag-sync-actions">
+                          <div className="rag-seed-preset-actions">
+                            {site.sourceType !== 'file' ? (
+                              <button
+                                type="button"
+                                className="ghost sm"
+                                onClick={() => void openSetup(site)}
+                                title="Edit name, URL, sitemap, RSS, and sync options"
+                              >
+                                <Pencil size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                                Edit
+                              </button>
+                            ) : null}
+                            {canSync ? (
+                              <button
+                                type="button"
+                                className="sec sm"
+                                onClick={() =>
+                                  void seedSite(site.key, site.name, {
+                                    sinceYears: site.sinceYears,
+                                    mode: 'add_new',
+                                  })
+                                }
+                                disabled={jobBusy}
+                              >
+                                <Sprout
+                                  size={14}
+                                  style={{ verticalAlign: -2, marginRight: 4 }}
+                                />
+                                {seedingKey === site.key ? 'Starting…' : 'Sync'}
+                              </button>
+                            ) : null}
+                            {canSync ? (
+                              <button
+                                type="button"
+                                className="ghost sm"
+                                onClick={() =>
+                                  void seedSite(site.key, site.name, {
+                                    sinceYears: site.sinceYears,
+                                    mode: 'rebuild_empty',
+                                  })
+                                }
+                                disabled={jobBusy}
+                                title={
+                                  broken > 0
+                                    ? `Re-ingest ${broken} broken source${broken === 1 ? '' : 's'}`
+                                    : 'Re-ingest empty/error sources for this site'
+                                }
+                              >
+                                {broken > 0 ? `Fix ${broken}` : 'Fix'}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="ghost sm"
+                                onClick={() => {
+                                  setFilterSite(site.key)
+                                  setShowAddPanel(true)
+                                  document
+                                    .getElementById('rag-library')
+                                    ?.scrollIntoView({
+                                      behavior: 'smooth',
+                                      block: 'start',
+                                    })
+                                }}
+                              >
+                                Library
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
 
