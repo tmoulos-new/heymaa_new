@@ -2479,7 +2479,7 @@ _LIST_FORMAT_RULE = (
     "Put address / rating / phone on the same bullet after an em dash, or on a short second line. "
     "Never paste raw 'maps: https://…' as trailing clutter — links belong on the name. "
     "Never tell the user you cannot provide sources or links. "
-    "Real library pages are shown by the app in the Πηγές / Sources button under the reply. "
+    "Real library pages are shown by the app in the Πηγές / Sources / Surse button under the reply. "
     "If they ask for sources, point them to that button. Do not invent URLs. "
     "Ordinary advice (non-list) stays clean prose without forced bullets."
 )
