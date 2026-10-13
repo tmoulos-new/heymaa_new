@@ -672,7 +672,11 @@ export function RagSourcesTab() {
   const seedSite = async (
     sourceKey: string,
     label: string,
-    opts?: { sinceYears?: number; mode?: 'add_new' | 'rebuild_empty' },
+    opts?: {
+      sinceYears?: number
+      mode?: 'add_new' | 'rebuild_empty'
+      fallbackKeys?: string[]
+    },
   ) => {
     const mode = opts?.mode || 'add_new'
     setSeedingKey(sourceKey)
@@ -691,6 +695,17 @@ export function RagSourcesTab() {
       const job0 = (created.job || created) as SeedJobPublic
       setSeedJob(job0)
       if (mode === 'rebuild_empty' && (job0.queued || 0) < 1) {
+        const nextKey = (opts?.fallbackKeys || []).find((k) => k && k !== sourceKey)
+        if (nextKey) {
+          const nextSite = syncSites.find((s) => s.key === nextKey)
+          setSeedingKey(null)
+          await seedSite(nextKey, nextSite?.name || siteLabel(nextKey), {
+            sinceYears: nextSite?.sinceYears,
+            mode: 'rebuild_empty',
+            fallbackKeys: (opts?.fallbackKeys || []).filter((k) => k !== nextKey),
+          })
+          return
+        }
         show(`${label}: nothing to rebuild`, 'ok')
         setSeedingKey(null)
         await loadSources()
@@ -1065,10 +1080,16 @@ export function RagSourcesTab() {
                   (a, b) => (b[1].broken || 0) - (a[1].broken || 0),
                 )
                 const syncable = syncSites.filter((s) => s.canSync !== false && s.sourceType !== 'file')
-                const key =
-                  brokenEntries.find(([k]) => syncable.some((s) => s.key === k))?.[0] ||
-                  syncable[0]?.key ||
-                  syncSites[0]?.key
+                // Prefer sites that health says are broken; fall back so we don't
+                // always land on Babyspace when its "broken" rows are unfixable orphans.
+                const keys = [
+                  ...brokenEntries
+                    .filter(([, v]) => (v.broken || 0) > 0)
+                    .map(([k]) => k)
+                    .filter((k) => syncable.some((s) => s.key === k)),
+                  ...syncable.map((s) => s.key).filter((k) => !brokenEntries.some(([bk]) => bk === k)),
+                ]
+                const key = keys[0] || syncSites[0]?.key
                 if (!key) {
                   show('No website sources to rebuild', 'err')
                   return
@@ -1083,6 +1104,8 @@ export function RagSourcesTab() {
                 void seedSite(site.key, site.name, {
                   sinceYears: site.sinceYears,
                   mode: 'rebuild_empty',
+                  // If this site has nothing rebuildable, try the next broken site.
+                  fallbackKeys: keys.slice(1),
                 })
               }}
             >

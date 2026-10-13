@@ -10,8 +10,9 @@ class QueryTests(unittest.TestCase):
             "καλησπέρα μπορείς να μου βρεις παιδίατρους στη ηλιουπολή?"
         )
         self.assertIn("παιδίατρους", q)
-        # Normalizes common Ηλιούπολη spellings
+        # Normalizes common Ηλιούπολη spellings without doubling the final η
         self.assertTrue("ηλιούπολ" in q.casefold() or "ηλιουπολ" in q.casefold())
+        self.assertNotIn("ηλιούποληη", q.casefold())
         self.assertNotIn("καλησπέρα", q.casefold())
 
     def test_appends_location_hint(self):

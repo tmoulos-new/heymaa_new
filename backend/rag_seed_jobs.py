@@ -97,22 +97,88 @@ def _normalize_job_url(url: str) -> str:
         return raw
 
 
+def _url_belongs_to_source_key(url: str, source_key: str) -> bool:
+    """Match orphan (null source_key) rows to a collection by host."""
+    from urllib.parse import urlparse
+
+    key = _slug_source_key(source_key)
+    raw = (url or "").strip().lower()
+    if not key or not raw.startswith("http"):
+        return False
+    try:
+        host = urlparse(raw).netloc.replace("www.", "").lower()
+    except Exception:
+        return False
+    host_map = {
+        "babyspace": ("babyspace.gr",),
+        "babyspace-ro": ("babyspace.com.ro",),
+        "myparenthood": ("myparenthood.gr",),
+        "eody-gov-gr": ("eody.gov.gr",),
+        "eody": ("eody.gov.gr",),
+        "moh-gov-gr": ("moh.gov.gr",),
+        "insp-gov-ro": ("insp.gov.ro",),
+        "who-int": ("who.int",),
+        "ms-gov-ro": ("ms.ro",),
+    }
+    needles = host_map.get(key)
+    if needles:
+        return any(n in host for n in needles)
+    # Generic: knowledge_sources key derived from host slug
+    host_slug = re.sub(r"[^a-z0-9]+", "-", host).strip("-")
+    return host_slug == key or host.replace(".", "-") == key
+
+
 def _broken_urls_for_source(sb, source_key: str) -> list[str]:
     """URLs that need rebuild: error status, or ready/processing with no chunks.
 
+    Includes legacy rows with null source_key whose host matches this collection
+    (health tiles count those under Babyspace etc., so Fix must too).
     Skips disabled / unavailable (dead 404) rows so Fix broken does not loop.
     Paginates past PostgREST's default 1000-row cap.
     """
     out: list[str] = []
     seen: set[str] = set()
+    key = _slug_source_key(source_key)
+    if not key:
+        return out
     page = 1000
     start = 0
+
+    def _consider(row: dict[str, Any]) -> None:
+        st = (row.get("status") or "").lower()
+        if st in _DEAD_SOURCE_STATUSES:
+            return
+        if row.get("enabled") is False:
+            return
+        chunks = int(row.get("chunk_count") or 0)
+        if not (st == "error" or chunks < 1):
+            return
+        sk = (row.get("source_key") or "").strip().lower()
+        for col in ("source_url", "origin"):
+            val = (row.get(col) or "").strip()
+            if not val or not val.startswith("http"):
+                continue
+            if sk and sk != key:
+                continue
+            if not sk and not _url_belongs_to_source_key(val, key):
+                continue
+            cleaned = _normalize_job_url(val)
+            if not cleaned.startswith("http"):
+                continue
+            norm = cleaned.split("?")[0]
+            if norm in seen:
+                continue
+            seen.add(norm)
+            out.append(cleaned)
+            return
+
     try:
+        # 1) Rows already tagged with this source_key
         while True:
             res = (
                 sb.table("rag_sources")
-                .select("origin,source_url,status,chunk_count,source_type,enabled")
-                .eq("source_key", source_key)
+                .select("origin,source_url,status,chunk_count,source_type,enabled,source_key")
+                .eq("source_key", key)
                 .range(start, start + page - 1)
                 .execute()
             )
@@ -120,28 +186,42 @@ def _broken_urls_for_source(sb, source_key: str) -> list[str]:
             if not rows:
                 break
             for row in rows:
-                st = (row.get("status") or "").lower()
-                if st in _DEAD_SOURCE_STATUSES:
+                _consider(row)
+            if len(rows) < page:
+                break
+            start += page
+
+        # 2) Orphans (null/empty source_key) that health attributes to this site by host
+        start = 0
+        while True:
+            try:
+                res = (
+                    sb.table("rag_sources")
+                    .select(
+                        "origin,source_url,status,chunk_count,source_type,enabled,source_key"
+                    )
+                    .is_("source_key", "null")
+                    .range(start, start + page - 1)
+                    .execute()
+                )
+            except Exception:
+                # Older PostgREST: filter in Python after a broader page.
+                res = (
+                    sb.table("rag_sources")
+                    .select(
+                        "origin,source_url,status,chunk_count,source_type,enabled,source_key"
+                    )
+                    .range(start, start + page - 1)
+                    .execute()
+                )
+            rows = list(res.data or [])
+            if not rows:
+                break
+            for row in rows:
+                sk = (row.get("source_key") or "").strip()
+                if sk:
                     continue
-                if row.get("enabled") is False:
-                    continue
-                chunks = int(row.get("chunk_count") or 0)
-                needs = st == "error" or chunks < 1
-                if not needs:
-                    continue
-                for key in ("source_url", "origin"):
-                    val = (row.get(key) or "").strip()
-                    if not val or not val.startswith("http"):
-                        continue
-                    cleaned = _normalize_job_url(val)
-                    if not cleaned.startswith("http"):
-                        continue
-                    norm = cleaned.split("?")[0]
-                    if norm in seen:
-                        continue
-                    seen.add(norm)
-                    out.append(cleaned)
-                    break
+                _consider(row)
             if len(rows) < page:
                 break
             start += page

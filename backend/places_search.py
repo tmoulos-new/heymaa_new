@@ -22,11 +22,12 @@ _FIELD_MASK = (
     "places.nationalPhoneNumber,places.location"
 )
 
-# Common Greek spelling mistakes that break Places search / map intent
+# Common Greek spelling mistakes that break Places search / map intent.
+# Consume optional trailing η/ή so "ηλιουπολή" does not become "Ηλιούποληή".
 _PLACE_QUERY_FIXES = (
     (re.compile(r"παλα[ιί]?ο\s*φ[αά]ληρ[οο]?υ?", re.I), "Παλαιό Φάληρο"),
     (re.compile(r"ν[εέ]ο\s*φ[αά]ληρ[οο]?υ?", re.I), "Νέο Φάληρο"),
-    (re.compile(r"ηλιο[υύ]πολ", re.I), "Ηλιούπολη"),
+    (re.compile(r"ηλιο[υύ]πολ[ηή]?", re.I), "Ηλιούπολη"),
     (re.compile(r"καλλιθ[εέ]α", re.I), "Καλλιθέα"),
 )
 
