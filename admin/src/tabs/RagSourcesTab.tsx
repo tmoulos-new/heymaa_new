@@ -291,9 +291,12 @@ export function RagSourcesTab() {
   const [setupSitemap, setSetupSitemap] = useState('')
   const [setupRss, setSetupRss] = useState('')
   const [setupMax, setSetupMax] = useState('50')
+  const [setupMaxDiscoverPages, setSetupMaxDiscoverPages] = useState('250')
   const [setupSinceYears, setSetupSinceYears] = useState('')
   const [setupDiscover, setSetupDiscover] = useState('crawl')
   const [setupEnabled, setSetupEnabled] = useState(true)
+  const [setupHint, setSetupHint] = useState('')
+  const [setupSupportsListing, setSetupSupportsListing] = useState(false)
 
   const [filterQ, setFilterQ] = useState('')
   const [filterKind, setFilterKind] = useState<'all' | 'URL' | 'File'>('all')
@@ -768,15 +771,19 @@ export function RagSourcesTab() {
   const openSetup = async (site: SyncSiteCard) => {
     // Prefill from the table card immediately — never block the modal on "Loading…".
     const cardBase = syncSiteBaseUrl(site) || site.baseUrl || ''
+    const listingDefault = site.key.startsWith('babyspace')
     setSetupKey(site.key)
     setSetupName(site.name)
     setSetupBaseUrl(cardBase)
     setSetupSitemap('')
     setSetupRss('')
-    setSetupMax('50')
-    setSetupSinceYears(site.sinceYears != null ? String(site.sinceYears) : '')
-    setSetupDiscover('crawl')
+    setSetupMax(listingDefault ? '2000' : '200')
+    setSetupMaxDiscoverPages('250')
+    setSetupSinceYears(site.sinceYears != null ? String(site.sinceYears) : listingDefault ? '5' : '')
+    setSetupDiscover(listingDefault ? 'listing_pages' : 'crawl')
     setSetupEnabled(site.enabled !== false)
+    setSetupSupportsListing(listingDefault)
+    setSetupHint('')
     setSetupLoading(true)
     try {
       const d = await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(site.key)}`)
@@ -786,24 +793,45 @@ export function RagSourcesTab() {
         sitemap_url?: string
         rss_url?: string
         max_urls?: number
+        max_discover_pages?: number
         since_years?: number
         discover?: string
         enabled?: boolean
+        preset?: {
+          discover?: string
+          max_urls?: number
+          max_discover_pages?: number
+          since_years?: number
+          sitemap_url?: string
+          rss_url?: string
+          supports_listing_pages?: boolean
+          hint?: string
+        }
       }
+      const preset = s.preset || {}
       setSetupName(s.name || site.name)
       setSetupBaseUrl(s.base_url || cardBase)
-      setSetupSitemap(s.sitemap_url || '')
-      setSetupRss(s.rss_url || '')
-      setSetupMax(String(s.max_urls ?? 50))
+      setSetupSitemap(s.sitemap_url || preset.sitemap_url || '')
+      setSetupRss(s.rss_url || preset.rss_url || '')
+      setSetupMax(String(s.max_urls ?? preset.max_urls ?? 50))
+      setSetupMaxDiscoverPages(
+        String(s.max_discover_pages ?? preset.max_discover_pages ?? 250),
+      )
       setSetupSinceYears(
         s.since_years != null
           ? String(s.since_years)
-          : site.sinceYears != null
-            ? String(site.sinceYears)
-            : '',
+          : preset.since_years != null
+            ? String(preset.since_years)
+            : site.sinceYears != null
+              ? String(site.sinceYears)
+              : '',
       )
-      setSetupDiscover(s.discover || 'crawl')
+      setSetupDiscover(s.discover || preset.discover || 'crawl')
       setSetupEnabled(s.enabled !== false)
+      setSetupSupportsListing(
+        preset.supports_listing_pages === true || site.key.startsWith('babyspace'),
+      )
+      setSetupHint(preset.hint || '')
     } catch (e) {
       // Keep the prefilled form so the admin can still edit/save from card values.
       if (!cardBase) {
@@ -831,8 +859,13 @@ export function RagSourcesTab() {
     }
     setSetupSaving(true)
     try {
-      const maxUrls = Math.max(1, Math.min(Number(setupMax) || 50, 300))
+      const listing = setupDiscover === 'listing_pages'
+      const maxCap = listing ? 2000 : 500
+      const maxUrls = Math.max(1, Math.min(Number(setupMax) || 50, maxCap))
       const since = setupSinceYears.trim() ? Number(setupSinceYears) : undefined
+      const maxDiscoverPages = listing
+        ? Math.max(1, Math.min(Number(setupMaxDiscoverPages) || 250, 400))
+        : undefined
       await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(setupKey)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -844,6 +877,7 @@ export function RagSourcesTab() {
           max_urls: maxUrls,
           discover: setupDiscover,
           since_years: Number.isFinite(since) ? since : undefined,
+          max_discover_pages: maxDiscoverPages,
           enabled: setupEnabled,
         }),
       })
@@ -1776,6 +1810,11 @@ export function RagSourcesTab() {
                 These settings control how <strong>Sync new pages</strong> finds content. They do not
                 change pages already in the library until you sync or fix broken.
               </p>
+              {setupHint ? (
+                <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+                  {setupHint}
+                </p>
+              ) : null}
               <div className="field">
                 <FieldLabel>Display name</FieldLabel>
                 <input
@@ -1792,54 +1831,78 @@ export function RagSourcesTab() {
                   placeholder="https://example.com/blog/"
                 />
               </div>
-              <div className="field">
-                <FieldLabel>Sitemap URL (optional)</FieldLabel>
-                <input
-                  value={setupSitemap}
-                  onChange={(e) => setSetupSitemap(e.target.value)}
-                  placeholder="https://example.com/post-sitemap.xml"
-                />
-              </div>
-              <div className="field">
-                <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
-                <input
-                  value={setupRss}
-                  onChange={(e) => setSetupRss(e.target.value)}
-                  placeholder="https://example.com/feed"
-                />
-              </div>
+              {setupDiscover !== 'listing_pages' ? (
+                <>
+                  <div className="field">
+                    <FieldLabel>Sitemap URL (optional)</FieldLabel>
+                    <input
+                      value={setupSitemap}
+                      onChange={(e) => setSetupSitemap(e.target.value)}
+                      placeholder="https://example.com/post-sitemap.xml"
+                    />
+                  </div>
+                  <div className="field">
+                    <FieldLabel>RSS / Atom URL (optional)</FieldLabel>
+                    <input
+                      value={setupRss}
+                      onChange={(e) => setSetupRss(e.target.value)}
+                      placeholder="https://example.com/feed"
+                    />
+                  </div>
+                </>
+              ) : null}
               <div className="field">
                 <FieldLabel>How Sync discovers pages</FieldLabel>
                 <select value={setupDiscover} onChange={(e) => setSetupDiscover(e.target.value)}>
                   <option value="crawl">Crawl links from base URL</option>
                   <option value="sitemap">Sitemap</option>
                   <option value="rss">RSS / Atom feed</option>
-                  <option value="listing_pages">Paged article listing (Babyspace-style)</option>
+                  {setupSupportsListing ? (
+                    <option value="listing_pages">Paged article listing (Babyspace-style)</option>
+                  ) : null}
                 </select>
               </div>
               <div className="field">
-                <FieldLabel>Max pages per sync</FieldLabel>
+                <FieldLabel>
+                  {setupDiscover === 'listing_pages'
+                    ? 'Max URLs queued per sync'
+                    : 'Max pages per sync'}
+                </FieldLabel>
                 <input
                   value={setupMax}
                   onChange={(e) => setSetupMax(e.target.value)}
                   inputMode="numeric"
-                  placeholder="50"
+                  placeholder={setupDiscover === 'listing_pages' ? '2000' : '200'}
                 />
                 <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                  Cap for newly discovered URLs each Sync (not total library size). RSS feeds rarely
-                  have more than ~50–100 items — values like 2000 can time out. Practical max ~300.
+                  {setupDiscover === 'listing_pages'
+                    ? 'Listing mode can queue up to ~2000 article URLs across listing pages.'
+                    : setupDiscover === 'sitemap'
+                      ? 'Sitemap mode: practical max ~500 URLs per Sync tick budget.'
+                      : 'Crawl/RSS: practical max ~200–500. Gov sites may block large crawls.'}
                 </p>
               </div>
               {setupDiscover === 'listing_pages' ? (
-                <div className="field">
-                  <FieldLabel>Only articles newer than (years)</FieldLabel>
-                  <input
-                    value={setupSinceYears}
-                    onChange={(e) => setSetupSinceYears(e.target.value)}
-                    inputMode="decimal"
-                    placeholder="5"
-                  />
-                </div>
+                <>
+                  <div className="field">
+                    <FieldLabel>Max listing pages to walk</FieldLabel>
+                    <input
+                      value={setupMaxDiscoverPages}
+                      onChange={(e) => setSetupMaxDiscoverPages(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="250"
+                    />
+                  </div>
+                  <div className="field">
+                    <FieldLabel>Only articles newer than (years)</FieldLabel>
+                    <input
+                      value={setupSinceYears}
+                      onChange={(e) => setSetupSinceYears(e.target.value)}
+                      inputMode="decimal"
+                      placeholder="5"
+                    />
+                  </div>
+                </>
               ) : null}
               <label
                 className="field"

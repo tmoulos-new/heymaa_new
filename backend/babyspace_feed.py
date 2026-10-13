@@ -17,7 +17,9 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qsl, urlencode
 
 BABYSPACE_BASE = "https://www.babyspace.gr"
+BABYSPACE_RO_BASE = "https://www.babyspace.com.ro"
 DEFAULT_LISTING_PATH = "/el/articles"
+DEFAULT_LISTING_PATH_RO = "/ro/articles"
 USER_AGENT = "Mozilla/5.0 (compatible; BabyspaceRSS/1.0; +https://heymaa.ai)"
 
 _SKIP_PATH = re.compile(r"/(tags|banners|users|tools)\b|\d+-%CE|#", re.I)
@@ -39,11 +41,16 @@ _DATE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})\s*([+-]\d{2}):?(\d{2})"
 )
 _LINK_WITH_IMG_RE = re.compile(
-    r"""<a[^>]+href=["']([^"']*?/el/[^"']+)["'][^>]*>\s*(?:<[^>]+>\s*)*<img\b([^>]*)>""",
+    r"""<a[^>]+href=["']([^"']*?/(?:el|ro)/[^"']+)["'][^>]*>\s*(?:<[^>]+>\s*)*<img\b([^>]*)>""",
+    re.I | re.S,
+)
+_LOCALE_ARTICLE_HREF_RE = re.compile(
+    r"""<a[^>]+href=["']([^"']+/(?:el|ro)/[^"']+)["'][^>]*>(.*?)</a>""",
     re.I | re.S,
 )
 _TAG_TEXT_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
+_ARTICLE_LOCALES = frozenset({"el", "ro"})
 
 
 @dataclass
@@ -67,8 +74,10 @@ def safe_path(path: Optional[str]) -> str:
         decoded = unquote(path)
     except Exception:
         pass
-    if not decoded.startswith("/el") or ".." in decoded or "//" in decoded:
-        raise ValueError("path must be a babyspace.gr page under /el")
+    if ".." in decoded or "//" in decoded:
+        raise ValueError("path must be a babyspace listing under /el or /ro")
+    if not (decoded.startswith("/el") or decoded.startswith("/ro")):
+        raise ValueError("path must be a babyspace listing under /el or /ro")
     return path if path.startswith("/") else f"/{path}"
 
 
@@ -117,9 +126,33 @@ def parse_date(s: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _is_article_href(href: str) -> bool:
+def _host_allowed(href: str, *, base: str) -> bool:
+    """Babyspace GR and RO must never cross-contaminate each other."""
+    try:
+        link_host = (urlparse(href).netloc or "").lower()
+        base_host = (urlparse(base).netloc or "").lower()
+    except Exception:
+        return False
+    if not link_host or not base_host:
+        return False
+    if "babyspace.com.ro" in base_host:
+        return "babyspace.com.ro" in link_host
+    if "babyspace.gr" in base_host:
+        return "babyspace.gr" in link_host and "babyspace.com.ro" not in link_host
+    return link_host == base_host or link_host.endswith("." + base_host)
+
+
+def _is_article_href(
+    href: str,
+    *,
+    locale: Optional[str] = None,
+    base: Optional[str] = None,
+) -> bool:
+    if base and not _host_allowed(href, base=base):
+        return False
     path = urlparse(href).path or ""
-    if not path.startswith("/el/"):
+    locales = {locale} if locale in _ARTICLE_LOCALES else _ARTICLE_LOCALES
+    if not any(path.startswith(f"/{loc}/") for loc in locales):
         return False
     if _SKIP_PATH.search(path):
         return False
@@ -127,12 +160,12 @@ def _is_article_href(href: str) -> bool:
     parts = [p for p in path.split("/") if p]
     if len(parts) < 2:
         return False
-    if parts[-1] in ("articles", "el"):
+    if parts[-1] in ("articles", "el", "ro"):
         return False
     return True
 
 
-def _itemprop_map(block: str) -> dict[str, str]:
+def _itemprop_map(block: str, *, base: str = BABYSPACE_BASE) -> dict[str, str]:
     props: dict[str, str] = {}
     for m in _ITEMPROP_RE.finditer(block):
         name = (m.group(1) or "").strip().lower()
@@ -150,7 +183,7 @@ def _itemprop_map(block: str) -> dict[str, str]:
             if t:
                 props["headline"] = t
         if "url" not in props:
-            link = abs_url(m.group(1))
+            link = abs_url(m.group(1), base=base)
             if link:
                 props["url"] = link
     return props
@@ -168,13 +201,28 @@ def _split_itemscope_blocks(html: str) -> list[str]:
     return blocks
 
 
-def parse_listing(html: str) -> list[FeedItem]:
+def parse_listing(
+    html: str,
+    *,
+    base: str = BABYSPACE_BASE,
+    locale: Optional[str] = None,
+) -> list[FeedItem]:
     items: dict[str, FeedItem] = {}
+    loc = (locale or "").strip().lower() or None
+    if loc not in _ARTICLE_LOCALES:
+        # Infer from base host when not passed explicitly.
+        if "babyspace.com.ro" in (base or "").lower():
+            loc = "ro"
+        else:
+            loc = "el"
+
+    def _abs(href: Optional[str]) -> Optional[str]:
+        return abs_url(href, base=base)
 
     def add(it: FeedItem) -> None:
         if not it.title or not it.link:
             return
-        if not _is_article_href(it.link):
+        if not _is_article_href(it.link, locale=loc, base=base):
             return
         key = it.link.split("?")[0]
         if key not in items:
@@ -182,26 +230,30 @@ def parse_listing(html: str) -> list[FeedItem]:
 
     # Strategy 1: schema.org Article / BlogPosting microdata
     for block in _split_itemscope_blocks(html):
-        props = _itemprop_map(block)
+        props = _itemprop_map(block, base=base)
         title_link = None
         tl = _TITLE_LINK_RE.search(block)
         if tl:
-            title_link = abs_url(tl.group(1))
+            title_link = _abs(tl.group(1))
         link = (
-            abs_url(props.get("url") or props.get("mainentityofpage"))
+            _abs(props.get("url") or props.get("mainentityofpage"))
             or title_link
         )
         if not link:
             for hm in _HREF_RE.finditer(block):
-                cand = abs_url(hm.group(1))
-                if cand and _is_article_href(cand) and "/tags/" not in cand:
+                cand = _abs(hm.group(1))
+                if (
+                    cand
+                    and _is_article_href(cand, locale=loc, base=base)
+                    and "/tags/" not in cand
+                ):
                     link = cand
                     break
-        image = abs_url(props.get("image"))
+        image = _abs(props.get("image"))
         if not image:
             im = _IMG_SRC_RE.search(block)
             if im:
-                image = abs_url(im.group(1))
+                image = _abs(im.group(1))
         title = props.get("headline") or props.get("name")
         if not title and tl:
             title = _strip_tags(tl.group(2))
@@ -233,8 +285,8 @@ def parse_listing(html: str) -> list[FeedItem]:
             href = m.group(1) or ""
             if _SKIP_PATH.search(href):
                 continue
-            link = abs_url(href)
-            if not link or not _is_article_href(link):
+            link = _abs(href)
+            if not link or not _is_article_href(link, locale=loc, base=base):
                 continue
             img_attrs = m.group(2) or ""
             title = None
@@ -246,21 +298,17 @@ def parse_listing(html: str) -> list[FeedItem]:
             image = None
             sm = re.search(r"""src=["']([^"']+)["']""", img_attrs, re.I)
             if sm:
-                image = abs_url(sm.group(1))
+                image = _abs(sm.group(1))
             add(FeedItem(title=title, link=link, image=image))
 
-    # Strategy 3: any deep /el/ article hrefs with readable anchor text
+    # Strategy 3: any deep /el or /ro article hrefs with readable anchor text
     if len(items) < 3:
-        for m in re.finditer(
-            r"""<a[^>]+href=["']([^"']+/el/[^"']+)["'][^>]*>(.*?)</a>""",
-            html,
-            re.I | re.S,
-        ):
+        for m in _LOCALE_ARTICLE_HREF_RE.finditer(html):
             href = m.group(1) or ""
             if _SKIP_PATH.search(href):
                 continue
-            link = abs_url(href)
-            if not link or not _is_article_href(link):
+            link = _abs(href)
+            if not link or not _is_article_href(link, locale=loc, base=base):
                 continue
             title = _strip_tags(m.group(2))
             if not title or len(title) < 12:
@@ -347,13 +395,18 @@ def _listing_url(path_or_url: str) -> str:
     return BABYSPACE_BASE + safe_path(raw)
 
 
-def fetch_listing_html(path_or_url: str = DEFAULT_LISTING_PATH, *, timeout: int = 25) -> str:
+def fetch_listing_html(
+    path_or_url: str = DEFAULT_LISTING_PATH,
+    *,
+    timeout: int = 25,
+    accept_language: str = "el",
+) -> str:
     import requests
 
     url = _listing_url(path_or_url)
     headers = {
         "User-Agent": USER_AGENT,
-        "Accept-Language": "el",
+        "Accept-Language": accept_language or "el",
         "Accept": "text/html,application/xhtml+xml",
     }
     try:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 DISCOVER_PAGES_PER_TICK = 3
 DEFAULT_BATCH_SIZE = 5
@@ -295,7 +296,115 @@ def slug_from_filename(filename: str) -> str:
     return slug[:40]
 
 
-# Initial collections — same shape as anything added later via admin.
+# Per-source Sync defaults (Edit setup + seed). Keep discover mode matched to
+# how each site actually publishes content — listing for Babyspace, sitemap for
+# My Parenthood, multi-hub topic-filtered crawl for gov/WHO.
+_CRAWL_CHILDHOOD_META: dict[str, Any] = {
+    "discover": "crawl",
+    "max_urls": 400,
+    "topic_filter": "baby_childhood",
+    "seed": True,
+}
+
+# Curated hubs so Sync does not depend on a single shallow base_url crawl.
+_EODY_SEED_URLS = [
+    "https://eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/emboliasmoi.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/ilara.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/kokkytis.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/anemevlogia.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/miniggitida.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/rotaios.html",
+    "https://www.eody.gov.gr/el/nosimata/metadotika/nosimata-kai-themata-ygeias/pnevmoniokokkos.html",
+]
+
+_MOH_SEED_URLS = [
+    "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/emboliasmoi",
+    (
+        "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/"
+        "emboliasmoi/ethniko-programma-emboliasmwn-epe-paidiwn-kai-efhbwn"
+    ),
+    (
+        "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/"
+        "emboliasmoi/ethnikh-epitroph-emboliasmwn"
+    ),
+    (
+        "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/"
+        "emboliasmoi/alles-systaseis-ths-ethnikhs-epitrophs-emboliasmwn"
+    ),
+    (
+        "https://www.moh.gov.gr/articles/health/dieythynsh-dhmosias-ygieinhs/"
+        "metadotika-kai-mh-metadotika-noshmata/c388-egkyklioi"
+    ),
+    (
+        "https://www.moh.gov.gr/articles/health/dieythynsh-prwtobathmias-frontidas-ygeias/"
+        "draseis-kai-programmata-agwghs-ygeias"
+    ),
+]
+
+_WHO_SEED_URLS = [
+    "https://www.who.int/news-room/fact-sheets",
+    "https://www.who.int/health-topics/breastfeeding",
+    "https://www.who.int/health-topics/infant-nutrition",
+    "https://www.who.int/health-topics/immunization",
+    "https://www.who.int/health-topics/newborn-health",
+    "https://www.who.int/health-topics/child-health",
+    "https://www.who.int/health-topics/adolescent-health",
+    "https://www.who.int/teams/maternal-newborn-child-adolescent-health-and-ageing",
+    "https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding",
+    "https://www.who.int/news-room/fact-sheets/detail/newborn-mortality",
+    "https://www.who.int/news-room/fact-sheets/detail/preterm-birth",
+    "https://www.who.int/news-room/fact-sheets/detail/measles",
+    "https://www.who.int/news-room/fact-sheets/detail/immunization-coverage",
+    "https://www.who.int/news-room/fact-sheets/detail/breastfeeding",
+    "https://www.who.int/news-room/fact-sheets/detail/pneumonia",
+    "https://www.who.int/news-room/fact-sheets/detail/diarrhoeal-disease",
+    "https://www.who.int/news-room/fact-sheets/detail/hepatitis-b",
+    "https://www.who.int/news-room/fact-sheets/detail/poliomyelitis",
+    "https://www.who.int/news-room/fact-sheets/detail/rubella",
+    "https://www.who.int/news-room/fact-sheets/detail/pertussis",
+    "https://www.who.int/news-room/fact-sheets/detail/adolescent-pregnancy",
+    "https://www.who.int/news-room/fact-sheets/detail/adolescents-health-risks-and-solutions",
+    "https://www.who.int/news-room/fact-sheets/detail/child-maltreatment",
+    "https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight",
+]
+
+_INSP_SEED_URLS = [
+    "https://insp.gov.ro/",
+    "https://insp.gov.ro/centrul-national-de-supraveghere-si-control-al-bolilor-transmisibile-cnscbt/vaccinare/",
+    "https://insp.gov.ro/centrul-national-de-supraveghere-si-control-al-bolilor-transmisibile-cnscbt/calendarul-national-de-vaccinare/",
+    "https://insp.gov.ro/centrul-national-de-evaluare-si-promovare-a-starii-de-sanatate-cnepss/",
+    "https://insp.gov.ro/2022/08/22/insp-incurajeaza-vaccinarea-copiilor/",
+    "https://insp.gov.ro/2024/04/01/luna-nationala-de-informare-despre-vaccinare/",
+    "https://insp.gov.ro/2025/04/15/informatii-despre-vaccinare/",
+    "https://insp.gov.ro/2024/07/10/ghid-de-preventie-consultatia-preventiva-integrata-la-copil-si-adult/",
+    "https://insp.gov.ro/2023/11/02/noiembrie-2023-campania-ce-cat-si-cum-mananca-un-copil-istet/",
+    "https://insp.gov.ro/en/2024/04/22/unwanted-pregnancies-in-teenagers-what-can-we-do/",
+    "https://insp.gov.ro/wp-content/uploads/2026/03/01_Calendar_National_Vaccinare.pdf",
+    "https://insp.gov.ro/wp-content/uploads/2024/04/PNI-1-1.pdf",
+    "https://insp.gov.ro/wp-content/uploads/2024/07/RECOMANDARI-PENTRU-O-SARCINA-SANATOASA.pdf",
+]
+
+_MS_SEED_URLS = [
+    "https://www.ms.ro/ro/",
+    "https://www.ms.ro/ro/centrul-de-presa/",
+    "https://www.ms.ro/ro/informatii-de-interes-public/campanii-informare-educare-comunicare/",
+    "https://www.ms.ro/ro/unitatea-de-implementare-si-coordonare-programe/rovac/",
+    "https://www.ms.ro/ro/informatii-de-interes-public/campanii-informare-educare-comunicare/spune-nu-rujeolei-spune-da-vaccin%C4%83rii/",
+    "https://ms.ro/ro/centrul-de-presa/vaccinul-anti-hpv-este-disponibil-la-medicii-de-familie-%C8%99i-la-direc%C8%9Biile-de-s%C4%83n%C4%83tate-public%C4%83/",
+    "https://www.ms.ro/media/documents/07_Calendar_National_VACCINARE_2024.pdf",
+    "https://www.ms.ro/media/documents/15_Poster_Calendar_National_Vaccinare.pdf",
+]
+
+_BABYSPACE_RO_SEED_URLS = [
+    "https://www.babyspace.com.ro/ro",
+    "https://www.babyspace.com.ro/ro/articles",
+    "https://www.babyspace.com.ro/ro/34721-sarcina",
+    "https://www.babyspace.com.ro/ro/bebelusul",
+    "https://www.babyspace.com.ro/ro/copilul-de-1-3-ani",
+    "https://www.babyspace.com.ro/ro/copilul",
+]
+
 INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
     {
         "source_key": "babyspace",
@@ -312,6 +421,22 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         },
     },
     {
+        "source_key": "babyspace-ro",
+        "name": "Babyspace România",
+        "source_type": "website",
+        "language": "ro",
+        "base_url": "https://www.babyspace.com.ro/ro",
+        "metadata": {
+            "discover": "listing_pages",
+            "max_urls": 2000,
+            "max_discover_pages": 250,
+            "since_years": 5,
+            "topic_filter": "baby_childhood",
+            "seed_urls": list(_BABYSPACE_RO_SEED_URLS),
+            "seed": True,
+        },
+    },
+    {
         "source_key": "myparenthood",
         "name": "My Parenthood",
         "source_type": "website",
@@ -320,7 +445,7 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         "metadata": {
             "discover": "sitemap",
             "sitemap": "https://myparenthood.gr/post-sitemap.xml",
-            "max_urls": 80,
+            "max_urls": 400,
             "seed": True,
         },
     },
@@ -334,11 +459,8 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
             "nosimata-kai-themata-ygeias.html"
         ),
         "metadata": {
-            # Crawl disease catalog; Sync keeps only baby/childhood/vaccine topics.
-            "discover": "crawl",
-            "max_urls": 80,
-            "topic_filter": "baby_childhood",
-            "seed": True,
+            **_CRAWL_CHILDHOOD_META,
+            "seed_urls": list(_EODY_SEED_URLS),
         },
     },
     {
@@ -351,11 +473,8 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
             "emboliasmoi/ethniko-programma-emboliasmwn-epe-paidiwn-kai-efhbwn"
         ),
         "metadata": {
-            # Crawl vaccine/childhood sections; Sync keeps baby/childhood topics only.
-            "discover": "crawl",
-            "max_urls": 80,
-            "topic_filter": "baby_childhood",
-            "seed": True,
+            **_CRAWL_CHILDHOOD_META,
+            "seed_urls": list(_MOH_SEED_URLS),
         },
     },
     {
@@ -365,11 +484,8 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         "language": "ro",
         "base_url": "https://insp.gov.ro/",
         "metadata": {
-            # Crawl RO site (+ /en mirror); Sync keeps baby/childhood/vaccine topics.
-            "discover": "crawl",
-            "max_urls": 80,
-            "topic_filter": "baby_childhood",
-            "seed": True,
+            **_CRAWL_CHILDHOOD_META,
+            "seed_urls": list(_INSP_SEED_URLS),
         },
     },
     {
@@ -379,11 +495,8 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         "language": "en",
         "base_url": "https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding",
         "metadata": {
-            # Crawl fact sheets / immunization; Sync keeps baby/childhood topics.
-            "discover": "crawl",
-            "max_urls": 80,
-            "topic_filter": "baby_childhood",
-            "seed": True,
+            **_CRAWL_CHILDHOOD_META,
+            "seed_urls": list(_WHO_SEED_URLS),
         },
     },
     {
@@ -393,28 +506,59 @@ INITIAL_KNOWLEDGE_SOURCES: list[dict[str, Any]] = [
         "language": "ro",
         "base_url": "https://www.ms.ro/ro/",
         "metadata": {
-            # Crawl press + campaigns; Sync keeps baby/childhood/vaccine topics (RO).
-            "discover": "crawl",
-            "max_urls": 80,
-            "topic_filter": "baby_childhood",
-            "seed": True,
-        },
-    },
-    {
-        "source_key": "babyspace-ro",
-        "name": "Babyspace România",
-        "source_type": "website",
-        "language": "ro",
-        "base_url": "https://www.babyspace.com.ro/ro",
-        "metadata": {
-            # Parenting portal (RO) — crawl category hubs; keep /ro article pages.
-            "discover": "crawl",
-            "max_urls": 120,
-            "topic_filter": "baby_childhood",
-            "seed": True,
+            **_CRAWL_CHILDHOOD_META,
+            "seed_urls": list(_MS_SEED_URLS),
         },
     },
 ]
+
+
+def sync_setup_preset(source_key: str) -> dict[str, Any]:
+    """Recommended Edit-setup values for a source (discover mode, caps, hints)."""
+    key = _slug_source_key(source_key)
+    for src in INITIAL_KNOWLEDGE_SOURCES:
+        if src["source_key"] == key:
+            meta = src.get("metadata") if isinstance(src.get("metadata"), dict) else {}
+            discover = str(meta.get("discover") or "crawl")
+            return {
+                "source_key": key,
+                "discover": discover,
+                "max_urls": int(meta.get("max_urls") or 50),
+                "max_discover_pages": meta.get("max_discover_pages"),
+                "since_years": meta.get("since_years"),
+                "sitemap_url": meta.get("sitemap"),
+                "rss_url": meta.get("rss"),
+                "supports_listing_pages": discover == "listing_pages" or key.startswith("babyspace"),
+                "hint": _sync_setup_hint(key, discover),
+            }
+    return {
+        "source_key": key,
+        "discover": "crawl",
+        "max_urls": 100,
+        "max_discover_pages": None,
+        "since_years": None,
+        "sitemap_url": None,
+        "rss_url": None,
+        "supports_listing_pages": False,
+        "hint": "Crawl links from the base URL. Prefer a sitemap/RSS URL when the site publishes one.",
+    }
+
+
+def _sync_setup_hint(source_key: str, discover: str) -> str:
+    key = (source_key or "").strip().lower()
+    if discover == "listing_pages" or key.startswith("babyspace"):
+        return (
+            "Babyspace-style paged listing (/el/articles or /ro/articles). "
+            "Max discover pages walks listing pagination; since-years skips older articles."
+        )
+    if discover == "sitemap" or key == "myparenthood":
+        return "Uses the post sitemap for discovery. Raise max pages if the sitemap is large."
+    if key in ("eody-gov-gr", "moh-gov-gr", "insp-gov-ro", "ms-gov-ro", "who-int"):
+        return (
+            "Topic-filtered crawl across curated baby/child/teen hubs "
+            "(vaccines, newborn, adolescent). Gov WAFs may block; library pages stay."
+        )
+    return "Crawl links from the base URL. Add sitemap/RSS when available."
 
 
 def get_knowledge_source(sb, source_key: str) -> Optional[dict[str, Any]]:
@@ -439,6 +583,8 @@ def knowledge_source_public(row: Optional[dict[str, Any]]) -> Optional[dict[str,
         return None
     meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
     key = (row.get("source_key") or "").strip().lower()
+    preset = sync_setup_preset(key)
+    discover = meta.get("discover") or _discover_mode(row, key) or preset.get("discover")
     return {
         "source_key": key,
         "name": row.get("name") or key,
@@ -446,12 +592,17 @@ def knowledge_source_public(row: Optional[dict[str, Any]]) -> Optional[dict[str,
         "language": row.get("language") or "el",
         "base_url": row.get("base_url"),
         "enabled": bool(row.get("enabled", True)),
-        "sitemap_url": meta.get("sitemap") or None,
-        "rss_url": meta.get("rss") or None,
-        "max_urls": int(meta.get("max_urls") or 50),
-        "discover": meta.get("discover") or _discover_mode(row, key),
-        "since_years": meta.get("since_years"),
-        "max_discover_pages": meta.get("max_discover_pages"),
+        "sitemap_url": meta.get("sitemap") or preset.get("sitemap_url") or None,
+        "rss_url": meta.get("rss") or preset.get("rss_url") or None,
+        "max_urls": int(meta.get("max_urls") or preset.get("max_urls") or 50),
+        "discover": discover,
+        "since_years": meta.get("since_years")
+        if meta.get("since_years") is not None
+        else preset.get("since_years"),
+        "max_discover_pages": meta.get("max_discover_pages")
+        if meta.get("max_discover_pages") is not None
+        else preset.get("max_discover_pages"),
+        "preset": preset,
     }
 
 
@@ -537,12 +688,6 @@ def update_knowledge_source_setup(
         raise ValueError("base_url is required for website sync setup")
     new_lang = (language if language is not None else existing.get("language") or "el").strip()[:12] or "el"
 
-    if max_urls is not None:
-        meta["max_urls"] = max(1, min(int(max_urls), 300))
-    if since_years is not None:
-        meta["since_years"] = float(since_years)
-    if max_discover_pages is not None:
-        meta["max_discover_pages"] = max(1, min(int(max_discover_pages), 400))
     if discover is not None:
         d = discover.strip().lower()
         if d in ("listing_pages", "sitemap", "rss", "crawl", "none", ""):
@@ -550,6 +695,19 @@ def update_knowledge_source_setup(
                 meta["discover"] = d
             elif d == "none":
                 meta.pop("discover", None)
+    discover_now = str(meta.get("discover") or _discover_mode(existing, key) or "crawl")
+    # Listing walks pagination (Babyspace) — allow the same high caps as GR seed.
+    max_urls_cap = 2000 if discover_now == "listing_pages" else 500
+    if max_urls is not None:
+        meta["max_urls"] = max(1, min(int(max_urls), max_urls_cap))
+    if since_years is not None:
+        meta["since_years"] = float(since_years)
+    if max_discover_pages is not None:
+        meta["max_discover_pages"] = max(1, min(int(max_discover_pages), 400))
+    elif discover_now == "listing_pages" and not meta.get("max_discover_pages"):
+        meta["max_discover_pages"] = int(
+            sync_setup_preset(key).get("max_discover_pages") or 250
+        )
 
     # Optional URLs: None = leave unchanged; "" = clear.
     if sitemap_url is not None:
@@ -656,22 +814,49 @@ def upsert_knowledge_source(
         return None
 
 
-def ensure_initial_knowledge_sources(sb) -> None:
-    """Babyspace / My Parenthood are just the first registered websites."""
+def ensure_initial_knowledge_sources(sb, *, refresh_presets: bool = True) -> None:
+    """Register seed websites and keep recommended Sync presets aligned."""
     for src in INITIAL_KNOWLEDGE_SOURCES:
         key = src["source_key"]
         existing = get_knowledge_source(sb, key)
         meta = dict(src.get("metadata") or {})
-        if existing:
-            # Backfill discover metadata on older rows without rewriting custom fields.
+        if existing and not refresh_presets:
             em = existing.get("metadata") if isinstance(existing.get("metadata"), dict) else {}
             if em.get("discover") and existing.get("base_url"):
                 continue
+        if existing and refresh_presets:
+            em = existing.get("metadata") if isinstance(existing.get("metadata"), dict) else {}
+            if em.get("sitemap"):
+                meta["sitemap"] = em["sitemap"]
+            if em.get("rss"):
+                meta["rss"] = em["rss"]
+            for k in ("topic_filter", "topic_include_regex", "topic_exclude_regex"):
+                if em.get(k) is not None:
+                    meta[k] = em[k]
+            # Prefer our expanded curated hubs when refreshing presets.
+            if meta.get("seed_urls"):
+                pass
+            elif em.get("seed_urls"):
+                meta["seed_urls"] = em["seed_urls"]
+        extra = {
+            "seed": True,
+            **{
+                k: meta[k]
+                for k in ("topic_filter", "topic_include_regex", "topic_exclude_regex")
+                if k in meta
+            },
+        }
+        if meta.get("seed_urls"):
+            extra["seed_urls"] = list(meta["seed_urls"])
         upsert_knowledge_source(
             sb,
             source_key=key,
-            name=src["name"],
-            base_url=src.get("base_url"),
+            name=src["name"] if not existing else (existing.get("name") or src["name"]),
+            base_url=(
+                existing.get("base_url")
+                if existing and existing.get("base_url")
+                else src.get("base_url")
+            ),
             source_type=src.get("source_type") or "website",
             language=src.get("language") or "el",
             sitemap_url=meta.get("sitemap"),
@@ -680,7 +865,7 @@ def ensure_initial_knowledge_sources(sb) -> None:
             discover=meta.get("discover"),
             since_years=meta.get("since_years"),
             max_discover_pages=meta.get("max_discover_pages"),
-            metadata_extra={"seed": True},
+            metadata_extra=extra,
             merge_existing=True,
         )
 
@@ -1083,19 +1268,39 @@ def _save(sb, job_id: str, patch: dict[str, Any]) -> dict[str, Any]:
 
 def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
     try:
-        from .babyspace_feed import fetch_listing_html, parse_listing
+        from .babyspace_feed import (
+            BABYSPACE_BASE,
+            BABYSPACE_RO_BASE,
+            DEFAULT_LISTING_PATH,
+            DEFAULT_LISTING_PATH_RO,
+            fetch_listing_html,
+            parse_listing,
+        )
         from .url_acquire import normalize_url
     except ImportError:
-        from babyspace_feed import fetch_listing_html, parse_listing
+        from babyspace_feed import (
+            BABYSPACE_BASE,
+            BABYSPACE_RO_BASE,
+            DEFAULT_LISTING_PATH,
+            DEFAULT_LISTING_PATH_RO,
+            fetch_listing_html,
+            parse_listing,
+        )
         from url_acquire import normalize_url
 
     job_id = row["id"]
+    source_key = _slug_source_key(row.get("source_key") or "babyspace")
+    is_ro = source_key == "babyspace-ro"
+    listing_base = BABYSPACE_RO_BASE if is_ro else BABYSPACE_BASE
+    listing_path = DEFAULT_LISTING_PATH_RO if is_ro else DEFAULT_LISTING_PATH
+    locale = "ro" if is_ro else "el"
+    accept_lang = "ro-RO,ro;q=0.9,en;q=0.7" if is_ro else "el"
     page = _as_int(row.get("discover_page"), 1)
     max_pages = _as_int(row.get("max_discover_pages"), 250)
     since_years = row.get("since_years")
     urls = list(row.get("urls") or [])
     known = {u.split("?")[0] for u in urls}
-    ready = _ready_origins_for_source(sb, row["source_key"])
+    ready = _ready_origins_for_source(sb, source_key)
     known |= ready
     cursor = int(row.get("cursor_idx") or 0)
 
@@ -1110,9 +1315,14 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
     empty_pages = 0
 
     for p in range(page, end_page + 1):
-        path = "/el/articles" if p <= 1 else f"/el/articles?page={p}&per=30"
+        path = listing_path if p <= 1 else f"{listing_path}?page={p}&per=30"
+        listing_url = f"{listing_base}{path}"
         try:
-            items = parse_listing(fetch_listing_html(path))
+            items = parse_listing(
+                fetch_listing_html(listing_url, accept_language=accept_lang),
+                base=listing_base,
+                locale=locale,
+            )
         except Exception as e:
             return _save(
                 sb,
@@ -1141,6 +1351,13 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
                 u = normalize_url(it.link)
             except ValueError:
                 continue
+            # Hard host fence: RO job must never queue babyspace.gr (and vice versa).
+            host = (urlparse(u).netloc or "").lower()
+            if is_ro:
+                if "babyspace.com.ro" not in host:
+                    continue
+            elif "babyspace.gr" not in host or "babyspace.com.ro" in host:
+                continue
             key = u.split("?")[0]
             if key in known:
                 continue
@@ -1163,8 +1380,9 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
     }
     if stalled and not pending and added == 0 and page == 1:
         patch["status"] = "failed"
+        site = "Babyspace România" if is_ro else "Babyspace"
         patch["last_error"] = (
-            "Babyspace listing returned no articles. Check outbound HTTPS from the server."
+            f"{site} listing returned no articles. Check outbound HTTPS from the server."
         )
     elif pending:
         # Ingest newly queued URLs before walking older listing pages — library count moves.
@@ -1213,15 +1431,25 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
         "https://myparenthood.gr/post-sitemap.xml" if source_key == "myparenthood" else None
     )
     rss = meta.get("rss")
+    seed_urls = meta.get("seed_urls") if isinstance(meta.get("seed_urls"), list) else None
+    if not seed_urls:
+        for src in INITIAL_KNOWLEDGE_SOURCES:
+            if src["source_key"] == source_key:
+                sm = src.get("metadata") if isinstance(src.get("metadata"), dict) else {}
+                seed_urls = sm.get("seed_urls") if isinstance(sm.get("seed_urls"), list) else None
+                break
     # Hard cap per tick so Sync cannot blow the Vercel time budget (was HTTP 500 with 2000).
+    # Crawl hubs need more headroom than a single base_url so childhood filters still leave enough.
     requested = max(1, min(int(meta.get("max_urls") or 50), 2000))
-    max_urls = min(requested, 300)
+    tick_cap = 500 if (seed_urls or meta.get("topic_filter")) else 300
+    max_urls = min(requested, tick_cap)
     ready = _ready_origins_for_source(sb, source_key)
     try:
         found = discover_source_urls(
             base_url=base,
             sitemap_url=sitemap,
             rss_url=rss,
+            seed_urls=seed_urls,
             source_key=source_key,
             max_urls=max_urls,
             prefer=discover,
@@ -1257,6 +1485,7 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
         topic_filter=meta.get("topic_filter"),
         include_regex=meta.get("topic_include_regex"),
         exclude_regex=meta.get("topic_exclude_regex"),
+        keep_urls=list(seed_urls or []),
     )
 
     urls: list[str] = []

@@ -488,7 +488,8 @@ def discover_site_links(seed_url: str, *, same_host: bool = True, max_urls: int 
 
     out: list[str] = []
     seen = set()
-    skip_ext = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".zip", ".css", ".js")
+    # Keep topical PDFs (vaccine calendars, circulars); drop media/assets only.
+    skip_ext = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".zip", ".css", ".js")
     for link in links:
         try:
             u = normalize_url(link)
@@ -543,6 +544,7 @@ def discover_source_urls(
     sitemap_url: Optional[str] = None,
     rss_url: Optional[str] = None,
     listing_paths: Optional[list[str]] = None,
+    seed_urls: Optional[list[str]] = None,
     source_key: Optional[str] = None,
     max_urls: int = 40,
     since_years: Optional[float] = None,
@@ -552,21 +554,33 @@ def discover_source_urls(
     key = (source_key or "").lower()
     mode = (prefer or "").strip().lower()
     # Cap link-crawl fallback so Sync with max_urls=2000 cannot hang a tick.
-    crawl_budget = min(max(max_urls, 20), 80 if mode in ("rss", "sitemap") else 200)
+    crawl_budget = min(max(max_urls, 20), 120 if mode in ("rss", "sitemap") else 250)
+    seeds: list[str] = []
+    for raw in list(seed_urls or []) + ([base_url] if base_url else []):
+        s = (raw or "").strip()
+        if s and s not in seeds:
+            seeds.append(s)
+    seed_norms: list[str] = []
+    for raw in seeds:
+        try:
+            nu = normalize_url(raw)
+        except ValueError:
+            continue
+        if nu not in seed_norms:
+            seed_norms.append(nu)
 
     # 1) Explicit RSS feed (our unofficial Babyspace feed, or any other)
     if rss_url and mode in ("", "rss", "crawl"):
         try:
-            urls = discover_rss_urls(rss_url, max_urls=max(max_urls * 2, 40))
+            for u in discover_rss_urls(rss_url, max_urls=max(max_urls * 2, 40)):
+                if u not in urls:
+                    urls.append(u)
         except Exception:
-            urls = []
-        if mode == "rss" and urls:
-            # Respect Edit setup "RSS" — don't fall through to a huge site crawl.
             pass
-        elif mode == "rss":
+        if mode == "rss" and not urls:
             urls = []
     # 2) Sitemap (My Parenthood etc.)
-    if (len(urls) < 5 or (mode == "sitemap" and not urls)) and sitemap_url and mode in (
+    if (len(urls) < max(10, max_urls // 4) or (mode == "sitemap" and not urls)) and sitemap_url and mode in (
         "",
         "sitemap",
         "crawl",
@@ -574,19 +588,23 @@ def discover_source_urls(
     ):
         if mode != "rss" or len(urls) < 5:
             try:
-                urls = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 3, 80))
+                found = discover_sitemap_urls(sitemap_url, max_urls=max(max_urls * 4, 120))
+                for u in found:
+                    if u not in urls:
+                        urls.append(u)
             except Exception:
-                if mode == "sitemap":
+                if mode == "sitemap" and not urls:
                     urls = []
     # 3) Babyspace listing scrape (paginated, newest first; optional year window)
-    if len(urls) < 5 and (listing_paths or key == "babyspace" or mode == "listing_pages"):
+    want_listing = listing_paths or key.startswith("babyspace") or mode == "listing_pages"
+    if want_listing and (mode == "listing_pages" or len(urls) < 5):
         try:
             from .babyspace_feed import discover_babyspace_article_urls
         except ImportError:
             from babyspace_feed import discover_babyspace_article_urls
 
         try:
-            years = since_years if since_years is not None else (5.0 if key == "babyspace" else None)
+            years = since_years if since_years is not None else (5.0 if key.startswith("babyspace") else None)
             listed = discover_babyspace_article_urls(
                 max_urls=max(max_urls, 40),
                 listing_paths=listing_paths,
@@ -597,24 +615,37 @@ def discover_source_urls(
                     urls.append(u)
         except Exception:
             pass
-    # 4) Fallback: crawl seed page links (never raise — 403 from gov WAFs is common on Vercel)
-    if len(urls) < 5 and mode not in ("rss", "sitemap"):
-        try:
-            crawled = discover_site_links(base_url, max_urls=max(crawl_budget * 2, 40))
-        except Exception:
-            crawled = []
-        for u in crawled:
-            if u not in urls:
-                urls.append(u)
+    # 4) Crawl hub seed pages (and base URL) — primary path for gov/WHO catalogs
+    if mode not in ("rss",) and (mode == "crawl" or len(urls) < max(15, max_urls // 3)):
+        per_seed = max(40, min(crawl_budget, max(max_urls // max(len(seeds), 1), 40)))
+        for seed in seeds[:12]:
+            try:
+                crawled = discover_site_links(seed, max_urls=per_seed)
+            except Exception:
+                crawled = []
+            for u in crawled:
+                if u not in urls:
+                    urls.append(u)
+            if len(urls) >= max(max_urls * 3, 80):
+                break
     elif len(urls) == 0 and mode in ("rss", "sitemap"):
         # Only if preferred feed/sitemap found nothing — soft crawl, ignore blocks.
-        try:
-            crawled = discover_site_links(base_url, max_urls=max(crawl_budget, 40))
-        except Exception:
-            crawled = []
-        for u in crawled:
-            if u not in urls:
-                urls.append(u)
+        for seed in seeds[:6]:
+            try:
+                crawled = discover_site_links(seed, max_urls=max(crawl_budget, 40))
+            except Exception:
+                crawled = []
+            for u in crawled:
+                if u not in urls:
+                    urls.append(u)
+
+    # Curated hubs/priority URLs always stay in the pool (incl. vaccine PDFs).
+    if seed_norms:
+        merged = list(seed_norms)
+        for u in urls:
+            if u not in merged:
+                merged.append(u)
+        urls = merged
 
     skip_ext = (
         ".jpg",
@@ -636,7 +667,15 @@ def discover_source_urls(
         path = (p.path or "").lower()
         # Gov/WHO publish childhood vaccine calendars / guides as PDFs.
         allow_topic_pdf = (
-            key in ("insp-gov-ro", "who-int", "ms-gov-ro") and path.endswith(".pdf")
+            key
+            in (
+                "insp-gov-ro",
+                "who-int",
+                "ms-gov-ro",
+                "moh-gov-gr",
+                "eody-gov-gr",
+            )
+            and path.endswith(".pdf")
         )
         if path.endswith(skip_ext) and not allow_topic_pdf:
             return False

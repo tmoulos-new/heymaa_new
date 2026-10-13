@@ -19,11 +19,12 @@ BABY_CHILDHOOD_INCLUDE_RE = re.compile(
     r"βρεφονηπ|σχολικ.?μον|οστρακ|παρβοϊ|parvovir|λιστερ|"
     r"τοξοπλάσμ|τοξοπλασμ|σύφιλη|συφιλη|κοξάκι|coxsack|"
     r"anemevlog|ilara|kokkyt|parotit|erythr|rota[iïy]|miniggit|meningit|"
-    r"poliomyel|difther|tetan|emvoliasm|syggen|brefonipiak|ostrok|"
+    r"poliomyel|difther|tetan|emvoliasm|emboliasm|syggen|brefonipiak|ostrok|"
     r"νεογνικ.?τέταν|συγγενή.?ερυθρ|συγγενή.?σύφιλ|συγγενή.?τοξο|"
     r"μητρότ|μητροτ|μαιευτ|κυλικε|διατροφ.?παιδ|diatrofh.?paid|"
     r"nirsevimab|pcv20|brefwn|paidiwn|efhbwn|paidioy|efhboy|"
-    r"antigripikos.?emboliasmos|epoxikh.?griph|"
+    r"antigripikos.?emboliasmos|epoxikh.?griph|rovac|cnscbt|cnepss|"
+    r"nosimata-kai-themata-ygeias|proagoge-ygeias|agwghs-ygeias|"
     # Romanian (INSP) — children, pregnancy, vaccines, nutrition
     r"copil|copii|copilul|vaccin|vaccinare|imuniz|sarcin[aă]|gravid|"
     r"al[aă]pt|nou-?n[aă]sc|prematur|rujeol|rubeol|oreion|pneumococ|"
@@ -35,7 +36,14 @@ BABY_CHILDHOOD_INCLUDE_RE = re.compile(
     r"newborn|preterm|complementary.?feeding|young.?child.?feeding|"
     r"immunization.?coverage|immunization.?routine|kangaroo.?mother|"
     r"maternal.?newborn|child.?health|adolescent.?health|"
-    r"congenital.?rubella|birth.?defect|low.?birth.?weight",
+    r"congenital.?rubella|birth.?defect|low.?birth.?weight|"
+    # Adolescents / school-age / parenting stages (EL + EN + RO)
+    r"έφηβ|εφηβ|εφήβ|εφηβε|pubert|teenager|teen.?health|school.?health|"
+    r"σχολικ.?υγε|αγωγή.?υγε|agwgh.?yge|παιδικ.?παχυσαρκ|παχυσαρκ.?παιδ|"
+    r"αυτισμ|autism|ADHD|ΔΕΠΥ|δεπυ|λογοθερ|αναπτυξ.?οροσ|"
+    r"diversif|απογαλακτ|weaning|colic|κολικ|ύπν.?βρέφ|sleep.?train|"
+    r"efeb|adolescent[iă]|pubertate|sanatate.?scolara|educatie.?pentru.?sanatate|"
+    r"obezitate.?infantil|dezvoltare.?copil|cresterea.?copilului",
     re.I,
 )
 
@@ -156,6 +164,7 @@ def filter_urls_by_topic(
     topic_filter: Optional[str] = None,
     include_regex: Optional[str] = None,
     exclude_regex: Optional[str] = None,
+    keep_urls: Optional[list[str]] = None,
 ) -> list[str]:
     """Filter discovered URLs using knowledge_sources topic metadata."""
     key = (source_key or "").strip().lower()
@@ -188,6 +197,12 @@ def filter_urls_by_topic(
         else BABY_CHILDHOOD_EXCLUDE_RE
     )
     required_host = _HOST_BY_KEY.get(key)
+    allow: set[str] = set()
+    for raw in keep_urls or []:
+        u = (raw or "").strip().rstrip("/").lower()
+        if u:
+            allow.add(u)
+            allow.add(u.split("?", 1)[0])
 
     out: list[str] = []
     seen: set[str] = set()
@@ -202,10 +217,12 @@ def filter_urls_by_topic(
         path = urlparse(u).path.rstrip("/").lower()
         if path in ("", "/", "/el", "/en", "/ro"):
             continue
-        # Drop pure listing pagination hubs
-        if "?start=" in u and not re.search(r"/\d{3,}-", path):
+        # Drop pure listing pagination hubs (unless curated seed)
+        ul = u.rstrip("/").lower()
+        is_seed = ul in allow or ul.split("?", 1)[0] in allow
+        if "?start=" in u and not re.search(r"/\d{3,}-", path) and not is_seed:
             continue
-        keep = bool(include.search(u))
+        keep = is_seed or bool(include.search(u))
         if key == "babyspace-ro" and not keep:
             keep = is_babyspace_ro_url(u)
         if keep:
