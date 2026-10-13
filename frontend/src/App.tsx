@@ -66,6 +66,7 @@ import {
   safeLocalSet,
   pickRicherMemories,
   memoriesForCloud,
+  hydrateMemoryMediaUrls,
   localMemoriesRicherThanCloud,
   memoriesHavePhotos,
   parseMemoriesJson,
@@ -97,11 +98,14 @@ import { titleFromConversation } from "./lib/chatThreadTitle";
 import { streamChat } from "./lib/chatStream";
 import {
   collectPersistableMedia,
+  hydrateChatMediaFromIndex,
   hydrateMessageAttachments,
   loadChatMediaMap,
   persistChatMediaEntries,
   removeChatMediaIds,
+  syncChatMediaToCloud,
 } from "./lib/chatMediaSync";
+import { parseChatMediaIndex } from "./lib/userMedia";
 import { useKeyboardInset } from "./lib/useKeyboardInset";
 import {
   mergeCloudUserData,
@@ -469,7 +473,7 @@ interface Message {
   messageId?: string;
   feedback?: "up" | "down" | null;
 }
-interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
+interface Memory { emoji: string; text: string; date: string; img?: string; video?: string; imgKey?: string; videoKey?: string; ref?: string; createdAt?: string; description?: string; source?: "manual" | "chat" | "milestone"; isMilestone?: boolean; milestoneKey?: string; }
 
 /** Prefer at least a few memories per registered child, then fill with the newest overall. */
 function pickRegisteredMemoriesForChat(
@@ -2841,7 +2845,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }
     setMemoriesSaving(true);
     try {
-      const payload = data.length ? await memoriesForCloud(data) : [];
+      const payload = data.length ? await memoriesForCloud(data, { token }) : [];
       await axios.post(`${API}/userdata`, { key: "memories", value: payload }, { headers: { "x-token": token } });
       if (showFeedback) {
         showToastRef.current(t("mem_saved", lang), "ok");
@@ -2936,7 +2940,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (local.family.children.length || local.family.members.length) {
           setFamilyData(ensureFamilyMemberIds(local.family));
         }
-        const mediaMap = await loadChatMediaMap(token);
+        let mediaMap = await loadChatMediaMap(token);
         if (cancelled) return;
         const liveClearedEarly = localStorage.getItem(sk(token, "chat_live_cleared")) === "1";
         if (liveClearedEarly) {
@@ -2974,10 +2978,23 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         cloudHydrateOkRef.current = hydrateOk;
 
         const merged = mergeCloudUserData(local, cloudRaw);
-        const finalMemories = pickRicherMemories(
+        // Restore chat Library + memory media from Storage after logout wiped IndexedDB.
+        try {
+          mediaMap = await hydrateChatMediaFromIndex(token, cloudRaw.chat_media_index);
+        } catch (err) {
+          console.warn("Chat media cloud hydrate failed", err);
+        }
+        if (cancelled) return;
+        let finalMemories = pickRicherMemories(
           local.memories,
           merged.memories,
         ) as Memory[];
+        try {
+          finalMemories = (await hydrateMemoryMediaUrls(token, finalMemories)) as Memory[];
+        } catch (err) {
+          console.warn("Memory media cloud hydrate failed", err);
+        }
+        if (cancelled) return;
         setMemories(finalMemories);
         setFamilyData(ensureFamilyMemberIds(merged.family));
         // After browser-close archive, keep live chat empty even if cloud still has stale messages.
@@ -3042,7 +3059,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             memoriesHavePhotos(finalMemories) &&
             localMemoriesRicherThanCloud(finalMemories, cloudMemories)
           ) {
-            const payload = await memoriesForCloud(finalMemories);
+            const payload = await memoriesForCloud(finalMemories, { token });
             await axios.post(
               `${API}/userdata`,
               { key: "memories", value: payload },
@@ -3172,7 +3189,30 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     const entries = Array.from(byId.values());
     if (!entries.length) return;
     const timer = window.setTimeout(() => {
-      void persistChatMediaEntries(token, entries, chatMediaLimit);
+      void (async () => {
+        await persistChatMediaEntries(token, entries, chatMediaLimit);
+        if (!cloudHydrateOkRef.current) return;
+        try {
+          let prevIndex = parseChatMediaIndex(null);
+          try {
+            const res = await axios.get(`${API}/userdata`, {
+              params: { key: "chat_media_index" },
+              headers: { "x-token": token },
+            });
+            prevIndex = parseChatMediaIndex(res.data?.value);
+          } catch {
+            /* offline — still try upload; index merge is best-effort */
+          }
+          const nextIndex = await syncChatMediaToCloud(token, entries, prevIndex);
+          await axios.post(
+            `${API}/userdata`,
+            { key: "chat_media_index", value: nextIndex },
+            { headers: { "x-token": token } },
+          );
+        } catch (err) {
+          console.warn("Chat media cloud sync failed", err);
+        }
+      })();
     }, 600);
     return () => window.clearTimeout(timer);
   }, [messages, threads, cloudReady, token, chatMediaLimit, planEntitlements, subSnapshot]);

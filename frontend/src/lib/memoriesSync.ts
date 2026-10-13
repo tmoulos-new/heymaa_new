@@ -1,4 +1,4 @@
-/** Durable memory sync: IndexedDB for photos, short keys, anti-wipe merge. */
+/** Durable memory sync: IndexedDB for photos, Storage for videos/large media, anti-wipe merge. */
 
 export type SyncMemory = {
   emoji: string;
@@ -6,6 +6,10 @@ export type SyncMemory = {
   date: string;
   img?: string;
   video?: string;
+  /** Private Storage object path for photo (user-media). */
+  imgKey?: string;
+  /** Private Storage object path for video (user-media). */
+  videoKey?: string;
   ref?: string;
   createdAt?: string;
   description?: string;
@@ -22,6 +26,8 @@ function memoryRichness(m: SyncMemory): number {
   let score = 1;
   if (m.img) score += 10 + Math.min(4, Math.floor((m.img.length || 0) / 50_000));
   if (m.video) score += 12 + Math.min(4, Math.floor((m.video.length || 0) / 50_000));
+  if (m.imgKey) score += 8;
+  if (m.videoKey) score += 10;
   if (m.text && m.text !== "📷" && m.text !== "🎬") score += 2;
   if (m.createdAt) score += 1;
   if (m.ref) score += 1;
@@ -73,6 +79,8 @@ export function mergeMemories(...sources: Array<SyncMemory[] | null | undefined>
           ...m,
           img: m.img || prev?.img,
           video: m.video || prev?.video,
+          imgKey: m.imgKey || prev?.imgKey,
+          videoKey: m.videoKey || prev?.videoKey,
           text: (m.text && m.text !== "📷" && m.text !== "🎬") || !prev?.text ? m.text : prev!.text,
           ref: m.ref || prev?.ref,
           createdAt: m.createdAt || prev?.createdAt,
@@ -81,6 +89,10 @@ export function mergeMemories(...sources: Array<SyncMemory[] | null | undefined>
         map.set(k, { ...prev, img: m.img });
       } else if (prev && !prev.video && m.video) {
         map.set(k, { ...prev, video: m.video });
+      } else if (prev && !prev.imgKey && m.imgKey) {
+        map.set(k, { ...prev, imgKey: m.imgKey });
+      } else if (prev && !prev.videoKey && m.videoKey) {
+        map.set(k, { ...prev, videoKey: m.videoKey });
       }
     }
   }
@@ -96,7 +108,13 @@ export function memoriesScore(list: SyncMemory[]): number {
 }
 
 export function memoriesHavePhotos(list: SyncMemory[]): boolean {
-  return list.some((m) => (!!m.img && m.img.length > 100) || (!!m.video && m.video.length > 100));
+  return list.some(
+    (m) =>
+      (!!m.img && m.img.length > 100) ||
+      (!!m.video && m.video.length > 100) ||
+      !!m.imgKey ||
+      !!m.videoKey,
+  );
 }
 
 /** True when local has photo bytes that remote is missing. */
@@ -141,25 +159,82 @@ export function memoriesWithoutHeavyImages(memories: SyncMemory[]): SyncMemory[]
   });
 }
 
-/** Keep compressed photos in cloud userdata (cross-device / Vercel). */
+/** Keep compressed photos in cloud userdata; large media goes to Storage keys. */
 const CLOUD_IMG_MAX = 350_000;
 
-export async function memoriesForCloud(memories: SyncMemory[]): Promise<SyncMemory[]> {
+export async function memoriesForCloud(
+  memories: SyncMemory[],
+  opts?: { token?: string },
+): Promise<SyncMemory[]> {
+  const token = opts?.token;
+  let uploadUserMedia: typeof import("./userMedia").uploadUserMedia | null = null;
+  if (token) {
+    try {
+      uploadUserMedia = (await import("./userMedia")).uploadUserMedia;
+    } catch {
+      uploadUserMedia = null;
+    }
+  }
   const out: SyncMemory[] = [];
   for (const m of memories) {
-    let next: SyncMemory = m;
-    // Video data-URLs blow past userdata limits; keep them in IndexedDB only.
-    if (next.video && next.video.length > META_IMG_MAX) {
+    let next: SyncMemory = { ...m };
+
+    // Prefer Storage for videos (and keep videoKey in userdata).
+    if (next.video && next.video.startsWith("data:") && token && uploadUserMedia) {
+      try {
+        const mediaId = `memvid_${(next.createdAt || next.date || "x").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24)}`;
+        const uploaded = await uploadUserMedia(token, "memory", next.video, {
+          mediaId,
+          mime: "video/mp4",
+          filename: `${mediaId}.mp4`,
+        });
+        next = { ...next, video: undefined, videoKey: uploaded.key, text: next.text || "🎬" };
+      } catch (err) {
+        console.warn("Memory video upload failed", err);
+        const { video: _drop, ...rest } = next;
+        next = { ...rest, video: undefined, text: rest.text || "🎬" };
+      }
+    } else if (next.video && next.video.length > META_IMG_MAX) {
       const { video: _drop, ...rest } = next;
       next = { ...rest, video: undefined, text: rest.text || "🎬" };
+    } else if (next.video && (next.video.startsWith("http://") || next.video.startsWith("https://"))) {
+      // Signed URL is session-local — don't persist it in userdata.
+      const { video: _drop, ...rest } = next;
+      next = { ...rest, video: undefined };
     }
+
     if (!next.img) {
       out.push(next);
+      continue;
+    }
+    if (next.img.startsWith("http://") || next.img.startsWith("https://")) {
+      const { img: _drop, ...rest } = next;
+      out.push({ ...rest, img: undefined });
       continue;
     }
     if (next.img.length <= CLOUD_IMG_MAX) {
       out.push(next);
       continue;
+    }
+    // Too large for jsonb — upload original (or compressed) to Storage.
+    if (token && uploadUserMedia) {
+      try {
+        let img = await compressImageDataUrl(next.img, 1280, 0.72);
+        if (img.length > CLOUD_IMG_MAX * 4) {
+          img = await compressImageDataUrl(next.img, 960, 0.6);
+        }
+        const mediaId = `memimg_${(next.createdAt || next.date || "x").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24)}`;
+        const uploaded = await uploadUserMedia(token, "memory", img, {
+          mediaId,
+          mime: "image/jpeg",
+          filename: `${mediaId}.jpg`,
+        });
+        const { img: _drop, ...rest } = next;
+        out.push({ ...rest, img: undefined, imgKey: uploaded.key, text: rest.text || "📷" });
+        continue;
+      } catch (err) {
+        console.warn("Memory image upload failed", err);
+      }
     }
     let img = await compressImageDataUrl(next.img, 960, 0.65);
     if (img.length > CLOUD_IMG_MAX) {
@@ -173,6 +248,32 @@ export async function memoriesForCloud(memories: SyncMemory[]): Promise<SyncMemo
     }
   }
   return out;
+}
+
+/** Resolve Storage keys to signed URLs for display after login. */
+export async function hydrateMemoryMediaUrls(
+  token: string,
+  memories: SyncMemory[],
+): Promise<SyncMemory[]> {
+  const keys: string[] = [];
+  for (const m of memories) {
+    if (m.imgKey && !m.img) keys.push(m.imgKey);
+    if (m.videoKey && !m.video) keys.push(m.videoKey);
+  }
+  if (!keys.length) return memories;
+  try {
+    const { fetchSignedMediaUrls } = await import("./userMedia");
+    const urls = await fetchSignedMediaUrls(token, keys);
+    return memories.map((m) => {
+      let next = m;
+      if (m.imgKey && !m.img && urls[m.imgKey]) next = { ...next, img: urls[m.imgKey] };
+      if (m.videoKey && !m.video && urls[m.videoKey]) next = { ...next, video: urls[m.videoKey] };
+      return next;
+    });
+  } catch (err) {
+    console.warn("Memory media hydrate failed", err);
+    return memories;
+  }
 }
 
 export function safeLocalSet(key: string, value: string): boolean {

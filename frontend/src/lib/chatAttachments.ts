@@ -10,6 +10,8 @@ export type ChatAttachment = {
   textPreview?: string;
   /** IndexedDB key for durable Library blobs (images/videos/files). */
   mediaId?: string;
+  /** Private Storage object path (survives logout via chat_media_index). */
+  storageKey?: string;
 };
 
 export const MAX_CHAT_FILE_BYTES = 6 * 1024 * 1024;
@@ -84,17 +86,18 @@ export function attachmentPayloadForApi(att: ChatAttachment) {
   };
 }
 
-/** Drop binary payloads before localStorage / cloud sync (keeps names + mediaId for Library). */
+/** Drop binary payloads before localStorage / cloud sync (keeps names + mediaId / storageKey). */
 export function chatMessagesForStorage<T extends { attachments?: ChatAttachment[] }>(messages: T[]): T[] {
   return messages.map((msg) => {
     if (!msg.attachments?.length) return msg
     return {
       ...msg,
-      attachments: msg.attachments.map(({ kind, name, mime, mediaId, textPreview }) => ({
+      attachments: msg.attachments.map(({ kind, name, mime, mediaId, storageKey, textPreview }) => ({
         kind,
         name,
         mime,
         ...(mediaId ? { mediaId } : {}),
+        ...(storageKey ? { storageKey } : {}),
         ...(kind === "file" && textPreview ? { textPreview } : {}),
       })),
     }

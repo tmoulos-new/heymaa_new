@@ -11019,6 +11019,104 @@ async def claim_gamification_reward(req: ClaimLevelRewardRequest, x_token: Optio
     return {**result, "status": status}
 
 
+# == Private user media (Storage bucket user-media) ==
+@app.post("/media/upload")
+async def media_upload(
+    file: UploadFile = File(...),
+    kind: str = Form("chat"),
+    media_id: Optional[str] = Form(None),
+    x_token: Optional[str] = Header(None),
+):
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=403, detail="Sign in required for media upload")
+    if not sb:
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    try:
+        from .user_media import (
+            create_signed_user_media_url,
+            normalize_content_type,
+            upload_user_media_bytes,
+        )
+    except ImportError:
+        from user_media import (
+            create_signed_user_media_url,
+            normalize_content_type,
+            upload_user_media_bytes,
+        )
+    data = await file.read()
+    content_type = normalize_content_type(file.content_type)
+    try:
+        uploaded = upload_user_media_bytes(
+            sb,
+            user_id=auth["user_id"],
+            kind=kind if kind in ("chat", "memory") else "chat",
+            data=data,
+            content_type=content_type,
+            media_id=media_id,
+        )
+        url = create_signed_user_media_url(sb, user_id=auth["user_id"], key=uploaded["key"])
+        return {"ok": True, **uploaded, "url": url, "media_id": media_id}
+    except ValueError as e:
+        code = str(e)
+        status = 400
+        if code == "too_large":
+            status = 413
+        raise HTTPException(status_code=status, detail=code)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/media/signed-urls")
+async def media_signed_urls(body: dict, x_token: Optional[str] = Header(None)):
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=403, detail="Sign in required")
+    if not sb:
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    try:
+        from .user_media import create_signed_user_media_url
+    except ImportError:
+        from user_media import create_signed_user_media_url
+    keys = body.get("keys") if isinstance(body, dict) else None
+    if not isinstance(keys, list):
+        raise HTTPException(status_code=400, detail="keys required")
+    urls: dict = {}
+    for raw in keys[:200]:
+        key = str(raw or "").strip()
+        if not key:
+            continue
+        try:
+            url = create_signed_user_media_url(sb, user_id=auth["user_id"], key=key)
+            if url:
+                urls[key] = url
+        except PermissionError:
+            continue
+        except Exception:
+            continue
+    return {"ok": True, "urls": urls}
+
+
+@app.delete("/media")
+async def media_delete(key: str = Query(...), x_token: Optional[str] = Header(None)):
+    auth = resolve_auth(x_token)
+    if auth.get("kind") != "user" or not auth.get("user_id"):
+        raise HTTPException(status_code=403, detail="Sign in required")
+    if not sb:
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    try:
+        from .user_media import delete_user_media
+    except ImportError:
+        from user_media import delete_user_media
+    try:
+        delete_user_media(sb, user_id=auth["user_id"], key=key)
+        return {"ok": True}
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="forbidden_key")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # == User Data Persistence ==
 @app.get("/userdata")
 async def get_userdata(key: str = None, x_token: str = Header(None)):
@@ -11052,6 +11150,7 @@ USERDATA_CONTENT_KEYS = (
     "shopitems",
     "superitems",
     "profile",
+    "chat_media_index",
 )
 
 

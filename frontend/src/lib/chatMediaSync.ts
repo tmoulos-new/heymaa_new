@@ -1,13 +1,23 @@
-/** Durable chat Library blobs (images/videos/files) in IndexedDB. Meta stays in chat/threads. */
+/** Durable chat Library blobs (images/videos/files) in IndexedDB + Storage refs. Meta stays in chat/threads. */
 
 import { storageScope } from "./memoriesSync";
+import {
+  fetchSignedMediaUrls,
+  parseChatMediaIndex,
+  uploadUserMedia,
+  type ChatMediaIndex,
+  type ChatMediaIndexEntry,
+} from "./userMedia";
 
 export type ChatMediaEntry = {
   id: string;
   kind: "image" | "video" | "file";
   name: string;
   mime: string;
+  /** data URL, or https signed URL after cloud hydrate */
   data: string;
+  /** Private Storage object path (user-media bucket). */
+  storageKey?: string;
   createdAt: number;
 };
 
@@ -17,6 +27,7 @@ type Attachable = {
   mime?: string;
   data?: string;
   mediaId?: string;
+  storageKey?: string;
 };
 
 type MessageLike = { attachments?: Attachable[] };
@@ -70,7 +81,8 @@ function asMediaMap(raw: unknown): Record<string, ChatMediaEntry> {
   for (const [id, entry] of Object.entries(raw as Record<string, unknown>)) {
     if (!entry || typeof entry !== "object") continue;
     const e = entry as Partial<ChatMediaEntry>;
-    if (!e.data || (e.kind !== "image" && e.kind !== "video" && e.kind !== "file")) continue;
+    if (e.kind !== "image" && e.kind !== "video" && e.kind !== "file") continue;
+    if (!e.data && !e.storageKey) continue;
     out[id] = {
       id,
       kind: e.kind,
@@ -78,7 +90,8 @@ function asMediaMap(raw: unknown): Record<string, ChatMediaEntry> {
       mime:
         e.mime ||
         (e.kind === "video" ? "video/mp4" : e.kind === "file" ? "application/octet-stream" : "image/jpeg"),
-      data: e.data,
+      data: e.data || "",
+      storageKey: typeof e.storageKey === "string" ? e.storageKey : undefined,
       createdAt: typeof e.createdAt === "number" ? e.createdAt : Date.now(),
     };
   }
@@ -139,6 +152,7 @@ export function hydrateMessageAttachments<T extends MessageLike>(
         name: stored.name || att.name,
         mime: stored.mime || att.mime,
         data: stored.data,
+        storageKey: stored.storageKey || att.storageKey,
       };
     });
     if (!attChanged) return m;
@@ -216,4 +230,87 @@ export async function removeChatMediaIds(token: string, ids: string[]): Promise<
     }
   }
   if (changed) await saveChatMediaMap(token, map);
+}
+
+/** Upload local Library blobs to Storage and return userdata index payload. */
+export async function syncChatMediaToCloud(
+  token: string,
+  entries: ChatMediaEntry[],
+  prevIndex?: ChatMediaIndex,
+): Promise<ChatMediaIndex> {
+  const index: ChatMediaIndex = { ...(prevIndex || {}) };
+  const map = await loadChatMediaMap(token);
+  let mapChanged = false;
+  for (const e of entries) {
+    if (!e?.id) continue;
+    const local = map[e.id] || e;
+    if (local.storageKey) {
+      index[e.id] = {
+        storageKey: local.storageKey,
+        kind: local.kind,
+        name: local.name,
+        mime: local.mime,
+        createdAt: local.createdAt,
+      };
+      continue;
+    }
+    if (!local.data || local.data.startsWith("http://") || local.data.startsWith("https://")) {
+      continue;
+    }
+    try {
+      const uploaded = await uploadUserMedia(token, "chat", local.data, {
+        mediaId: local.id,
+        mime: local.mime,
+        filename: local.name,
+      });
+      map[e.id] = { ...local, storageKey: uploaded.key };
+      mapChanged = true;
+      index[e.id] = {
+        storageKey: uploaded.key,
+        kind: local.kind,
+        name: local.name,
+        mime: local.mime,
+        createdAt: local.createdAt,
+      };
+    } catch (err) {
+      console.warn("Chat media upload failed", e.id, err);
+    }
+  }
+  if (mapChanged) await saveChatMediaMap(token, map);
+  return index;
+}
+
+/** After logout wipe: restore Library blobs from userdata index via signed URLs. */
+export async function hydrateChatMediaFromIndex(
+  token: string,
+  rawIndex: unknown,
+): Promise<Record<string, ChatMediaEntry>> {
+  const index = parseChatMediaIndex(rawIndex);
+  const ids = Object.keys(index);
+  if (!ids.length) return await loadChatMediaMap(token);
+  const urls = await fetchSignedMediaUrls(
+    token,
+    ids.map((id) => index[id].storageKey),
+  );
+  const map = await loadChatMediaMap(token);
+  let changed = false;
+  for (const id of ids) {
+    const meta: ChatMediaIndexEntry = index[id];
+    const url = urls[meta.storageKey];
+    if (!url) continue;
+    const existing = map[id];
+    if (existing?.data && existing.data.startsWith("data:")) continue;
+    map[id] = {
+      id,
+      kind: meta.kind,
+      name: meta.name,
+      mime: meta.mime,
+      data: url,
+      storageKey: meta.storageKey,
+      createdAt: existing?.createdAt ?? meta.createdAt,
+    };
+    changed = true;
+  }
+  if (changed) await saveChatMediaMap(token, map);
+  return map;
 }
