@@ -83,9 +83,10 @@ def provided_erp_key(request_headers: dict, query_key: Optional[str] = None) -> 
 
 
 def erp_key_authorized(provided: str) -> bool:
+    """Fail closed: missing ERP_ORDERS_API_KEY means the feed stays locked."""
     expected = erp_orders_api_key()
     if not expected:
-        return True
+        return False
     if not provided:
         return False
     a = provided.encode("utf-8")

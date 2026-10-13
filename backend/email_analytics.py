@@ -947,8 +947,8 @@ def webhook_secret_ok(header_secret: Optional[str], query_secret: Optional[str])
     """Legacy check (header / ?secret=). Prefer verify_resend_webhook for production."""
     expected = (os.getenv("RESEND_WEBHOOK_SECRET") or "").strip()
     if not expected:
-        # Allow ingest when secret not configured (local / first setup).
-        return True
+        # Fail closed on Vercel; allow local/dev without secret for first setup.
+        return not bool((os.getenv("VERCEL") or "").strip())
     got = (header_secret or query_secret or "").strip()
     return bool(got) and got == expected
 
@@ -965,7 +965,7 @@ def verify_resend_webhook(
     """Accept Resend (Svix) signatures, or legacy x-resend-secret / ?secret= for manual tests."""
     expected = (os.getenv("RESEND_WEBHOOK_SECRET") or "").strip()
     if not expected:
-        return True
+        return not bool((os.getenv("VERCEL") or "").strip())
 
     if svix_id and svix_timestamp and svix_signature:
         try:

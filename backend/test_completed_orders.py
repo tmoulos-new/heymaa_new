@@ -94,12 +94,13 @@ class CompletedOrdersTests(unittest.TestCase):
         self.assertEqual(back["amountCents"], 2499)
         self.assertEqual(back["amount"], 24.99)
 
-    def test_erp_key_optional_until_configured(self):
+    def test_erp_key_fail_closed_when_missing(self):
         os.environ.pop("ERP_ORDERS_API_KEY", None)
         os.environ.pop("COMPLETED_ORDERS_API_KEY", None)
         os.environ["VERCEL"] = "1"
         self.addCleanup(os.environ.pop, "VERCEL", None)
-        self.assertTrue(co.erp_key_authorized(""))
+        self.assertFalse(co.erp_key_authorized(""))
+        self.assertFalse(co.erp_key_authorized("anything"))
         os.environ["ERP_ORDERS_API_KEY"] = "secret-erp"
         self.addCleanup(os.environ.pop, "ERP_ORDERS_API_KEY", None)
         self.assertTrue(co.erp_key_authorized("secret-erp"))

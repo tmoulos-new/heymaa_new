@@ -280,7 +280,13 @@ DEFAULT_POINT_RULE_ROWS = [
 POINT_RULES = {(r["action"], r["path"]): int(r["points"]) for r in DEFAULT_POINT_RULE_ROWS}
 
 CHAT_POINT_PATHS = frozenset({"/app/chat/send", "/app/chat/send-video"})
+MEMORY_POINT_PATHS = frozenset({
+    "/app/memories/add-note",
+    "/app/memories/add-photo",
+    "/app/memories/add-video",
+})
 CHAT_DAILY_POINTS_CAP = 30
+MEMORY_DAILY_POINTS_CAP = 20
 MILESTONE_CHECK_PATH = "/app/milestones/check"
 MILESTONE_UNCHECK_PATH = "/app/milestones/uncheck"
 REFERRAL_PATH = "/auth/register"
@@ -292,6 +298,12 @@ DEFAULT_POINT_SETTINGS = {
         "value_int": CHAT_DAILY_POINTS_CAP,
         "label_el": "Ημερήσιο όριο πόντων chat",
         "label_en": "Daily chat points cap",
+    },
+    "memory_daily_points_cap": {
+        "key": "memory_daily_points_cap",
+        "value_int": MEMORY_DAILY_POINTS_CAP,
+        "label_el": "Ημερήσιο όριο πόντων αναμνήσεων",
+        "label_en": "Daily memory points cap",
     },
 }
 TRIAL_DAYS = max(1, int(os.getenv("TRIAL_DAYS", "14")))
@@ -663,8 +675,8 @@ def _milestone_already_credited(user_id: str, mkey: str) -> bool:
     except Exception:
         return False
 
-def _chat_points_earned_today_utc(user_id: str) -> int:
-    if not sb or not user_id:
+def _points_earned_today_for_paths(user_id: str, paths: frozenset) -> int:
+    if not sb or not user_id or not paths:
         return 0
     from datetime import datetime, timezone
     start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -680,11 +692,19 @@ def _chat_points_earned_today_utc(user_id: str) -> int:
         for row in res.data or []:
             path = (row.get("path") or "").strip()
             amount = int(row.get("amount") or 0)
-            if path in CHAT_POINT_PATHS and amount > 0:
+            if path in paths and amount > 0:
                 total += amount
         return total
     except Exception:
         return 0
+
+
+def _chat_points_earned_today_utc(user_id: str) -> int:
+    return _points_earned_today_for_paths(user_id, CHAT_POINT_PATHS)
+
+
+def _memory_points_earned_today_utc(user_id: str) -> int:
+    return _points_earned_today_for_paths(user_id, MEMORY_POINT_PATHS)
 
 def _revoke_milestone_credit(user_id: str, mkey: str) -> int:
     """Remove the one-time milestone credit; returns negative amount applied (0 if none)."""
@@ -742,6 +762,13 @@ def _resolve_points_award(
         remaining = max(0, _chat_daily_points_cap() - earned_today)
         if remaining <= 0:
             return 0, "", "chat_daily_cap"
+        amount = min(amount, remaining)
+
+    if path in MEMORY_POINT_PATHS and amount > 0:
+        earned_today = _memory_points_earned_today_utc(user_id)
+        remaining = max(0, _memory_daily_points_cap() - earned_today)
+        if remaining <= 0:
+            return 0, "", "memory_daily_cap"
         amount = min(amount, remaining)
 
     return amount, f"{action}:{path}", None
@@ -923,6 +950,14 @@ def _chat_daily_points_cap() -> int:
         return CHAT_DAILY_POINTS_CAP
 
 
+def _memory_daily_points_cap() -> int:
+    row = _get_point_settings().get("memory_daily_points_cap") or {}
+    try:
+        return max(0, int(row.get("value_int") if row.get("value_int") is not None else MEMORY_DAILY_POINTS_CAP))
+    except (TypeError, ValueError):
+        return MEMORY_DAILY_POINTS_CAP
+
+
 def _invite_referral_points() -> int:
     mapped = _point_rules_map().get(("referral", REFERRAL_PATH))
     if mapped is None:
@@ -947,6 +982,7 @@ def _public_point_rules_payload() -> dict:
         ],
         "lookup": lookup,
         "chat_daily_points_cap": _chat_daily_points_cap(),
+        "memory_daily_points_cap": _memory_daily_points_cap(),
         "referral_bonus_points": _invite_referral_points(),
         "level_rewards": _level_rewards_public(),
     }
@@ -3064,8 +3100,9 @@ def _subscription_active_from_row(row: Optional[dict], *, has_grant: bool = Fals
     status = (row.get("subscription_status") or "").lower()
     if status == "active":
         sub_ends = row.get("subscription_ends_at")
+        # Fail closed: missing/unparseable expiry must not unlock forever access.
         if not sub_ends:
-            return True
+            return False
         from datetime import datetime, timezone
         try:
             exp_dt = datetime.fromisoformat(str(sub_ends).replace("Z", "+00:00"))
@@ -3073,11 +3110,11 @@ def _subscription_active_from_row(row: Optional[dict], *, has_grant: bool = Fals
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             return exp_dt >= datetime.now(timezone.utc)
         except Exception:
-            return True
+            return False
     if status == "trial":
         trial_ends = row.get("trial_ends_at")
         if not trial_ends:
-            return True
+            return False
         from datetime import datetime, timezone
         try:
             exp_dt = datetime.fromisoformat(str(trial_ends).replace("Z", "+00:00"))
@@ -3085,7 +3122,7 @@ def _subscription_active_from_row(row: Optional[dict], *, has_grant: bool = Fals
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             return exp_dt >= datetime.now(timezone.utc)
         except Exception:
-            return True
+            return False
     return False
 
 
@@ -3144,7 +3181,7 @@ def _subscription_status_for_user(user_id: str) -> dict:
 
 def check_subscription(token: str):
     if not sb:
-        return True
+        return False
     token = (token or "").strip()
     try:
         # User JWTs: never query invite_codes by the raw JWT string.
@@ -7875,27 +7912,42 @@ async def admin_delete_user(user_id: str, x_token: Optional[str] = Header(None))
 
 
 @app.delete("/admin/users/delete_all")
-async def admin_delete_all_users(x_token: Optional[str] = Header(None)):
+async def admin_delete_all_users(
+    confirm: Optional[str] = Query(None),
+    x_token: Optional[str] = Header(None),
+):
     admin_id = verify_admin(x_token)
     if not sb:
         raise HTTPException(status_code=500, detail="Database not configured")
+    if (confirm or "").strip() != "DELETE_ALL_USERS":
+        raise HTTPException(
+            status_code=400,
+            detail="Pass confirm=DELETE_ALL_USERS to wipe non-admin users",
+        )
     try:
         all_users = sb.table("users").select("id,email,name,role").execute()
         user_rows = all_users.data or []
         deleted = 0
+        skipped = 0
         for row in user_rows:
+            uid = row.get("id")
+            role = (row.get("role") or "").lower()
+            # Never wipe admins or the calling admin account.
+            if not uid or role == "admin" or uid == admin_id:
+                skipped += 1
+                continue
             try:
-                _purge_user_account(row["id"])
-                sb.auth.admin.delete_user(row["id"])
+                _purge_user_account(uid)
+                sb.auth.admin.delete_user(uid)
                 deleted += 1
             except Exception:
                 pass
         _log_activity(
             admin_id, "delete_all", "user", None,
             value_before={"count": len(user_rows), "users": [_activity_snapshot(u) for u in user_rows[:50]]},
-            value_after={"deleted": deleted},
+            value_after={"deleted": deleted, "skipped": skipped},
         )
-        return {"ok": True, "deleted": deleted}
+        return {"ok": True, "deleted": deleted, "skipped": skipped}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -10511,57 +10563,12 @@ async def resend_webhook(request: Request):
 
 @app.post("/webhooks/lemon")
 async def lemon_webhook(request: Request):
-    try:
-        import secrets as _secrets
-        from datetime import datetime as _dt
-        payload = await request.json()
-        attrs = payload.get("data", {}).get("attributes", {})
-        customer_email = attrs.get("user_email") or attrs.get("customer_email") or ""
-        product_name = attrs.get("product_name", "HeyMaa")
-        plan = "starter"
-        pname = product_name.lower()
-        if "119" in pname or "199" in pname or "annual" in pname:
-            plan = "annual_premium"
-        elif "24.99" in pname or "24,99" in pname or "39" in pname or "premium" in pname:
-            plan = "premium"
-        invite_code = "LS-" + _secrets.token_urlsafe(12)
-        created_at = _dt.utcnow().isoformat()
-        if sb and customer_email:
-            try:
-                sb.table("pending_invites").upsert({
-                    "email": customer_email.lower().strip(),
-                    "invite_code": invite_code,
-                    "plan": plan,
-                    "created_at": created_at,
-                    "used": False,
-                }).execute()
-            except Exception:
-                pass
-            if RESEND_API_KEY:
-                try:
-                    try:
-                        from .email_templates import render_subscription_welcome_email, send_email
-                    except ImportError:
-                        from email_templates import render_subscription_welcome_email, send_email
-                    welcome = render_subscription_welcome_email(
-                        name=attrs.get("user_name") or attrs.get("name"),
-                        plan=plan,
-                        invite_code=invite_code,
-                        app_url=APP_URL,
-                        lang="el",
-                    )
-                    send_email(
-                        api_key=RESEND_API_KEY,
-                        from_address=RESEND_FROM,
-                        to=customer_email,
-                        message=welcome,
-                        kind="subscription_welcome",
-                    )
-                except Exception:
-                    pass
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    """Retired: checkout is Viva-only. Keep route to reject old Lemon callbacks safely."""
+    _ = request
+    raise HTTPException(
+        status_code=410,
+        detail="Lemon Squeezy webhooks are disabled. Use Viva checkout.",
+    )
 
 
 
@@ -11225,7 +11232,13 @@ async def set_userdata(body: dict, x_token: str = Header(None)):
     value = body.get("value")
     if not key:
         raise HTTPException(status_code=400, detail="key required")
-    if key in ("ttsused", "tts_usage", "plan_grants", "level_rewards_claimed"):
+    if key in (
+        "ttsused",
+        "tts_usage",
+        "plan_grants",
+        "level_rewards_claimed",
+        "subscription_cancel_requested",
+    ):
         raise HTTPException(status_code=403, detail="This data is managed by the server.")
     if key in ("memories", "docs"):
         entitlements = resolve_entitlements_for_auth(sb, auth)

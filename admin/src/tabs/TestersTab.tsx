@@ -103,11 +103,12 @@ export function TestersTab({ onUsersChanged }: { onUsersChanged: () => void }) {
       show('Type DELETE ALL to confirm', 'err')
       return
     }
-    if (!confirm('Final confirmation: delete ALL users? This cannot be undone.')) return
+    if (!confirm('Final confirmation: delete ALL non-admin users? Admins are kept. This cannot be undone.')) return
     try {
-      const d = await adminFetch('/admin/users/delete_all', { method: 'DELETE' })
+      const d = await adminFetch('/admin/users/delete_all?confirm=DELETE_ALL_USERS', { method: 'DELETE' })
       if (d.ok) {
-        show(`Deleted ${d.deleted} users`, 'ok')
+        const skipped = typeof d.skipped === 'number' ? ` (kept ${d.skipped} admins)` : ''
+        show(`Deleted ${d.deleted} users${skipped}`, 'ok')
         setDeleteConfirm('')
         onUsersChanged()
       } else {
