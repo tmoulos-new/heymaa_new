@@ -21,7 +21,7 @@ import { RELATIONSHIP_PRESETS, classifyKinship, defaultRelatedToForRelationship,
 import { GAMIFICATION_CHAT_VIDEO_PATH, getChatDailyPointsCap, gamificationPointsForPath, mergeGamificationFaqItems, pointsToastSuffix, setLivePointRules } from "./lib/gamificationCard";
 import { appPath, logUserActivity } from "./lib/userActivity";
 import { applyPointsDelta, levelName, defaultGamificationStatus, readHeaderPointsChipVisible, writeHeaderPointsChipVisible, personalReferralCode, type GamificationStatus } from "./lib/userGamification";
-import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchSubscriptionStatus, invalidateAuthCaches, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, blockAuthSessionPersist, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
+import { API, apiDetail, applyAuthUserName, fetchAuthMe, fetchServerProfile, fetchSubscriptionStatus, invalidateAuthCaches, isLocalDemoToken, clearAuthToken, getAuthToken, persistAuthSession, restoreAuthSession, refreshAuthSession, logoutUser, blockAuthSessionPersist, readCachedSubscriptionActive, writeCachedSubscriptionActive, type PlanEntitlements, type ServerProfileRow, type SubscriptionSnapshot, type VoiceQuota } from "./lib/authApi";
 import { displayUppercase, nameInVocative } from "./lib/greekText";
 import { ageMonthsFromBirthDate, parseLocalIsoDate, useCalendarDay } from "./lib/childAge";
 import {
@@ -377,6 +377,82 @@ let toastSeq = 0;
 
 interface ChildEntity { name: string; birthDate: string; }
 interface Profile { name: string; childName: string; childAge: string; childBirthDate?: string; lang: string; dueDate?: string; children?: ChildEntity[]; pregnancyStatus?: "active"|"awaiting_update"|"completed"; country?: string; consentMarketing?: boolean; consentDate?: string; pushAlertsOptIn?: boolean; pushAlertsOptInAt?: string; address?: string; city?: string; postalCode?: string; phone?: string; }
+
+function readLocalProfile(token: string): Profile | null {
+  try {
+    const stableRaw = localStorage.getItem(sk(token, "profile"));
+    const legacyRaw = !stableRaw ? localStorage.getItem(`hm_profile_${token}`) : null;
+    const raw = stableRaw || legacyRaw;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Profile;
+    const lang = normalizeAppLang(parsed.lang || localStorage.getItem("hm_pre_lang") || "en", "en");
+    if (parsed.lang !== lang) {
+      const fixed = { ...parsed, lang };
+      localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
+      writeStoredAppLang(lang);
+      return fixed;
+    }
+    writeStoredAppLang(lang);
+    return { ...parsed, lang };
+  } catch {
+    return null;
+  }
+}
+
+/** Rebuild a client Profile from GET /profile + auth name after logout wiped local cache. */
+function profileFromServerRow(apiName: string, row: ServerProfileRow, lang: string): Profile {
+  const birthdates = Array.isArray(row.children_birthdates)
+    ? row.children_birthdates.map((d) => String(d || "").trim()).filter(Boolean)
+    : [];
+  const pregnant = !!row.pregnancy_active;
+  const firstBd = !pregnant && birthdates[0] ? birthdates[0] : undefined;
+  const children: ChildEntity[] | undefined =
+    !pregnant && birthdates.length
+      ? birthdates.map((birthDate) => ({ name: "", birthDate }))
+      : undefined;
+  return {
+    name: apiName.trim() || "Mama",
+    childName: "",
+    childAge: firstBd ? formatChildAge(firstBd, lang) : "",
+    childBirthDate: firstBd,
+    lang,
+    children,
+    pregnancyStatus: pregnant ? "active" : undefined,
+    country: row.country ? String(row.country) : row.address_country ? String(row.address_country) : undefined,
+    city: row.city ? String(row.city) : row.address_city ? String(row.address_city) : undefined,
+    postalCode: row.zip ? String(row.zip) : undefined,
+    address: row.address_street ? String(row.address_street) : undefined,
+    phone: row.phone ? String(row.phone) : undefined,
+    consentMarketing: !!row.consent_marketing,
+    consentDate: row.consent_date ? String(row.consent_date) : undefined,
+    pushAlertsOptIn: !!row.push_alerts_opt_in,
+    pushAlertsOptInAt: row.push_alerts_opt_in_at ? String(row.push_alerts_opt_in_at) : undefined,
+  };
+}
+
+function minimalRestoredProfile(apiName: string, lang: string): Profile {
+  // Consent keys mark the profile as onboarded for gate helpers without re-running the wizard.
+  return {
+    name: apiName.trim() || "Mama",
+    childName: "",
+    childAge: "",
+    lang,
+    consentMarketing: false,
+    consentDate: undefined,
+    pushAlertsOptIn: false,
+    pushAlertsOptInAt: undefined,
+  };
+}
+
+/** True when GET /profile shows the in-app wizard already finished (not just signup stubs). */
+function serverProfileLooksFinished(row: ServerProfileRow): boolean {
+  if (row.consent_date || row.push_alerts_opt_in_at) return true;
+  if (row.pregnancy_active) return true;
+  if (Array.isArray(row.children_birthdates) && row.children_birthdates.some((d) => String(d || "").trim())) return true;
+  if (typeof row.child_count === "number" && row.child_count > 0) return true;
+  if (String(row.country || "").trim() || String(row.city || "").trim()) return true;
+  return false;
+}
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -2352,6 +2428,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   });
   /** Block cloud writes until local recovery + server hydrate finish. */
   const [cloudReady, setCloudReady] = useState(false);
+  /** True only when GET /userdata succeeded — blocks empty autosaves from wiping cloud. */
+  const cloudHydrateOkRef = useRef(false);
   const [memoriesLocalReady, setMemoriesLocalReady] = useState(false);
   const [memoriesSaving, setMemoriesSaving] = useState(false);
   const [milestoneChecksMap, setMilestoneChecksMap] = useState<MilestoneChecksMap>(() => {
@@ -2368,11 +2446,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, []);
   const [shopItems, setShopItems] = useState<string[]>(() => {
     const s = bootLocalScan(token).shopitems;
-    return s?.length ? s : ["Silicone teether","Travel crib","High contrast books","Floor gym"];
+    // Empty default — never seed demo lists that can overwrite cloud after logout wipe.
+    return s?.length ? s : [];
   });
   const [superItems, setSuperItems] = useState<string[]>(() => {
     const s = bootLocalScan(token).superitems;
-    return s?.length ? s : ["Aptamil Stage 2 €18.90","Johnson Baby Shampoo €4.50","Pampers No3 €14.99","WaterWipes €9.99"];
+    return s?.length ? s : [];
   });
 
   const [tab, setTab] = useState<"profile"|"chat"|"family"|"memories"|"milestones"|"shopping"|"offers">("chat");
@@ -2814,7 +2893,12 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     // Never push empty arrays/objects to cloud (would wipe recovered data),
     // except keys where clearing is a real user action (e.g. deleted all docs).
     if (value == null) return;
-    if (Array.isArray(payload) && payload.length === 0 && !allowEmptyCloud) return;
+    if (Array.isArray(payload) && payload.length === 0) {
+      if (!allowEmptyCloud) return;
+      // After logout the local store is empty — if /userdata hydrate failed,
+      // empty autosave would destroy the server copy. Wait for a good hydrate.
+      if (!cloudHydrateOkRef.current) return;
+    }
     if (typeof payload === "object" && !Array.isArray(payload)) {
       const keys = Object.keys(payload);
       if (
@@ -2835,6 +2919,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   useEffect(() => {
     let cancelled = false;
     setCloudReady(false);
+    cloudHydrateOkRef.current = false;
     setMemoriesLocalReady(false);
     docsDirtyRef.current = false;
     let idleId: number | undefined;
@@ -2842,6 +2927,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
     const run = async () => {
       if (cancelled) return;
+      cloudHydrateOkRef.current = false;
       try {
         const local = await recoverAllLocalUserData(token);
         if (cancelled) return;
@@ -2876,13 +2962,16 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         if (local.superitems?.length) setSuperItems(local.superitems);
 
         let cloudRaw: Record<string, unknown> = {};
+        let hydrateOk = false;
         try {
           const res = await axios.get(`${API}/userdata`, { headers: { "x-token": token } });
           cloudRaw = res.data?.data || {};
+          hydrateOk = true;
         } catch {
-          /* offline / auth — keep local */
+          /* offline / auth — keep local; do not allow empty cloud overwrites */
         }
         if (cancelled) return;
+        cloudHydrateOkRef.current = hydrateOk;
 
         const merged = mergeCloudUserData(local, cloudRaw);
         const finalMemories = pickRicherMemories(
@@ -7984,26 +8073,36 @@ export default function App() {
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [sessionReady, setSessionReady] = useState(() => !!resolveAppAuthToken() || !!new URLSearchParams(window.location.search).get("reset"));
+  /** False while we still need local/server profile before deciding Onboarding vs app. */
+  const [profileReady, setProfileReady] = useState(() => {
+    const tk = resolveAppAuthToken();
+    if (!tk || isLocalDemoToken(tk)) return true;
+    return !!readLocalProfile(tk);
+  });
   const handleLogout = () => {
     const tk = token;
     const giftToKeep = giftCodeFromLocation() || readPendingGiftCode();
-    // Block cookie/refresh restore first, then wipe local user content so the next
-    // signup/login on this device cannot resurrect the previous account's data.
+    // Block cookie/refresh restore first, then drop React session so MainApp
+    // unmounts immediately (stops autosave from rewriting keys mid-purge).
+    // User-scoped profile + onboarding flags are kept (see purgeLocalAppData).
     blockAuthSessionPersist();
+    clearAuthToken();
+    invalidateAuthCaches(tk);
+    setToken(null);
+    setProfile(null);
+    setProfileReady(true);
+    setSubActive(null);
+    setSubStatus(null);
+    setMustChangePassword(false);
     void (async () => {
       try {
         await purgeLocalAppData();
       } catch {
         /* best effort — still clear the session */
       }
+      // Purge clears sessionStorage — re-arm logout latch until next login.
+      blockAuthSessionPersist();
       if (giftToKeep) stashPendingGiftCode(giftToKeep);
-      clearAuthToken();
-      invalidateAuthCaches(tk);
-      setToken(null);
-      setProfile(null);
-      setSubActive(null);
-      setSubStatus(null);
-      setMustChangePassword(false);
       void logoutUser(tk).catch(() => {});
     })();
   };
@@ -8026,34 +8125,50 @@ export default function App() {
   }, [sessionReady]);
 
   useEffect(() => {
-    if (!token) { setProfile(null); setMustChangePassword(false); return; }
+    if (!token) {
+      setProfile(null);
+      setMustChangePassword(false);
+      setProfileReady(true);
+      return;
+    }
     if (isLocalDemoToken(token)) {
       clearAuthToken();
       setToken(null);
       setProfile(null);
       setMustChangePassword(false);
+      setProfileReady(true);
       return;
     }
-    const cached = (() => {
-      try {
-        const stableRaw = localStorage.getItem(sk(token,"profile"));
-        const legacyRaw = !stableRaw ? localStorage.getItem(`hm_profile_${token}`) : null;
-        const raw = stableRaw || legacyRaw;
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as Profile;
-        const lang = normalizeAppLang(parsed.lang || localStorage.getItem("hm_pre_lang") || "en", "en");
-        if (parsed.lang !== lang) {
-          const fixed = { ...parsed, lang };
-          localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
-          writeStoredAppLang(lang);
-          return fixed;
-        }
-        writeStoredAppLang(lang);
-        return { ...parsed, lang };
-      } catch { return null; }
-    })();
+    const cached = readLocalProfile(token);
+    if (cached) {
+      setProfile(cached);
+      setProfileReady(true);
+    } else {
+      setProfileReady(false);
+    }
+    let cancelled = false;
+    const finishWithoutProfile = (apiName: string) => {
+      if (apiName) {
+        try {
+          sessionStorage.setItem("hm_signup_name", apiName);
+        } catch { /* ignore */ }
+      }
+      if (!cancelled) {
+        setProfile(null);
+        setProfileReady(true);
+      }
+    };
+    const persistRestored = (p: Profile) => {
+      localStorage.setItem(sk(token, "profile"), JSON.stringify(p));
+      markProfileOnboardingComplete(token);
+      if (!cancelled) {
+        setProfile(p);
+        setProfileReady(true);
+      }
+    };
     fetchAuthMe(token)
-      .then((u) => {
+      .then(async (u) => {
+        if (cancelled) return;
         setMustChangePassword(!!u.must_change_password);
         const apiName = String(u.name || "").trim();
         if (apiName) applyAuthUserName(token, apiName);
@@ -8062,19 +8177,31 @@ export default function App() {
             const fixed = { ...cached, name: apiName };
             localStorage.setItem(sk(token, "profile"), JSON.stringify(fixed));
             setProfile(fixed);
-            return;
           }
-          setProfile(cached);
+          setProfileReady(true);
           return;
         }
-        // Do NOT seed a name-only Profile into React state here.
-        // That skipped Onboarding (and the tour / first-child / first-chat prompts)
-        // for new subscribers after the Supabase rebuild. Prefill name only.
-        if (apiName) {
-          try {
-            sessionStorage.setItem("hm_signup_name", apiName);
-          } catch { /* ignore */ }
+        // Returning user: local profile was wiped (older logout) but onboarding flag
+        // and/or server profile still prove setup already finished.
+        const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en");
+        let serverRow: ServerProfileRow | null = null;
+        try {
+          serverRow = await fetchServerProfile(token);
+        } catch {
+          serverRow = null;
         }
+        if (cancelled) return;
+        const onboardedLocally = hasCompletedProfileOnboarding(token);
+        if (serverRow && (onboardedLocally || serverProfileLooksFinished(serverRow))) {
+          persistRestored(profileFromServerRow(apiName, serverRow, lang));
+          return;
+        }
+        if (onboardedLocally) {
+          persistRestored(minimalRestoredProfile(apiName, lang));
+          return;
+        }
+        // Do NOT seed a name-only Profile — that skipped Onboarding for new users.
+        finishWithoutProfile(apiName);
       })
       .catch(async (err: any) => {
         if (err?.response?.status === 401) {
@@ -8084,11 +8211,23 @@ export default function App() {
             return;
           }
         }
+        if (cancelled) return;
         // Keep offline/local cached profile when the API is down.
-        if (cached) setProfile(cached);
-        else setProfile(null);
+        if (cached) {
+          setProfile(cached);
+          setProfileReady(true);
+        } else if (hasCompletedProfileOnboarding(token)) {
+          const lang = normalizeAppLang(localStorage.getItem("hm_pre_lang") || "en", "en");
+          persistRestored(minimalRestoredProfile("", lang));
+        } else {
+          setProfile(null);
+          setProfileReady(true);
+        }
         setMustChangePassword(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   useEffect(() => {
@@ -8159,8 +8298,8 @@ export default function App() {
     return <Navigate to={`${APP_ROUTE}/auth?${qs.toString()}`} replace />;
   }
   if(mustChangePassword)return <ChangePasswordScreen token={token} lang={normalizeAppLang(profile?.lang||localStorage.getItem("hm_pre_lang")||"en","en")} onDone={tk=>{persistAuthSession(tk);setToken(tk);setMustChangePassword(false);}} onLogout={handleLogout}/>;
-  // Wait until subscription status is known — do not enter the app on `null`.
-  if (subActive === null) {
+  // Wait until subscription + profile resolution are known — avoid flashing Onboarding.
+  if (subActive === null || !profileReady) {
     const isEl = (localStorage.getItem("hm_pre_lang") || profile?.lang || "el").toLowerCase().startsWith("el");
     return (
       <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#D4DCE8", fontFamily: "'DM Sans', sans-serif" }}>

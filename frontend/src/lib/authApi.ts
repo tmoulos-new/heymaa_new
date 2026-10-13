@@ -325,6 +325,36 @@ export async function fetchAuthMe(token: string, opts?: { force?: boolean }) {
   }, opts?.force)
 }
 
+/** Server-side profile row from `GET /profile` (subset used for re-login hydration). */
+export type ServerProfileRow = {
+  country?: string | null
+  city?: string | null
+  zip?: string | null
+  address_street?: string | null
+  address_city?: string | null
+  address_country?: string | null
+  child_count?: number | null
+  pregnancy_active?: boolean | null
+  children_birthdates?: unknown
+  consent_marketing?: boolean | null
+  consent_date?: string | null
+  push_alerts_opt_in?: boolean | null
+  push_alerts_opt_in_at?: string | null
+  phone?: string | null
+}
+
+export async function fetchServerProfile(token: string): Promise<ServerProfileRow | null> {
+  try {
+    const res = await axios.get<ServerProfileRow>(`${API}/profile`, {
+      headers: { 'x-token': token },
+    })
+    return res.data || null
+  } catch (err: any) {
+    if (err?.response?.status === 404) return null
+    throw err
+  }
+}
+
 export async function fetchSubscriptionStatus(token: string, opts?: { force?: boolean }) {
   return coalesceAuthFetch(inflightStatus, cachedStatus, token, async () => {
     const res = await axios.get<SubscriptionSnapshot>(`${API}/auth/status`, {

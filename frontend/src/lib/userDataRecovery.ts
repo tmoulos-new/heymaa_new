@@ -433,13 +433,18 @@ const LOCAL_KEYS_KEEP_ON_ACCOUNT_DELETE = new Set([
   "hm_pre_lang",
 ]);
 
-/** User-scoped onboarding flags — safe across logout (keyed by user id, not JWT). */
+/**
+ * User-scoped prefs that must survive logout (keyed by user id, not JWT).
+ * Keeping `hm_profile_<userId>` prevents completed users from being forced
+ * back through Onboarding on the next login on the same device.
+ */
 function shouldKeepOnboardingPrefKey(key: string): boolean {
   return (
     key.startsWith("hm_app_tour_v1_") ||
     key.startsWith("hm_profile_onboarding_v1_") ||
     key.startsWith("hm_first_chat_guide_v1_") ||
-    key.startsWith("hm_first_chat_guide_pending_v1_")
+    key.startsWith("hm_first_chat_guide_pending_v1_") ||
+    (key.startsWith("hm_profile_") && !key.startsWith("hm_profile_onboarding"))
   );
 }
 
@@ -483,12 +488,27 @@ export async function purgeLocalAppData(): Promise<void> {
     /* ignore */
   }
   try {
+    // Keep explicit-logout latch so a reload mid-logout cannot revive the cookie session.
+    const LOGOUT_FLAG = "hm_explicit_logout";
+    let keepLogoutLatch = false;
+    try {
+      keepLogoutLatch = sessionStorage.getItem(LOGOUT_FLAG) === "1";
+    } catch {
+      /* ignore */
+    }
     const sessionKeys: string[] = [];
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       if (key && key.startsWith("hm_")) sessionKeys.push(key);
     }
     for (const key of sessionKeys) sessionStorage.removeItem(key);
+    if (keepLogoutLatch) {
+      try {
+        sessionStorage.setItem(LOGOUT_FLAG, "1");
+      } catch {
+        /* ignore */
+      }
+    }
   } catch {
     /* ignore */
   }
