@@ -111,3 +111,72 @@ def delete_user_media(sb, *, user_id: str, key: str) -> None:
         return
     owned = assert_owns_key(user_id, key)
     sb.storage.from_(USER_MEDIA_BUCKET).remove([owned])
+
+
+def _entry_name(item) -> str:
+    if isinstance(item, dict):
+        return str(item.get("name") or "")
+    return str(getattr(item, "name", "") or "")
+
+
+def purge_user_media_prefix(sb, *, user_id: str) -> int:
+    """Delete all Storage objects under ``{user_id}/`` (chat + memory)."""
+    if not sb or not user_id:
+        return 0
+    uid = str(user_id).strip()
+    if not uid or "/" in uid or ".." in uid:
+        return 0
+    bucket = sb.storage.from_(USER_MEDIA_BUCKET)
+    keys: list[str] = []
+    try:
+        top = bucket.list(uid) or []
+    except Exception:
+        top = []
+    for item in top:
+        name = _entry_name(item)
+        if not name:
+            continue
+        # Files directly under user id (unusual) or folders chat/memory
+        child_path = f"{uid}/{name}"
+        try:
+            nested = bucket.list(child_path) or []
+        except Exception:
+            nested = []
+        if nested:
+            for nested_item in nested:
+                nested_name = _entry_name(nested_item)
+                if nested_name:
+                    keys.append(f"{child_path}/{nested_name}")
+        else:
+            # Treat as a file at this path
+            keys.append(child_path)
+    # Also explicitly walk known folders in case list(uid) returns empty
+    for folder in ("chat", "memory"):
+        path = f"{uid}/{folder}"
+        try:
+            files = bucket.list(path) or []
+        except Exception:
+            files = []
+        for item in files:
+            name = _entry_name(item)
+            if name:
+                key = f"{path}/{name}"
+                if key not in keys:
+                    keys.append(key)
+    if not keys:
+        return 0
+    # Batch remove (Supabase accepts lists)
+    removed = 0
+    for i in range(0, len(keys), 100):
+        chunk = keys[i : i + 100]
+        try:
+            bucket.remove(chunk)
+            removed += len(chunk)
+        except Exception:
+            for key in chunk:
+                try:
+                    bucket.remove([key])
+                    removed += 1
+                except Exception:
+                    pass
+    return removed

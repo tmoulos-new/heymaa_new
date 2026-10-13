@@ -250,15 +250,19 @@ export async function memoriesForCloud(
   return out;
 }
 
-/** Resolve Storage keys to signed URLs for display after login. */
+/** Resolve Storage keys to signed URLs for display after login / refresh. */
 export async function hydrateMemoryMediaUrls(
   token: string,
   memories: SyncMemory[],
 ): Promise<SyncMemory[]> {
   const keys: string[] = [];
   for (const m of memories) {
-    if (m.imgKey && !m.img) keys.push(m.imgKey);
-    if (m.videoKey && !m.video) keys.push(m.videoKey);
+    if (m.imgKey && (!m.img || m.img.startsWith("http://") || m.img.startsWith("https://"))) {
+      keys.push(m.imgKey);
+    }
+    if (m.videoKey && (!m.video || m.video.startsWith("http://") || m.video.startsWith("https://"))) {
+      keys.push(m.videoKey);
+    }
   }
   if (!keys.length) return memories;
   try {
@@ -266,8 +270,12 @@ export async function hydrateMemoryMediaUrls(
     const urls = await fetchSignedMediaUrls(token, keys);
     return memories.map((m) => {
       let next = m;
-      if (m.imgKey && !m.img && urls[m.imgKey]) next = { ...next, img: urls[m.imgKey] };
-      if (m.videoKey && !m.video && urls[m.videoKey]) next = { ...next, video: urls[m.videoKey] };
+      if (m.imgKey && urls[m.imgKey] && (!m.img || m.img.startsWith("http"))) {
+        next = { ...next, img: urls[m.imgKey] };
+      }
+      if (m.videoKey && urls[m.videoKey] && (!m.video || m.video.startsWith("http"))) {
+        next = { ...next, video: urls[m.videoKey] };
+      }
       return next;
     });
   } catch (err) {

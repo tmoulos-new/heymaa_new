@@ -9641,6 +9641,15 @@ def _auth_user_export_payload(user_id: str) -> dict:
 
 def _purge_user_account(user_id: str) -> None:
     """Remove app rows that would block auth.users delete (RESTRICT FKs + owned data)."""
+    # Private Storage blobs (chat Library / memory media)
+    try:
+        try:
+            from .user_media import purge_user_media_prefix
+        except ImportError:
+            from user_media import purge_user_media_prefix
+        purge_user_media_prefix(sb, user_id=user_id)
+    except Exception:
+        pass
     # invite_codes.user_id is ON DELETE RESTRICT (personal referral codes)
     try:
         sb.table("invite_codes").delete().eq("user_id", user_id).execute()
@@ -11166,6 +11175,14 @@ async def delete_userdata_content(x_token: str = Header(None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
+        try:
+            from .user_media import purge_user_media_prefix
+        except ImportError:
+            from user_media import purge_user_media_prefix
+        try:
+            purge_user_media_prefix(sb, user_id=user_id)
+        except Exception:
+            pass
         deleted = 0
         res = (
             sb.table("user_data")

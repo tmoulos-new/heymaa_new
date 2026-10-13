@@ -8,6 +8,10 @@ export interface AppMemory {
   date: string;
   img?: string;
   video?: string;
+  /** Private Storage object path for photo (user-media). */
+  imgKey?: string;
+  /** Private Storage object path for video (user-media). */
+  videoKey?: string;
   ref?: string;
   createdAt?: string;
   description?: string;

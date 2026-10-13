@@ -2,12 +2,15 @@
 
 import { storageScope } from "./memoriesSync";
 import {
+  deleteUserMedia,
   fetchSignedMediaUrls,
   parseChatMediaIndex,
   uploadUserMedia,
   type ChatMediaIndex,
   type ChatMediaIndexEntry,
 } from "./userMedia";
+import axios from "axios";
+import { API } from "./authApi";
 
 export type ChatMediaEntry = {
   id: string;
@@ -172,7 +175,8 @@ export function collectPersistableMedia(
     for (const att of m.attachments || []) {
       if (att.kind !== "image" && att.kind !== "video" && att.kind !== "file") continue;
       if (att.kind === "video" && !allowVideo) continue;
-      if (!att.data || !att.mediaId) continue;
+      if (!att.mediaId) continue;
+      if (!att.data && !att.storageKey) continue;
       if (seen.has(att.mediaId)) continue;
       seen.add(att.mediaId);
       out.push({
@@ -186,7 +190,8 @@ export function collectPersistableMedia(
             : att.kind === "file"
               ? "application/octet-stream"
               : "image/jpeg"),
-        data: att.data,
+        data: att.data || "",
+        storageKey: att.storageKey,
         createdAt: Date.now(),
       });
     }
@@ -199,37 +204,90 @@ export async function persistChatMediaEntries(
   token: string,
   entries: ChatMediaEntry[],
   limit: number,
-): Promise<{ map: Record<string, ChatMediaEntry>; pruned: number }> {
+): Promise<{ map: Record<string, ChatMediaEntry>; pruned: number; prunedEntries: ChatMediaEntry[] }> {
   const prev = await loadChatMediaMap(token);
   if (!entries.length && Object.keys(prev).length <= limit) {
-    return { map: prev, pruned: 0 };
+    return { map: prev, pruned: 0, prunedEntries: [] };
   }
   const merged = { ...prev };
   for (const e of entries) {
     const existing = merged[e.id];
     merged[e.id] = {
       ...e,
+      storageKey: e.storageKey || existing?.storageKey,
+      data: e.data || existing?.data || "",
       createdAt: existing?.createdAt ?? e.createdAt,
     };
   }
   const before = Object.keys(merged).length;
   const next = pruneChatMediaMap(merged, Math.max(0, limit));
+  const prunedEntries = Object.values(merged).filter((e) => !next[e.id]);
   const pruned = Math.max(0, before - Object.keys(next).length);
   await saveChatMediaMap(token, next);
-  return { map: next, pruned };
+  // Best-effort Storage cleanup for plan-pruned blobs
+  for (const e of prunedEntries) {
+    if (e.storageKey) {
+      try {
+        await deleteUserMedia(token, e.storageKey);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return { map: next, pruned, prunedEntries };
 }
 
 export async function removeChatMediaIds(token: string, ids: string[]): Promise<void> {
   if (!ids.length) return;
+  await removeChatMediaAndStorage(token, ids);
+}
+
+/** Remove Library blobs from IDB + Storage + chat_media_index. */
+export async function removeChatMediaAndStorage(token: string, ids: string[]): Promise<void> {
+  if (!ids.length) return;
   const map = await loadChatMediaMap(token);
+  const storageKeys: string[] = [];
   let changed = false;
   for (const id of ids) {
-    if (map[id]) {
+    const entry = map[id];
+    if (entry?.storageKey) storageKeys.push(entry.storageKey);
+    if (entry) {
       delete map[id];
       changed = true;
     }
   }
   if (changed) await saveChatMediaMap(token, map);
+  for (const key of storageKeys) {
+    try {
+      await deleteUserMedia(token, key);
+    } catch {
+      /* ignore */
+    }
+  }
+  // Patch cloud index only when we can read the current value (avoid empty overwrite).
+  try {
+    const res = await axios.get(`${API}/userdata`, {
+      params: { key: "chat_media_index" },
+      headers: { "x-token": token },
+    });
+    const index = parseChatMediaIndex(res.data?.value);
+    let indexChanged = false;
+    for (const id of ids) {
+      if (index[id]) {
+        delete index[id];
+        indexChanged = true;
+      }
+    }
+    if (indexChanged) {
+      await axios.post(
+        `${API}/userdata`,
+        { key: "chat_media_index", value: index },
+        { headers: { "x-token": token } },
+      );
+    }
+  } catch {
+    /* offline — Storage delete above still happened */
+  }
 }
 
 /** Upload local Library blobs to Storage and return userdata index payload. */
@@ -299,7 +357,21 @@ export async function hydrateChatMediaFromIndex(
     const url = urls[meta.storageKey];
     if (!url) continue;
     const existing = map[id];
-    if (existing?.data && existing.data.startsWith("data:")) continue;
+    // Keep local data-URLs; always refresh https signed URLs (they expire).
+    if (existing?.data && existing.data.startsWith("data:")) {
+      if (!existing.storageKey) {
+        map[id] = { ...existing, storageKey: meta.storageKey };
+        changed = true;
+      }
+      continue;
+    }
+    if (
+      existing?.data === url &&
+      existing.storageKey === meta.storageKey &&
+      existing.kind === meta.kind
+    ) {
+      continue;
+    }
     map[id] = {
       id,
       kind: meta.kind,

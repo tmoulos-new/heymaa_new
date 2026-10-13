@@ -6,6 +6,7 @@ export type ChatLibraryItem = {
   name: string;
   href?: string;
   mediaId?: string;
+  storageKey?: string;
   date: string;
   source: "live" | string;
   msgIndex: number;
@@ -35,14 +36,15 @@ export function collectChatLibraryItems<T extends LibraryMessage>(
           msgIndex: i,
           attIndex: j,
         };
-        if (att.kind === "image" && att.data) {
-          item.href = att.data;
+        if (att.storageKey) item.storageKey = att.storageKey;
+        if (att.kind === "image" && (att.data || att.storageKey)) {
+          if (att.data) item.href = att.data;
           if (att.mediaId) item.mediaId = att.mediaId;
           media.push(item);
           return;
         }
-        if (att.kind === "video" && att.data) {
-          item.href = att.data;
+        if (att.kind === "video" && (att.data || att.storageKey)) {
+          if (att.data) item.href = att.data;
           if (att.mediaId) item.mediaId = att.mediaId;
           media.push(item);
           return;

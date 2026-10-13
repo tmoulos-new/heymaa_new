@@ -102,10 +102,10 @@ import {
   hydrateMessageAttachments,
   loadChatMediaMap,
   persistChatMediaEntries,
-  removeChatMediaIds,
+  removeChatMediaAndStorage,
   syncChatMediaToCloud,
 } from "./lib/chatMediaSync";
-import { parseChatMediaIndex } from "./lib/userMedia";
+import { deleteUserMedia, parseChatMediaIndex } from "./lib/userMedia";
 import { useKeyboardInset } from "./lib/useKeyboardInset";
 import {
   mergeCloudUserData,
@@ -3190,18 +3190,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (!entries.length) return;
     const timer = window.setTimeout(() => {
       void (async () => {
-        await persistChatMediaEntries(token, entries, chatMediaLimit);
+        const persisted = await persistChatMediaEntries(token, entries, chatMediaLimit);
         if (!cloudHydrateOkRef.current) return;
         try {
           let prevIndex = parseChatMediaIndex(null);
+          let indexLoaded = false;
           try {
             const res = await axios.get(`${API}/userdata`, {
               params: { key: "chat_media_index" },
               headers: { "x-token": token },
             });
             prevIndex = parseChatMediaIndex(res.data?.value);
+            indexLoaded = true;
           } catch {
-            /* offline — still try upload; index merge is best-effort */
+            /* Do not POST an empty merge over a failed GET — that wipes cloud keys. */
+          }
+          if (!indexLoaded) return;
+          // Drop pruned Library ids from the cloud index
+          for (const e of persisted.prunedEntries) {
+            if (prevIndex[e.id]) delete prevIndex[e.id];
           }
           const nextIndex = await syncChatMediaToCloud(token, entries, prevIndex);
           await axios.post(
@@ -3216,6 +3223,44 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     }, 600);
     return () => window.clearTimeout(timer);
   }, [messages, threads, cloudReady, token, chatMediaLimit, planEntitlements, subSnapshot]);
+
+  // Refresh signed Storage URLs periodically (7-day TTL) so long sessions keep media.
+  useEffect(() => {
+    if (!cloudReady || !token || !cloudHydrateOkRef.current) return;
+    let cancelled = false;
+    const refresh = async () => {
+      if (!cloudHydrateOkRef.current) return;
+      try {
+        const res = await axios.get(`${API}/userdata`, {
+          params: { key: "chat_media_index" },
+          headers: { "x-token": token },
+        });
+        if (cancelled) return;
+        const map = await hydrateChatMediaFromIndex(token, res.data?.value);
+        setMessages((prev) => hydrateMessageAttachments(prev, map));
+        setThreads((prev) =>
+          prev.map((th) => ({
+            ...th,
+            messages: hydrateMessageAttachments(th.messages || [], map),
+          })),
+        );
+        setMemories((prev) => {
+          void hydrateMemoryMediaUrls(token, prev).then((next) => {
+            if (!cancelled) setMemories(next as Memory[]);
+          });
+          return prev;
+        });
+      } catch {
+        /* offline */
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(refresh, 12 * 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [cloudReady, token]);
   // Always persist memories locally (IDB); also sync to cloud with compressed photos
   useEffect(() => {
     if (!memoriesLocalReady) return;
@@ -4022,7 +4067,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
         ),
       );
     }
-    if (item.mediaId) void removeChatMediaIds(token, [item.mediaId]);
+    if (item.mediaId) {
+      void removeChatMediaAndStorage(token, [item.mediaId]);
+    } else if (item.storageKey) {
+      void deleteUserMedia(token, item.storageKey).catch(() => undefined);
+    }
     if (libraryPreview && libraryPreview.src === item.href) setLibraryPreview(null);
     setLibraryDeleteTarget(null);
   };
@@ -4480,12 +4529,28 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     );
 
   const removeMemoryPhoto = (index: number) => {
-    setMemories((prev) => prev.map((mem, i) => (i === index ? { ...mem, img: undefined, video: undefined } : mem)));
+    setMemories((prev) => {
+      const mem = prev[index];
+      if (!mem) return prev;
+      const keys = [mem.imgKey, mem.videoKey].filter((k): k is string => !!k);
+      for (const key of keys) {
+        void deleteUserMedia(token, key).catch(() => undefined);
+      }
+      return prev.map((m, i) =>
+        i === index
+          ? { ...m, img: undefined, video: undefined, imgKey: undefined, videoKey: undefined }
+          : m,
+      );
+    });
   };
 
   const deleteMemory = (index: number) => {
     const removed = memories[index];
     if (!removed) return;
+    const keys = [removed.imgKey, removed.videoKey].filter((k): k is string => !!k);
+    for (const key of keys) {
+      void deleteUserMedia(token, key).catch(() => undefined);
+    }
     setMemories(memories.filter((_, j) => j !== index));
 
     let unchecked: { ref: string; stageId: string; idx: number; bulletsLen: number } | null = null;
