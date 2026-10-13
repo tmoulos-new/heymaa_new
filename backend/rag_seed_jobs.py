@@ -14,12 +14,22 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _as_int(value: Any, default: int) -> int:
+    """Parse ints without treating 0 as missing (Fix broken uses max_discover_pages=0)."""
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def job_public(row: dict[str, Any]) -> dict[str, Any]:
     urls = row.get("urls") or []
     if not isinstance(urls, list):
         urls = []
-    discover_page = int(row.get("discover_page") or 1)
-    max_pages = int(row.get("max_discover_pages") or 250)
+    discover_page = _as_int(row.get("discover_page"), 1)
+    max_pages = _as_int(row.get("max_discover_pages"), 250)
     # max_discover_pages=0 is the Fix-broken / rebuild_empty contract (even if
     # the URL queue was empty or already drained).
     mode = "rebuild_empty" if max_pages == 0 else "add_new"
@@ -1000,8 +1010,8 @@ def _tick_discover_babyspace(sb, row: dict[str, Any]) -> dict[str, Any]:
         from url_acquire import normalize_url
 
     job_id = row["id"]
-    page = int(row.get("discover_page") or 1)
-    max_pages = int(row.get("max_discover_pages") or 250)
+    page = _as_int(row.get("discover_page"), 1)
+    max_pages = _as_int(row.get("max_discover_pages"), 250)
     since_years = row.get("since_years")
     urls = list(row.get("urls") or [])
     known = {u.split("?")[0] for u in urls}
@@ -1115,7 +1125,7 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             {
                 "status": "failed",
                 "last_error": "No base URL in sync setup — open Edit setup and save a base URL.",
-                "discover_page": int(row.get("max_discover_pages") or 1) + 1,
+                "discover_page": _as_int(row.get("max_discover_pages"), 1) + 1,
             },
         )
 
@@ -1150,7 +1160,7 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             {
                 "status": "completed",
                 "last_error": msg[:500],
-                "discover_page": int(row.get("max_discover_pages") or 1) + 1,
+                "discover_page": _as_int(row.get("max_discover_pages"), 1) + 1,
                 "discovered": 0,
                 "urls": [],
             },
@@ -1181,7 +1191,7 @@ def _tick_discover_myparenthood(sb, row: dict[str, Any]) -> dict[str, Any]:
             continue
         seen.add(key)
         urls.append(u)
-    max_pages = int(row.get("max_discover_pages") or 250)
+    max_pages = _as_int(row.get("max_discover_pages"), 250)
     note = None
     if requested > max_urls:
         note = f"Capped discover at {max_urls} pages this sync (requested {requested})."
@@ -1234,8 +1244,8 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
     skipped = int(row.get("skipped") or 0)
     failed = int(row.get("failed") or 0)
     last_error = row.get("last_error")
-    max_pages = int(row.get("max_discover_pages") or 250)
-    discover_page = int(row.get("discover_page") or 1)
+    max_pages = _as_int(row.get("max_discover_pages"), 250)
+    discover_page = _as_int(row.get("discover_page"), 1)
     discover_done = discover_page > max_pages
     # rebuild_empty jobs set max_discover_pages=0 — always re-fetch queued URLs.
     force_rebuild = max_pages == 0
