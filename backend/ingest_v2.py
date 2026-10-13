@@ -60,7 +60,7 @@ def ingest(file_path, title):
     for i, chunk in enumerate(chunks):
         try:
             emb = get_embedding(chunk)
-            sb.table("rag_chunks").insert({"source_id":source_id,"content":chunk,"embedding":emb,"metadata":{"chunk_index":i+1,"title":title}}).execute()
+            sb.table("rag_chunks").insert({"source_id":source_id,"content":chunk,"embedding_half":emb,"metadata":{"chunk_index":i+1,"title":title}}).select("id").execute()
             ok += 1
             print(f"  [{ok}/{len(chunks)}]", end="\r")
             time.sleep(1.5)

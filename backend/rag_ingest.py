@@ -357,6 +357,71 @@ def validate_upload_filename(filename: str) -> str:
     return base
 
 
+def _sanitize_ingest_error(exc: BaseException) -> str:
+    msg = str(exc)
+    msg = re.sub(r"(key=)[^&\s]+", r"\1***", msg, flags=re.I)
+    return msg
+
+
+def _is_stale_embedding_schema_error(exc: BaseException) -> bool:
+    """True when PostgREST still expects the dropped rag_chunks.embedding column."""
+    msg = str(exc).lower()
+    if "pgrst204" in msg:
+        return "embedding" in msg
+    if "could not find" in msg and "embedding" in msg and "schema cache" in msg:
+        return True
+    if "column" in msg and "embedding" in msg and (
+        "does not exist" in msg or "unknown" in msg or "not find" in msg
+    ):
+        # Avoid matching embedding_half / query_embedding false positives when
+        # the message clearly names the full embedding column only.
+        if "embedding_half" in msg and "embedding'" not in msg and '"embedding"' not in msg:
+            return False
+        return "'embedding'" in msg or '"embedding"' in msg or " embedding " in f" {msg} "
+    return False
+
+
+_SCHEMA_CACHE_HINT = (
+    "PostgREST schema cache still references dropped rag_chunks.embedding. "
+    "Run NOTIFY pgrst, 'reload schema'; in SQL, then Cancel the job and re-run Sync/Fix broken."
+)
+
+
+def _insert_rag_chunk(
+    sb,
+    *,
+    source_id: str,
+    content: str,
+    embedding_half: list[float],
+    metadata: dict,
+) -> None:
+    """Insert one chunk using embedding_half only; harden against stale schema cache."""
+    row = {
+        "source_id": source_id,
+        "content": content,
+        "embedding_half": embedding_half,
+        "metadata": metadata,
+    }
+    # Never include `embedding`. Pin RETURNING so Prefer return=representation
+    # cannot SELECT * (which may still list a dropped column in a stale cache).
+    try:
+        sb.table("rag_chunks").insert(row).select("id").execute()
+        return
+    except Exception as first:
+        if not _is_stale_embedding_schema_error(first):
+            raise
+        # Retry once with return=minimal (no RETURNING columns at all).
+        try:
+            from postgrest.types import ReturnMethod
+
+            sb.table("rag_chunks").insert(row, returning=ReturnMethod.minimal).execute()
+            return
+        except Exception as second:
+            if _is_stale_embedding_schema_error(second):
+                raise ValueError(_SCHEMA_CACHE_HINT) from second
+            raise
+
+
 def ingest_text_into_source(
     sb,
     *,
@@ -402,40 +467,21 @@ def ingest_text_into_source(
         try:
             embedding = get_document_embedding(chunk)
             meta = {"chunk_index": i + 1, "title": title, **extra}
-            sb.table("rag_chunks").insert(
-                {
-                    "source_id": source_id,
-                    "content": chunk,
-                    "embedding": embedding,
-                    # Dedicated halfvec column powers HNSW match_chunks (see migration).
-                    "embedding_half": embedding,
-                    "metadata": meta,
-                }
-            ).execute()
+            # Store halfvec only — full vector(3072) was dropped to reclaim disk.
+            # Never write `embedding`. Pin RETURNING to id so a stale PostgREST
+            # schema cache cannot SELECT a dropped column (PGRST204).
+            _insert_rag_chunk(
+                sb,
+                source_id=source_id,
+                content=chunk,
+                embedding_half=embedding,
+                metadata=meta,
+            )
             success += 1
             if sleep_seconds > 0:
                 time.sleep(sleep_seconds)
         except Exception as e:
-            # Fallback if embedding_half column is not migrated yet
-            if "embedding_half" in str(e):
-                try:
-                    sb.table("rag_chunks").insert(
-                        {
-                            "source_id": source_id,
-                            "content": chunk,
-                            "embedding": embedding,
-                            "metadata": meta,
-                        }
-                    ).execute()
-                    success += 1
-                    if sleep_seconds > 0:
-                        time.sleep(sleep_seconds)
-                    continue
-                except Exception as e2:
-                    e = e2
-            msg = str(e)
-            # Never leak API keys that may appear in exception URLs
-            msg = re.sub(r"(key=)[^&\s]+", r"\1***", msg, flags=re.I)
+            msg = _sanitize_ingest_error(e)
             errors.append(f"chunk {i + 1}: {msg}")
 
     status = "ready" if success > 0 else "error"

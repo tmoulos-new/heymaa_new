@@ -1851,7 +1851,7 @@ def retrieve_context(
             query_embedding=emb,
             top_k=top_k,
             threshold=threshold,
-            rpc_timeout=2.5,
+            rpc_timeout=8.0,
             prefer_lang=prefer_lang,
         )
         timing["match_ms"] = round((_time.perf_counter() - t1) * 1000, 1)
@@ -8239,8 +8239,11 @@ async def admin_get_sync_site_setup(source_key: str, x_token: Optional[str] = He
         from .rag_seed_jobs import knowledge_source_public, resolve_knowledge_source
     except ImportError:
         from rag_seed_jobs import knowledge_source_public, resolve_knowledge_source
-    row = resolve_knowledge_source(sb, source_key)
-    pub = knowledge_source_public(row)
+    try:
+        row = resolve_knowledge_source(sb, source_key)
+        pub = knowledge_source_public(row)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not load sync setup: {e}") from e
     if not pub:
         raise HTTPException(status_code=404, detail=f"Sync source '{source_key}' not found")
     return {"ok": True, "site": pub}

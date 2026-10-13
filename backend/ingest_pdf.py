@@ -105,9 +105,9 @@ def ingest_pdf(pdf_path: str, title: str):
             sb.table("rag_chunks").insert({
                 "source_id": source_id,
                 "content": chunk,
-                "embedding": embedding,
+                "embedding_half": embedding,
                 "metadata": {"page_approx": i + 1, "title": title}
-            }).execute()
+            }).select("id").execute()
             success += 1
             print(f"       [{success}/{len(chunks)}] OK", end="\r")
             time.sleep(0.3)  # rate limit courtesy

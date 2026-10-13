@@ -733,16 +733,18 @@ export function RagSourcesTab() {
   }
 
   const openSetup = async (site: SyncSiteCard) => {
+    // Prefill from the table card immediately — never block the modal on "Loading…".
+    const cardBase = syncSiteBaseUrl(site) || site.baseUrl || ''
     setSetupKey(site.key)
-    setSetupLoading(true)
     setSetupName(site.name)
-    setSetupBaseUrl('')
+    setSetupBaseUrl(cardBase)
     setSetupSitemap('')
     setSetupRss('')
     setSetupMax('50')
     setSetupSinceYears(site.sinceYears != null ? String(site.sinceYears) : '')
     setSetupDiscover('crawl')
-    setSetupEnabled(true)
+    setSetupEnabled(site.enabled !== false)
+    setSetupLoading(true)
     try {
       const d = await adminFetch(`/admin/rag_sources/sync_sites/${encodeURIComponent(site.key)}`)
       const s = (d.site || d) as {
@@ -756,16 +758,32 @@ export function RagSourcesTab() {
         enabled?: boolean
       }
       setSetupName(s.name || site.name)
-      setSetupBaseUrl(s.base_url || '')
+      setSetupBaseUrl(s.base_url || cardBase)
       setSetupSitemap(s.sitemap_url || '')
       setSetupRss(s.rss_url || '')
       setSetupMax(String(s.max_urls ?? 50))
-      setSetupSinceYears(s.since_years != null ? String(s.since_years) : '')
+      setSetupSinceYears(
+        s.since_years != null
+          ? String(s.since_years)
+          : site.sinceYears != null
+            ? String(site.sinceYears)
+            : '',
+      )
       setSetupDiscover(s.discover || 'crawl')
       setSetupEnabled(s.enabled !== false)
     } catch (e) {
-      show(e instanceof Error ? e.message : 'Could not load sync setup', 'err')
-      setSetupKey(null)
+      // Keep the prefilled form so the admin can still edit/save from card values.
+      if (!cardBase) {
+        show(e instanceof Error ? e.message : 'Could not load sync setup', 'err')
+        setSetupKey(null)
+      } else {
+        show(
+          e instanceof Error
+            ? `Could not load full setup (${e.message}). Showing values from the table.`
+            : 'Could not load full setup. Showing values from the table.',
+          'err',
+        )
+      }
     } finally {
       setSetupLoading(false)
     }
@@ -1683,11 +1701,19 @@ export function RagSourcesTab() {
       </div>
 
       {setupKey ? (
-        <Modal title={`Edit sync setup · ${setupKey}`} onClose={() => setSetupKey(null)}>
-          {setupLoading ? (
-            <p className="muted">Loading setup…</p>
-          ) : (
-            <>
+        <Modal
+          title={`Edit sync setup · ${setupKey}`}
+          onClose={() => {
+            setSetupKey(null)
+            setSetupLoading(false)
+          }}
+        >
+          <>
+              {setupLoading ? (
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Refreshing saved setup…
+                </p>
+              ) : null}
               <p className="card-desc" style={{ marginTop: 0 }}>
                 These settings control how <strong>Sync new pages</strong> finds content. They do not
                 change pages already in the library until you sync or fix broken.
@@ -1769,7 +1795,14 @@ export function RagSourcesTab() {
                 <span>Enabled in Site sync</span>
               </label>
               <div className="modal-foot">
-                <button type="button" className="ghost" onClick={() => setSetupKey(null)}>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setSetupKey(null)
+                    setSetupLoading(false)
+                  }}
+                >
                   Cancel
                 </button>
                 <button
@@ -1781,8 +1814,7 @@ export function RagSourcesTab() {
                   {setupSaving ? 'Saving…' : 'Save setup'}
                 </button>
               </div>
-            </>
-          )}
+          </>
         </Modal>
       ) : null}
 

@@ -281,9 +281,14 @@ def knowledge_source_public(row: Optional[dict[str, Any]]) -> Optional[dict[str,
 
 
 def resolve_knowledge_source(sb, source_key: str) -> Optional[dict[str, Any]]:
-    """Fetch a registry row, creating initial websites on first access if needed."""
-    ensure_initial_knowledge_sources(sb)
+    """Fetch a registry row, creating that one website on first access if needed.
+
+    Intentionally does NOT call ``ensure_initial_knowledge_sources`` (all seeds) —
+    Edit setup must stay fast; seeding every collection here hung the admin modal.
+    """
     key = _slug_source_key(source_key)
+    if not key:
+        return None
     row = get_knowledge_source(sb, key)
     if row:
         return row
@@ -306,7 +311,7 @@ def resolve_knowledge_source(sb, source_key: str) -> Optional[dict[str, Any]]:
                 merge_existing=False,
             )
             return get_knowledge_source(sb, key)
-    # Infer a website row from already-ingested pages.
+    # Infer a website row from already-ingested pages (bounded query).
     base = _base_url_for_source(sb, key)
     if base:
         label = key.replace("-", " ").replace("_", " ").strip().title() or key
