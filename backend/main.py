@@ -4,7 +4,7 @@ import base64
 import asyncio
 import uuid
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import dotenv_values
@@ -5040,8 +5040,14 @@ async def _run_chat_core(
     promo: Optional[dict] = None,
     include_debug: bool = False,
     user_id: Optional[str] = None,
-) -> dict:
-    """Shared /chat pipeline (RAG + LLM). Caller handles auth / subscription."""
+    stream_holder: Optional[dict] = None,
+) -> Optional[dict]:
+    """Shared /chat pipeline (RAG + LLM). Caller handles auth / subscription.
+
+    When ``stream_holder`` is a dict, prepare RAG/prompt then stash LLM inputs
+    in ``stream_holder['prepared']`` and return ``None`` so ``/chat/stream``
+    can stream tokens. Early exits (e.g. source asks) still return a full dict.
+    """
     import time as _time
     import uuid as _uuid
 
@@ -5426,17 +5432,42 @@ async def _run_chat_core(
             status_code=503,
             detail="No LLM providers configured (set Grok_Heymaa_API_key, Gemini_Heymaa_API_Key, and/or Claude_Heymaa_API_key).",
         )
+
+    token_budget = _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS
+    gemini_budget = _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS_LONG
+
+    if stream_holder is not None:
+        # Hand off to /chat/stream after RAG + prompt are ready.
+        stream_holder["prepared"] = {
+            "message_for_llm": message_for_llm,
+            "llm_history": llm_history,
+            "system_prompt": system_prompt,
+            "providers": list(providers),
+            "prov_keys": dict(_prov_keys),
+            "image_parts": image_parts or None,
+            "places_query": places_query,
+            "places_context": places_context,
+            "chat_context_limit": chat_context_limit,
+            "token_budget": token_budget,
+            "gemini_budget": gemini_budget,
+            "latitude": req.latitude,
+            "longitude": req.longitude,
+            "input_chars": input_chars,
+            "user_id": user_id,
+            "request_id": request_id,
+            "wrapper": wrapper,
+            "finalize": _chat_success,
+            "timing": timing,
+            "llm_tx_ids": llm_tx_ids,
+            "t_total0": t_total0,
+        }
+        return None
+
     for provider in providers:
         try:
             key = _prov_keys[provider]
 
             async def _legacy_call(p=provider, k=key):
-                token_budget = (
-                    _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS
-                )
-                gemini_budget = (
-                    _CHAT_MAX_TOKENS_PLACES if places_query else _CHAT_MAX_TOKENS_LONG
-                )
                 if p == "grok":
                     reply = await call_grok(
                         message_for_llm,
@@ -5514,6 +5545,14 @@ async def _run_chat_core(
     )
 
 
+def _sse_chat_event(payload: dict) -> str:
+    try:
+        from .chat_stream import format_sse
+    except ImportError:
+        from chat_stream import format_sse
+    return format_sse(payload)
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
     auth = resolve_auth(x_token)
@@ -5532,6 +5571,257 @@ async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)[:160]}") from e
+
+
+@app.post("/chat/stream")
+async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
+    """Same chat pipeline as /chat, but streams assistant tokens via SSE.
+
+    Events (``data: {json}\\n\\n``):
+    - ``{"type":"status","phase":"preparing"|"generating"}``
+    - ``{"type":"delta","text":"..."}`` incremental tokens
+    - ``{"type":"done", ...}`` final payload (reply, sources, places, message_id, …)
+    - ``{"type":"error","detail":"...","status":503}``
+    """
+    auth = resolve_auth(x_token)
+    if not check_subscription(x_token):
+        raise HTTPException(status_code=402, detail="Subscription expired")
+    entitlements = _entitlements_for_token(x_token)
+    promo = match_promotion(x_token)
+    uid = auth.get("user_id") if auth.get("kind") != "invite" else None
+    if uid:
+        _touch_last_active(uid)
+
+    async def _events():
+        import time as _time
+
+        holder: dict = {}
+        try:
+            yield _sse_chat_event({"type": "status", "phase": "preparing"})
+            early = await _run_chat_core(
+                req,
+                entitlements=entitlements,
+                promo=promo,
+                user_id=uid,
+                stream_holder=holder,
+            )
+            if early is not None:
+                yield _sse_chat_event({"type": "done", **early})
+                return
+            prepared = holder.get("prepared") or {}
+            if not prepared:
+                yield _sse_chat_event(
+                    {
+                        "type": "error",
+                        "status": 500,
+                        "detail": "Chat stream prepare failed.",
+                    }
+                )
+                return
+
+            yield _sse_chat_event({"type": "status", "phase": "generating"})
+            try:
+                from .chat_stream import iter_grok_chat_deltas
+            except ImportError:
+                from chat_stream import iter_grok_chat_deltas
+
+            providers = list(prepared.get("providers") or [])
+            prov_keys = prepared.get("prov_keys") or {}
+            errors: list[str] = []
+            wrapper = prepared.get("wrapper")
+            finalize = prepared.get("finalize")
+            timing = prepared.get("timing") or {}
+            llm_tx_ids = prepared.get("llm_tx_ids") or []
+            t_llm0 = _time.perf_counter()
+
+            for provider in providers:
+                key = (prov_keys.get(provider) or "").strip()
+                if not key:
+                    continue
+                try:
+
+                    async def _stream_or_call(p=provider, k=key):
+                        if p == "grok" and not prepared.get("image_parts"):
+                            parts: list[str] = []
+                            async for delta in iter_grok_chat_deltas(
+                                message=prepared["message_for_llm"],
+                                history=prepared["llm_history"],
+                                system_prompt=prepared["system_prompt"],
+                                api_key=k,
+                                history_limit=int(prepared.get("chat_context_limit") or 20),
+                                max_tokens=int(prepared.get("token_budget") or _CHAT_MAX_TOKENS),
+                                history_max=_CHAT_HISTORY_MAX,
+                            ):
+                                parts.append(delta)
+                                yield ("delta", delta)
+                            reply = "".join(parts).strip()
+                            if not reply:
+                                raise RuntimeError("grok returned empty stream")
+                            yield ("final", reply, "grok", {})
+                            return
+                        if p == "grok":
+                            reply = await call_grok(
+                                prepared["message_for_llm"],
+                                prepared["llm_history"],
+                                prepared["system_prompt"],
+                                k,
+                                history_limit=int(prepared.get("chat_context_limit") or 20),
+                                max_tokens=int(prepared.get("token_budget") or _CHAT_MAX_TOKENS),
+                            )
+                            model = "grok"
+                        elif p == "gemini":
+                            reply = await call_gemini(
+                                prepared["message_for_llm"],
+                                prepared["llm_history"],
+                                prepared["system_prompt"],
+                                k,
+                                image_parts=prepared.get("image_parts"),
+                                history_limit=int(prepared.get("chat_context_limit") or 20),
+                                maps_grounding=bool(prepared.get("places_query"))
+                                and not prepared.get("image_parts")
+                                and not prepared.get("places_context"),
+                                latitude=prepared.get("latitude"),
+                                longitude=prepared.get("longitude"),
+                                max_tokens=int(
+                                    prepared.get("gemini_budget") or _CHAT_MAX_TOKENS_LONG
+                                ),
+                            )
+                            model = "gemini"
+                        else:
+                            reply = await call_claude(
+                                prepared["message_for_llm"],
+                                prepared["llm_history"],
+                                prepared["system_prompt"],
+                                k,
+                                image_parts=prepared.get("image_parts"),
+                                history_limit=int(prepared.get("chat_context_limit") or 20),
+                                max_tokens=int(prepared.get("token_budget") or _CHAT_MAX_TOKENS),
+                            )
+                            model = "claude-haiku-4-5-20251001"
+                        if not reply:
+                            raise RuntimeError(f"{p} returned empty reply")
+                        if prepared.get("places_query") and _is_places_refuse_reply(reply):
+                            raise RuntimeError(f"{p} refused places list: {reply[:80]!r}")
+                        if not _is_usable_reply(reply):
+                            raise RuntimeError(f"{p} returned unusable reply: {reply[:80]!r}")
+                        yield ("final", reply, model, {})
+
+                    # Prefer wrapper accounting when non-streaming providers run.
+                    if provider == "grok" and not prepared.get("image_parts"):
+                        reply_parts: list[str] = []
+                        async for kind, *rest in _stream_or_call():
+                            if kind == "delta":
+                                piece = rest[0]
+                                reply_parts.append(piece)
+                                yield _sse_chat_event({"type": "delta", "text": piece})
+                            elif kind == "final":
+                                reply, model, _meta = rest[0], rest[1], rest[2]
+                                timing["llm_ms"] = round(
+                                    (_time.perf_counter() - t_llm0) * 1000, 1
+                                )
+                                # Record usage without wrapping the stream mid-flight.
+                                try:
+                                    try:
+                                        from .llm_usage import (
+                                            estimate_event_cost,
+                                            insert_llm_transaction,
+                                        )
+                                    except ImportError:
+                                        from llm_usage import (
+                                            estimate_event_cost,
+                                            insert_llm_transaction,
+                                        )
+
+                                    cost = estimate_event_cost(
+                                        "grok", model=model or "grok", ok=True
+                                    )
+                                    tid = insert_llm_transaction(
+                                        sb,
+                                        purpose="chat",
+                                        provider="grok",
+                                        model=model or "grok",
+                                        ok=True,
+                                        cost_usd=cost,
+                                        latency_ms=timing["llm_ms"],
+                                        input_chars=prepared.get("input_chars"),
+                                        output_chars=len(reply or ""),
+                                        user_id=prepared.get("user_id"),
+                                        request_id=prepared.get("request_id"),
+                                        meta={"stream": True},
+                                    )
+                                    if tid:
+                                        llm_tx_ids.append(tid)
+                                        timing["llm_transaction_id"] = tid
+                                        timing["llm_cost_usd"] = cost
+                                except Exception:
+                                    pass
+                                done = finalize(reply, provider)
+                                yield _sse_chat_event({"type": "done", **done})
+                                return
+                    else:
+
+                        async def _legacy_call(p=provider, k=key):
+                            async for kind, *rest in _stream_or_call(p, k):
+                                if kind == "final":
+                                    return rest[0], rest[1], rest[2]
+                            raise RuntimeError(f"{p} produced no final reply")
+
+                        result = await wrapper.chat(
+                            provider,
+                            _legacy_call,
+                            user_id=prepared.get("user_id"),
+                            request_id=prepared.get("request_id"),
+                            input_chars=prepared.get("input_chars"),
+                            fold_pending_embeds=False,
+                        )
+                        timing["llm_ms"] = result.latency_ms
+                        timing["llm_cost_usd"] = result.cost_usd
+                        timing["llm_transaction_id"] = result.transaction_id
+                        if result.transaction_id:
+                            llm_tx_ids.append(result.transaction_id)
+                        # One-shot delta so the UI still paints before done metadata.
+                        yield _sse_chat_event({"type": "delta", "text": result.text})
+                        done = finalize(result.text, provider)
+                        yield _sse_chat_event({"type": "done", **done})
+                        return
+                except Exception as e:
+                    errors.append(f"{provider}: {e}")
+                    continue
+
+            joined = " | ".join(errors) or "All providers failed"
+            low = joined.lower()
+            status = 503
+            detail = "HeyMaa could not answer right now. Please try again in a moment."
+            if any(x in low for x in ("429", "quota", "rate limit", "resource exhausted")):
+                detail = "HeyMaa is busy right now. Please try again in a minute."
+            yield _sse_chat_event(
+                {"type": "error", "status": status, "detail": detail, "debug": joined[:300]}
+            )
+        except HTTPException as e:
+            detail = e.detail
+            if not isinstance(detail, str):
+                detail = str(detail)
+            yield _sse_chat_event(
+                {"type": "error", "status": e.status_code, "detail": detail[:400]}
+            )
+        except Exception as e:
+            yield _sse_chat_event(
+                {
+                    "type": "error",
+                    "status": 500,
+                    "detail": f"Chat failed: {str(e)[:160]}",
+                }
+            )
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 class ChatFeedbackRequest(BaseModel):

@@ -94,6 +94,7 @@ import {
   type ChatAttachment,
 } from "./lib/chatAttachments";
 import { titleFromConversation } from "./lib/chatThreadTitle";
+import { streamChat } from "./lib/chatStream";
 import {
   collectPersistableMedia,
   hydrateMessageAttachments,
@@ -3387,53 +3388,109 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       recentMilestones,
       recentDocs,
     };
+    const assistantIdx = next.length;
+    const resolveMessageId = (raw: unknown) => {
+      if (typeof raw === "string" && raw.trim()) return raw.trim();
+      if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+      try {
+        return typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `local-${Date.now()}`;
+      } catch {
+        return `local-${Date.now()}`;
+      }
+    };
+    const applyDonePayload = (data: {
+      reply?: unknown;
+      promo?: unknown;
+      memory_suggestion?: unknown;
+      places?: unknown;
+      sources?: unknown;
+      message_id?: unknown;
+    }) => {
+      const reply = typeof data?.reply === "string" ? data.reply.trim() : "";
+      if (!reply) throw new Error("empty_reply");
+      setMessages((prev) => {
+        const copy = [...prev];
+        const existing = copy[assistantIdx];
+        if (existing && existing.role === "assistant") {
+          copy[assistantIdx] = {
+            ...existing,
+            content: data.reply as string,
+            promo: (data.promo as Message["promo"]) || null,
+            memorySuggestion: mapApiMemorySuggestion(data.memory_suggestion),
+            places: Array.isArray(data?.places) ? (data.places as Message["places"]) : null,
+            sources: parseChatSources(data?.sources),
+            messageId: resolveMessageId(data?.message_id),
+            feedback: null,
+          };
+        } else {
+          copy.push({
+            role: "assistant",
+            content: data.reply as string,
+            promo: (data.promo as Message["promo"]) || null,
+            memorySuggestion: mapApiMemorySuggestion(data.memory_suggestion),
+            places: Array.isArray(data?.places) ? (data.places as Message["places"]) : null,
+            sources: parseChatSources(data?.sources),
+            messageId: resolveMessageId(data?.message_id),
+            feedback: null,
+          });
+        }
+        return copy;
+      });
+    };
+
     try {
       let chatToken = token;
-      let res;
-      try {
-        res = await axios.post(`${API}/chat`, chatPayload, {
-          headers: { "x-token": chatToken },
-          timeout: 90000,
-        });
-      } catch (firstErr: any) {
-        if (firstErr.response?.status !== 401) throw firstErr;
-        const next = await refreshAuthSession();
-        if (!next || next === chatToken) throw firstErr;
-        chatToken = next;
-        onTokenUpdate?.(next);
-        res = await axios.post(`${API}/chat`, chatPayload, {
-          headers: { "x-token": chatToken },
-          timeout: 90000,
-        });
-      }
-      const reply = typeof res.data?.reply === "string" ? res.data.reply.trim() : "";
-      if (!reply) {
-        throw new Error("empty_reply");
-      }
-      setMessages([
-        ...next,
-        {
-          role: "assistant",
-          content: res.data.reply,
-          promo: res.data.promo || null,
-          memorySuggestion: mapApiMemorySuggestion(res.data.memory_suggestion),
-          places: Array.isArray(res.data?.places) ? res.data.places : null,
-          sources: parseChatSources(res.data?.sources),
-          messageId: (() => {
-            const raw = res.data?.message_id;
-            if (typeof raw === "string" && raw.trim()) return raw.trim();
-            if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
-            try {
-              return typeof crypto !== "undefined" && crypto.randomUUID
-                ? crypto.randomUUID()
-                : `local-${Date.now()}`;
-            } catch {
-              return `local-${Date.now()}`;
+      const runStream = async (tok: string) => {
+        let started = false;
+        await streamChat(API, tok, chatPayload, {
+          onDelta: (piece) => {
+            if (!started) {
+              started = true;
+              setLoading(false);
+              setMessages((prev) => [
+                ...prev.slice(0, assistantIdx),
+                { role: "assistant", content: piece, feedback: null },
+                ...prev.slice(assistantIdx + 1),
+              ]);
+              return;
             }
-          })(),
-          feedback: null,
-        },
-      ]);
+            setMessages((prev) => {
+              const copy = [...prev];
+              const cur = copy[assistantIdx];
+              if (!cur || cur.role !== "assistant") return prev;
+              copy[assistantIdx] = { ...cur, content: (cur.content || "") + piece };
+              return copy;
+            });
+          },
+          onDone: (done) => {
+            applyDonePayload(done);
+          },
+        });
+      };
+
+      try {
+        await runStream(chatToken);
+      } catch (firstErr: any) {
+        const status = firstErr?.response?.status;
+        if (status === 401) {
+          const refreshed = await refreshAuthSession();
+          if (!refreshed || refreshed === chatToken) throw firstErr;
+          chatToken = refreshed;
+          onTokenUpdate?.(refreshed);
+          await runStream(chatToken);
+        } else if (status === 404 || status === 405) {
+          // Older deploy without /chat/stream — fall back to classic /chat.
+          const res = await axios.post(`${API}/chat`, chatPayload, {
+            headers: { "x-token": chatToken },
+            timeout: 90000,
+          });
+          applyDonePayload(res.data || {});
+        } else {
+          throw firstErr;
+        }
+      }
     } catch (err: any) {
       if (err.response?.status === 401) {
         const msg = lang === "el"
