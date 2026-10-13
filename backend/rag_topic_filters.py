@@ -116,14 +116,32 @@ def is_ms_baby_childhood_url(url: str, *, title: str = "", snippet: str = "") ->
 
 
 def is_babyspace_ro_url(url: str, *, title: str = "", snippet: str = "") -> bool:
-    """Babyspace RO is parenting-focused; keep most article URLs under /ro/."""
+    """Babyspace RO is parenting-focused; keep article URLs under /ro/.
+
+    Exclude tag hubs, banners, account/shop noise (same contract as sync_babyspace_ro.py).
+    """
     u = (url or "").strip()
     if "babyspace.com.ro" not in u.lower():
         return False
     if BABY_CHILDHOOD_EXCLUDE_RE.search(u):
         return False
     path = urlparse(u).path.lower()
-    if any(x in path for x in ("/e-shop", "/conecteaza", "/inscrie", "/termeni", "/cookie")):
+    if any(
+        x in path
+        for x in (
+            "/e-shop",
+            "/conecteaza",
+            "/inscrie",
+            "/termeni",
+            "/cookie",
+            "/protectia-datelor",
+            "/users/",
+            "/banners/",
+            "/tags/",
+        )
+    ):
+        return False
+    if re.search(r"\.(?:jpg|jpeg|png|gif|webp|svg|zip|css|js)(?:$|\?)", path, re.I):
         return False
     # Whole site is childhood/parenting — keep articles and guides.
     if "/ro/" in path or path.rstrip("/").endswith("/ro"):

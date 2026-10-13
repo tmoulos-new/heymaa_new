@@ -618,6 +618,13 @@ def create_or_update_url_source_and_ingest(
     page_title = (title or acquired.get("title") or source_url).strip()
     text = acquired["content"]
     lang = language or acquired.get("language") or "el"
+    published_at = acquired.get("published_at")
+    published_iso = None
+    if published_at is not None:
+        try:
+            published_iso = published_at.isoformat()
+        except Exception:
+            published_iso = str(published_at)
 
     existing = _find_source_by_url(sb, source_url)
     payload = {
@@ -627,12 +634,13 @@ def create_or_update_url_source_and_ingest(
         "status": "processing",
         "chunk_count": 0,
     }
-    # Optional columns from migration rag_url_sources.sql
+    # Optional columns from migration rag_url_sources.sql / published_at
     for key, value in (
         ("source_url", source_url),
         ("source_key", source_key),
         ("language", lang),
         ("enabled", True),
+        ("published_at", published_iso),
     ):
         if value is not None:
             payload[key] = value
@@ -685,6 +693,7 @@ def create_or_update_url_source_and_ingest(
                 "source_key": source_key,
                 "language": lang,
                 "source_type": "url",
+                **({"published_at": published_iso} if published_iso else {}),
             },
         )
     except Exception:

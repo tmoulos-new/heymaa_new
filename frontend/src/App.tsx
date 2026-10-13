@@ -8070,7 +8070,7 @@ export default function App() {
           if (!isRetry) {
             window.setTimeout(() => {
               if (!cancelled) loadStatus(true);
-            }, 1600);
+            }, 400);
             return;
           }
           setSubActive(false);

@@ -379,7 +379,13 @@ def save_tts_usage(sb, auth: dict, usage: dict[str, Any], updated_at: str) -> No
             sb.table("user_data").insert({**fields, "user_id": auth["user_id"]}).execute()
 
 
-def get_voice_quota_for_auth(sb, auth: dict, user_row: Optional[dict] = None) -> dict[str, Any]:
+def get_voice_quota_for_auth(
+    sb,
+    auth: dict,
+    user_row: Optional[dict] = None,
+    grants: Optional[list] = None,
+    usage: Optional[dict] = None,
+) -> dict[str, Any]:
     if auth.get("kind") == "invite":
         _, ent = invite_plan_context()
     else:
@@ -388,9 +394,13 @@ def get_voice_quota_for_auth(sb, auth: dict, user_row: Optional[dict] = None) ->
         except ImportError:
             from plan_grants import get_user_plan_grants, plan_context_with_grants
 
-        grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
+        if grants is None:
+            grants = get_user_plan_grants(sb, auth.get("user_id")) if sb and auth.get("user_id") else []
         _, ent = plan_context_with_grants(user_row, grants)
-    usage = load_tts_usage(sb, auth)
+    if usage is None:
+        usage = load_tts_usage(sb, auth)
+    else:
+        usage = _normalize_tts_usage(usage, current_billing_period())
     limit = int(ent.get("voice_listen_quota") or VOICE_LISTEN_QUOTA_BY_PLAN["trial"])
     return voice_quota_snapshot(usage, limit)
 
@@ -501,56 +511,103 @@ def resolve_entitlements_for_auth(sb, auth: dict) -> dict[str, Any]:
     return entitlements
 
 
-def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
+def build_status_payload(
+    sb,
+    auth: dict,
+    subscription: dict,
+    *,
+    user_row: Optional[dict] = None,
+    grants: Optional[list] = None,
+    user_data: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     try:
         from .plan_grants import (
+            LEVEL_CLAIMS_KEY,
+            PLAN_GRANTS_KEY,
+            claimed_level_ids_from_raw,
             get_user_plan_grants,
             grant_access_ends_at,
+            grants_from_raw,
             plan_context_with_grants,
+            read_user_data_keys,
             rewards_payload,
             serialize_active_grants,
         )
     except ImportError:
         from plan_grants import (
+            LEVEL_CLAIMS_KEY,
+            PLAN_GRANTS_KEY,
+            claimed_level_ids_from_raw,
             get_user_plan_grants,
             grant_access_ends_at,
+            grants_from_raw,
             plan_context_with_grants,
+            read_user_data_keys,
             rewards_payload,
             serialize_active_grants,
         )
 
-    user_row = None
+    try:
+        from .subscription_cancel import (
+            SUBSCRIPTION_CANCEL_KEY,
+            cancel_snapshot_fields,
+            get_cancel_row,
+            normalize_cancel_record,
+        )
+    except ImportError:
+        from subscription_cancel import (
+            SUBSCRIPTION_CANCEL_KEY,
+            cancel_snapshot_fields,
+            get_cancel_row,
+            normalize_cancel_record,
+        )
+
     cancel_fields: dict[str, Any] = {
         "cancel_requested": False,
         "cancel_status": None,
         "cancel_access_until": None,
     }
     user_id = auth.get("user_id") if auth.get("kind") == "user" else None
-    grants: list = []
-    if user_id and sb:
-        grants = get_user_plan_grants(sb, user_id)
-    if auth.get("kind") == "user" and user_id and sb:
-        try:
-            res = (
-                sb.table("users")
-                .select("plan,subscription_status,role,level_id")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
+    claimed: Optional[set] = None
+    tts_raw = None
+    if auth.get("kind") == "user" and user_id and sb and user_data is None:
+        user_data = read_user_data_keys(
+            sb,
+            user_id,
+            [PLAN_GRANTS_KEY, LEVEL_CLAIMS_KEY, TTS_USAGE_KEY, SUBSCRIPTION_CANCEL_KEY],
+        )
+    if user_data is not None:
+        if grants is None:
+            grants = grants_from_raw(user_data.get(PLAN_GRANTS_KEY))
+        claimed = claimed_level_ids_from_raw(user_data.get(LEVEL_CLAIMS_KEY))
+        tts_raw = user_data.get(TTS_USAGE_KEY)
+        cancel_rec = normalize_cancel_record(user_data.get(SUBSCRIPTION_CANCEL_KEY))
+        if cancel_rec:
+            cancel_fields = cancel_snapshot_fields(
+                {"user_id": user_id, "record": cancel_rec, "updated_at": None}
             )
-            user_row = res.data[0] if res.data else None
-        except Exception:
-            user_row = None
-        try:
+    if grants is None:
+        grants = get_user_plan_grants(sb, user_id) if user_id and sb else []
+    if auth.get("kind") == "user" and user_id and sb:
+        if user_row is None:
             try:
-                from .subscription_cancel import get_cancel_row, cancel_snapshot_fields
-            except ImportError:
-                from subscription_cancel import get_cancel_row, cancel_snapshot_fields
-            cancel_fields = cancel_snapshot_fields(get_cancel_row(sb, user_id))
-            if not cancel_fields.get("cancel_access_until"):
-                cancel_fields["cancel_access_until"] = subscription.get("subscription_ends_at")
-        except Exception:
-            pass
+                res = (
+                    sb.table("users")
+                    .select("plan,subscription_status,role,level_id")
+                    .eq("id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                user_row = res.data[0] if res.data else None
+            except Exception:
+                user_row = None
+        if user_data is None:
+            try:
+                cancel_fields = cancel_snapshot_fields(get_cancel_row(sb, user_id))
+            except Exception:
+                pass
+        if not cancel_fields.get("cancel_access_until"):
+            cancel_fields["cancel_access_until"] = subscription.get("subscription_ends_at")
     if auth.get("kind") == "invite":
         _, entitlements = invite_plan_context()
         rewards = None
@@ -558,13 +615,23 @@ def build_status_payload(sb, auth: dict, subscription: dict) -> dict[str, Any]:
     else:
         _, entitlements = plan_context_with_grants(user_row, grants)
         level_id = int((user_row or {}).get("level_id") or 1)
-        rewards = rewards_payload(sb, user_id, level_id) if user_id and sb else None
+        rewards = (
+            rewards_payload(sb, user_id, level_id, grants=grants, claimed=claimed)
+            if user_id and sb
+            else None
+        )
         access_ends_at = grant_access_ends_at(
             grants,
             subscription.get("trial_ends_at"),
             subscription.get("subscription_ends_at"),
         )
-    voice_quota = get_voice_quota_for_auth(sb, auth, user_row)
+    # When user_data was batched, missing tts key means unused — don't re-query.
+    voice_usage = tts_raw if user_data is not None else None
+    if user_data is not None and tts_raw is None:
+        voice_usage = {"period": current_billing_period(), "used": 0}
+    voice_quota = get_voice_quota_for_auth(
+        sb, auth, user_row, grants=grants, usage=voice_usage
+    )
     payload: dict[str, Any] = {
         **subscription,
         "entitlements": entitlements,

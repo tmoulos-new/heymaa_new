@@ -47,6 +47,17 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return None
 
 
+def _parse_user_data_value(raw: Any) -> Any:
+    if isinstance(raw, (dict, list)):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return raw
+    return raw
+
+
 def _read_user_data_json(sb, user_id: str, key: str) -> Any:
     if not sb or not user_id:
         return None
@@ -61,14 +72,42 @@ def _read_user_data_json(sb, user_id: str, key: str) -> Any:
         )
         if not res.data:
             return None
-        raw = res.data[0].get("value")
-        if isinstance(raw, (dict, list)):
-            return raw
-        if isinstance(raw, str):
-            return json.loads(raw)
+        return _parse_user_data_value(res.data[0].get("value"))
     except Exception:
         pass
     return None
+
+
+def read_user_data_keys(sb, user_id: str, keys: list[str]) -> dict[str, Any]:
+    """One round-trip for multiple user_data keys (auth/status hot path)."""
+    out: dict[str, Any] = {}
+    if not sb or not user_id or not keys:
+        return out
+    try:
+        res = (
+            sb.table("user_data")
+            .select("key,value")
+            .eq("user_id", user_id)
+            .in_("key", list(keys))
+            .execute()
+        )
+        for row in res.data or []:
+            k = row.get("key")
+            if k:
+                out[str(k)] = _parse_user_data_value(row.get("value"))
+    except Exception:
+        pass
+    return out
+
+
+def grants_from_raw(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    grants: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict) and item.get("ends_at"):
+            grants.append(item)
+    return grants
 
 
 def _write_user_data_json(sb, user_id: str, key: str, value: Any) -> None:
@@ -98,18 +137,10 @@ def _write_user_data_json(sb, user_id: str, key: str, value: Any) -> None:
 
 
 def get_user_plan_grants(sb, user_id: str) -> list[dict[str, Any]]:
-    raw = _read_user_data_json(sb, user_id, PLAN_GRANTS_KEY)
-    if not isinstance(raw, list):
-        return []
-    grants: list[dict[str, Any]] = []
-    for item in raw:
-        if isinstance(item, dict) and item.get("ends_at"):
-            grants.append(item)
-    return grants
+    return grants_from_raw(_read_user_data_json(sb, user_id, PLAN_GRANTS_KEY))
 
 
-def get_claimed_level_ids(sb, user_id: str) -> set[int]:
-    raw = _read_user_data_json(sb, user_id, LEVEL_CLAIMS_KEY)
+def claimed_level_ids_from_raw(raw: Any) -> set[int]:
     if not isinstance(raw, list):
         return set()
     out: set[int] = set()
@@ -119,6 +150,10 @@ def get_claimed_level_ids(sb, user_id: str) -> set[int]:
         except Exception:
             continue
     return out
+
+
+def get_claimed_level_ids(sb, user_id: str) -> set[int]:
+    return claimed_level_ids_from_raw(_read_user_data_json(sb, user_id, LEVEL_CLAIMS_KEY))
 
 
 def _active_grants(grants: list[dict[str, Any]], *, now: Optional[datetime] = None) -> list[dict[str, Any]]:
@@ -201,8 +236,21 @@ def _cfg_from_level_row(row: dict[str, Any]) -> Optional[dict[str, Any]]:
     return {"plan_slot": slot, "days": days}
 
 
+_level_reward_grants_cache: Optional[tuple[float, dict[int, dict[str, Any]]]] = None
+_LEVEL_REWARD_GRANTS_CACHE_SEC = 60.0
+
+
 def load_level_reward_grants(sb=None) -> dict[int, dict[str, Any]]:
     """Live gifts from the levels table, falling back to hardcoded defaults."""
+    global _level_reward_grants_cache
+    import time as _time
+
+    now = _time.time()
+    if (
+        _level_reward_grants_cache is not None
+        and now - _level_reward_grants_cache[0] < _LEVEL_REWARD_GRANTS_CACHE_SEC
+    ):
+        return {int(k): dict(v) for k, v in _level_reward_grants_cache[1].items()}
     if sb:
         try:
             res = sb.table("levels").select("id,reward_plan_slot,reward_days").execute()
@@ -211,10 +259,13 @@ def load_level_reward_grants(sb=None) -> dict[int, dict[str, Any]]:
                 cfg = _cfg_from_level_row(row)
                 if cfg:
                     out[int(row["id"])] = cfg
+            _level_reward_grants_cache = (now, out)
             return out
         except Exception:
             pass
-    return {int(k): dict(v) for k, v in LEVEL_REWARD_GRANTS.items()}
+    fallback = {int(k): dict(v) for k, v in LEVEL_REWARD_GRANTS.items()}
+    _level_reward_grants_cache = (now, fallback)
+    return fallback
 
 
 def pending_level_rewards(
@@ -237,9 +288,18 @@ def pending_level_rewards(
     return pending
 
 
-def rewards_payload(sb, user_id: str, level_id: int) -> dict[str, Any]:
-    grants = get_user_plan_grants(sb, user_id)
-    claimed = get_claimed_level_ids(sb, user_id)
+def rewards_payload(
+    sb,
+    user_id: str,
+    level_id: int,
+    *,
+    grants: Optional[list[dict[str, Any]]] = None,
+    claimed: Optional[set[int]] = None,
+) -> dict[str, Any]:
+    if grants is None:
+        grants = get_user_plan_grants(sb, user_id)
+    if claimed is None:
+        claimed = get_claimed_level_ids(sb, user_id)
     active = _active_grants(grants)
     mapping = load_level_reward_grants(sb)
     return {

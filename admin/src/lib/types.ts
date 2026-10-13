@@ -271,11 +271,14 @@ export interface RagSourceRow {
   title: string
   source_type?: string
   origin?: string | null
+  source_url?: string | null
   source_key?: string | null
   status?: string
   enabled?: boolean | null
   chunk_count?: number
   chunks_live?: number
+  /** Article's own publish date when extracted; null if unknown. */
+  published_at?: string | null
   created_at?: string | null
   updated_at?: string | null
 }

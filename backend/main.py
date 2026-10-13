@@ -3,7 +3,7 @@ import io
 import base64
 import asyncio
 import uuid
-from fastapi import FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Header, Request, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -2745,6 +2745,12 @@ def _api_error(
         },
     )
 
+def _looks_like_jwt(token: str) -> bool:
+    """Supabase access tokens are JWTs; invite codes are short opaque strings."""
+    parts = (token or "").split(".")
+    return len(parts) == 3 and all(parts) and len(token) > 40
+
+
 def resolve_auth(token: str, *, context: str = "app"):
     """Validate x-token: beta invite code or Supabase JWT access token."""
     token = (token or "").strip()
@@ -2762,7 +2768,8 @@ def resolve_auth(token: str, *, context: str = "app"):
             "No login token was sent. Sign in to HeyMaa or enter a valid beta invite code.",
             "Missing x-token header",
         )
-    if is_valid_invite_code(token):
+    # JWTs must not hit invite_codes (full-table active-code load is ~1s+).
+    if not _looks_like_jwt(token) and is_valid_invite_code(token):
         return {"kind": "invite", "token": token, "user_id": None}
     if sb:
         try:
@@ -3046,14 +3053,12 @@ def _auth_user_row(auth_user) -> dict:
         "account_kind": "auth_only",
     }
 
-def _subscription_active_for_user(user_id: str) -> bool:
-    """Registered Supabase users: active plan, unexpired trial, or active reward grant."""
-    if sb and has_active_plan_grant(sb, user_id):
+def _subscription_active_from_row(row: Optional[dict], *, has_grant: bool = False) -> bool:
+    """Active check from an already-fetched users row (+ optional grant flag)."""
+    if has_grant:
         return True
-    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,role").eq("id", user_id).execute()
-    if not res.data:
+    if not row:
         return False
-    row = res.data[0]
     if row.get("role") == "admin":
         return True
     status = (row.get("subscription_status") or "").lower()
@@ -3083,12 +3088,24 @@ def _subscription_active_for_user(user_id: str) -> bool:
             return True
     return False
 
-def _subscription_status_for_user(user_id: str) -> dict:
-    """Subscription snapshot for a registered user."""
-    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,created_at,role,plan").eq("id", user_id).execute()
+
+def _subscription_active_for_user(user_id: str) -> bool:
+    """Registered Supabase users: active plan, unexpired trial, or active reward grant."""
+    if sb and has_active_plan_grant(sb, user_id):
+        return True
+    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,role").eq("id", user_id).execute()
     if not res.data:
-        return {"subscription_active": False, "subscription_status": None, "trial_ends_at": None, "subscription_ends_at": None, "is_trial": False, "plan": None}
-    row = res.data[0]
+        return False
+    return _subscription_active_from_row(res.data[0])
+
+
+def _subscription_status_from_row(
+    user_id: str,
+    row: dict,
+    *,
+    active_override: Optional[bool] = None,
+) -> dict:
+    """Build subscription snapshot from an already-fetched users row."""
     if row.get("role") == "admin":
         return {
             "subscription_active": True,
@@ -3100,7 +3117,10 @@ def _subscription_status_for_user(user_id: str) -> dict:
         }
     status = (row.get("subscription_status") or "").lower()
     trial_ends = _ensure_full_trial_period(user_id, row) if status == "trial" else row.get("trial_ends_at")
-    active = _subscription_active_for_user(user_id)
+    if active_override is not None:
+        active = active_override
+    else:
+        active = _subscription_active_from_row(row)
     is_trial = status == "trial" and active
     return {
         "subscription_active": active,
@@ -3111,10 +3131,28 @@ def _subscription_status_for_user(user_id: str) -> dict:
         "plan": row.get("plan"),
     }
 
+
+def _subscription_status_for_user(user_id: str) -> dict:
+    """Subscription snapshot for a registered user."""
+    res = sb.table("users").select("subscription_status,trial_ends_at,subscription_ends_at,created_at,role,plan").eq("id", user_id).execute()
+    if not res.data:
+        return {"subscription_active": False, "subscription_status": None, "trial_ends_at": None, "subscription_ends_at": None, "is_trial": False, "plan": None}
+    row = res.data[0]
+    # Keep grant-aware active check (may hit user_data once).
+    active = _subscription_active_for_user(user_id)
+    return _subscription_status_from_row(user_id, row, active_override=active)
+
 def check_subscription(token: str):
     if not sb:
         return True
+    token = (token or "").strip()
     try:
+        # User JWTs: never query invite_codes by the raw JWT string.
+        if _looks_like_jwt(token):
+            auth = resolve_auth(token)
+            if auth["kind"] == "user" and auth.get("user_id"):
+                return _subscription_active_for_user(auth["user_id"])
+            return False
         result = sb.table("invite_codes").select("status,expires_at").eq("code", token).execute()
         if result.data and len(result.data) > 0:
             row = result.data[0]
@@ -3149,7 +3187,7 @@ def check_subscription(token: str):
                 return _subscription_active_for_user(auth["user_id"])
         except HTTPException:
             pass
-        return is_valid_invite_code(token)
+        return False if _looks_like_jwt(token) else is_valid_invite_code(token)
 
 _invite_codes_cache: Optional[set] = None
 _invite_codes_cache_at: float = 0.0
@@ -3205,6 +3243,9 @@ def get_active_invite_codes() -> set:
 def is_valid_invite_code(code: Optional[str]) -> bool:
     raw = _normalize_invite_code(code)
     if not raw:
+        return False
+    # Never treat a Supabase JWT as an invite (avoids full invite_codes scan).
+    if _looks_like_jwt(raw):
         return False
     if raw in VALID_CODES or raw.upper() in {c.upper() for c in VALID_CODES}:
         return True
@@ -4782,47 +4823,125 @@ def redeem_invite(req: InviteRequest):
         raise HTTPException(status_code=401, detail="Invalid invite code.")
     return {"ok": True, "token": req.code, "subscription_active": check_subscription(req.code)}
 
-@app.get("/auth/status")
-async def auth_status(x_token: Optional[str] = Header(None)):
-    auth = resolve_auth(x_token)
-    active = check_subscription(x_token)
-    subscription = {"ok": True, "subscription_active": active}
-    if auth.get("kind") == "user" and auth.get("user_id"):
-        subscription.update(_subscription_status_for_user(auth["user_id"]))
-    payload = build_status_payload(sb, auth, subscription)
-    if (
-        sb
-        and auth.get("kind") == "user"
-        and auth.get("user_id")
-        and payload.get("access_ends_at")
-        and RESEND_API_KEY
-    ):
+def _run_access_expiry_reminder(user_id: str, access_ends_at: Optional[str]) -> None:
+    """Best-effort reminder — never on the auth/status critical path."""
+    if not sb or not user_id or not access_ends_at or not RESEND_API_KEY:
+        return
+    try:
         try:
-            try:
-                from .access_expiry_reminders import maybe_send_access_expiry_reminder
-            except ImportError:
-                from access_expiry_reminders import maybe_send_access_expiry_reminder
-            user_res = (
+            from .access_expiry_reminders import maybe_send_access_expiry_reminder
+        except ImportError:
+            from access_expiry_reminders import maybe_send_access_expiry_reminder
+        user_res = (
+            sb.table("users")
+            .select("email,name")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not user_res.data:
+            return
+        row = user_res.data[0]
+        maybe_send_access_expiry_reminder(
+            sb,
+            user_id=user_id,
+            email=row.get("email") or "",
+            name=row.get("name"),
+            access_ends_at=access_ends_at,
+            lang="el",
+            resend_api_key=RESEND_API_KEY,
+            resend_from=RESEND_FROM,
+        )
+    except Exception:
+        pass
+
+
+@app.get("/auth/status")
+async def auth_status(
+    background_tasks: BackgroundTasks,
+    x_token: Optional[str] = Header(None),
+):
+    auth = resolve_auth(x_token)
+    # Invite: resolve_auth already validated the code; skip a second check_subscription
+    # round-trip (which re-queries invite_codes / re-resolves auth).
+    if auth.get("kind") == "invite":
+        subscription = {"ok": True, "subscription_active": True}
+        return build_status_payload(sb, auth, subscription)
+
+    user_id = auth.get("user_id")
+    user_row = None
+    grants: list = []
+    user_data: Optional[dict] = None
+    if sb and user_id:
+        try:
+            from .plan_grants import (
+                LEVEL_CLAIMS_KEY,
+                PLAN_GRANTS_KEY,
+                _active_grants,
+                grants_from_raw,
+                read_user_data_keys,
+            )
+        except ImportError:
+            from plan_grants import (
+                LEVEL_CLAIMS_KEY,
+                PLAN_GRANTS_KEY,
+                _active_grants,
+                grants_from_raw,
+                read_user_data_keys,
+            )
+        try:
+            from .subscription_cancel import SUBSCRIPTION_CANCEL_KEY
+        except ImportError:
+            from subscription_cancel import SUBSCRIPTION_CANCEL_KEY
+        try:
+            from .plan_entitlements import TTS_USAGE_KEY
+        except ImportError:
+            from plan_entitlements import TTS_USAGE_KEY
+        try:
+            res = (
                 sb.table("users")
-                .select("email,name")
-                .eq("id", auth["user_id"])
+                .select(
+                    "subscription_status,trial_ends_at,subscription_ends_at,created_at,role,plan,level_id"
+                )
+                .eq("id", user_id)
                 .limit(1)
                 .execute()
             )
-            if user_res.data:
-                row = user_res.data[0]
-                maybe_send_access_expiry_reminder(
-                    sb,
-                    user_id=auth["user_id"],
-                    email=row.get("email") or "",
-                    name=row.get("name"),
-                    access_ends_at=payload.get("access_ends_at"),
-                    lang="el",
-                    resend_api_key=RESEND_API_KEY,
-                    resend_from=RESEND_FROM,
-                )
+            user_row = res.data[0] if res.data else None
         except Exception:
-            pass
+            user_row = None
+        user_data = read_user_data_keys(
+            sb,
+            user_id,
+            [PLAN_GRANTS_KEY, LEVEL_CLAIMS_KEY, TTS_USAGE_KEY, SUBSCRIPTION_CANCEL_KEY],
+        )
+        grants = grants_from_raw(user_data.get(PLAN_GRANTS_KEY))
+        active = bool(_active_grants(grants)) or _subscription_active_from_row(user_row)
+        subscription = {"ok": True, "subscription_active": active}
+        if user_row:
+            subscription.update(
+                _subscription_status_from_row(user_id, user_row, active_override=active)
+            )
+        else:
+            subscription["subscription_active"] = False
+    else:
+        subscription = {"ok": True, "subscription_active": check_subscription(x_token)}
+
+    payload = build_status_payload(
+        sb,
+        auth,
+        subscription,
+        user_row=user_row,
+        grants=grants,
+        user_data=user_data,
+    )
+    if (
+        auth.get("kind") == "user"
+        and user_id
+        and payload.get("access_ends_at")
+        and RESEND_API_KEY
+    ):
+        background_tasks.add_task(_run_access_expiry_reminder, user_id, payload.get("access_ends_at"))
     return payload
 
 @app.get("/profile")
@@ -7943,7 +8062,7 @@ async def admin_list_rag_sources(
         # Slim columns — ``select(*)`` was dragging Refresh for large libraries.
         columns = (
             "id,title,source_type,origin,source_url,source_key,status,"
-            "chunk_count,language,created_at,updated_at"
+            "chunk_count,language,published_at,created_at,updated_at"
         )
         # Page past PostgREST's default ~1000-row max so large libraries aren't truncated.
         rows: list = []

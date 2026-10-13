@@ -118,8 +118,13 @@ function shortUrl(url: string, max = 48) {
 function canonicalSiteFromHost(host: string): string | null {
   const h = host.replace(/^www\./i, '').toLowerCase()
   if (h === 'babyspace.gr' || h.endsWith('.babyspace.gr')) return 'babyspace'
+  if (h === 'babyspace.com.ro' || h.endsWith('.babyspace.com.ro')) return 'babyspace-ro'
   if (h === 'myparenthood.gr' || h.endsWith('.myparenthood.gr')) return 'myparenthood'
   if (h === 'eody.gov.gr' || h.endsWith('.eody.gov.gr')) return 'eody-gov-gr'
+  if (h === 'moh.gov.gr' || h.endsWith('.moh.gov.gr')) return 'moh-gov-gr'
+  if (h === 'insp.gov.ro' || h.endsWith('.insp.gov.ro')) return 'insp-gov-ro'
+  if (h === 'who.int' || h.endsWith('.who.int')) return 'who-int'
+  if (h === 'ms.ro' || h.endsWith('.ms.ro')) return 'ms-gov-ro'
   return null
 }
 
@@ -150,7 +155,18 @@ function slugFromFilename(filename: string): string {
 
 function siteKey(row: RagSourceRow): string {
   const key = (row.source_key || '').trim().toLowerCase()
-  if (key === 'babyspace' || key === 'myparenthood') return key
+  if (
+    key === 'babyspace' ||
+    key === 'babyspace-ro' ||
+    key === 'myparenthood' ||
+    key === 'eody-gov-gr' ||
+    key === 'moh-gov-gr' ||
+    key === 'insp-gov-ro' ||
+    key === 'who-int' ||
+    key === 'ms-gov-ro'
+  ) {
+    return key
+  }
   const origin = (row.origin || '').trim()
   if (isHttpUrl(origin)) {
     try {
@@ -1619,14 +1635,31 @@ export function RagSourcesTab() {
                             {origin || '—'}
                           </span>
                         )}
-                        {formatDateShort(row.created_at) ? (
-                          <span
-                            className="rag-origin-date"
-                            title={`Added ${formatDate(row.created_at)}`}
-                          >
-                            {formatDateShort(row.created_at)}
-                          </span>
-                        ) : null}
+                        {(() => {
+                          const published = formatDateShort(row.published_at)
+                          const added = formatDateShort(row.created_at)
+                          if (published) {
+                            return (
+                              <span
+                                className="rag-origin-date"
+                                title={`Published ${formatDate(row.published_at)} · added ${formatDate(row.created_at)}`}
+                              >
+                                {published}
+                              </span>
+                            )
+                          }
+                          if (added) {
+                            return (
+                              <span
+                                className="rag-origin-date"
+                                title={`Added ${formatDate(row.created_at)} (article date unknown)`}
+                              >
+                                {added}
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
                       </td>
                       <td className="num">
                         <span className={`rag-chunks${needsChunks ? ' warn' : ''}`}>{chunks}</span>

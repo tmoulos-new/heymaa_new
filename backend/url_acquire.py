@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 from typing import Iterable, Optional
 from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlparse, urlunparse
@@ -97,6 +99,116 @@ class _HTMLTextExtractor(HTMLParser):
         raw = re.sub(r"[ \t]+", " ", raw)
         raw = re.sub(r"\n{3,}", "\n\n", raw)
         return raw.strip()
+
+
+_DATE_ISO_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})(?:[T\s](\d{2}:\d{2}(?::\d{2})?)(?:([+-]\d{2}):?(\d{2})|Z)?)?"
+)
+
+
+def parse_published_date(raw: Optional[str]) -> Optional[datetime]:
+    """Parse common article date strings into timezone-aware UTC datetime."""
+    if not raw:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    m = _DATE_ISO_RE.match(s)
+    if m:
+        try:
+            day = m.group(1)
+            time_part = m.group(2) or "00:00:00"
+            if len(time_part) == 5:
+                time_part = f"{time_part}:00"
+            if m.group(3) and m.group(4):
+                tz = f"{m.group(3)}:{m.group(4)}"
+                dt = datetime.fromisoformat(f"{day}T{time_part}{tz}")
+            elif s.endswith("Z") or "Z" in s[10:]:
+                dt = datetime.fromisoformat(f"{day}T{time_part}+00:00")
+            else:
+                dt = datetime.fromisoformat(f"{day}T{time_part}")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except ValueError:
+            pass
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def extract_published_at(html: str) -> Optional[datetime]:
+    """Best-effort article publish date from HTML (JSON-LD, meta, <time>)."""
+    if not html:
+        return None
+    # JSON-LD datePublished / dateCreated
+    for m in re.finditer(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html,
+        flags=re.I | re.S,
+    ):
+        raw = (m.group(1) or "").strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except Exception:
+            continue
+        stack = data if isinstance(data, list) else [data]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, list):
+                stack.extend(node)
+                continue
+            if not isinstance(node, dict):
+                continue
+            for key in ("datePublished", "dateCreated", "uploadDate"):
+                dt = parse_published_date(node.get(key) if isinstance(node.get(key), str) else None)
+                if dt:
+                    return dt
+            graph = node.get("@graph")
+            if isinstance(graph, list):
+                stack.extend(graph)
+            for nested in node.values():
+                if isinstance(nested, (dict, list)):
+                    stack.append(nested)
+
+    meta_patterns = (
+        r'<meta[^>]+property=["\']article:published_time["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']article:published_time["\']',
+        r'<meta[^>]+name=["\'](?:pubdate|publishdate|date|DC\.date\.issued)["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\'](?:pubdate|publishdate|date|DC\.date\.issued)["\']',
+        r'<meta[^>]+itemprop=["\']datePublished["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+itemprop=["\']datePublished["\']',
+    )
+    for pat in meta_patterns:
+        m = re.search(pat, html, flags=re.I)
+        if m:
+            dt = parse_published_date(m.group(1))
+            if dt:
+                return dt
+
+    tm = re.search(
+        r"""<time[^>]+(?:itemprop=["']datePublished["'][^>]+datetime=["']([^"']+)["']|"""
+        r"""datetime=["']([^"']+)["'][^>]+itemprop=["']datePublished["'])""",
+        html,
+        flags=re.I,
+    )
+    if tm:
+        dt = parse_published_date(tm.group(1) or tm.group(2))
+        if dt:
+            return dt
+
+    tm2 = re.search(r'<time[^>]+datetime=["\']([^"\']+)["\']', html, flags=re.I)
+    if tm2:
+        dt = parse_published_date(tm2.group(1))
+        if dt:
+            return dt
+    return None
 
 
 def normalize_url(url: str, *, keep_query: bool = False) -> str:
@@ -292,6 +404,14 @@ def acquire_url(url: str) -> dict:
     content = doc["content"]
     if len(content.split()) < 40:
         raise ValueError("Extracted page text is too short to ingest.")
+    published_at = extract_published_at(body)
+    meta = {
+        "content_type": ctype,
+        "url_hash": url_hash(source_url),
+        "word_count": len(content.split()),
+    }
+    if published_at is not None:
+        meta["published_at"] = published_at.isoformat()
     return {
         "source_type": "url",
         "source_reference": source_url,
@@ -299,11 +419,8 @@ def acquire_url(url: str) -> dict:
         "title": title,
         "language": doc.get("language") or "el",
         "content": content,
-        "metadata": {
-            "content_type": ctype,
-            "url_hash": url_hash(source_url),
-            "word_count": len(content.split()),
-        },
+        "published_at": published_at,
+        "metadata": meta,
         "provenance": doc.get("provenance") or {},
         "links": doc.get("links") or [],
     }

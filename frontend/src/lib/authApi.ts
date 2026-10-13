@@ -250,12 +250,14 @@ export function invalidateAuthCaches(token?: string | null) {
     inflightStatus.delete(token)
     cachedMe.delete(token)
     cachedStatus.delete(token)
+    clearCachedSubscriptionActive(token)
     return
   }
   inflightMe.clear()
   inflightStatus.clear()
   cachedMe.clear()
   cachedStatus.clear()
+  clearCachedSubscriptionActive(null)
 }
 
 function subActiveCacheKey(token: string): string {
@@ -265,8 +267,10 @@ function subActiveCacheKey(token: string): string {
 
 export function readCachedSubscriptionActive(token: string): boolean | null {
   if (!token) return null
+  const key = subActiveCacheKey(token)
   try {
-    const v = sessionStorage.getItem(subActiveCacheKey(token))
+    // localStorage survives tab/browser restart (sessionStorage did not → splash every cold open).
+    const v = localStorage.getItem(key) ?? sessionStorage.getItem(key)
     if (v === '1') return true
     if (v === '0') return false
   } catch {
@@ -277,8 +281,36 @@ export function readCachedSubscriptionActive(token: string): boolean | null {
 
 export function writeCachedSubscriptionActive(token: string, active: boolean): void {
   if (!token) return
+  const key = subActiveCacheKey(token)
+  const val = active ? '1' : '0'
   try {
-    sessionStorage.setItem(subActiveCacheKey(token), active ? '1' : '0')
+    localStorage.setItem(key, val)
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.setItem(key, val)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearCachedSubscriptionActive(token?: string | null): void {
+  const clearKey = (key: string) => {
+    try { localStorage.removeItem(key) } catch { /* ignore */ }
+    try { sessionStorage.removeItem(key) } catch { /* ignore */ }
+  }
+  if (token) {
+    clearKey(subActiveCacheKey(token))
+    return
+  }
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith(SUB_ACTIVE_CACHE_PREFIX)) keys.push(k)
+    }
+    keys.forEach(clearKey)
   } catch {
     /* ignore */
   }
