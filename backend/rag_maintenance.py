@@ -78,7 +78,7 @@ def compute_rag_health(sb) -> dict[str, Any]:
 
     try:
         rows = _list_rag_sources_paged(
-            sb, "id,status,chunk_count,source_type,source_key,origin"
+            sb, "id,status,chunk_count,source_type,source_key,origin,enabled"
         )
     except Exception as e:
         return {
@@ -98,15 +98,17 @@ def compute_rag_health(sb) -> dict[str, Any]:
         totals["sources"] += 1
         st = (row.get("status") or "").lower()
         chunks = int(row.get("chunk_count") or 0)
+        # Dead listing links (404/410) are parked as unavailable — not "fixable".
+        is_dead = st in ("unavailable", "gone", "dead") or row.get("enabled") is False
         if st == "ready":
             totals["ready"] += 1
         elif st == "processing":
             totals["processing"] += 1
         elif st == "error":
             totals["error"] += 1
-        if chunks < 1:
+        if chunks < 1 and not is_dead:
             totals["empty_chunks"] += 1
-        if st == "error" or chunks < 1:
+        if not is_dead and (st == "error" or chunks < 1):
             totals["broken"] += 1
 
         stype = (row.get("source_type") or "").lower()
@@ -191,9 +193,9 @@ def compute_rag_health(sb) -> dict[str, Any]:
             bucket["ready"] += 1
         if st == "error":
             bucket["error"] += 1
-        if chunks < 1:
+        if chunks < 1 and not is_dead:
             bucket["empty_chunks"] += 1
-        if st == "error" or chunks < 1:
+        if not is_dead and (st == "error" or chunks < 1):
             bucket["broken"] += 1
 
     active_job = None

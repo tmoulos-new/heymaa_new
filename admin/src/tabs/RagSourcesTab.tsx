@@ -518,7 +518,9 @@ export function RagSourcesTab() {
       if (filterKind !== 'all' && kind !== filterKind) return false
       const st = (row.status || '').toLowerCase()
       const chunks = Number(row.chunk_count ?? row.chunks_live ?? 0)
-      const broken = st === 'error' || chunks < 1
+      const isDead =
+        st === 'unavailable' || st === 'gone' || st === 'dead' || row.enabled === false
+      const broken = !isDead && (st === 'error' || chunks < 1)
       if (filterStatus === 'broken') {
         if (!broken) return false
       } else if (filterStatus !== 'all' && st !== filterStatus) {
@@ -529,18 +531,16 @@ export function RagSourcesTab() {
       const hay = `${row.title || ''} ${row.origin || ''} ${row.source_key || ''}`.toLowerCase()
       return hay.includes(q)
     })
-    // Broken first so attention items aren't buried
-    return rows.sort((a, b) => {
-      const ab =
-        (a.status || '').toLowerCase() === 'error' || Number(a.chunk_count ?? a.chunks_live ?? 0) < 1
-          ? 0
-          : 1
-      const bb =
-        (b.status || '').toLowerCase() === 'error' || Number(b.chunk_count ?? b.chunks_live ?? 0) < 1
-          ? 0
-          : 1
-      return ab - bb
-    })
+    // Broken first so attention items aren't buried (dead/unavailable last)
+    const brokenRank = (row: (typeof sources)[number]) => {
+      const st = (row.status || '').toLowerCase()
+      const isDead =
+        st === 'unavailable' || st === 'gone' || st === 'dead' || row.enabled === false
+      if (isDead) return 2
+      if (st === 'error' || Number(row.chunk_count ?? row.chunks_live ?? 0) < 1) return 0
+      return 1
+    }
+    return rows.sort((a, b) => brokenRank(a) - brokenRank(b))
   }, [sources, filterQ, filterKind, filterStatus, filterSite])
 
   const libraryTotalPages = Math.max(1, Math.ceil(filteredSources.length / LIBRARY_PAGE_SIZE))
@@ -576,9 +576,11 @@ export function RagSourcesTab() {
       const n = Number(row.chunk_count ?? row.chunks_live ?? 0)
       chunks += n
       const st = (row.status || '').toLowerCase()
+      const isDead =
+        st === 'unavailable' || st === 'gone' || st === 'dead' || row.enabled === false
       if (st === 'ready') ready += 1
       if (st === 'error') errors += 1
-      if (st === 'error' || n < 1) broken += 1
+      if (!isDead && (st === 'error' || n < 1)) broken += 1
     }
     return { sources: sources.length, chunks, ready, errors, broken }
   }, [sources])

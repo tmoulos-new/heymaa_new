@@ -6,7 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from typing import Iterable, Optional
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlparse, urlunparse
 
 import requests
 
@@ -100,13 +100,23 @@ class _HTMLTextExtractor(HTMLParser):
 
 
 def normalize_url(url: str, *, keep_query: bool = False) -> str:
-    parsed = urlparse((url or "").strip())
+    raw = (url or "").strip()
+    # Listing scrapes sometimes leave a trailing encoded space (%20) that 404s.
+    while raw.endswith("%20") or raw.lower().endswith("%20/"):
+        raw = raw[: -3] if raw.endswith("%20") else raw[: -4]
+        raw = raw.rstrip("/")
+    parsed = urlparse(raw.strip())
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError(f"Invalid URL: {url}")
     host = parsed.netloc.lower()
-    path = parsed.path or "/"
+    # Unquote so path trailing spaces from bad crawls are stripped, then keep
+    # a clean path (no re-encoding of unicode beyond what urlunparse does).
+    path = unquote(parsed.path or "/")
+    path = path.rstrip()
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
+    if not path:
+        path = "/"
     query = ""
     if keep_query and parsed.query:
         pairs = [

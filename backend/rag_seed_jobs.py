@@ -20,7 +20,9 @@ def job_public(row: dict[str, Any]) -> dict[str, Any]:
         urls = []
     discover_page = int(row.get("discover_page") or 1)
     max_pages = int(row.get("max_discover_pages") or 250)
-    mode = "rebuild_empty" if max_pages == 0 and urls else "add_new"
+    # max_discover_pages=0 is the Fix-broken / rebuild_empty contract (even if
+    # the URL queue was empty or already drained).
+    mode = "rebuild_empty" if max_pages == 0 else "add_new"
     return {
         "id": row.get("id"),
         "source_key": row.get("source_key"),
@@ -67,36 +69,119 @@ def _ready_origins_for_source(sb, source_key: str) -> set[str]:
     return out
 
 
+_DEAD_SOURCE_STATUSES = frozenset({"unavailable", "gone", "dead"})
+
+
+def _normalize_job_url(url: str) -> str:
+    """Best-effort URL cleanup so Fix broken does not retry trailing-%20 404s."""
+    try:
+        from .url_acquire import normalize_url
+    except ImportError:
+        from url_acquire import normalize_url
+    try:
+        return normalize_url(url)
+    except Exception:
+        raw = (url or "").strip()
+        while raw.endswith("%20"):
+            raw = raw[:-3].rstrip()
+        return raw
+
+
 def _broken_urls_for_source(sb, source_key: str) -> list[str]:
-    """URLs that need rebuild: error status, or ready/processing with no chunks."""
+    """URLs that need rebuild: error status, or ready/processing with no chunks.
+
+    Skips disabled / unavailable (dead 404) rows so Fix broken does not loop.
+    Paginates past PostgREST's default 1000-row cap.
+    """
     out: list[str] = []
     seen: set[str] = set()
+    page = 1000
+    start = 0
     try:
-        res = (
-            sb.table("rag_sources")
-            .select("origin,source_url,status,chunk_count,source_type")
-            .eq("source_key", source_key)
-            .execute()
-        )
+        while True:
+            res = (
+                sb.table("rag_sources")
+                .select("origin,source_url,status,chunk_count,source_type,enabled")
+                .eq("source_key", source_key)
+                .range(start, start + page - 1)
+                .execute()
+            )
+            rows = list(res.data or [])
+            if not rows:
+                break
+            for row in rows:
+                st = (row.get("status") or "").lower()
+                if st in _DEAD_SOURCE_STATUSES:
+                    continue
+                if row.get("enabled") is False:
+                    continue
+                chunks = int(row.get("chunk_count") or 0)
+                needs = st == "error" or chunks < 1
+                if not needs:
+                    continue
+                for key in ("source_url", "origin"):
+                    val = (row.get(key) or "").strip()
+                    if not val or not val.startswith("http"):
+                        continue
+                    cleaned = _normalize_job_url(val)
+                    if not cleaned.startswith("http"):
+                        continue
+                    norm = cleaned.split("?")[0]
+                    if norm in seen:
+                        continue
+                    seen.add(norm)
+                    out.append(cleaned)
+                    break
+            if len(rows) < page:
+                break
+            start += page
     except Exception:
         return out
-    for row in res.data or []:
-        st = (row.get("status") or "").lower()
-        chunks = int(row.get("chunk_count") or 0)
-        needs = st == "error" or chunks < 1
-        if not needs:
-            continue
-        for key in ("source_url", "origin"):
-            val = (row.get(key) or "").strip()
-            if not val or not val.startswith("http"):
-                continue
-            norm = val.split("?")[0]
-            if norm in seen:
-                continue
-            seen.add(norm)
-            out.append(val)
-            break
     return out
+
+
+def _mark_source_unavailable(sb, url: str) -> None:
+    """Stop Fix broken from re-queuing permanent 404/410 listing links."""
+    cleaned = _normalize_job_url(url)
+    candidates = {u for u in (url, cleaned, (url or "").strip()) if u}
+    # Also match the common trailing-%20 bad crawl form.
+    if cleaned and not cleaned.endswith("%20"):
+        candidates.add(cleaned + "%20")
+    ids: set[str] = set()
+    for u in candidates:
+        for col in ("source_url", "origin"):
+            try:
+                res = (
+                    sb.table("rag_sources")
+                    .select("id")
+                    .eq(col, u)
+                    .limit(20)
+                    .execute()
+                )
+            except Exception:
+                continue
+            for row in res.data or []:
+                rid = row.get("id")
+                if rid:
+                    ids.add(rid)
+    if not ids:
+        return
+    patch = {
+        "status": "unavailable",
+        "enabled": False,
+        "chunk_count": 0,
+        "updated_at": _now_iso(),
+    }
+    for rid in ids:
+        try:
+            sb.table("rag_sources").update(patch).eq("id", rid).execute()
+        except Exception:
+            try:
+                sb.table("rag_sources").update(
+                    {"status": "unavailable", "enabled": False, "chunk_count": 0}
+                ).eq("id", rid).execute()
+            except Exception:
+                pass
 
 
 def _slug_source_key(raw: str) -> str:
@@ -1175,6 +1260,11 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
             if _is_dead_url_error(e):
                 skipped += 1
                 last_error = f"Skipped dead link (404/410): {u}"[:500]
+                # Mark so the next Fix broken does not re-queue the same 404 forever.
+                try:
+                    _mark_source_unavailable(sb, u)
+                except Exception:
+                    pass
             else:
                 failed += 1
                 last_error = str(e)[:500]
