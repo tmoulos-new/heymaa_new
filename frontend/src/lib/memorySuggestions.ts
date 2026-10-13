@@ -169,14 +169,16 @@ export function findMatchingMilestoneIndex(text: string, labels: string[]): numb
   return bestIdx;
 }
 
-export function mapApiMemorySuggestion(raw: Record<string, unknown> | null | undefined): MemorySuggestion | null {
-  if (!raw || typeof raw.text !== 'string' || !raw.text.trim()) return null;
+export function mapApiMemorySuggestion(raw: unknown): MemorySuggestion | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.text !== "string" || !obj.text.trim()) return null;
   return {
-    text: String(raw.text),
-    emoji: typeof raw.emoji === 'string' ? raw.emoji : '💛',
-    description: typeof raw.description === 'string' ? raw.description : null,
-    ref: typeof raw.ref === 'string' ? raw.ref : null,
-    kind: raw.kind === 'milestone' || raw.kind === 'moment' ? raw.kind : undefined,
-    dateIso: typeof raw.date_iso === 'string' ? raw.date_iso : new Date().toISOString().slice(0, 10),
+    text: String(obj.text),
+    emoji: typeof obj.emoji === "string" ? obj.emoji : "💛",
+    description: typeof obj.description === "string" ? obj.description : null,
+    ref: typeof obj.ref === "string" ? obj.ref : null,
+    kind: obj.kind === "milestone" || obj.kind === "moment" ? obj.kind : undefined,
+    dateIso: typeof obj.date_iso === "string" ? obj.date_iso : new Date().toISOString().slice(0, 10),
   };
 }
