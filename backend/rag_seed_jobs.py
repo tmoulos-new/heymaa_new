@@ -1539,6 +1539,17 @@ def _is_dead_url_error(exc: BaseException) -> bool:
     return False
 
 
+def _babyspace_url_matches_source(url: str, source_key: str) -> bool:
+    """True when URL host matches babyspace / babyspace-ro collection."""
+    key = (source_key or "").strip().lower()
+    host = (urlparse(url).netloc or "").lower()
+    if key == "babyspace-ro":
+        return "babyspace.com.ro" in host
+    if key == "babyspace":
+        return "babyspace.gr" in host and "babyspace.com.ro" not in host
+    return True
+
+
 def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
     try:
         from .rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
@@ -1546,6 +1557,7 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
         from rag_ingest import create_or_update_url_source_and_ingest, url_already_ingested
 
     job_id = row["id"]
+    source_key = _slug_source_key(row.get("source_key") or "")
     urls = list(row.get("urls") or [])
     idx = int(row.get("cursor_idx") or 0)
     batch = max(1, min(int(row.get("batch_size") or DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE))
@@ -1561,6 +1573,10 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
 
     end = min(idx + batch, len(urls))
     for u in urls[idx:end]:
+        if source_key.startswith("babyspace") and not _babyspace_url_matches_source(u, source_key):
+            skipped += 1
+            last_error = f"Skipped cross-host Babyspace URL for {source_key}: {u}"[:500]
+            continue
         if not force_rebuild and url_already_ingested(sb, u):
             skipped += 1
             continue
@@ -1568,8 +1584,8 @@ def _tick_ingest(sb, row: dict[str, Any]) -> dict[str, Any]:
             create_or_update_url_source_and_ingest(
                 sb,
                 url=u,
-                source_key=row.get("source_key"),
-                language="el",
+                source_key=source_key or row.get("source_key"),
+                language="ro" if source_key == "babyspace-ro" else "el",
             )
             ingested += 1
             # Clear sticky soft-errors once a URL succeeds
