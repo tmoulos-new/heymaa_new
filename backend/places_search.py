@@ -210,7 +210,7 @@ def search_places_text(
                 "X-Goog-FieldMask": _FIELD_MASK,
             },
             json=body,
-            timeout=20,
+            timeout=8,
         )
     except Exception:
         return []

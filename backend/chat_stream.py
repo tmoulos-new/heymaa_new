@@ -2,17 +2,30 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, AsyncIterator, Optional
 
 import httpx
 
 GROK_CHAT_URL = "https://api.x.ai/v1/chat/completions"
-GROK_STREAM_MODELS = (
-    "grok-4.3",
-    "grok-4.5",
-    "grok-4.20-0309-non-reasoning",
-    "grok-2-latest",
-)
+
+
+def _grok_stream_models() -> tuple[str, ...]:
+    pinned = (
+        os.getenv("GROK_CHAT_MODEL")
+        or os.getenv("GROK_MODEL")
+        or os.getenv("XAI_CHAT_MODEL")
+        or ""
+    ).strip()
+    if pinned:
+        if pinned == "grok-2-latest":
+            return (pinned,)
+        return (pinned, "grok-2-latest")
+    # One primary + one fallback — sequential 4-model tries burn TTFT.
+    return ("grok-4.3", "grok-2-latest")
+
+
+GROK_STREAM_MODELS = _grok_stream_models()
 
 
 def format_sse(payload: dict[str, Any]) -> str:
@@ -64,7 +77,7 @@ async def iter_grok_chat_deltas(
 
     last_err: Optional[BaseException] = None
     async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=20.0)) as client:
-        for model_name in GROK_STREAM_MODELS:
+        for model_name in _grok_stream_models():
             body = {
                 "model": model_name,
                 "messages": messages,

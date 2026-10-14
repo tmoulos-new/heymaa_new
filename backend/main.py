@@ -2174,9 +2174,9 @@ def build_rag_context(chunks):
         title = meta.get("title") or "?"
         source_url = meta.get("source_url")
         header = f"[{title}]" + (f" ({source_url})" if source_url else "")
-        body = (c.get("content") or "")[:900]
+        body = (c.get("content") or "")[:_RAG_CHUNK_BODY_CHARS]
         piece = f"{header}\n{body}"
-        if total + len(piece) > 2800:
+        if total + len(piece) > _RAG_CONTEXT_CHAR_CAP:
             break
         parts.append(piece)
         total += len(piece)
@@ -2554,122 +2554,53 @@ def get_system_prompt_content() -> str:
     _system_prompt_cache = DEFAULT_SYSTEM_PROMPT
     return _system_prompt_cache
 
-_SHORT_DIALOGUE_RULE = (
-    "\n\n--- Reply length (always follow; overrides any earlier 2-sentence limit) ---\n"
-    "Match reply length to the request. "
-    "Greetings / how-are-you: 1–2 short sentences only. "
-    "Simple factual questions: concise but complete. "
-    "Lists, places, venues, local options (e.g. μέρη, πάρτυ, παιδότοποι, doctors near X): "
-    "give a SUBSTANTIAL answer with several named options (typically 3–6 when available). "
-    "Use a clean markdown bullet list (- item) for options — not a dense paragraph. "
-    "Do NOT shrink those answers to two vague sentences. "
-    "Never reply with only 'search Maps / Google' and no names. "
-    "Grammar must be correct in the reply language "
-    "(natural Greek when the user writes Greek; natural English when they write English). "
-    "Never output writing rules, labels, or instruction fragments. "
-    "Never answer with a single word or a cut-off phrase."
+# Compact always-on reminders (kept short for TTFT / prefill). The admin base
+# prompt already carries full tone/medical/local policy — avoid re-pasting it.
+_RUNTIME_REMINDERS = (
+    "\n\n--- Runtime reminders (always follow) ---\n"
+    "Reply length: greetings 1–2 sentences; simple facts concise; place/option lists "
+    "substantial (3–6 named bullets with **[Name](url)** when a URL exists). "
+    "Never only 'search Maps'. Never dump writing rules into the reply.\n"
+    "--- Greetings and language ---\n"
+    "Pure greetings/how-are-you: short social reply only — no role pitch, no topic list, "
+    "no child's name unless asked. Life updates: skip hello, react to the news. "
+    "Greek: never «Χαίρετε»; use «Χαίρομαι…» / «Ωραία που…»; singular εσύ. "
+    "Native words only (Greek: ύπνος, διατροφή, ανάπτυξη, θηλασμός) — no English fragments.\n"
+    "--- Greek personal names ---\n"
+    "Decline Greek-script names: Μάριος → τον Μάριο / του Μάριου; "
+    "Νίκος → τον Νίκο; Γιώργος → τον Γιώργο; Γιάννης → τον Γιάννη; Κώστας → τον Κώστα. "
+    "Wrong: «τον Μάριος». Do not Hellenize Latin spellings.\n"
+    "--- Greek age phrasing ---\n"
+    "Use «είναι 3 μηνών» / «2 ετών» / «τριών μηνών» — never fused forms like «τριώνμης».\n"
+    "--- How to add a child in the HeyMaa app ---\n"
+    "Cannot register children from chat. Guide: Family tab (Οικογένεια) → My Family "
+    "(Η Οικογένειά μου) → ＋ Add child (＋ Πρόσθεσε παιδί). Use registered names/ages as ground truth.\n"
+    "Sources: real library pages appear under the Πηγές / Sources button — point there; do not invent URLs."
 )
 
-_LIST_FORMAT_RULE = (
-    "\n\n--- How to format lists & links (always follow when listing options) ---\n"
-    "Structure: (1) one short intro sentence, (2) markdown bullets with '- ', "
-    "(3) one short closing note. "
-    "Bold the option name with **Name**. "
-    "When a Maps or source URL is available, make the name a markdown link: [Name](https://…). "
-    "Put address / rating / phone on the same bullet after an em dash, or on a short second line. "
-    "Never paste raw 'maps: https://…' as trailing clutter — links belong on the name. "
-    "Never tell the user you cannot provide sources or links. "
-    "Real library pages are shown by the app in the Πηγές / Sources / Surse button under the reply. "
-    "If they ask for sources, point them to that button. Do not invent URLs. "
-    "Ordinary advice (non-list) stays clean prose without forced bullets."
-)
-
-_CONVERSATION_STYLE_RULE = (
-    "\n\n--- Greetings and language (always follow) ---\n"
-    "If the user only greets or asks how you are (e.g. τι κάνεις, πώς είσαι, γεια, how are you), "
-    "answer as a short social greeting. Do not introduce your role, do not list topics or capabilities, "
-    "and do not mention nutrition, sleep, development, or a child's name unless the user asked. "
-    "When the user already shared news or a day update (school run, started work, how the morning went), "
-    "do NOT open with a greeting — respond to what they said with warmth or empathy. "
-    "In Greek: never use «Χαίρετε» (formal plural hello). To express gladness use «Χαίρομαι…», "
-    "«Ωραία που…», or «Καλά που…». Address the mother with singular εσύ, never formal plural σας/Χαίρετε. "
-    "English topic labels in the instructions (sleep, nutrition, development, breastfeeding) are for you only. "
-    "In the user-facing reply always use native words of the user's language "
-    "(Greek: ύπνος, διατροφή, ανάπτυξη, θηλασμός). Never mix languages or leave English fragments "
-    "such as SLEEP, σLEEP, or nutrition inside another language. "
-    "Prefer fluent, grammatically correct phrasing — no telegram-style fragments or broken clauses. "
-    "If an earlier assistant turn mixed languages or had broken words, do not copy it; rewrite cleanly."
-)
-
-_GREEK_NAME_CASE_RULE = (
-    "\n\n--- Greek personal names (when the reply is in Greek) ---\n"
-    "Decline Greek-script first names by case; never paste the nominative after τον/στον/του "
-    "or in other declined slots. Common masculine patterns: "
-    "Μάριος → τον Μάριο / του Μάριου / Μάριε; "
-    "Νίκος → τον Νίκο / του Νίκου / Νίκο; "
-    "Γιώργος → τον Γιώργο / του Γιώργου / Γιώργο; "
-    "Γιάννης → τον Γιάννη / του Γιάννη / Γιάννη; "
-    "Κώστας → τον Κώστα / του Κώστα / Κώστα. "
-    "Feminine names in -α/-η usually keep the same form (την Μαρία, της Μαρίας, Μαρία). "
-    "Do not invent a different person-name or Hellenize Latin spellings (Nikol stays Nikol). "
-    "Wrong: «τον Μάριος», «τον Νίκος». Right: «τον Μάριο», «τον Νίκο»."
-)
-
-_GREEK_AGE_PHRASE_RULE = (
-    "\n\n--- Greek age phrasing (when the reply is in Greek) ---\n"
-    "State ages with separate, correct words. Prefer digits + genitive unit: "
-    "«είναι 3 μηνών», «είναι 11 μηνών», «είναι 2 ετών», «είναι 10 ημερών». "
-    "Written-out forms are also fine: «τριών μηνών», «δύο ετών». "
-    "Never fuse the number and the unit into one nonsense word "
-    "(wrong: «τριώνμης», «δυόμης», «11μηνης»). "
-    "Never say «τριώνμης ηλικίας» or «Χμης ηλικίας» — say «τριών μηνών» / «X μηνών». "
-    "1 month → «1 μηνός» or «ενός μηνός»; 1 year → «1 έτους» or «ενός έτους»."
-)
-
-_APP_NAV_RULE = (
-    "\n\n--- How to add a child in the HeyMaa app (always follow) ---\n"
-    "HeyMaa cannot register children from chat. When the user asks how to add, save, or "
-    "καταχωρήσει a child / baby, tell them in their language: open the Family tab "
-    "(bottom navigation: Οικογένεια / Family), stay on My Family (Η Οικογένειά μου), "
-    "tap ＋ Add child (＋ Πρόσθεσε παιδί), then enter name, birth date or due date, and gender. "
-    "Do not send them to Profile settings, onboarding, or invented menus. "
-    "Use every registered child, family member, memory, milestone, and document listed below "
-    "as ground truth when answering — refer to real names and ages, never generic 'your baby' "
-    "when a name is on file."
-)
-
+# Back-compat aliases for tests / imports that still reference old rule names.
+_SHORT_DIALOGUE_RULE = _RUNTIME_REMINDERS
+_LIST_FORMAT_RULE = ""
+_CONVERSATION_STYLE_RULE = _RUNTIME_REMINDERS
+_GREEK_NAME_CASE_RULE = _RUNTIME_REMINDERS
+_GREEK_AGE_PHRASE_RULE = _RUNTIME_REMINDERS
+_APP_NAV_RULE = _RUNTIME_REMINDERS
 _LOCAL_HELP_RULE = (
-    "\n\n--- Local professional / place search (always follow) ---\n"
-    "If the user asks for nearby professionals, pharmacies, parks, party venues, or similar places, "
-    "this is NOT medical advice. Prefer naming real options you know for that area "
-    "(practice/venue names and neighborhood). Do not invent phone numbers or exact street addresses. "
-    "Do not refuse with nonsense referrals or answer only with 'search Maps'. "
-    "Present options as markdown bullets with bold names; link names when Maps URLs are available. "
-    "When unsure, still give several plausible named options for the area plus a short note to confirm "
-    "hours/phones, and that HeyMaa does not replace a doctor."
+    "\n\n--- Local professional / place search ---\n"
+    "Nearby places are directory help, not medical advice. Name real options; "
+    "markdown bullets with linked names; never invent phones or only say 'search Maps'."
 )
 
 _MAPS_GROUNDED_RULE = (
     "\n\n--- Google Maps places (this turn) ---\n"
-    "Google Maps grounding is ENABLED for this turn. You MUST use it to look up real places. "
-    "Do NOT say you lack lists, do NOT refuse, and do NOT only tell the user to search Maps themselves. "
-    "Return a substantial markdown bullet list of real places (typically 3–6 if available). "
-    "Each bullet: **[Name](maps_link)** — area/address when known. "
-    "Do not invent phone numbers or addresses that Maps did not provide. "
-    "Finding a nearby professional or place is NOT medical advice. Reply in the user's language. "
-    "Note briefly that listings can change — HeyMaa does not replace a doctor."
+    "Maps grounding is ON. Return 3–6 real places as **[Name](maps_link)** bullets. "
+    "Do not refuse or only tell the user to search Maps. Not medical advice."
 )
 
 _PLACE_RESULTS_RULE = (
     "\n\n--- Local recommendations (this turn) ---\n"
-    "Place search results are provided below. Recommend ONLY from those results "
-    "(3–6 best matches). Use names/addresses/ratings/maps URLs exactly as given. "
-    "Format as: short intro → markdown bullets → short closing note. "
-    "Each bullet must use a markdown link on the place name when maps_url is present: "
-    "**[Name](maps_url)** — address · ★ rating. "
-    "Do NOT say you lack lists. Do NOT only tell her to search Google Maps. "
-    "Directory help is not medical advice. Confirm hours may change. "
-    "Reply in the user's language."
+    "Recommend ONLY from the place results below (3–6). "
+    "Bullets: **[Name](maps_url)** — address · ★ rating. Do not invent entries."
 )
 
 def build_system_prompt(
@@ -2684,12 +2615,8 @@ def build_system_prompt(
     places_context: str = "",
 ):
     prompt = get_system_prompt_content()
-    prompt += _SHORT_DIALOGUE_RULE
-    prompt += _LIST_FORMAT_RULE
-    prompt += _CONVERSATION_STYLE_RULE
-    prompt += _GREEK_NAME_CASE_RULE
-    prompt += _GREEK_AGE_PHRASE_RULE
-    prompt += _APP_NAV_RULE
+    # One compact reminder block (~1.5k) instead of ~5k duplicated rules.
+    prompt += _RUNTIME_REMINDERS
     # Places turns: prefer injected Places API results; else Maps grounding tool rule.
     places_ctx = (places_context or "").strip()
     if places_query and places_ctx:
@@ -3367,6 +3294,78 @@ _CHAT_MAX_TOKENS = 1024
 _CHAT_MAX_TOKENS_LONG = 1536
 _CHAT_MAX_TOKENS_PLACES = 1536
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
+# Soft prefill budget: plan may allow 64 turns, but huge threads kill TTFT.
+_CHAT_HISTORY_CHAR_BUDGET = 16000
+_CHAT_HISTORY_USER_CHARS = 1000
+_CHAT_HISTORY_ASSISTANT_CHARS = 700
+_RAG_CONTEXT_CHAR_CAP = 2200
+_RAG_CHUNK_BODY_CHARS = 700
+_MEMORY_CONTEXT_CHAR_CAP = 1500
+_MILESTONE_CONTEXT_CHAR_CAP = 900
+_DOCS_CONTEXT_CHAR_CAP = 1200
+
+
+def _grok_model_candidates() -> tuple[str, ...]:
+    """Prefer one known-good Grok model; one fallback only (avoids 4-deep TTFT)."""
+    pinned = (
+        os.getenv("GROK_CHAT_MODEL")
+        or os.getenv("GROK_MODEL")
+        or os.getenv("XAI_CHAT_MODEL")
+        or ""
+    ).strip()
+    if pinned:
+        if pinned == "grok-2-latest":
+            return (pinned,)
+        return (pinned, "grok-2-latest")
+    return ("grok-4.3", "grok-2-latest")
+
+
+def trim_llm_history(history, limit: int) -> list:
+    """Keep the newest turns under a char budget for faster prefill."""
+    cap = max(2, min(int(limit or 6), _CHAT_HISTORY_MAX))
+    items = list(history or [])[-cap:]
+    if not items:
+        return []
+    kept: list = []
+    total = 0
+    for item in reversed(items):
+        if isinstance(item, dict):
+            role = str(item.get("role") or "")
+            content = str(item.get("content") or item.get("text") or "")
+        else:
+            role = str(getattr(item, "role", "") or "")
+            content = str(getattr(item, "content", "") or "")
+        max_piece = (
+            _CHAT_HISTORY_USER_CHARS if role == "user" else _CHAT_HISTORY_ASSISTANT_CHARS
+        )
+        piece = content[:max_piece]
+        if kept and total + len(piece) > _CHAT_HISTORY_CHAR_BUDGET:
+            break
+        if isinstance(item, dict):
+            row = dict(item)
+            row["content"] = piece
+            kept.append(row)
+        else:
+            kept.append({"role": role or "user", "content": piece})
+        total += len(piece)
+    kept.reverse()
+    return kept
+
+
+def _is_places_only_message(message: str) -> bool:
+    """True when the turn is local directory search without knowledge intent."""
+    text = (message or "").strip()
+    if not text:
+        return False
+    if _re.search(
+        r"(εμβολ|πυρετ|ύπν|θηλασ|συμπτ|αλλεργ|εξάνθη|εξανθη|"
+        r"vaccin|fever|sleep|breast|allerg|symptom|diagnos|rash|"
+        r"διατροφ|nutrition|milestone|ανάπτυξ|αναπτυξ)",
+        text,
+        _re.I,
+    ):
+        return False
+    return True
 
 _EL_TOPIC_LEAKS = (
     (_re.compile(r"σLEEP", _re.I), "ύπνο"),
@@ -3571,13 +3570,7 @@ async def call_grok(
     max_tokens: Optional[int] = None,
 ):
     """Primary chat via xAI Grok (OpenAI-compatible). Provider id is `grok`."""
-    # Prefer fast non-reasoning Grok; fall back across current xAI catalog ids.
-    model_candidates = (
-        "grok-4.3",
-        "grok-4.5",
-        "grok-4.20-0309-non-reasoning",
-        "grok-2-latest",
-    )
+    model_candidates = _grok_model_candidates()
     chat_url = "https://api.x.ai/v1/chat/completions"
     token_budget = max(int(max_tokens or _CHAT_MAX_TOKENS), 256)
 
@@ -5192,7 +5185,10 @@ async def _run_chat_core(
         }
     timing["evaluator_ms"] = evaluator.get("elapsed_ms", 0)
     needs_rag = bool(evaluator.get("needs_rag", True))
-    llm_history = prepare_llm_history(req.message, req.history)
+    llm_history = trim_llm_history(
+        prepare_llm_history(req.message, req.history),
+        chat_context_limit,
+    )
     try:
         try:
             from .evaluator import is_pure_greeting
@@ -5245,31 +5241,117 @@ async def _run_chat_core(
     ).strip()
     prefer_lang = detect_msg_lang(retrieval_query or req.message or "", profile_lang_early)
 
-    t_rag0 = _time.perf_counter()
-    rag_chunks: list = []
-    rag_timing = {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
-    if needs_rag:
+    # Directory-only turns (find pediatrician / pharmacy) don't need knowledge RAG.
+    if places_query and needs_rag and _is_places_only_message(req.message or ""):
+        needs_rag = False
+        timing["rag_skipped_places_only"] = True
+
+    async def _fetch_rag() -> tuple[list, dict]:
+        if not needs_rag:
+            return [], {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": True}
         if include_debug:
-            rag_chunks, rag_timing = await asyncio.to_thread(
+            chunks, meta = await asyncio.to_thread(
                 retrieve_context,
                 retrieval_query,
                 with_timing=True,
                 prefer_lang=prefer_lang,
             )
-            timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
-            timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
-            if rag_timing.get("error"):
-                timing["rag_error"] = rag_timing["error"]
-        else:
-            rag_chunks = await asyncio.to_thread(
-                retrieve_context, retrieval_query, prefer_lang=prefer_lang
+            return chunks or [], meta or {}
+        chunks = await asyncio.to_thread(
+            retrieve_context, retrieval_query, prefer_lang=prefer_lang
+        )
+        return chunks or [], {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
+
+    async def _fetch_places() -> tuple[str, int, list, dict]:
+        meta: dict = {}
+        if not places_query:
+            return "", 0, [], meta
+        try:
+            try:
+                from .places_search import (
+                    build_places_search_query,
+                    format_places_for_prompt,
+                    google_maps_api_key,
+                    places_for_client,
+                    search_places_text,
+                )
+            except ImportError:
+                from places_search import (
+                    build_places_search_query,
+                    format_places_for_prompt,
+                    google_maps_api_key,
+                    places_for_client,
+                    search_places_text,
+                )
+            if not google_maps_api_key():
+                return "", 0, [], meta
+            loc_hint = _places_location_hint(req.profile)
+            places_msg = (req.message or "").strip()
+            try:
+                try:
+                    from .evaluator import is_short_contextual_followup
+                except ImportError:
+                    from evaluator import is_short_contextual_followup
+                places_followup = is_short_contextual_followup(places_msg)
+            except Exception:
+                places_followup = len(places_msg.split()) <= 6
+            prior_places = ""
+            if places_followup or len(places_msg.split()) <= 6:
+                for item in reversed(req.history or []):
+                    role, content = _history_user_text(item)
+                    if role != "user" or not content:
+                        continue
+                    if is_places_query(content) and content != places_msg:
+                        prior_places = content
+                        break
+                if not prior_places:
+                    prior_places = previous_substantive_question(req.history)
+                if prior_places:
+                    places_msg = f"{prior_places}\n{places_msg}".strip()
+                    meta["places_prior_expanded"] = True
+            q = build_places_search_query(places_msg, location_hint=loc_hint)
+            lang_code = (
+                detect_msg_lang(
+                    req.message or "",
+                    (req.profile.lang if req.profile else "") or "",
+                )
+                or "el"
+            )[:8]
+
+            def _search():
+                return search_places_text(
+                    q,
+                    language_code=lang_code if lang_code in ("el", "en") else "el",
+                    max_results=6,
+                    latitude=req.latitude,
+                    longitude=req.longitude,
+                )
+
+            found = await asyncio.to_thread(_search)
+            return (
+                format_places_for_prompt(found),
+                len(found),
+                places_for_client(found),
+                meta,
             )
-    else:
-        timing["rag_embed_ms"] = 0
-        timing["rag_match_ms"] = 0
+        except Exception as e:
+            meta["places_search_error"] = str(e)[:160]
+            return "", 0, [], meta
+
+    t_rag0 = _time.perf_counter()
+    (rag_chunks, rag_timing), (places_context, places_results_count, places_for_ui, places_meta) = (
+        await asyncio.gather(_fetch_rag(), _fetch_places())
+    )
+    timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
+    timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
+    if rag_timing.get("error"):
+        timing["rag_error"] = rag_timing["error"]
+    if rag_timing.get("skipped"):
         timing["rag_skipped"] = True
-        rag_timing["skipped"] = True
     timing["rag_total_ms"] = round((_time.perf_counter() - t_rag0) * 1000, 1)
+    timing.update(places_meta)
+    if places_query:
+        timing["places_search_count"] = places_results_count
     rag_matches = _serialize_rag_matches(rag_chunks) if include_debug else None
     chat_sources = (
         reused_sources
@@ -5296,6 +5378,8 @@ async def _run_chat_core(
                 if m.ref:
                     line += f" [re: {m.ref}]"
                 mem_lines.append(line)
+                if sum(len(x) for x in mem_lines) >= _MEMORY_CONTEXT_CHAR_CAP:
+                    break
             memories_context = "\n".join(mem_lines)
         if req.recentMilestones:
             ms_lines = []
@@ -5306,10 +5390,12 @@ async def _run_chat_core(
                 if m.stageId:
                     line += f" ({m.stageId})"
                 ms_lines.append(line)
+                if sum(len(x) for x in ms_lines) >= _MILESTONE_CONTEXT_CHAR_CAP:
+                    break
             milestones_context = "\n".join(ms_lines)
         if req.recentDocs is not None:
             doc_lines = []
-            for d in req.recentDocs[:20]:
+            for d in req.recentDocs[:12]:
                 line = d.title
                 if d.category:
                     line += f" [{d.category}]"
@@ -5322,73 +5408,13 @@ async def _run_chat_core(
                 if d.note:
                     line += f" — note: {d.note}"
                 doc_lines.append(line)
+                if sum(len(x) for x in doc_lines) >= _DOCS_CONTEXT_CHAR_CAP:
+                    break
             docs_context = "\n".join(doc_lines) if doc_lines else "(empty — no documents registered yet)"
         if promo:
             promotion_context = promo.get("body", "") or ""
             if promo.get("link"):
                 promotion_context += f" {promo['link']}"
-    places_context = ""
-    places_results_count = 0
-    places_for_ui: list = []
-    if places_query:
-        try:
-            try:
-                from .places_search import (
-                    build_places_search_query,
-                    format_places_for_prompt,
-                    google_maps_api_key,
-                    places_for_client,
-                    search_places_text,
-                )
-            except ImportError:
-                from places_search import (
-                    build_places_search_query,
-                    format_places_for_prompt,
-                    google_maps_api_key,
-                    places_for_client,
-                    search_places_text,
-                )
-            if google_maps_api_key():
-                loc_hint = _places_location_hint(req.profile)
-                places_msg = (req.message or "").strip()
-                # Short places follow-ups («και φαρμακεία;») need prior location/topic.
-                try:
-                    try:
-                        from .evaluator import is_short_contextual_followup
-                    except ImportError:
-                        from evaluator import is_short_contextual_followup
-                    places_followup = is_short_contextual_followup(places_msg)
-                except Exception:
-                    places_followup = len(places_msg.split()) <= 6
-                prior_places = ""
-                if places_followup or len(places_msg.split()) <= 6:
-                    for item in reversed(req.history or []):
-                        role, content = _history_user_text(item)
-                        if role != "user" or not content:
-                            continue
-                        if is_places_query(content) and content != places_msg:
-                            prior_places = content
-                            break
-                    if not prior_places:
-                        prior_places = previous_substantive_question(req.history)
-                    if prior_places:
-                        places_msg = f"{prior_places}\n{places_msg}".strip()
-                        timing["places_prior_expanded"] = True
-                q = build_places_search_query(places_msg, location_hint=loc_hint)
-                lang_code = (detect_msg_lang(req.message or "", (req.profile.lang if req.profile else "") or "") or "el")[:8]
-                found = search_places_text(
-                    q,
-                    language_code=lang_code if lang_code in ("el", "en") else "el",
-                    max_results=8,
-                    latitude=req.latitude,
-                    longitude=req.longitude,
-                )
-                places_results_count = len(found)
-                places_context = format_places_for_prompt(found)
-                places_for_ui = places_for_client(found)
-                timing["places_search_count"] = places_results_count
-        except Exception as e:
-            timing["places_search_error"] = str(e)[:160]
 
     system_prompt = build_system_prompt(
         rag_context,
@@ -5590,6 +5616,11 @@ async def _run_chat_core(
             )
         except Exception:
             providers = ["gemini", "grok", "claude"] if places_query else ["grok", "gemini", "claude"]
+    # Places API results already in the prompt → prefer streaming Grok (TTFT)
+    # over buffered Gemini. Keep Gemini-first only when Maps grounding is needed.
+    if places_query and (places_context or "").strip() and not image_parts:
+        providers = ["grok"] + [p for p in providers if p != "grok"]
+        timing["places_prefer_grok_stream"] = True
     providers = [p for p in providers if _prov_keys.get(p)]
     if image_parts and not any(p in providers for p in ("gemini", "claude")):
         message_for_llm = (message_for_llm or "").strip()
