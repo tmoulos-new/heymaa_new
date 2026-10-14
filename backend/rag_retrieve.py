@@ -836,12 +836,12 @@ def retrieve_hybrid(
     terms = search_terms_for_query(query)
     anchors = topic_anchors_in_text(query)
     prefer = hinted_source_keys(query)
-    per_term = max(24, min(40, 100 // max(len(terms), 1)))
+    per_term = max(16, min(28, 72 // max(len(terms), 1)))
     candidates = fetch_keyword_candidates(
         sb,
         terms,
         per_term=per_term,
-        max_total=80,
+        max_total=36,
         prefer_source_keys=prefer,
         topic_anchors=anchors,
     )

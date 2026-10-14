@@ -1819,7 +1819,7 @@ def get_embedding(text):
                 "content": {"parts": [{"text": snippet}]},
                 "taskType": "RETRIEVAL_QUERY",
             },
-            timeout=12,
+            timeout=float(os.getenv("RAG_EMBED_TIMEOUT_SEC") or "8"),
         )
         r.raise_for_status()
         values = r.json()["embedding"]["values"]
@@ -1844,7 +1844,7 @@ def get_embedding(text):
 
 def retrieve_context(
     query,
-    top_k=6,
+    top_k=4,
     threshold=0.22,
     *,
     with_timing: bool = False,
@@ -1854,6 +1854,9 @@ def retrieve_context(
 
     Soft-prioritizes the user's language (then English). Tries match_chunks when
     enabled; otherwise keyword candidates + local cosine across every source_key.
+
+    Defaults tuned for chat TTFT: top_k=4 and a short RPC timeout (fail fast to
+    keyword fallback) rather than waiting many seconds on a slow match_chunks.
     """
     import time as _time
 
@@ -1879,6 +1882,8 @@ def retrieve_context(
         timing["embed_ms"] = round((_time.perf_counter() - t0) * 1000, 1)
         t1 = _time.perf_counter()
         url, key = _supabase_credentials()
+        # Keep RPC snappy — keyword fallback is better than 8s of waiting.
+        rpc_timeout = float(os.getenv("RAG_RPC_TIMEOUT_SEC") or "2.0")
         rows, meta = retrieve_hybrid(
             sb,
             supabase_url=url or "",
@@ -1887,7 +1892,7 @@ def retrieve_context(
             query_embedding=emb,
             top_k=top_k,
             threshold=threshold,
-            rpc_timeout=8.0,
+            rpc_timeout=max(0.8, min(rpc_timeout, 4.0)),
             prefer_lang=prefer_lang,
         )
         timing["match_ms"] = round((_time.perf_counter() - t1) * 1000, 1)
@@ -2538,7 +2543,21 @@ def get_llm_routing() -> dict:
         _llm_routing_cache = parse_routing_json("{}")
     return _llm_routing_cache
 
-_MAX_SYSTEM_PROMPT_CHARS = 12000
+_MAX_SYSTEM_PROMPT_CHARS = 9000
+
+def _soft_trim_system_prompt(content: str, limit: int) -> str:
+    """Trim long admin prompts at a paragraph boundary to protect TTFT."""
+    text = (content or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    # Prefer ending on a blank line / sentence so we don't mid-word chop policy.
+    for sep in ("\n\n", "\n", ". ", "。"):
+        idx = cut.rfind(sep)
+        if idx >= int(limit * 0.72):
+            return cut[: idx + len(sep)].rstrip() + "\n…"
+    return cut.rstrip() + "\n…"
+
 
 def get_system_prompt_content() -> str:
     global _system_prompt_cache
@@ -2546,9 +2565,7 @@ def get_system_prompt_content() -> str:
         return _system_prompt_cache
     row = _fetch_chat_prompt_row()
     if row and (row.get("content") or "").strip():
-        content = row["content"].strip()
-        if len(content) > _MAX_SYSTEM_PROMPT_CHARS:
-            content = content[:_MAX_SYSTEM_PROMPT_CHARS].rstrip() + "\n…"
+        content = _soft_trim_system_prompt(row["content"].strip(), _MAX_SYSTEM_PROMPT_CHARS)
         _system_prompt_cache = content
         return _system_prompt_cache
     _system_prompt_cache = DEFAULT_SYSTEM_PROMPT
@@ -3170,16 +3187,16 @@ def _subscription_status_for_user(user_id: str) -> dict:
     active = _subscription_active_for_user(user_id)
     return _subscription_status_from_row(user_id, row, active_override=active)
 
-def check_subscription(token: str):
+def check_subscription(token: str, auth: Optional[dict] = None):
     if not sb:
         return False
     token = (token or "").strip()
     try:
         # User JWTs: never query invite_codes by the raw JWT string.
         if _looks_like_jwt(token):
-            auth = resolve_auth(token)
-            if auth["kind"] == "user" and auth.get("user_id"):
-                return _subscription_active_for_user(auth["user_id"])
+            resolved = auth if isinstance(auth, dict) else resolve_auth(token)
+            if resolved.get("kind") == "user" and resolved.get("user_id"):
+                return _subscription_active_for_user(resolved["user_id"])
             return False
         result = sb.table("invite_codes").select("status,expires_at").eq("code", token).execute()
         if result.data and len(result.data) > 0:
@@ -3202,17 +3219,17 @@ def check_subscription(token: str):
                     pass
             return True
         try:
-            auth = resolve_auth(token)
-            if auth["kind"] == "user" and auth.get("user_id"):
-                return _subscription_active_for_user(auth["user_id"])
+            resolved = auth if isinstance(auth, dict) else resolve_auth(token)
+            if resolved.get("kind") == "user" and resolved.get("user_id"):
+                return _subscription_active_for_user(resolved["user_id"])
         except HTTPException:
             pass
         return is_valid_invite_code(token)
     except Exception:
         try:
-            auth = resolve_auth(token)
-            if auth["kind"] == "user" and auth.get("user_id"):
-                return _subscription_active_for_user(auth["user_id"])
+            resolved = auth if isinstance(auth, dict) else resolve_auth(token)
+            if resolved.get("kind") == "user" and resolved.get("user_id"):
+                return _subscription_active_for_user(resolved["user_id"])
         except HTTPException:
             pass
         return False if _looks_like_jwt(token) else is_valid_invite_code(token)
@@ -3295,14 +3312,14 @@ _CHAT_MAX_TOKENS_LONG = 1536
 _CHAT_MAX_TOKENS_PLACES = 1536
 _CHAT_HISTORY_MAX = 64  # max messages sent to LLM — keep >= premium chat_context_messages
 # Soft prefill budget: plan may allow 64 turns, but huge threads kill TTFT.
-_CHAT_HISTORY_CHAR_BUDGET = 16000
-_CHAT_HISTORY_USER_CHARS = 1000
-_CHAT_HISTORY_ASSISTANT_CHARS = 700
-_RAG_CONTEXT_CHAR_CAP = 2200
-_RAG_CHUNK_BODY_CHARS = 700
-_MEMORY_CONTEXT_CHAR_CAP = 1500
-_MILESTONE_CONTEXT_CHAR_CAP = 900
-_DOCS_CONTEXT_CHAR_CAP = 1200
+_CHAT_HISTORY_CHAR_BUDGET = 12000
+_CHAT_HISTORY_USER_CHARS = 900
+_CHAT_HISTORY_ASSISTANT_CHARS = 600
+_RAG_CONTEXT_CHAR_CAP = 1800
+_RAG_CHUNK_BODY_CHARS = 550
+_MEMORY_CONTEXT_CHAR_CAP = 1200
+_MILESTONE_CONTEXT_CHAR_CAP = 700
+_DOCS_CONTEXT_CHAR_CAP = 900
 
 
 def _grok_model_candidates() -> tuple[str, ...]:
@@ -5094,24 +5111,24 @@ async def sync_profile(req: ProfileSyncRequest, x_token: Optional[str] = Header(
         return {"ok": False, "error": str(e)}
 
 
-def _entitlements_for_token(x_token: str) -> dict:
+def _entitlements_for_token(x_token: str, auth: Optional[dict] = None) -> dict:
     """Resolve plan entitlements for chat limits."""
     try:
-        auth = resolve_auth(x_token)
+        resolved = auth if isinstance(auth, dict) else resolve_auth(x_token)
     except Exception:
         _, ent = plan_context_from_user_row(None)
         return ent
-    if auth.get("kind") == "invite":
+    if resolved.get("kind") == "invite":
         _, ent = invite_plan_context()
         return ent
     user_row = None
     grants: list = []
-    if sb and auth.get("user_id"):
+    if sb and resolved.get("user_id"):
         try:
             res = (
                 sb.table("users")
                 .select("plan,subscription_status,role,level_id")
-                .eq("id", auth["user_id"])
+                .eq("id", resolved["user_id"])
                 .limit(1)
                 .execute()
             )
@@ -5122,7 +5139,7 @@ def _entitlements_for_token(x_token: str) -> dict:
             from plan_grants import get_user_plan_grants, plan_context_with_grants
         except ImportError:
             from .plan_grants import get_user_plan_grants, plan_context_with_grants
-        grants = get_user_plan_grants(sb, auth["user_id"]) if auth.get("user_id") else []
+        grants = get_user_plan_grants(sb, resolved["user_id"]) if resolved.get("user_id") else []
         _, ent = plan_context_with_grants(user_row, grants)
         return ent
     _, ent = plan_context_from_user_row(user_row)
@@ -5134,6 +5151,7 @@ async def _run_chat_core(
     *,
     entitlements: dict,
     promo: Optional[dict] = None,
+    promo_token: Optional[str] = None,
     include_debug: bool = False,
     user_id: Optional[str] = None,
     stream_holder: Optional[dict] = None,
@@ -5262,6 +5280,20 @@ async def _run_chat_core(
         )
         return chunks or [], {"embed_ms": 0.0, "match_ms": 0.0, "ok": True, "skipped": False}
 
+    async def _fetch_promo() -> Optional[dict]:
+        # Overlap marketing match with RAG/Places so it never adds serial wait.
+        if greeting_only:
+            return None
+        if promo is not None:
+            return promo
+        tok = (promo_token or "").strip()
+        if not tok:
+            return None
+        try:
+            return await asyncio.to_thread(match_promotion, tok)
+        except Exception:
+            return None
+
     async def _fetch_places() -> tuple[str, int, list, dict]:
         meta: dict = {}
         if not places_query:
@@ -5339,9 +5371,11 @@ async def _run_chat_core(
             return "", 0, [], meta
 
     t_rag0 = _time.perf_counter()
-    (rag_chunks, rag_timing), (places_context, places_results_count, places_for_ui, places_meta) = (
-        await asyncio.gather(_fetch_rag(), _fetch_places())
-    )
+    (
+        (rag_chunks, rag_timing),
+        (places_context, places_results_count, places_for_ui, places_meta),
+        promo,
+    ) = await asyncio.gather(_fetch_rag(), _fetch_places(), _fetch_promo())
     timing["rag_embed_ms"] = rag_timing.get("embed_ms", 0)
     timing["rag_match_ms"] = rag_timing.get("match_ms", 0)
     if rag_timing.get("error"):
@@ -5411,21 +5445,20 @@ async def _run_chat_core(
                 if sum(len(x) for x in doc_lines) >= _DOCS_CONTEXT_CHAR_CAP:
                     break
             docs_context = "\n".join(doc_lines) if doc_lines else "(empty — no documents registered yet)"
-        if promo:
-            promotion_context = promo.get("body", "") or ""
-            if promo.get("link"):
-                promotion_context += f" {promo['link']}"
+        # Promo stays out of the system prompt (faster prefill, cleaner answers).
+        # The sponsored card is still returned on the response payload below.
 
     system_prompt = build_system_prompt(
         rag_context,
         family_context,
         memories_context,
         docs_context,
-        promotion_context,
+        "",  # no sponsored text in LLM prompt
         milestones_context,
         places_query=places_query,
         places_context=places_context,
     )
+    timing["system_prompt_chars"] = len(system_prompt or "")
     timing["context_build_ms"] = round((_time.perf_counter() - t_ctx0) * 1000, 1)
     profile_lang = req.profile.lang if req.profile and req.profile.lang else ""
     message_for_llm = _build_attachment_context(req.message, req.attachments)
@@ -5523,7 +5556,29 @@ async def _run_chat_core(
                     provider=provider,
                     needs_rag=needs_rag,
                     request_id=request_id,
-                    meta={"greeting_only": bool(greeting_only)},
+                    meta={
+                        "greeting_only": bool(greeting_only),
+                        "timing": {
+                            k: timing.get(k)
+                            for k in (
+                                "evaluator_ms",
+                                "rag_embed_ms",
+                                "rag_match_ms",
+                                "rag_total_ms",
+                                "context_build_ms",
+                                "llm_ms",
+                                "post_ms",
+                                "total_ms",
+                                "system_prompt_chars",
+                                "rag_skipped",
+                                "rag_skipped_places_only",
+                                "places_search_count",
+                                "places_prefer_grok_stream",
+                                "sources_reused",
+                            )
+                            if k in timing
+                        },
+                    },
                 )
                 if ok and not greeting_only:
                     review_and_store(
@@ -5577,6 +5632,7 @@ async def _run_chat_core(
                 "needs_rag": needs_rag,
                 "request_id": request_id,
                 "llm_transaction_ids": list(llm_tx_ids),
+                "timing": timing,
             }
         return out
 
@@ -5755,16 +5811,20 @@ def _sse_chat_event(payload: dict) -> str:
 @app.post("/chat")
 async def chat(req: ChatRequest, x_token: Optional[str] = Header(None)):
     auth = resolve_auth(x_token)
-    if not check_subscription(x_token):
+    if not check_subscription(x_token, auth=auth):
         raise HTTPException(status_code=402, detail="Subscription expired")
     try:
-        entitlements = _entitlements_for_token(x_token)
-        promo = match_promotion(x_token)
+        entitlements = _entitlements_for_token(x_token, auth=auth)
         uid = auth.get("user_id") if auth.get("kind") != "invite" else None
         if uid:
             _touch_last_active(uid)
+        # Promo matched in parallel with RAG inside _run_chat_core (no serial wait).
         return await _run_chat_core(
-            req, entitlements=entitlements, promo=promo, user_id=uid
+            req,
+            entitlements=entitlements,
+            promo=None,
+            promo_token=x_token,
+            user_id=uid,
         )
     except HTTPException:
         raise
@@ -5783,10 +5843,9 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
     - ``{"type":"error","detail":"...","status":503}``
     """
     auth = resolve_auth(x_token)
-    if not check_subscription(x_token):
+    if not check_subscription(x_token, auth=auth):
         raise HTTPException(status_code=402, detail="Subscription expired")
-    entitlements = _entitlements_for_token(x_token)
-    promo = match_promotion(x_token)
+    entitlements = _entitlements_for_token(x_token, auth=auth)
     uid = auth.get("user_id") if auth.get("kind") != "invite" else None
     if uid:
         _touch_last_active(uid)
@@ -5800,7 +5859,8 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
             early = await _run_chat_core(
                 req,
                 entitlements=entitlements,
-                promo=promo,
+                promo=None,
+                promo_token=x_token,
                 user_id=uid,
                 stream_holder=holder,
             )

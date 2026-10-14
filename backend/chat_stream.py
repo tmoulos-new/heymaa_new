@@ -76,7 +76,7 @@ async def iter_grok_chat_deltas(
     }
 
     last_err: Optional[BaseException] = None
-    async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=20.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(75.0, connect=10.0)) as client:
         for model_name in _grok_stream_models():
             body = {
                 "model": model_name,
