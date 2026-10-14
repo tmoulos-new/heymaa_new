@@ -158,6 +158,56 @@ class LlmHistoryTests(unittest.TestCase):
         self.assertIn("Ο Πάνος είναι 11 μηνών.", contents)
         self.assertIn("πόσο είναι ο Πάνος;", contents)
 
+    def test_topic_how_to_keeps_history(self):
+        from main import prepare_llm_history
+
+        history = [
+            {"role": "user", "content": "ο μικρός βήχει"},
+            {"role": "assistant", "content": "Παρακολούθησε τον πυρετό."},
+        ]
+        out = prepare_llm_history("τι κάνεις με τον βήχα;", history)
+        self.assertTrue(out)
+        self.assertIn("ο μικρός βήχει", [h["content"] for h in out])
+
+
+class PriorTopicAndSourcesTests(unittest.TestCase):
+    def test_asks_for_sources_meta_only(self):
+        from main import asks_for_sources
+
+        self.assertTrue(asks_for_sources("δωσε που πηγές"))
+        self.assertTrue(asks_for_sources("show me the sources"))
+        self.assertFalse(asks_for_sources("τι λένε οι πηγές για τα εμβόλια;"))
+        self.assertFalse(asks_for_sources("what do the sources say about fever?"))
+
+    def test_previous_skips_thanks_and_followups(self):
+        from main import previous_substantive_question
+
+        history = [
+            {"role": "user", "content": "μπορείς να μου πεις το πρόγραμμα έως 12 μηνών?"},
+            {"role": "assistant", "content": "Το εθνικό πρόγραμμα…"},
+            {"role": "user", "content": "ευχαριστώ"},
+            {"role": "assistant", "content": "Παρακαλώ!"},
+            {"role": "user", "content": "δωσε μου τα βασικά"},
+            {"role": "assistant", "content": "Τα βασικά…"},
+        ]
+        self.assertEqual(
+            previous_substantive_question(history),
+            "μπορείς να μου πεις το πρόγραμμα έως 12 μηνών?",
+        )
+
+    def test_normalize_client_sources(self):
+        from main import normalize_client_chat_sources
+
+        out = normalize_client_chat_sources(
+            [
+                {"title": "MOH", "url": "https://example.com/a"},
+                {"title": "dup", "url": "https://example.com/a?x=1"},
+                {"title": "bad", "url": "not-a-url"},
+            ]
+        )
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["url"], "https://example.com/a")
+
 
 if __name__ == "__main__":
     unittest.main()

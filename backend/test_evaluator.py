@@ -69,6 +69,8 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(is_short_contextual_followup("δωσε μου τα βασικά"))
         self.assertTrue(is_short_contextual_followup("τι λέει το υπουργειο?"))
         self.assertTrue(is_short_contextual_followup("περισσότερα"))
+        self.assertTrue(is_short_contextual_followup("και ο πυρετός;"))
+        self.assertTrue(is_short_contextual_followup("για τον ύπνο;"))
         self.assertFalse(is_short_contextual_followup("ok"))
         self.assertFalse(is_short_contextual_followup("Γεια σου"))
         self.assertFalse(
@@ -76,6 +78,13 @@ class EvaluatorTests(unittest.TestCase):
                 "μπορείς να μου πεις το πρόγραμμα έως 12 μηνών?"
             )
         )
+
+    def test_ti_kaneis_with_topic_is_not_greeting(self):
+        from evaluator import is_pure_greeting
+
+        self.assertFalse(is_pure_greeting("τι κάνεις με τον βήχα;"))
+        self.assertFalse(is_pure_greeting("τι κάνεις με αυτό;"))
+        self.assertTrue(is_pure_greeting("τι κάνεις;"))
 
 
 if __name__ == "__main__":

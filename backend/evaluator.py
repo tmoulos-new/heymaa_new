@@ -47,10 +47,14 @@ _NEED_PATTERNS = [
 ]
 
 # Soft chitchat / meta about the product — usually no RAG
+# NOTE: "τι κάνεις" / how-are-you must be whole-message only, otherwise
+# «τι κάνεις με τον βήχα;» falsely skips RAG and wipes chat history.
 _SOFT_SKIP_PATTERNS = [
     r"\b(who are you|what (can|do) you do|your name|"
-    r"ποια είσαι|ποια εισαι|τι κάνεις|τι κανεις|πώς είσαι|πως εισαι|"
-    r"πώς σε λένε|πως σε λενε|how are you)\b",
+    r"ποια είσαι|ποια εισαι|"
+    r"πώς σε λένε|πως σε λενε)\b",
+    r"^\s*(τι κάνεις|τι κανεις|πώς είσαι|πως είσαι|πως εισαι|πώς εισαι|"
+    r"how are you|how's it going|how are you doing)\s*[;?!]*\s*$",
     r"\b(i('m| am) (just )?(sad|happy|tired|lonely|scared)|"
     r"νιώθω|νιωθω|είμαι (κουρασ|στεναχωρη|στενοχωρη|χαρούμεν))\w*",
 ]
@@ -65,6 +69,13 @@ _FOLLOWUP_PATTERNS = [
     r"and (the )?ministry|what (does|do) (the )?ministry|"
     r"the basics|more details|go on|continue|summarize|summary)",
 ]
+
+# Short pivots onto a related subtopic («και ο πυρετός;», «για τον ύπνο;»)
+_TOPICAL_PIVOT_RE = re.compile(
+    r"^\s*(και|για (τον|την|το|τα|τις|του|της)|τι (για|να)|"
+    r"what about|and (the|about)|about (the)?)\b",
+    re.I | re.U,
+)
 
 _SKIP_RE = [re.compile(p, re.I | re.U) for p in _SKIP_PATTERNS]
 _NEED_RE = [re.compile(p, re.I | re.U) for p in _NEED_PATTERNS]
@@ -251,7 +262,8 @@ def is_pure_greeting(message: str) -> bool:
 def is_short_contextual_followup(message: str) -> bool:
     """True for short replies that depend on the prior user question for RAG.
 
-    Examples: «δώσε μου τα βασικά», «τι λέει το υπουργείο;», «περισσότερα».
+    Examples: «δώσε μου τα βασικά», «τι λέει το υπουργείο;», «περισσότερα»,
+    «και ο πυρετός;», «για τον ύπνο;».
     Standalone greetings/acks are excluded — those should still skip RAG.
     """
     text = (message or "").strip()
@@ -265,6 +277,9 @@ def is_short_contextual_followup(message: str) -> bool:
     for rx in _FOLLOWUP_RE:
         if rx.search(text):
             return True
+    # Short topical pivot onto a related subtopic — still needs prior context
+    if wc <= 10 and _TOPICAL_PIVOT_RE.search(text):
+        return True
     # Generic short question / utterance that the evaluator would skip alone
     result = evaluate_rag_need(text)
     return (not result.get("needs_rag")) and result.get("reason") in {

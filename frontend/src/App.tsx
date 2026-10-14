@@ -3528,6 +3528,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           role: m.role,
           content: m.content || (m.attachments?.length ? `[${m.attachments.length} attachment(s)]` : ""),
         }));
+    const lastSourcesForAsk = (() => {
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const m = messages[i];
+        if (m?.role === "assistant" && Array.isArray(m.sources) && m.sources.length > 0) {
+          return m.sources.map((s) => ({ title: s.title, url: s.url }));
+        }
+      }
+      return undefined;
+    })();
     const chatPayload = {
       message: apiMessage,
       history: historyForApi,
@@ -3561,6 +3570,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       recentMemories,
       recentMilestones,
       recentDocs,
+      last_sources: lastSourcesForAsk,
     };
     const assistantIdx = next.length;
     const resolveMessageId = (raw: unknown) => {
@@ -3635,6 +3645,17 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               const cur = copy[assistantIdx];
               if (!cur || cur.role !== "assistant") return prev;
               copy[assistantIdx] = { ...cur, content: (cur.content || "") + piece };
+              return copy;
+            });
+          },
+          onReset: () => {
+            // Provider failover after partial deltas — replace, don't concatenate.
+            started = false;
+            setMessages((prev) => {
+              const copy = [...prev];
+              const cur = copy[assistantIdx];
+              if (!cur || cur.role !== "assistant") return prev;
+              copy[assistantIdx] = { ...cur, content: "" };
               return copy;
             });
           },

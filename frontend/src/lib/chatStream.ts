@@ -14,6 +14,8 @@ export type ChatStreamDone = {
 export type ChatStreamHandlers = {
   onStatus?: (phase: string) => void
   onDelta?: (text: string) => void
+  /** Clear partial assistant text before a provider failover continues streaming. */
+  onReset?: () => void
   onDone?: (payload: ChatStreamDone) => void
   onError?: (err: { status?: number; detail: string }) => void
 }
@@ -93,6 +95,8 @@ export async function streamChat(
       const type = String(msg.type || '')
       if (type === 'status' && typeof msg.phase === 'string') {
         handlers.onStatus?.(msg.phase)
+      } else if (type === 'reset') {
+        handlers.onReset?.()
       } else if (type === 'delta' && typeof msg.text === 'string' && msg.text) {
         handlers.onDelta?.(msg.text)
       } else if (type === 'done') {

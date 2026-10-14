@@ -2043,40 +2043,65 @@ def public_chat_sources(chunks: list, prefer_lang: Optional[str] = None) -> list
 
 
 def asks_for_sources(message: str) -> bool:
-    """True when the user is asking for the pages behind the last answer."""
+    """True when the user wants the Sources-button links for the last answer.
+
+    Content questions like «τι λένε οι πηγές για τα εμβόλια;» are NOT source-asks —
+    those should go through normal RAG.
+    """
     text = (message or "").strip()
     if not text or len(text) > 240:
         return False
-    return bool(
-        _re.search(
-            r"(πηγές|πηγες|sources?\b|surse\b|\blinks?\b|linkuri\b|σύνδεσμ|συνδεσμ|παραπομπ)",
-            text,
-            _re.IGNORECASE,
-        )
-    )
+    if not _re.search(
+        r"(πηγές|πηγες|sources?\b|surse\b|\blinks?\b|linkuri\b|σύνδεσμ|συνδεσμ|παραπομπ)",
+        text,
+        _re.IGNORECASE,
+    ):
+        return False
+    # Asking what the sources *say* about a topic → normal answer, not canned button reply
+    if _re.search(
+        r"("
+        r"τι\s+(λένε|λενε|λέει|λεει)\s+.+(πηγ|source|surse)|"
+        r"what\s+(do|does)\s+.+(sources?|πηγ|surse).*(say|about)|"
+        r"(σύμφωνα|συμφωνα)\s+με\s+(τις\s+)?(πηγ|sources?|surse)|"
+        r"(πηγές|πηγες|sources?|surse).{0,48}\b(για|about|regarding)\b|"
+        r"\b(για|about|regarding)\b.{0,48}(πηγές|πηγες|sources?|surse)"
+        r")",
+        text,
+        _re.IGNORECASE | _re.DOTALL,
+    ):
+        return False
+    return True
+
+
+def _history_user_text(item) -> tuple[Optional[str], str]:
+    if isinstance(item, dict):
+        role = item.get("role")
+        content = item.get("content") or item.get("text") or ""
+    else:
+        role = getattr(item, "role", None)
+        content = getattr(item, "content", "") or ""
+    return (str(role) if role is not None else None), str(content).strip()
 
 
 def previous_substantive_question(history) -> str:
-    """Last user question that carries a real topic (not source-ask / short follow-up)."""
+    """Last user question that carries a real topic (not source-ask / short follow-up / chitchat)."""
     try:
         try:
-            from .evaluator import is_short_contextual_followup
+            from .evaluator import is_pure_greeting, is_short_contextual_followup
         except ImportError:
-            from evaluator import is_short_contextual_followup
+            from evaluator import is_pure_greeting, is_short_contextual_followup
     except Exception:
         is_short_contextual_followup = None  # type: ignore
+        is_pure_greeting = None  # type: ignore
 
     for item in reversed(history or []):
-        if isinstance(item, dict):
-            role = item.get("role")
-            content = item.get("content") or item.get("text") or ""
-        else:
-            role = getattr(item, "role", None)
-            content = getattr(item, "content", "") or ""
-        content = str(content).strip()
+        role, content = _history_user_text(item)
         if role != "user" or not content:
             continue
         if asks_for_sources(content):
+            continue
+        # Skip thanks/acks so prior stays the real topic after «ευχαριστώ» / «ok».
+        if is_pure_greeting and is_pure_greeting(content):
             continue
         # Skip short follow-ups so source-asks / RAG use the real topic
         # (e.g. vaccinations schedule, not «τι λέει το υπουργείο;»).
@@ -2084,6 +2109,29 @@ def previous_substantive_question(history) -> str:
             continue
         return content[:500]
     return ""
+
+
+def normalize_client_chat_sources(raw) -> list:
+    """Accept last-turn sources from the client for source-ask reuse."""
+    if not isinstance(raw, list):
+        return []
+    out: list = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "").strip()
+        if not url.startswith("http"):
+            continue
+        key = url.split("?")[0].rstrip("/")
+        if key in seen:
+            continue
+        seen.add(key)
+        title = str(item.get("title") or "").strip() or key
+        out.append({"title": title[:160], "url": url[:500]})
+        if len(out) >= 12:
+            break
+    return out
 
 
 def source_request_reply(lang: str, has_sources: bool) -> str:
@@ -3870,6 +3918,8 @@ class ChatRequest(BaseModel):
     # Optional device location for Maps grounding ("near me").
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    # Last assistant-turn Sources links (client) — reused for «δώσε πηγές».
+    last_sources: Optional[list] = None
 
 class TTSRequest(BaseModel):
     text: str = ""
@@ -5155,13 +5205,22 @@ async def _run_chat_core(
     source_ask = asks_for_sources(req.message)
     retrieval_query = req.message or ""
     prior = previous_substantive_question(req.history)
-    if source_ask:
+    reused_sources = (
+        normalize_client_chat_sources(getattr(req, "last_sources", None))
+        if source_ask
+        else []
+    )
+    if source_ask and reused_sources:
+        # Prefer the Sources button links from the last answer — don't re-embed.
+        needs_rag = False
+        timing["sources_reused"] = len(reused_sources)
+    elif source_ask:
         if prior:
             retrieval_query = prior
             needs_rag = True
     elif prior and not greeting_only:
-        # Short follow-ups («δώσε μου τα βασικά», «τι λέει το υπουργείο;»)
-        # skip RAG alone and retrieve on the wrong phrase — expand with prior topic.
+        # Short follow-ups («δώσε μου τα βασικά», «και ο πυρετός;»)
+        # skip RAG alone or retrieve on a fragment — expand with prior topic.
         try:
             try:
                 from .evaluator import is_short_contextual_followup
@@ -5213,7 +5272,11 @@ async def _run_chat_core(
     timing["rag_total_ms"] = round((_time.perf_counter() - t_rag0) * 1000, 1)
     rag_matches = _serialize_rag_matches(rag_chunks) if include_debug else None
     chat_sources = (
-        public_chat_sources(rag_chunks, prefer_lang=prefer_lang) if rag_chunks else []
+        reused_sources
+        if reused_sources
+        else (
+            public_chat_sources(rag_chunks, prefer_lang=prefer_lang) if rag_chunks else []
+        )
     )
     rag_context = build_rag_context(rag_chunks)
     t_ctx0 = _time.perf_counter()
@@ -5287,7 +5350,31 @@ async def _run_chat_core(
                 )
             if google_maps_api_key():
                 loc_hint = _places_location_hint(req.profile)
-                q = build_places_search_query(req.message or "", location_hint=loc_hint)
+                places_msg = (req.message or "").strip()
+                # Short places follow-ups («και φαρμακεία;») need prior location/topic.
+                try:
+                    try:
+                        from .evaluator import is_short_contextual_followup
+                    except ImportError:
+                        from evaluator import is_short_contextual_followup
+                    places_followup = is_short_contextual_followup(places_msg)
+                except Exception:
+                    places_followup = len(places_msg.split()) <= 6
+                prior_places = ""
+                if places_followup or len(places_msg.split()) <= 6:
+                    for item in reversed(req.history or []):
+                        role, content = _history_user_text(item)
+                        if role != "user" or not content:
+                            continue
+                        if is_places_query(content) and content != places_msg:
+                            prior_places = content
+                            break
+                    if not prior_places:
+                        prior_places = previous_substantive_question(req.history)
+                    if prior_places:
+                        places_msg = f"{prior_places}\n{places_msg}".strip()
+                        timing["places_prior_expanded"] = True
+                q = build_places_search_query(places_msg, location_hint=loc_hint)
                 lang_code = (detect_msg_lang(req.message or "", (req.profile.lang if req.profile else "") or "") or "el")[:8]
                 found = search_places_text(
                     q,
@@ -5331,8 +5418,15 @@ async def _run_chat_core(
                 msg_lang=msg_lang or profile_lang or "en",
                 location_hint=_places_location_hint(req.profile),
             )
-        # Prior "search Maps yourself" turns poison the model — don't replay them.
-        llm_history = []
+        # Drop "search Maps yourself" turns that poison the model — keep the rest
+        # so short follow-ups still see the prior place/city context.
+        filtered = []
+        for item in llm_history or []:
+            _role, content = _history_user_text(item)
+            if content and _is_places_refuse_reply(content):
+                continue
+            filtered.append(item)
+        llm_history = filtered
     image_parts = _attachment_image_parts(req.attachments)
     errors = []
     _prov_keys = _llm_api_keys()
@@ -5707,6 +5801,7 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
             timing = prepared.get("timing") or {}
             llm_tx_ids = prepared.get("llm_tx_ids") or []
             t_llm0 = _time.perf_counter()
+            streamed_partial = False
 
             for provider in providers:
                 key = (prov_keys.get(provider) or "").strip()
@@ -5731,6 +5826,10 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
                             reply = "".join(parts).strip()
                             if not reply:
                                 raise RuntimeError("grok returned empty stream")
+                            if prepared.get("places_query") and _is_places_refuse_reply(reply):
+                                raise RuntimeError(f"grok refused places list: {reply[:80]!r}")
+                            if not _is_usable_reply(reply):
+                                raise RuntimeError(f"grok returned unusable reply: {reply[:80]!r}")
                             yield ("final", reply, "grok", {})
                             return
                         if p == "grok":
@@ -5787,6 +5886,7 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
                             if kind == "delta":
                                 piece = rest[0]
                                 reply_parts.append(piece)
+                                streamed_partial = True
                                 yield _sse_chat_event({"type": "delta", "text": piece})
                             elif kind == "final":
                                 reply, model, _meta = rest[0], rest[1], rest[2]
@@ -5853,6 +5953,10 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
                         timing["llm_transaction_id"] = result.transaction_id
                         if result.transaction_id:
                             llm_tx_ids.append(result.transaction_id)
+                        # Clear any partial Grok text before the failover provider paints.
+                        if streamed_partial:
+                            yield _sse_chat_event({"type": "reset"})
+                            streamed_partial = False
                         # One-shot delta so the UI still paints before done metadata.
                         yield _sse_chat_event({"type": "delta", "text": result.text})
                         done = finalize(result.text, provider)
@@ -5860,6 +5964,10 @@ async def chat_stream(req: ChatRequest, x_token: Optional[str] = Header(None)):
                         return
                 except Exception as e:
                     errors.append(f"{provider}: {e}")
+                    # Client appends deltas across providers — clear partial text first.
+                    if streamed_partial:
+                        yield _sse_chat_event({"type": "reset"})
+                        streamed_partial = False
                     continue
 
             joined = " | ".join(errors) or "All providers failed"
