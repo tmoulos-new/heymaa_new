@@ -2057,6 +2057,15 @@ def asks_for_sources(message: str) -> bool:
 
 
 def previous_substantive_question(history) -> str:
+    """Last user question that carries a real topic (not source-ask / short follow-up)."""
+    try:
+        try:
+            from .evaluator import is_short_contextual_followup
+        except ImportError:
+            from evaluator import is_short_contextual_followup
+    except Exception:
+        is_short_contextual_followup = None  # type: ignore
+
     for item in reversed(history or []):
         if isinstance(item, dict):
             role = item.get("role")
@@ -2065,8 +2074,15 @@ def previous_substantive_question(history) -> str:
             role = getattr(item, "role", None)
             content = getattr(item, "content", "") or ""
         content = str(content).strip()
-        if role == "user" and content and not asks_for_sources(content):
-            return content[:500]
+        if role != "user" or not content:
+            continue
+        if asks_for_sources(content):
+            continue
+        # Skip short follow-ups so source-asks / RAG use the real topic
+        # (e.g. vaccinations schedule, not «τι λέει το υπουργείο;»).
+        if is_short_contextual_followup and is_short_contextual_followup(content):
+            continue
+        return content[:500]
     return ""
 
 
@@ -5138,11 +5154,32 @@ async def _run_chat_core(
 
     source_ask = asks_for_sources(req.message)
     retrieval_query = req.message or ""
+    prior = previous_substantive_question(req.history)
     if source_ask:
-        prior = previous_substantive_question(req.history)
         if prior:
             retrieval_query = prior
             needs_rag = True
+    elif prior and not greeting_only:
+        # Short follow-ups («δώσε μου τα βασικά», «τι λέει το υπουργείο;»)
+        # skip RAG alone and retrieve on the wrong phrase — expand with prior topic.
+        try:
+            try:
+                from .evaluator import is_short_contextual_followup
+            except ImportError:
+                from evaluator import is_short_contextual_followup
+            short_followup = is_short_contextual_followup(req.message)
+        except Exception:
+            short_followup = False
+        if short_followup:
+            retrieval_query = f"{prior}\n{req.message}".strip()
+            needs_rag = True
+            evaluator = {
+                **evaluator,
+                "needs_rag": True,
+                "reason": "contextual_followup",
+                "reason_label": "Short follow-up — RAG with prior topic",
+                "signals": list(evaluator.get("signals") or []) + ["contextual_followup"],
+            }
 
     profile_lang_early = (
         (req.profile.lang if req.profile and req.profile.lang else "") or ""

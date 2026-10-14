@@ -55,9 +55,21 @@ _SOFT_SKIP_PATTERNS = [
     r"νιώθω|νιωθω|είμαι (κουρασ|στεναχωρη|στενοχωρη|χαρούμεν))\w*",
 ]
 
+# Short follow-ups that only make sense with prior turn topic
+_FOLLOWUP_PATTERNS = [
+    r"(βασικ|περισσότερ|περισσοτερ|συνέχισ|συνεχισ|εξήγησ|εξηγησ|"
+    r"υπουργ|εοδυ|eody|who\b|πηγέ?ς|source|περίληψ|περιληψ|"
+    r"πιο (αναλυτικ|λεπτομερ)|σε συντομ|συνοπτικ|"
+    r"τι (λέει|λεει|ισχύει|ισχυει)|"
+    r"δώσε|δωσε|πες μου|αναλυτικ|λεπτομέρ|λεπτομερ|"
+    r"and (the )?ministry|what (does|do) (the )?ministry|"
+    r"the basics|more details|go on|continue|summarize|summary)",
+]
+
 _SKIP_RE = [re.compile(p, re.I | re.U) for p in _SKIP_PATTERNS]
 _NEED_RE = [re.compile(p, re.I | re.U) for p in _NEED_PATTERNS]
 _SOFT_SKIP_RE = [re.compile(p, re.I | re.U) for p in _SOFT_SKIP_PATTERNS]
+_FOLLOWUP_RE = [re.compile(p, re.I | re.U) for p in _FOLLOWUP_PATTERNS]
 
 
 def _word_count(text: str) -> int:
@@ -233,6 +245,31 @@ def is_pure_greeting(message: str) -> bool:
     return (not result.get("needs_rag")) and result.get("reason") in {
         "chitchat",
         "meta_or_emotion",
+    }
+
+
+def is_short_contextual_followup(message: str) -> bool:
+    """True for short replies that depend on the prior user question for RAG.
+
+    Examples: «δώσε μου τα βασικά», «τι λέει το υπουργείο;», «περισσότερα».
+    Standalone greetings/acks are excluded — those should still skip RAG.
+    """
+    text = (message or "").strip()
+    if not text:
+        return False
+    if is_pure_greeting(text):
+        return False
+    wc = _word_count(text)
+    if wc > 14:
+        return False
+    for rx in _FOLLOWUP_RE:
+        if rx.search(text):
+            return True
+    # Generic short question / utterance that the evaluator would skip alone
+    result = evaluate_rag_need(text)
+    return (not result.get("needs_rag")) and result.get("reason") in {
+        "short_question",
+        "short_utterance",
     }
 
 

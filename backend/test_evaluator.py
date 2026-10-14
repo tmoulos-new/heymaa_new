@@ -57,6 +57,26 @@ class EvaluatorTests(unittest.TestCase):
         r = evaluate_rag_need("ok")
         self.assertFalse(r["needs_rag"])
 
+    def test_short_followup_alone_skips_rag(self):
+        # Alone these skip; chat core expands with prior topic.
+        for msg in ("δωσε μου τα βασικά", "τι λέει το υπουργειο?", "περισσότερα"):
+            r = evaluate_rag_need(msg)
+            self.assertFalse(r["needs_rag"], msg)
+
+    def test_short_contextual_followup_detects(self):
+        from evaluator import is_short_contextual_followup
+
+        self.assertTrue(is_short_contextual_followup("δωσε μου τα βασικά"))
+        self.assertTrue(is_short_contextual_followup("τι λέει το υπουργειο?"))
+        self.assertTrue(is_short_contextual_followup("περισσότερα"))
+        self.assertFalse(is_short_contextual_followup("ok"))
+        self.assertFalse(is_short_contextual_followup("Γεια σου"))
+        self.assertFalse(
+            is_short_contextual_followup(
+                "μπορείς να μου πεις το πρόγραμμα έως 12 μηνών?"
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
