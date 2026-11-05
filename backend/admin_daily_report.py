@@ -668,6 +668,23 @@ def build_daily_report(sb, *, now: Optional[datetime] = None) -> dict[str, Any]:
             "support_pending_admin": int(extras.get("support_pending_admin") or 0),
         },
         "plans": plan_lines,
+        "sparks": {
+            "new_users_7d": [
+                float(r.get("value") or 0)
+                for r in (series.get("new_users") or [])[-7:]
+            ],
+            "dau_7d": [
+                float(r.get("value") or 0) for r in (series.get("dau") or [])[-7:]
+            ],
+            "cash_7d": [
+                float(r.get("value") or 0)
+                for r in (series.get("cash_revenue_eur") or [])[-7:]
+            ],
+            "llm_7d": [
+                float(r.get("value") or 0)
+                for r in (series.get("llm_cost_usd") or [])[-7:]
+            ],
+        },
         "notes": notes,
     }
 

@@ -904,33 +904,6 @@ def render_llm_ops_alert_email(
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
-def _metric_row(label: str, value: str) -> str:
-    font = _font()
-    return (
-        f'<tr>'
-        f'<td style="font-family:{font};font-size:14px;color:{TEXT_SOFT};'
-        f'padding:8px 0;border-bottom:1px solid {BORDER};">{escape(label)}</td>'
-        f'<td align="right" style="font-family:{font};font-size:14px;font-weight:700;'
-        f'color:{TEXT};padding:8px 0;border-bottom:1px solid {BORDER};white-space:nowrap;">'
-        f'{escape(value)}</td>'
-        f'</tr>'
-    )
-
-
-def _metric_section(title: str, rows: list[tuple[str, str]]) -> str:
-    if not rows:
-        return ""
-    body = "".join(_metric_row(label, value) for label, value in rows)
-    font = _font()
-    return (
-        f'<div style="margin:0 0 22px;">'
-        f'<div style="font-family:{font};font-size:13px;font-weight:700;letter-spacing:0.4px;'
-        f'color:{NAVY};text-transform:uppercase;margin:0 0 8px;">{escape(title)}</div>'
-        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{body}</table>'
-        f'</div>'
-    )
-
-
 def _fmt_int(n: Any) -> str:
     try:
         return f"{int(n):,}".replace(",", ".")
@@ -959,26 +932,187 @@ def _fmt_pct(n: Any) -> str:
         return "0.0%"
 
 
-def _email_eng_rows(block: dict, *, prefix: str, lang: str) -> list[tuple[str, str]]:
-    """Compact sent / open / click / bounce / complaint lines for a window."""
+def _report_shell(body_html: str, *, preheader: str = "") -> str:
+    """Full-bleed visual shell for the admin daily pulse (wider than transactional)."""
+    preheader_html = ""
+    if preheader:
+        preheader_html = (
+            f'<div style="display:none;max-height:0;overflow:hidden;opacity:0;">'
+            f"{escape(preheader)}</div>"
+        )
+    font = _font()
+    # Deep navy atmosphere — not flat cream, not purple-AI
+    bg = "#151B2E"
+    return f"""<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:{bg};">
+{preheader_html}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{bg};">
+  <tr>
+    <td align="center" style="padding:28px 12px 40px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;">
+        <tr><td>{body_html}</td></tr>
+        <tr>
+          <td style="padding:20px 8px 0;font-family:{font};font-size:11px;color:rgba(245,240,235,0.45);text-align:center;line-height:1.6;">
+            HeyMaa Pulse · Care Direct · {escape(SUPPORT_EMAIL)}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body></html>"""
+
+
+def _spark_bars(values: list, *, color: str = TEAL, height: int = 36) -> str:
+    """Email-safe mini bar chart from numeric series."""
+    nums = [max(0.0, float(v or 0)) for v in (values or [])][-7:]
+    while len(nums) < 7:
+        nums.insert(0, 0.0)
+    peak = max(nums) if nums else 0.0
+    cells = []
+    for i, v in enumerate(nums):
+        h = 4 if peak <= 0 else max(4, int(round((v / peak) * height)))
+        pad = height - h
+        # Last bar slightly brighter
+        bar_color = "#7AD9C8" if i == len(nums) - 1 else color
+        cells.append(
+            f'<td valign="bottom" width="14%" align="center" style="padding:0 2px;">'
+            f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
+            f'<tr><td height="{pad}" style="font-size:0;line-height:0;">&nbsp;</td></tr>'
+            f'<tr><td height="{h}" bgcolor="{bar_color}" style="background:{bar_color};'
+            f'border-radius:3px 3px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>'
+            f'</table></td>'
+        )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="height:{height}px;"><tr>{"".join(cells)}</tr></table>'
+    )
+
+
+def _rate_bar(pct: Any, *, label: str, color: str = TEAL) -> str:
+    try:
+        p = max(0.0, min(100.0, float(pct or 0)))
+    except (TypeError, ValueError):
+        p = 0.0
+    filled = max(0, min(100, int(round(p))))
+    empty = 100 - filled
+    font = _font()
+    fill_td = (
+        f'<td width="{filled}%" bgcolor="{color}" style="background:{color};'
+        f'height:10px;font-size:0;line-height:0;border-radius:999px 0 0 999px;">&nbsp;</td>'
+        if filled
+        else ""
+    )
+    empty_td = (
+        f'<td width="{empty}%" bgcolor="rgba(43,58,103,0.10)" '
+        f'style="background:rgba(43,58,103,0.10);height:10px;font-size:0;line-height:0;'
+        f'border-radius:{"999px" if not filled else "0 999px 999px 0"};">&nbsp;</td>'
+        if empty
+        else ""
+    )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 14px;">'
+        f'<tr><td style="font-family:{font};font-size:12px;color:{TEXT_SOFT};padding:0 0 6px;">'
+        f'{escape(label)}'
+        f'<span style="float:right;font-weight:700;color:{TEXT};">{_fmt_pct(p)}</span></td></tr>'
+        f'<tr><td>'
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="border-radius:999px;overflow:hidden;"><tr>{fill_td}{empty_td}</tr></table>'
+        f'</td></tr></table>'
+    )
+
+
+def _kpi_tile(label: str, value: str, *, hint: str = "", accent: str = TEAL) -> str:
+    font = _font()
+    hint_html = (
+        f'<div style="font-family:{font};font-size:11px;color:{MUTED};margin-top:6px;">{escape(hint)}</div>'
+        if hint
+        else ""
+    )
+    return (
+        f'<td width="50%" valign="top" style="padding:6px;">'
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="background:#ffffff;border-radius:16px;border:1px solid {BORDER};">'
+        f'<tr><td style="padding:16px 16px 14px;border-top:3px solid {accent};border-radius:16px;">'
+        f'<div style="font-family:{font};font-size:11px;font-weight:700;letter-spacing:0.6px;'
+        f'text-transform:uppercase;color:{MUTED};">{escape(label)}</div>'
+        f'<div style="font-family:{font};font-size:28px;font-weight:700;color:{NAVY};'
+        f'line-height:1.15;margin-top:6px;">{escape(value)}</div>'
+        f'{hint_html}</td></tr></table></td>'
+    )
+
+
+def _section_panel(title: str, body: str, *, accent: str = TEAL, eyebrow: str = "") -> str:
+    font = _font()
+    eye = (
+        f'<div style="font-family:{font};font-size:11px;font-weight:700;letter-spacing:1px;'
+        f'text-transform:uppercase;color:{accent};margin:0 0 4px;">{escape(eyebrow)}</div>'
+        if eyebrow
+        else ""
+    )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="margin:0 0 16px;background:#ffffff;border-radius:18px;border:1px solid {BORDER};">'
+        f'<tr><td style="padding:20px 20px 8px;border-left:4px solid {accent};">'
+        f'{eye}'
+        f'<div style="font-family:{font};font-size:18px;font-weight:700;color:{NAVY};margin:0 0 14px;">'
+        f'{escape(title)}</div>{body}</td></tr></table>'
+    )
+
+
+def _pair_rows(rows: list[tuple[str, str]]) -> str:
+    font = _font()
+    out = []
+    for label, value in rows:
+        out.append(
+            f'<tr>'
+            f'<td style="font-family:{font};font-size:13px;color:{TEXT_SOFT};padding:7px 0;'
+            f'border-bottom:1px solid {BORDER};">{escape(label)}</td>'
+            f'<td align="right" style="font-family:{font};font-size:13px;font-weight:700;'
+            f'color:{NAVY};padding:7px 0;border-bottom:1px solid {BORDER};white-space:nowrap;">'
+            f'{escape(value)}</td></tr>'
+        )
+    return f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{"".join(out)}</table>'
+
+
+def _alert_ribbon(items: list[str], *, lang: str) -> str:
+    if not items:
+        return ""
+    font = _font()
+    title = "Needs attention" if lang == "en" else "Χρειάζεται προσοχή"
+    chips = "".join(
+        f'<div style="font-family:{font};font-size:13px;color:#5C3A1A;background:#FFF4E8;'
+        f'border:1px solid #F0D2B0;border-radius:999px;padding:8px 14px;margin:0 6px 8px 0;'
+        f'display:inline-block;">{escape(item)}</div>'
+        for item in items
+    )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="margin:0 0 16px;background:linear-gradient(135deg,#FFF8F0,#FFE8D2);'
+        f'border-radius:18px;border:1px solid #F0D2B0;">'
+        f'<tr><td style="padding:16px 18px;">'
+        f'<div style="font-family:{font};font-size:12px;font-weight:700;letter-spacing:0.8px;'
+        f'text-transform:uppercase;color:#A65C18;margin:0 0 10px;">{escape(title)}</div>'
+        f'{chips}</td></tr></table>'
+    )
+
+
+def _eng_compact(block: dict, *, lang: str) -> str:
     b = block or {}
-    if lang == "en":
-        return [
-            (f"{prefix} sent", _fmt_int(b.get("sent"))),
-            (f"{prefix} delivered", _fmt_int(b.get("delivered"))),
-            (f"{prefix} unique opens", f"{_fmt_int(b.get('unique_opens'))} ({_fmt_pct(b.get('open_rate'))})"),
-            (f"{prefix} unique clicks", f"{_fmt_int(b.get('unique_clicks'))} ({_fmt_pct(b.get('click_rate'))})"),
-            (f"{prefix} bounced", f"{_fmt_int(b.get('bounced'))} ({_fmt_pct(b.get('bounce_rate'))})"),
-            (f"{prefix} spam complaints", f"{_fmt_int(b.get('complained'))} ({_fmt_pct(b.get('complaint_rate'))})"),
-        ]
-    return [
-        (f"{prefix} απεσταλμένα", _fmt_int(b.get("sent"))),
-        (f"{prefix} delivered", _fmt_int(b.get("delivered"))),
-        (f"{prefix} μοναδικά opens", f"{_fmt_int(b.get('unique_opens'))} ({_fmt_pct(b.get('open_rate'))})"),
-        (f"{prefix} μοναδικά clicks", f"{_fmt_int(b.get('unique_clicks'))} ({_fmt_pct(b.get('click_rate'))})"),
-        (f"{prefix} bounced", f"{_fmt_int(b.get('bounced'))} ({_fmt_pct(b.get('bounce_rate'))})"),
-        (f"{prefix} spam complaints", f"{_fmt_int(b.get('complained'))} ({_fmt_pct(b.get('complaint_rate'))})"),
+    rows = [
+        ("Sent" if lang == "en" else "Απεσταλμένα", _fmt_int(b.get("sent"))),
+        ("Opens", f"{_fmt_int(b.get('unique_opens'))} · {_fmt_pct(b.get('open_rate'))}"),
+        ("Clicks", f"{_fmt_int(b.get('unique_clicks'))} · {_fmt_pct(b.get('click_rate'))}"),
+        ("Bounce", f"{_fmt_int(b.get('bounced'))} · {_fmt_pct(b.get('bounce_rate'))}"),
+        ("Spam", f"{_fmt_int(b.get('complained'))} · {_fmt_pct(b.get('complaint_rate'))}"),
     ]
+    return _pair_rows(rows)
 
 
 def render_admin_daily_report_email(
@@ -988,7 +1122,7 @@ def render_admin_daily_report_email(
     admin_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    """Branded daily ops + marketing digest for administrators."""
+    """Cinematic daily pulse email — scoreboard, sparklines, rate bars, attention strip."""
     lang = normalize_email_lang(lang)
     date_label = str(report.get("report_date") or datetime.utcnow().date().isoformat())
     h = report.get("headline") or {}
@@ -999,261 +1133,308 @@ def render_admin_daily_report_email(
     email = report.get("email") or {}
     ops = report.get("ops") or {}
     plans = report.get("plans") or []
+    sparks = report.get("sparks") or {}
 
     mkt_today = email.get("marketing_today") or {}
-    mkt_7d = email.get("marketing_7d") or {}
     mkt_all = email.get("marketing_all") or {}
     drip_today = email.get("drip_today") or {}
     drip_all = email.get("drip_all") or {}
     camp_today = email.get("campaign_today") or {}
     camp_all = email.get("campaign_all") or {}
 
+    font = _font()
+    logo = escape(_logo_src(), quote=True)
+    who = escape(_display_name(name, lang))
+
     if lang == "en":
-        subject = f"HeyMaa daily report · {date_label}"
-        intro = (
-            "Daily + cumulative snapshot for growth, revenue, automated marketing "
-            "(opens, clicks, unsubscribes), conversion drips, and ops."
-        )
-        btn = "Open Insights"
-        sections = [
-            (
-                "Today — growth",
-                [
-                    ("New signups today", _fmt_int(h.get("new_users_today"))),
-                    ("New signups yesterday", _fmt_int(h.get("new_users_yesterday"))),
-                    ("New signups (7d)", _fmt_int(h.get("new_users_7d"))),
-                    ("New signups (30d)", _fmt_int(h.get("new_users_30d"))),
-                    ("DAU today", _fmt_int(h.get("dau_today"))),
-                    ("Active last 7d", _fmt_int(h.get("active_last_7d"))),
-                ],
-            ),
-            (
-                "Cumulative — users & money",
-                [
-                    ("Total users", _fmt_int(cum.get("total_users"))),
-                    ("Paying active", _fmt_int(cum.get("paying_active"))),
-                    ("Active trials", _fmt_int(cum.get("trial_active"))),
-                    ("Free-plan users", _fmt_int(cum.get("free_plan_users"))),
-                    ("Recognized MRR", _fmt_eur(cum.get("recognized_mrr_eur"))),
-                    ("Renewing MRR", _fmt_eur(cum.get("renewing_mrr_eur"))),
-                    ("Cash lifetime", _fmt_eur(cum.get("cash_lifetime_eur"))),
-                    ("Orders lifetime", _fmt_int(cum.get("orders_lifetime"))),
-                    ("Users with chat", _fmt_int(cum.get("users_with_chat"))),
-                    ("Total memories", _fmt_int(cum.get("total_memories"))),
-                    ("Gift claims (all-time)", _fmt_int(cum.get("gift_claims_total"))),
-                ],
-            ),
-            (
-                "Today — revenue & retention",
-                [
-                    ("Cash today", _fmt_eur(rev.get("cash_today_eur"))),
-                    ("Cash yesterday", _fmt_eur(rev.get("cash_yesterday_eur"))),
-                    ("Cash (7d)", _fmt_eur(rev.get("cash_7d_eur"))),
-                    ("Cash (30d)", _fmt_eur(rev.get("cash_30d_eur"))),
-                    ("Orders (30d)", _fmt_int(rev.get("orders_30d"))),
-                    ("Pending cancels", _fmt_int(rev.get("pending_cancels"))),
-                    ("Trials ending ≤48h", _fmt_int(funnel.get("trials_ending_48h"))),
-                ],
-            ),
-            (
-                "Marketing list — consent & unsubscribes",
-                [
-                    ("Marketing opted-in (cumulative)", _fmt_int(msg.get("marketing_consent_on"))),
-                    ("Marketing opted-out (cumulative)", _fmt_int(msg.get("marketing_consent_off"))),
-                    ("Consent rate", _fmt_pct(msg.get("marketing_consent_rate"))),
-                    ("New opt-ins today", _fmt_int(msg.get("marketing_opt_ins_today"))),
-                    ("Unsubscribes today (approx)", _fmt_int(msg.get("marketing_unsubscribes_today"))),
-                    ("Push soft opt-in (cumulative)", _fmt_int(msg.get("push_opt_in"))),
-                    ("Push devices (cumulative)", _fmt_int(msg.get("push_devices"))),
-                ],
-            ),
-            (
-                "Automated marketing email — today",
-                _email_eng_rows(mkt_today, prefix="Marketing", lang="en"),
-            ),
-            (
-                "Automated marketing email — 7d",
-                _email_eng_rows(mkt_7d, prefix="Marketing 7d", lang="en"),
-            ),
-            (
-                "Automated marketing email — all-time",
-                _email_eng_rows(mkt_all, prefix="Marketing all", lang="en"),
-            ),
-            (
-                "Conversion drips (email engagement)",
-                _email_eng_rows(drip_today, prefix="Drip today", lang="en")
-                + _email_eng_rows(drip_all, prefix="Drip all", lang="en"),
-            ),
-            (
-                "Admin campaigns (email engagement)",
-                _email_eng_rows(camp_today, prefix="Campaign today", lang="en")
-                + _email_eng_rows(camp_all, prefix="Campaign all", lang="en"),
-            ),
-            (
-                "Conversion drips & gifts — volume",
-                [
-                    ("Enrollments active", _fmt_int(msg.get("drip_active_enrollments"))),
-                    ("Enrollments completed (cumul.)", _fmt_int(msg.get("drip_completed_enrollments"))),
-                    ("Enrollments exited (cumul.)", _fmt_int(msg.get("drip_exited_enrollments"))),
-                    ("Enrollments total (cumul.)", _fmt_int(msg.get("drip_enrolled_total"))),
-                    ("Newly enrolled today", _fmt_int(msg.get("drip_enrolled_today"))),
-                    ("Drip sends (24h)", _fmt_int(msg.get("drip_sends_24h"))),
-                    ("Drip emails OK (24h)", _fmt_int(msg.get("drip_email_ok_24h"))),
-                    ("Drip emails failed (24h)", _fmt_int(msg.get("drip_email_fail_24h"))),
-                    ("Drip push OK (24h)", _fmt_int(msg.get("drip_push_ok_24h"))),
-                    ("Drip sends all-time", _fmt_int(msg.get("drip_sends_total"))),
-                    ("Drip emails all-time", _fmt_int(msg.get("drip_email_total"))),
-                    ("Drip push all-time", _fmt_int(msg.get("drip_push_total"))),
-                    ("Gift claims today", _fmt_int(msg.get("gift_claims_today"))),
-                    ("Gift claims all-time", _fmt_int(msg.get("gift_claims_total"))),
-                ],
-            ),
-            (
-                "Ops & support",
-                [
-                    ("LLM cost today", _fmt_usd(ops.get("llm_cost_today_usd"))),
-                    ("LLM calls today", _fmt_int(ops.get("llm_calls_today"))),
-                    ("LLM cost MTD", _fmt_usd(ops.get("llm_cost_mtd_usd"))),
-                    ("Projected LLM (month)", _fmt_usd(ops.get("projected_llm_month_usd"))),
-                    ("Users near LLM limit", _fmt_int(ops.get("users_near_llm_limit"))),
-                    ("Support open", _fmt_int(ops.get("support_open"))),
-                    ("Support awaiting admin", _fmt_int(ops.get("support_pending_admin"))),
-                ],
-            ),
-        ]
-        plan_title = "Plan mix"
+        subject = f"HeyMaa Pulse · {date_label}"
+        hero_kicker = "Daily Pulse"
+        hero_title = f"Good morning, {who}"
+        hero_sub = "Growth, money, automated marketing, and what needs you today."
+        btn = "Open live Insights"
+        lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Signups today", "DAU", "Cash today", "MRR"
+        lbl_spark_users, lbl_spark_dau = "New users · 7 days", "Active users · 7 days"
+        lbl_spark_cash, lbl_spark_llm = "Cash · 7 days", "LLM spend · 7 days"
+        sec_cum = "Cumulative picture"
+        sec_mkt = "Marketing engine"
+        sec_list = "List health"
+        sec_drip = "Conversion drips"
+        sec_ops = "Ops & support"
+        sec_plans = "Plan mix"
+        open_label = "Marketing open rate (today)"
+        consent_label = "Marketing consent rate"
+        click_label = "Marketing click rate (today)"
     else:
-        subject = f"HeyMaa — ημερήσια αναφορά · {date_label}"
-        intro = (
-            "Ημερήσιο + αθροιστικό στιγμιότυπο: ανάπτυξη, έσοδα, αυτοματοποιημένο marketing "
-            "(opens, clicks, διαγραφές), conversion drips και ops."
-        )
-        btn = "Άνοιξε Insights"
-        sections = [
-            (
-                "Σήμερα — ανάπτυξη",
-                [
-                    ("Νέες εγγραφές σήμερα", _fmt_int(h.get("new_users_today"))),
-                    ("Νέες εγγραφές χθες", _fmt_int(h.get("new_users_yesterday"))),
-                    ("Νέες εγγραφές (7ημ)", _fmt_int(h.get("new_users_7d"))),
-                    ("Νέες εγγραφές (30ημ)", _fmt_int(h.get("new_users_30d"))),
-                    ("DAU σήμερα", _fmt_int(h.get("dau_today"))),
-                    ("Ενεργοί τελευταίες 7ημ", _fmt_int(h.get("active_last_7d"))),
-                ],
-            ),
-            (
-                "Αθροιστικά — χρήστες & χρήμα",
-                [
-                    ("Σύνολο χρηστών", _fmt_int(cum.get("total_users"))),
-                    ("Πληρώνοντες ενεργοί", _fmt_int(cum.get("paying_active"))),
-                    ("Ενεργές δοκιμές", _fmt_int(cum.get("trial_active"))),
-                    ("Χρήστες free plan", _fmt_int(cum.get("free_plan_users"))),
-                    ("Recognized MRR", _fmt_eur(cum.get("recognized_mrr_eur"))),
-                    ("Renewing MRR", _fmt_eur(cum.get("renewing_mrr_eur"))),
-                    ("Εισπράξεις lifetime", _fmt_eur(cum.get("cash_lifetime_eur"))),
-                    ("Παραγγελίες lifetime", _fmt_int(cum.get("orders_lifetime"))),
-                    ("Χρήστες με chat", _fmt_int(cum.get("users_with_chat"))),
-                    ("Σύνολο αναμνήσεων", _fmt_int(cum.get("total_memories"))),
-                    ("Gift claims (σύνολο)", _fmt_int(cum.get("gift_claims_total"))),
-                ],
-            ),
-            (
-                "Σήμερα — έσοδα & διατήρηση",
-                [
-                    ("Εισπράξεις σήμερα", _fmt_eur(rev.get("cash_today_eur"))),
-                    ("Εισπράξεις χθες", _fmt_eur(rev.get("cash_yesterday_eur"))),
-                    ("Εισπράξεις (7ημ)", _fmt_eur(rev.get("cash_7d_eur"))),
-                    ("Εισπράξεις (30ημ)", _fmt_eur(rev.get("cash_30d_eur"))),
-                    ("Παραγγελίες (30ημ)", _fmt_int(rev.get("orders_30d"))),
-                    ("Εκκρεμείς ακυρώσεις", _fmt_int(rev.get("pending_cancels"))),
-                    ("Δοκιμές που λήγουν ≤48ώ", _fmt_int(funnel.get("trials_ending_48h"))),
-                ],
-            ),
-            (
-                "Marketing λίστα — consent & διαγραφές",
-                [
-                    ("Opted-in marketing (αθροιστικά)", _fmt_int(msg.get("marketing_consent_on"))),
-                    ("Opted-out marketing (αθροιστικά)", _fmt_int(msg.get("marketing_consent_off"))),
-                    ("Consent rate", _fmt_pct(msg.get("marketing_consent_rate"))),
-                    ("Νέα opt-ins σήμερα", _fmt_int(msg.get("marketing_opt_ins_today"))),
-                    ("Διαγραφές σήμερα (προσέγγ.)", _fmt_int(msg.get("marketing_unsubscribes_today"))),
-                    ("Push soft opt-in (αθροιστικά)", _fmt_int(msg.get("push_opt_in"))),
-                    ("Push συσκευές (αθροιστικά)", _fmt_int(msg.get("push_devices"))),
-                ],
-            ),
-            (
-                "Αυτοματοποιημένο marketing email — σήμερα",
-                _email_eng_rows(mkt_today, prefix="Marketing", lang="el"),
-            ),
-            (
-                "Αυτοματοποιημένο marketing email — 7ημ",
-                _email_eng_rows(mkt_7d, prefix="Marketing 7ημ", lang="el"),
-            ),
-            (
-                "Αυτοματοποιημένο marketing email — σύνολο",
-                _email_eng_rows(mkt_all, prefix="Marketing σύνολο", lang="el"),
-            ),
-            (
-                "Conversion drips (email engagement)",
-                _email_eng_rows(drip_today, prefix="Drip σήμερα", lang="el")
-                + _email_eng_rows(drip_all, prefix="Drip σύνολο", lang="el"),
-            ),
-            (
-                "Admin campaigns (email engagement)",
-                _email_eng_rows(camp_today, prefix="Campaign σήμερα", lang="el")
-                + _email_eng_rows(camp_all, prefix="Campaign σύνολο", lang="el"),
-            ),
-            (
-                "Conversion drips & δώρα — όγκος",
-                [
-                    ("Enrollments ενεργά", _fmt_int(msg.get("drip_active_enrollments"))),
-                    ("Enrollments completed (αθρ.)", _fmt_int(msg.get("drip_completed_enrollments"))),
-                    ("Enrollments exited (αθρ.)", _fmt_int(msg.get("drip_exited_enrollments"))),
-                    ("Enrollments σύνολο", _fmt_int(msg.get("drip_enrolled_total"))),
-                    ("Νέα enrollments σήμερα", _fmt_int(msg.get("drip_enrolled_today"))),
-                    ("Drip αποστολές (24ώ)", _fmt_int(msg.get("drip_sends_24h"))),
-                    ("Drip email OK (24ώ)", _fmt_int(msg.get("drip_email_ok_24h"))),
-                    ("Drip email αποτυχίες (24ώ)", _fmt_int(msg.get("drip_email_fail_24h"))),
-                    ("Drip push OK (24ώ)", _fmt_int(msg.get("drip_push_ok_24h"))),
-                    ("Drip αποστολές σύνολο", _fmt_int(msg.get("drip_sends_total"))),
-                    ("Drip emails σύνολο", _fmt_int(msg.get("drip_email_total"))),
-                    ("Drip push σύνολο", _fmt_int(msg.get("drip_push_total"))),
-                    ("Gift claims σήμερα", _fmt_int(msg.get("gift_claims_today"))),
-                    ("Gift claims σύνολο", _fmt_int(msg.get("gift_claims_total"))),
-                ],
-            ),
-            (
-                "Ops & support",
-                [
-                    ("Κόστος LLM σήμερα", _fmt_usd(ops.get("llm_cost_today_usd"))),
-                    ("Κλήσεις LLM σήμερα", _fmt_int(ops.get("llm_calls_today"))),
-                    ("Κόστος LLM MTD", _fmt_usd(ops.get("llm_cost_mtd_usd"))),
-                    ("Προβολή LLM (μήνας)", _fmt_usd(ops.get("projected_llm_month_usd"))),
-                    ("Κοντά στο LLM limit", _fmt_int(ops.get("users_near_llm_limit"))),
-                    ("Support ανοιχτά", _fmt_int(ops.get("support_open"))),
-                    ("Support σε αναμονή admin", _fmt_int(ops.get("support_pending_admin"))),
-                ],
-            ),
+        subject = f"HeyMaa Pulse · {date_label}"
+        hero_kicker = "Ημερήσιος παλμός"
+        hero_title = f"Καλημέρα, {who}"
+        hero_sub = "Ανάπτυξη, έσοδα, αυτοματοποιημένο marketing και ό,τι σε χρειάζεται σήμερα."
+        btn = "Άνοιξε live Insights"
+        lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Εγγραφές σήμερα", "DAU", "Εισπράξεις σήμερα", "MRR"
+        lbl_spark_users, lbl_spark_dau = "Νέοι χρήστες · 7ημ", "Ενεργοί · 7ημ"
+        lbl_spark_cash, lbl_spark_llm = "Εισπράξεις · 7ημ", "Κόστος LLM · 7ημ"
+        sec_cum = "Αθροιστική εικόνα"
+        sec_mkt = "Marketing engine"
+        sec_list = "Υγεία λίστας"
+        sec_drip = "Conversion drips"
+        sec_ops = "Ops & support"
+        sec_plans = "Μίγμα πλάνων"
+        open_label = "Open rate marketing (σήμερα)"
+        consent_label = "Consent rate marketing"
+        click_label = "Click rate marketing (σήμερα)"
+
+    # Attention chips
+    alerts: list[str] = []
+    t48 = int(funnel.get("trials_ending_48h") or 0)
+    fails = int(msg.get("drip_email_fail_24h") or 0)
+    unsub = int(msg.get("marketing_unsubscribes_today") or 0)
+    support_n = int(ops.get("support_pending_admin") or 0) + int(ops.get("support_open") or 0)
+    cancels = int(rev.get("pending_cancels") or 0)
+    if lang == "en":
+        if t48:
+            alerts.append(f"{t48} trials end ≤48h")
+        if fails:
+            alerts.append(f"{fails} drip email failures")
+        if unsub:
+            alerts.append(f"{unsub} unsubscribes today")
+        if support_n:
+            alerts.append(f"{support_n} support threads open")
+        if cancels:
+            alerts.append(f"{cancels} pending cancels")
+    else:
+        if t48:
+            alerts.append(f"{t48} δοκιμές λήγουν ≤48ώ")
+        if fails:
+            alerts.append(f"{fails} αποτυχίες drip email")
+        if unsub:
+            alerts.append(f"{unsub} διαγραφές σήμερα")
+        if support_n:
+            alerts.append(f"{support_n} ανοιχτά support")
+        if cancels:
+            alerts.append(f"{cancels} εκκρεμείς ακυρώσεις")
+
+    # Hero
+    hero = f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+  style="background:linear-gradient(165deg,#1A2340 0%,#2B3A67 55%,#1F7A6C 140%);
+  border-radius:22px 22px 0 0;overflow:hidden;">
+  <tr>
+    <td style="padding:28px 28px 8px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td valign="middle">
+            <img src="{logo}" width="40" height="40" alt="HeyMaa"
+              style="display:block;width:40px;height:40px;border-radius:50%;border:0;" />
+          </td>
+          <td valign="middle" style="padding-left:12px;">
+            <div style="font-family:{font};font-size:20px;font-weight:700;color:#ffffff;line-height:1;">
+              Hey<span style="color:{PEACH};">Maa</span>
+              <span style="font-size:12px;font-weight:600;letter-spacing:1.2px;color:rgba(255,255,255,0.55);
+                text-transform:uppercase;padding-left:10px;">{escape(hero_kicker)}</span>
+            </div>
+          </td>
+          <td align="right" valign="middle"
+            style="font-family:{font};font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);">
+            {escape(date_label)}
+          </td>
+        </tr>
+      </table>
+      <div style="font-family:{font};font-size:26px;font-weight:700;color:#ffffff;
+        line-height:1.25;margin:22px 0 8px;">{hero_title}</div>
+      <div style="font-family:{font};font-size:14px;color:rgba(255,255,255,0.72);
+        line-height:1.55;max-width:420px;">{escape(hero_sub)}</div>
+      <div style="height:3px;width:56px;background:{PEACH};border-radius:999px;margin:18px 0 8px;"></div>
+    </td>
+  </tr>
+</table>
+"""
+
+    # Scoreboard on soft cream panel
+    scoreboard = f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+  style="background:{CREAM};">
+  <tr><td style="padding:8px 10px 4px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        {_kpi_tile(lbl_signups, _fmt_int(h.get("new_users_today")), hint=f"7d {_fmt_int(h.get('new_users_7d'))}", accent=TEAL)}
+        {_kpi_tile(lbl_dau, _fmt_int(h.get("dau_today")), hint=f"7d {_fmt_int(h.get('active_last_7d'))}", accent="#5B7CFA")}
+      </tr>
+      <tr>
+        {_kpi_tile(lbl_cash, _fmt_eur(rev.get("cash_today_eur")), hint=f"7d {_fmt_eur(rev.get('cash_7d_eur'))}", accent="#E8A87C")}
+        {_kpi_tile(lbl_mrr, _fmt_eur(cum.get("recognized_mrr_eur")), hint=f"paying {_fmt_int(cum.get('paying_active'))}", accent="#C97B84")}
+      </tr>
+    </table>
+  </td></tr>
+</table>
+"""
+
+    sparks_panel = _section_panel(
+        "7-day rhythm" if lang == "en" else "Ρυθμός 7 ημερών",
+        f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%" valign="top" style="padding:0 8px 16px 0;">
+      <div style="font-family:{font};font-size:11px;font-weight:700;color:{MUTED};
+        letter-spacing:0.4px;text-transform:uppercase;margin:0 0 8px;">{escape(lbl_spark_users)}</div>
+      {_spark_bars(sparks.get("new_users_7d") or [], color=TEAL)}
+    </td>
+    <td width="50%" valign="top" style="padding:0 0 16px 8px;">
+      <div style="font-family:{font};font-size:11px;font-weight:700;color:{MUTED};
+        letter-spacing:0.4px;text-transform:uppercase;margin:0 0 8px;">{escape(lbl_spark_dau)}</div>
+      {_spark_bars(sparks.get("dau_7d") or [], color="#5B7CFA")}
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" style="padding:0 8px 4px 0;">
+      <div style="font-family:{font};font-size:11px;font-weight:700;color:{MUTED};
+        letter-spacing:0.4px;text-transform:uppercase;margin:0 0 8px;">{escape(lbl_spark_cash)}</div>
+      {_spark_bars(sparks.get("cash_7d") or [], color="#E8A87C")}
+    </td>
+    <td width="50%" valign="top" style="padding:0 0 4px 8px;">
+      <div style="font-family:{font};font-size:11px;font-weight:700;color:{MUTED};
+        letter-spacing:0.4px;text-transform:uppercase;margin:0 0 8px;">{escape(lbl_spark_llm)}</div>
+      {_spark_bars(sparks.get("llm_7d") or [], color="#C97B84")}
+    </td>
+  </tr>
+</table>
+""",
+        accent="#5B7CFA",
+        eyebrow="Trend" if lang == "en" else "Τάση",
+    )
+
+    cum_body = _pair_rows(
+        [
+            ("Total users" if lang == "en" else "Σύνολο χρηστών", _fmt_int(cum.get("total_users"))),
+            ("Paying / trial / free", f"{_fmt_int(cum.get('paying_active'))} / {_fmt_int(cum.get('trial_active'))} / {_fmt_int(cum.get('free_plan_users'))}"),
+            ("Cash lifetime", _fmt_eur(cum.get("cash_lifetime_eur"))),
+            ("Orders lifetime", _fmt_int(cum.get("orders_lifetime"))),
+            ("Chat · memories", f"{_fmt_int(cum.get('users_with_chat'))} · {_fmt_int(cum.get('total_memories'))}"),
+            ("Gift claims", _fmt_int(cum.get("gift_claims_total"))),
+            ("Drip enrollments", f"{_fmt_int(cum.get('drip_active_enrollments'))} active · {_fmt_int(cum.get('drip_enrolled_total'))} total"),
         ]
-        plan_title = "Μίγμα πλάνων"
+    )
+
+    list_body = (
+        _rate_bar(msg.get("marketing_consent_rate"), label=consent_label, color=TEAL)
+        + _pair_rows(
+            [
+                ("Opted-in", _fmt_int(msg.get("marketing_consent_on"))),
+                ("Opted-out", _fmt_int(msg.get("marketing_consent_off"))),
+                ("Opt-ins today" if lang == "en" else "Opt-ins σήμερα", _fmt_int(msg.get("marketing_opt_ins_today"))),
+                ("Unsubscribes today" if lang == "en" else "Διαγραφές σήμερα", _fmt_int(msg.get("marketing_unsubscribes_today"))),
+                ("Push opt-in · devices", f"{_fmt_int(msg.get('push_opt_in'))} · {_fmt_int(msg.get('push_devices'))}"),
+            ]
+        )
+    )
+
+    mkt_body = (
+        _rate_bar(mkt_today.get("open_rate"), label=open_label, color="#5B7CFA")
+        + _rate_bar(mkt_today.get("click_rate"), label=click_label, color=TEAL)
+        + f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%" valign="top" style="padding:0 8px 0 0;">
+      <div style="font-family:{font};font-size:12px;font-weight:700;color:{NAVY};margin:0 0 8px;">
+        {"Today" if lang == "en" else "Σήμερα"}</div>
+      {_eng_compact(mkt_today, lang=lang)}
+    </td>
+    <td width="50%" valign="top" style="padding:0 0 0 8px;">
+      <div style="font-family:{font};font-size:12px;font-weight:700;color:{NAVY};margin:0 0 8px;">
+        {"All-time" if lang == "en" else "Σύνολο"}</div>
+      {_eng_compact(mkt_all, lang=lang)}
+    </td>
+  </tr>
+</table>
+"""
+        + f"""
+<div style="font-family:{font};font-size:12px;font-weight:700;color:{NAVY};margin:16px 0 8px;">
+  {"Drips · campaigns" if lang == "en" else "Drips · campaigns"}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%" valign="top" style="padding:0 8px 0 0;">
+      <div style="font-family:{font};font-size:11px;color:{MUTED};margin:0 0 6px;">Drip today / all</div>
+      {_pair_rows([
+          ("Open today", f"{_fmt_pct(drip_today.get('open_rate'))}"),
+          ("Open all", f"{_fmt_pct(drip_all.get('open_rate'))}"),
+          ("Sent all", _fmt_int(drip_all.get("sent"))),
+      ])}
+    </td>
+    <td width="50%" valign="top" style="padding:0 0 0 8px;">
+      <div style="font-family:{font};font-size:11px;color:{MUTED};margin:0 0 6px;">Campaign today / all</div>
+      {_pair_rows([
+          ("Open today", f"{_fmt_pct(camp_today.get('open_rate'))}"),
+          ("Open all", f"{_fmt_pct(camp_all.get('open_rate'))}"),
+          ("Sent all", _fmt_int(camp_all.get("sent"))),
+      ])}
+    </td>
+  </tr>
+</table>
+"""
+    )
+
+    drip_body = _pair_rows(
+        [
+            ("Active / completed / exited", f"{_fmt_int(msg.get('drip_active_enrollments'))} / {_fmt_int(msg.get('drip_completed_enrollments'))} / {_fmt_int(msg.get('drip_exited_enrollments'))}"),
+            ("New enrollments today", _fmt_int(msg.get("drip_enrolled_today"))),
+            ("Sends 24h (email OK / fail / push)", f"{_fmt_int(msg.get('drip_email_ok_24h'))} / {_fmt_int(msg.get('drip_email_fail_24h'))} / {_fmt_int(msg.get('drip_push_ok_24h'))}"),
+            ("Sends all-time (email · push)", f"{_fmt_int(msg.get('drip_email_total'))} · {_fmt_int(msg.get('drip_push_total'))}"),
+            ("Gift claims today · all", f"{_fmt_int(msg.get('gift_claims_today'))} · {_fmt_int(msg.get('gift_claims_total'))}"),
+            ("Cash today · 30d", f"{_fmt_eur(rev.get('cash_today_eur'))} · {_fmt_eur(rev.get('cash_30d_eur'))}"),
+            ("Pending cancels · trials ≤48h", f"{_fmt_int(rev.get('pending_cancels'))} · {_fmt_int(funnel.get('trials_ending_48h'))}"),
+        ]
+    )
+
+    ops_body = _pair_rows(
+        [
+            ("LLM today", f"{_fmt_usd(ops.get('llm_cost_today_usd'))} · {_fmt_int(ops.get('llm_calls_today'))} calls"),
+            ("LLM MTD · projected", f"{_fmt_usd(ops.get('llm_cost_mtd_usd'))} · {_fmt_usd(ops.get('projected_llm_month_usd'))}"),
+            ("Near LLM limit", _fmt_int(ops.get("users_near_llm_limit"))),
+            ("Support open · awaiting", f"{_fmt_int(ops.get('support_open'))} · {_fmt_int(ops.get('support_pending_admin'))}"),
+        ]
+    )
 
     plan_rows = [(str(p.get("name") or "?"), _fmt_int(p.get("users"))) for p in plans[:8]]
-    sections_html = "".join(_metric_section(title, rows) for title, rows in sections)
-    if plan_rows:
-        sections_html += _metric_section(plan_title, plan_rows)
+    plans_html = _section_panel(sec_plans, _pair_rows(plan_rows), accent="#E8A87C") if plan_rows else ""
+
+    cta = (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">'
+        f'<tr><td align="center" style="background:{CREAM};padding:8px 20px 28px;border-radius:0 0 22px 22px;">'
+        f'<a href="{escape(admin_url, quote=True)}" style="font-family:{font};display:inline-block;'
+        f'background:{NAVY};color:#ffffff;padding:16px 36px;border-radius:999px;text-decoration:none;'
+        f'font-size:15px;font-weight:700;border:1.5px solid {NAVY};box-shadow:0 8px 24px rgba(26,35,64,0.35);">'
+        f'{escape(btn)}</a></td></tr></table>'
+    )
+
+    cream_wrap_open = (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="background:{CREAM};"><tr><td style="padding:12px 12px 0;">'
+    )
+    cream_wrap_close = "</td></tr></table>"
 
     body = (
-        _greeting(name, lang)
-        + _paragraph(intro)
-        + sections_html
-        + _button(admin_url, btn)
+        hero
+        + scoreboard
+        + cream_wrap_open
+        + _alert_ribbon(alerts, lang=lang)
+        + sparks_panel
+        + _section_panel(sec_cum, cum_body, accent=NAVY, eyebrow="Snapshot")
+        + _section_panel(sec_list, list_body, accent=TEAL, eyebrow="Audience")
+        + _section_panel(sec_mkt, mkt_body, accent="#5B7CFA", eyebrow="Automation")
+        + _section_panel(sec_drip, drip_body, accent="#C97B84", eyebrow="Funnel")
+        + _section_panel(sec_ops, ops_body, accent="#E8A87C", eyebrow="Health")
+        + plans_html
+        + cream_wrap_close
+        + cta
     )
+
     preheader = (
         f"{_fmt_int(h.get('new_users_today'))} new · "
-        f"open {_fmt_pct((mkt_today or {}).get('open_rate'))} · "
-        f"MRR {_fmt_eur(rev.get('recognized_mrr_eur'))}"
+        f"{_fmt_eur(rev.get('cash_today_eur'))} · "
+        f"open {_fmt_pct(mkt_today.get('open_rate'))} · "
+        f"MRR {_fmt_eur(cum.get('recognized_mrr_eur'))}"
     )
-    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+    return EmailMessage(subject=subject, html=_report_shell(body, preheader=preheader))
+
 
 
 def render_support_received_email(
