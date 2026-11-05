@@ -324,6 +324,15 @@ def claim_gift(
         # Awards already applied; claim row exists — still succeed for the user.
         pass
 
+    try:
+        try:
+            from .conversion_drip_api import exit_enrollments_on_gift_claim
+        except ImportError:
+            from conversion_drip_api import exit_enrollments_on_gift_claim
+        exit_enrollments_on_gift_claim(sb, user_id, code_key)
+    except Exception:
+        pass
+
     return {"ok": True, **result, "_gift_row": row}
 
 

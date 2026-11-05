@@ -11564,7 +11564,8 @@ _API_PATH_PREFIXES = (
     "admin/regions", "admin/levels", "admin/rag_sources", "admin/invite_codes", "admin/profiles", "admin/users", "admin/invite_tester",
     "admin/activity_log", "admin/user_activity", "admin/user_data", "admin/chat_prompt", "admin/llm_routing", "admin/support",
     "public/offers", "public/promotions", "healthz", "functions/",
-    "me/", "admin/notifications", "admin/emails", "admin/gift_codes", "gifts/",
+    "me/", "admin/notifications", "admin/emails", "admin/drips", "admin/gift_codes", "gifts/",
+    "cron/",
 )
 
 # First path segment for SPA HTML shells (unknown segments get a real HTTP 404).
@@ -11609,6 +11610,13 @@ except ImportError:
     from admin_email_api import register_email_routes
 
 register_email_routes(app)
+
+try:
+    from .conversion_drip_api import register_conversion_drip_routes
+except ImportError:
+    from conversion_drip_api import register_conversion_drip_routes
+
+register_conversion_drip_routes(app)
 
 try:
     from .gift_codes import register_gift_routes

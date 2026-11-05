@@ -5,6 +5,12 @@
       "maxDuration": 120
     }
   },
+  "crons": [
+    {
+      "path": "/cron/conversion-drips",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "redirects": [
     {
       "source": "/:path*",
@@ -82,7 +88,7 @@
       "destination": "/admin/index.html"
     },
     {
-      "source": "/admin/(insights|quality|testers|invite-codes|gifts|regions|levels|plans|points|content|sources|users|user-data|user-activity|tools|activity-log|chat-prompt|llm-transactions|user-financials|cancellations|support|notifications|emails)",
+      "source": "/admin/(insights|quality|testers|invite-codes|gifts|regions|levels|plans|points|content|sources|users|user-data|user-activity|tools|activity-log|chat-prompt|llm-transactions|user-financials|cancellations|support|notifications|emails|drips)",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
       "destination": "/admin/index.html"
     },
