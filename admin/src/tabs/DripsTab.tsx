@@ -197,9 +197,14 @@ export function DripsTab() {
         adminFetch('/admin/drips'),
         adminFetch('/admin/gift_codes').catch(() => ({ gifts: [] })),
       ])
-      if (!st.ok && st.error) setSetupError(String(st.error))
+      const status = st as {
+        ok?: boolean
+        error?: string
+        caps?: { note?: string }
+      }
+      if (!status.ok && status.error) setSetupError(String(status.error))
       else setSetupError('')
-      if (st.caps?.note) setStatusNote(String(st.caps.note))
+      if (status.caps?.note) setStatusNote(String(status.caps.note))
       const rows = (list.sequences as Sequence[]) || []
       setSequences(rows)
       const offerable = ((giftRes.gifts as GiftOpt[]) || []).filter(
@@ -404,8 +409,10 @@ export function DripsTab() {
     setRunning(true)
     try {
       const d = await adminFetch('/admin/drips/run-now', { method: 'POST' })
-      const enrolled = d.enroll?.enrolled ?? 0
-      const sent = d.send?.sent ?? 0
+      const enroll = d.enroll as { enrolled?: number } | undefined
+      const send = d.send as { sent_email?: number; sent_notif?: number } | undefined
+      const enrolled = enroll?.enrolled ?? 0
+      const sent = (send?.sent_email ?? 0) + (send?.sent_notif ?? 0)
       show(`Tick done — enrolled ${enrolled}, sent ${sent}`, 'ok')
       if (selectedId) await loadDetail(selectedId)
       await loadList()
