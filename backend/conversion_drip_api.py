@@ -111,7 +111,8 @@ class SequenceCreate(BaseModel):
     status: str = "draft"
     trigger_type: str = "never_paid_trial"
     langs: list[str] = Field(default_factory=lambda: ["el"])
-    require_marketing_consent: bool = True
+    # False for conversion: trial→paid emails are product lifecycle, not newsletters.
+    require_marketing_consent: bool = False
     min_hours_between_emails: int = 168
     min_hours_between_push: int = 72
     exit_on_paid: bool = True
@@ -575,8 +576,13 @@ def process_due_enrollments(sb, *, limit: int = _BATCH_SEND) -> dict[str, Any]:
             channel = (step.get("channel") or "both").lower()
             profiles = _profile_map(sb, [uid])
             prof = profiles.get(uid) or {}
-            # require_marketing_consent = email only; notifications always eligible.
-            consent_ok = bool(prof.get("consent_marketing")) if seq.get("require_marketing_consent", True) else True
+            # When require_marketing_consent is on, email needs opt-in; push/in-app always ok.
+            # Conversion sequences default this OFF so trial→paid emails always go out.
+            consent_ok = (
+                bool(prof.get("consent_marketing"))
+                if seq.get("require_marketing_consent", False)
+                else True
+            )
             want_email = channel in ("email", "both")
             want_notif = channel in ("notification", "both")
             email_allowed = want_email and consent_ok
@@ -1136,7 +1142,7 @@ def seed_default_sequences(sb, *, admin_id: str = "system", activate: bool = Tru
                     "status": "active" if activate else "draft",
                     "trigger_type": "never_paid_trial",
                     "langs": langs,
-                    "require_marketing_consent": True,
+                    "require_marketing_consent": False,
                     "min_hours_between_emails": 168,
                     "min_hours_between_push": 72,
                     "exit_on_paid": True,

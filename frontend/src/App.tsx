@@ -167,6 +167,13 @@ import {
   snoozeFirstChatGuide,
   snoozeFirstChildPrompt,
 } from "./lib/appTour";
+import {
+  completionPromptCopy,
+  pickNextCompletion,
+  snoozeCompletion,
+  syncCompletionFromState,
+  type CompletionKind,
+} from "./lib/completionPrompts";
 import { storageScope } from "./lib/memoriesSync";
 import { AppTrialBanner } from "./components/AppTrialBanner";
 import { LevelUpRewardSheet } from "./components/LevelUpRewardSheet";
@@ -2526,6 +2533,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const [tourStep, setTourStep] = useState(0);
   const [showAddFirstChildPrompt, setShowAddFirstChildPrompt] = useState(false);
   const [showStartFirstChatPrompt, setShowStartFirstChatPrompt] = useState(false);
+  const [completionPromptKind, setCompletionPromptKind] = useState<CompletionKind | null>(null);
   const awaitingFirstChatAfterChildRef = useRef(false);
   const tourWasFirstRunRef = useRef(false);
   const tourAutoStartedForTokenRef = useRef<string | null>(null);
@@ -5227,7 +5235,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     if (hasCompletedFirstChatGuide(token)) return;
     if (!isFirstChatGuidePending(token)) return;
     if (isJustOnboarded()) return; // fresh onboarding — tour finish handles prompts
-    if (showAddFirstChildPrompt || showStartFirstChatPrompt) return;
+    if (showAddFirstChildPrompt || showStartFirstChatPrompt || completionPromptKind) return;
     const t = window.setTimeout(() => {
       if (familyChildren.length === 0 && !isFirstChildPromptSnoozed(token)) {
         setShowAddFirstChildPrompt(true);
@@ -5244,6 +5252,49 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     showPushPrompt,
     showAddFirstChildPrompt,
     showStartFirstChatPrompt,
+    completionPromptKind,
+    familyChildren.length,
+  ]);
+
+  const hasMilestoneTick = useMemo(() => {
+    for (const byStage of Object.values(milestoneChecksMap || {})) {
+      for (const checks of Object.values((byStage as Record<string, Record<string, boolean>>) || {})) {
+        if (checks && Object.values(checks).some(Boolean)) return true;
+      }
+    }
+    return false;
+  }, [milestoneChecksMap]);
+
+  // After first chat: tempt unfinished high-value setup (memory → docs → milestones → partner).
+  useEffect(() => {
+    if (!token || tourOpen || showPushPrompt) return;
+    if (!hasCompletedAppTour(token)) return;
+    if (!hasCompletedFirstChatGuide(token)) return;
+    if (showAddFirstChildPrompt || showStartFirstChatPrompt) return;
+    if (completionPromptKind) return;
+    const state = {
+      hasMemory: memories.length > 0,
+      hasDocument: docs.length > 0,
+      hasMilestoneTick,
+      hasPartner: !!partnerMember,
+      hasChild: familyChildren.length > 0,
+    };
+    syncCompletionFromState(token, state);
+    const next = pickNextCompletion(token, state);
+    if (!next) return;
+    const t = window.setTimeout(() => setCompletionPromptKind(next), 1600);
+    return () => window.clearTimeout(t);
+  }, [
+    token,
+    tourOpen,
+    showPushPrompt,
+    showAddFirstChildPrompt,
+    showStartFirstChatPrompt,
+    completionPromptKind,
+    memories.length,
+    docs.length,
+    hasMilestoneTick,
+    partnerMember,
     familyChildren.length,
   ]);
 
@@ -5343,6 +5394,45 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       window.setTimeout(() => setShowStartFirstChatPrompt(true), 320);
     }
   }, [token]);
+
+  const completionCopy = useMemo(
+    () => (completionPromptKind ? completionPromptCopy(lang, completionPromptKind) : null),
+    [completionPromptKind, lang],
+  );
+
+  const dismissCompletionPrompt = useCallback(() => {
+    if (completionPromptKind) snoozeCompletion(token, completionPromptKind);
+    setCompletionPromptKind(null);
+  }, [token, completionPromptKind]);
+
+  const openCompletionFromPrompt = useCallback(() => {
+    const kind = completionPromptKind;
+    setCompletionPromptKind(null);
+    if (!kind) return;
+    showTabBar();
+    if (kind === "memory") {
+      setTab("memories");
+      return;
+    }
+    if (kind === "document") {
+      setTab("family");
+      setShowMyFamily(true);
+      scrollToFamilySection();
+      return;
+    }
+    if (kind === "milestone") {
+      setTab("milestones");
+      return;
+    }
+    if (kind === "partner") {
+      setTab("family");
+      setShowMyFamily(true);
+      setShowAddPet(false);
+      setNewMemberRole("Partner");
+      setShowAddMember(true);
+      scrollToFamilySection();
+    }
+  }, [completionPromptKind, showTabBar]);
 
   useEffect(() => {
     showTabBar();
@@ -8146,6 +8236,33 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             onClick={dismissStartFirstChatPrompt}
           >
             {firstRun.chat.later}
+          </button>
+        </div>
+      </div>
+    </AppDialog>
+    <AppDialog
+      open={!!completionPromptKind && !!completionCopy}
+      onClose={dismissCompletionPrompt}
+      size="sm"
+      ariaLabel={completionCopy?.title || "Complete setup"}
+    >
+      <div className="hm-confirm-dialog hm-first-child-prompt">
+        <div className="hm-confirm-dialog__title">{completionCopy?.title}</div>
+        <p className="hm-confirm-dialog__message">{completionCopy?.body}</p>
+        <div className="hm-confirm-dialog__actions hm-first-child-prompt__actions">
+          <button
+            type="button"
+            className="hm-btn hm-btn--primary hm-btn--block"
+            onClick={openCompletionFromPrompt}
+          >
+            {completionCopy?.cta}
+          </button>
+          <button
+            type="button"
+            className="hm-btn hm-btn--ghost hm-btn--block"
+            onClick={dismissCompletionPrompt}
+          >
+            {completionCopy?.later}
           </button>
         </div>
       </div>
