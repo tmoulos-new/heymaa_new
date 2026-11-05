@@ -952,6 +952,35 @@ def _fmt_usd(n: Any) -> str:
         return "$0.00"
 
 
+def _fmt_pct(n: Any) -> str:
+    try:
+        return f"{float(n):.1f}%"
+    except (TypeError, ValueError):
+        return "0.0%"
+
+
+def _email_eng_rows(block: dict, *, prefix: str, lang: str) -> list[tuple[str, str]]:
+    """Compact sent / open / click / bounce / complaint lines for a window."""
+    b = block or {}
+    if lang == "en":
+        return [
+            (f"{prefix} sent", _fmt_int(b.get("sent"))),
+            (f"{prefix} delivered", _fmt_int(b.get("delivered"))),
+            (f"{prefix} unique opens", f"{_fmt_int(b.get('unique_opens'))} ({_fmt_pct(b.get('open_rate'))})"),
+            (f"{prefix} unique clicks", f"{_fmt_int(b.get('unique_clicks'))} ({_fmt_pct(b.get('click_rate'))})"),
+            (f"{prefix} bounced", f"{_fmt_int(b.get('bounced'))} ({_fmt_pct(b.get('bounce_rate'))})"),
+            (f"{prefix} spam complaints", f"{_fmt_int(b.get('complained'))} ({_fmt_pct(b.get('complaint_rate'))})"),
+        ]
+    return [
+        (f"{prefix} απεσταλμένα", _fmt_int(b.get("sent"))),
+        (f"{prefix} delivered", _fmt_int(b.get("delivered"))),
+        (f"{prefix} μοναδικά opens", f"{_fmt_int(b.get('unique_opens'))} ({_fmt_pct(b.get('open_rate'))})"),
+        (f"{prefix} μοναδικά clicks", f"{_fmt_int(b.get('unique_clicks'))} ({_fmt_pct(b.get('click_rate'))})"),
+        (f"{prefix} bounced", f"{_fmt_int(b.get('bounced'))} ({_fmt_pct(b.get('bounce_rate'))})"),
+        (f"{prefix} spam complaints", f"{_fmt_int(b.get('complained'))} ({_fmt_pct(b.get('complaint_rate'))})"),
+    ]
+
+
 def render_admin_daily_report_email(
     *,
     name: Optional[str],
@@ -959,70 +988,124 @@ def render_admin_daily_report_email(
     admin_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    """Branded daily ops digest for administrators."""
+    """Branded daily ops + marketing digest for administrators."""
     lang = normalize_email_lang(lang)
     date_label = str(report.get("report_date") or datetime.utcnow().date().isoformat())
     h = report.get("headline") or {}
+    cum = report.get("cumulative") or {}
     rev = report.get("revenue") or {}
     funnel = report.get("funnel") or {}
     msg = report.get("messaging") or {}
+    email = report.get("email") or {}
     ops = report.get("ops") or {}
     plans = report.get("plans") or []
+
+    mkt_today = email.get("marketing_today") or {}
+    mkt_7d = email.get("marketing_7d") or {}
+    mkt_all = email.get("marketing_all") or {}
+    drip_today = email.get("drip_today") or {}
+    drip_all = email.get("drip_all") or {}
+    camp_today = email.get("campaign_today") or {}
+    camp_all = email.get("campaign_all") or {}
 
     if lang == "en":
         subject = f"HeyMaa daily report · {date_label}"
         intro = (
-            "Here is your HeyMaa snapshot — today’s movement, money, trial funnel, "
-            "conversion drips, and anything that needs attention."
+            "Daily + cumulative snapshot for growth, revenue, automated marketing "
+            "(opens, clicks, unsubscribes), conversion drips, and ops."
         )
         btn = "Open Insights"
         sections = [
             (
-                "Growth & engagement",
+                "Today — growth",
                 [
                     ("New signups today", _fmt_int(h.get("new_users_today"))),
                     ("New signups yesterday", _fmt_int(h.get("new_users_yesterday"))),
                     ("New signups (7d)", _fmt_int(h.get("new_users_7d"))),
+                    ("New signups (30d)", _fmt_int(h.get("new_users_30d"))),
                     ("DAU today", _fmt_int(h.get("dau_today"))),
                     ("Active last 7d", _fmt_int(h.get("active_last_7d"))),
-                    ("Total users", _fmt_int(h.get("total_users"))),
                 ],
             ),
             (
-                "Revenue & retention",
+                "Cumulative — users & money",
+                [
+                    ("Total users", _fmt_int(cum.get("total_users"))),
+                    ("Paying active", _fmt_int(cum.get("paying_active"))),
+                    ("Active trials", _fmt_int(cum.get("trial_active"))),
+                    ("Free-plan users", _fmt_int(cum.get("free_plan_users"))),
+                    ("Recognized MRR", _fmt_eur(cum.get("recognized_mrr_eur"))),
+                    ("Renewing MRR", _fmt_eur(cum.get("renewing_mrr_eur"))),
+                    ("Cash lifetime", _fmt_eur(cum.get("cash_lifetime_eur"))),
+                    ("Orders lifetime", _fmt_int(cum.get("orders_lifetime"))),
+                    ("Users with chat", _fmt_int(cum.get("users_with_chat"))),
+                    ("Total memories", _fmt_int(cum.get("total_memories"))),
+                    ("Gift claims (all-time)", _fmt_int(cum.get("gift_claims_total"))),
+                ],
+            ),
+            (
+                "Today — revenue & retention",
                 [
                     ("Cash today", _fmt_eur(rev.get("cash_today_eur"))),
                     ("Cash yesterday", _fmt_eur(rev.get("cash_yesterday_eur"))),
                     ("Cash (7d)", _fmt_eur(rev.get("cash_7d_eur"))),
                     ("Cash (30d)", _fmt_eur(rev.get("cash_30d_eur"))),
                     ("Orders (30d)", _fmt_int(rev.get("orders_30d"))),
-                    ("Paying active", _fmt_int(rev.get("paying_active"))),
-                    ("Recognized MRR", _fmt_eur(rev.get("recognized_mrr_eur"))),
-                    ("Renewing MRR", _fmt_eur(rev.get("renewing_mrr_eur"))),
                     ("Pending cancels", _fmt_int(rev.get("pending_cancels"))),
-                ],
-            ),
-            (
-                "Trial → paid funnel",
-                [
-                    ("Active trials", _fmt_int(funnel.get("trial_active"))),
                     ("Trials ending ≤48h", _fmt_int(funnel.get("trials_ending_48h"))),
-                    ("Free-plan users", _fmt_int(funnel.get("free_plan_users"))),
-                    ("Users with chat", _fmt_int(funnel.get("users_with_chat"))),
-                    ("Total memories", _fmt_int(funnel.get("total_memories"))),
                 ],
             ),
             (
-                "Conversion drips & gifts",
+                "Marketing list — consent & unsubscribes",
                 [
-                    ("Active drip enrollments", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Marketing opted-in (cumulative)", _fmt_int(msg.get("marketing_consent_on"))),
+                    ("Marketing opted-out (cumulative)", _fmt_int(msg.get("marketing_consent_off"))),
+                    ("Consent rate", _fmt_pct(msg.get("marketing_consent_rate"))),
+                    ("New opt-ins today", _fmt_int(msg.get("marketing_opt_ins_today"))),
+                    ("Unsubscribes today (approx)", _fmt_int(msg.get("marketing_unsubscribes_today"))),
+                    ("Push soft opt-in (cumulative)", _fmt_int(msg.get("push_opt_in"))),
+                    ("Push devices (cumulative)", _fmt_int(msg.get("push_devices"))),
+                ],
+            ),
+            (
+                "Automated marketing email — today",
+                _email_eng_rows(mkt_today, prefix="Marketing", lang="en"),
+            ),
+            (
+                "Automated marketing email — 7d",
+                _email_eng_rows(mkt_7d, prefix="Marketing 7d", lang="en"),
+            ),
+            (
+                "Automated marketing email — all-time",
+                _email_eng_rows(mkt_all, prefix="Marketing all", lang="en"),
+            ),
+            (
+                "Conversion drips (email engagement)",
+                _email_eng_rows(drip_today, prefix="Drip today", lang="en")
+                + _email_eng_rows(drip_all, prefix="Drip all", lang="en"),
+            ),
+            (
+                "Admin campaigns (email engagement)",
+                _email_eng_rows(camp_today, prefix="Campaign today", lang="en")
+                + _email_eng_rows(camp_all, prefix="Campaign all", lang="en"),
+            ),
+            (
+                "Conversion drips & gifts — volume",
+                [
+                    ("Enrollments active", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Enrollments completed (cumul.)", _fmt_int(msg.get("drip_completed_enrollments"))),
+                    ("Enrollments exited (cumul.)", _fmt_int(msg.get("drip_exited_enrollments"))),
+                    ("Enrollments total (cumul.)", _fmt_int(msg.get("drip_enrolled_total"))),
                     ("Newly enrolled today", _fmt_int(msg.get("drip_enrolled_today"))),
                     ("Drip sends (24h)", _fmt_int(msg.get("drip_sends_24h"))),
                     ("Drip emails OK (24h)", _fmt_int(msg.get("drip_email_ok_24h"))),
                     ("Drip emails failed (24h)", _fmt_int(msg.get("drip_email_fail_24h"))),
                     ("Drip push OK (24h)", _fmt_int(msg.get("drip_push_ok_24h"))),
+                    ("Drip sends all-time", _fmt_int(msg.get("drip_sends_total"))),
+                    ("Drip emails all-time", _fmt_int(msg.get("drip_email_total"))),
+                    ("Drip push all-time", _fmt_int(msg.get("drip_push_total"))),
                     ("Gift claims today", _fmt_int(msg.get("gift_claims_today"))),
-                    ("Marketing consent (total)", _fmt_int(msg.get("marketing_consent_total"))),
+                    ("Gift claims all-time", _fmt_int(msg.get("gift_claims_total"))),
                 ],
             ),
             (
@@ -1042,57 +1125,101 @@ def render_admin_daily_report_email(
     else:
         subject = f"HeyMaa — ημερήσια αναφορά · {date_label}"
         intro = (
-            "Στιγμιότυπο HeyMaa: σημερινή κίνηση, έσοδα, funnel δοκιμής, "
-            "conversion drips και ό,τι χρειάζεται προσοχή."
+            "Ημερήσιο + αθροιστικό στιγμιότυπο: ανάπτυξη, έσοδα, αυτοματοποιημένο marketing "
+            "(opens, clicks, διαγραφές), conversion drips και ops."
         )
         btn = "Άνοιξε Insights"
         sections = [
             (
-                "Ανάπτυξη & engagement",
+                "Σήμερα — ανάπτυξη",
                 [
                     ("Νέες εγγραφές σήμερα", _fmt_int(h.get("new_users_today"))),
                     ("Νέες εγγραφές χθες", _fmt_int(h.get("new_users_yesterday"))),
                     ("Νέες εγγραφές (7ημ)", _fmt_int(h.get("new_users_7d"))),
+                    ("Νέες εγγραφές (30ημ)", _fmt_int(h.get("new_users_30d"))),
                     ("DAU σήμερα", _fmt_int(h.get("dau_today"))),
                     ("Ενεργοί τελευταίες 7ημ", _fmt_int(h.get("active_last_7d"))),
-                    ("Σύνολο χρηστών", _fmt_int(h.get("total_users"))),
                 ],
             ),
             (
-                "Έσοδα & διατήρηση",
+                "Αθροιστικά — χρήστες & χρήμα",
+                [
+                    ("Σύνολο χρηστών", _fmt_int(cum.get("total_users"))),
+                    ("Πληρώνοντες ενεργοί", _fmt_int(cum.get("paying_active"))),
+                    ("Ενεργές δοκιμές", _fmt_int(cum.get("trial_active"))),
+                    ("Χρήστες free plan", _fmt_int(cum.get("free_plan_users"))),
+                    ("Recognized MRR", _fmt_eur(cum.get("recognized_mrr_eur"))),
+                    ("Renewing MRR", _fmt_eur(cum.get("renewing_mrr_eur"))),
+                    ("Εισπράξεις lifetime", _fmt_eur(cum.get("cash_lifetime_eur"))),
+                    ("Παραγγελίες lifetime", _fmt_int(cum.get("orders_lifetime"))),
+                    ("Χρήστες με chat", _fmt_int(cum.get("users_with_chat"))),
+                    ("Σύνολο αναμνήσεων", _fmt_int(cum.get("total_memories"))),
+                    ("Gift claims (σύνολο)", _fmt_int(cum.get("gift_claims_total"))),
+                ],
+            ),
+            (
+                "Σήμερα — έσοδα & διατήρηση",
                 [
                     ("Εισπράξεις σήμερα", _fmt_eur(rev.get("cash_today_eur"))),
                     ("Εισπράξεις χθες", _fmt_eur(rev.get("cash_yesterday_eur"))),
                     ("Εισπράξεις (7ημ)", _fmt_eur(rev.get("cash_7d_eur"))),
                     ("Εισπράξεις (30ημ)", _fmt_eur(rev.get("cash_30d_eur"))),
                     ("Παραγγελίες (30ημ)", _fmt_int(rev.get("orders_30d"))),
-                    ("Πληρώνοντες ενεργοί", _fmt_int(rev.get("paying_active"))),
-                    ("Recognized MRR", _fmt_eur(rev.get("recognized_mrr_eur"))),
-                    ("Renewing MRR", _fmt_eur(rev.get("renewing_mrr_eur"))),
                     ("Εκκρεμείς ακυρώσεις", _fmt_int(rev.get("pending_cancels"))),
-                ],
-            ),
-            (
-                "Funnel δοκιμής → πληρωμή",
-                [
-                    ("Ενεργές δοκιμές", _fmt_int(funnel.get("trial_active"))),
                     ("Δοκιμές που λήγουν ≤48ώ", _fmt_int(funnel.get("trials_ending_48h"))),
-                    ("Χρήστες free plan", _fmt_int(funnel.get("free_plan_users"))),
-                    ("Χρήστες με chat", _fmt_int(funnel.get("users_with_chat"))),
-                    ("Σύνολο αναμνήσεων", _fmt_int(funnel.get("total_memories"))),
                 ],
             ),
             (
-                "Conversion drips & δώρα",
+                "Marketing λίστα — consent & διαγραφές",
                 [
-                    ("Ενεργά drip enrollments", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Opted-in marketing (αθροιστικά)", _fmt_int(msg.get("marketing_consent_on"))),
+                    ("Opted-out marketing (αθροιστικά)", _fmt_int(msg.get("marketing_consent_off"))),
+                    ("Consent rate", _fmt_pct(msg.get("marketing_consent_rate"))),
+                    ("Νέα opt-ins σήμερα", _fmt_int(msg.get("marketing_opt_ins_today"))),
+                    ("Διαγραφές σήμερα (προσέγγ.)", _fmt_int(msg.get("marketing_unsubscribes_today"))),
+                    ("Push soft opt-in (αθροιστικά)", _fmt_int(msg.get("push_opt_in"))),
+                    ("Push συσκευές (αθροιστικά)", _fmt_int(msg.get("push_devices"))),
+                ],
+            ),
+            (
+                "Αυτοματοποιημένο marketing email — σήμερα",
+                _email_eng_rows(mkt_today, prefix="Marketing", lang="el"),
+            ),
+            (
+                "Αυτοματοποιημένο marketing email — 7ημ",
+                _email_eng_rows(mkt_7d, prefix="Marketing 7ημ", lang="el"),
+            ),
+            (
+                "Αυτοματοποιημένο marketing email — σύνολο",
+                _email_eng_rows(mkt_all, prefix="Marketing σύνολο", lang="el"),
+            ),
+            (
+                "Conversion drips (email engagement)",
+                _email_eng_rows(drip_today, prefix="Drip σήμερα", lang="el")
+                + _email_eng_rows(drip_all, prefix="Drip σύνολο", lang="el"),
+            ),
+            (
+                "Admin campaigns (email engagement)",
+                _email_eng_rows(camp_today, prefix="Campaign σήμερα", lang="el")
+                + _email_eng_rows(camp_all, prefix="Campaign σύνολο", lang="el"),
+            ),
+            (
+                "Conversion drips & δώρα — όγκος",
+                [
+                    ("Enrollments ενεργά", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Enrollments completed (αθρ.)", _fmt_int(msg.get("drip_completed_enrollments"))),
+                    ("Enrollments exited (αθρ.)", _fmt_int(msg.get("drip_exited_enrollments"))),
+                    ("Enrollments σύνολο", _fmt_int(msg.get("drip_enrolled_total"))),
                     ("Νέα enrollments σήμερα", _fmt_int(msg.get("drip_enrolled_today"))),
                     ("Drip αποστολές (24ώ)", _fmt_int(msg.get("drip_sends_24h"))),
                     ("Drip email OK (24ώ)", _fmt_int(msg.get("drip_email_ok_24h"))),
                     ("Drip email αποτυχίες (24ώ)", _fmt_int(msg.get("drip_email_fail_24h"))),
                     ("Drip push OK (24ώ)", _fmt_int(msg.get("drip_push_ok_24h"))),
+                    ("Drip αποστολές σύνολο", _fmt_int(msg.get("drip_sends_total"))),
+                    ("Drip emails σύνολο", _fmt_int(msg.get("drip_email_total"))),
+                    ("Drip push σύνολο", _fmt_int(msg.get("drip_push_total"))),
                     ("Gift claims σήμερα", _fmt_int(msg.get("gift_claims_today"))),
-                    ("Marketing consent (σύνολο)", _fmt_int(msg.get("marketing_consent_total"))),
+                    ("Gift claims σύνολο", _fmt_int(msg.get("gift_claims_total"))),
                 ],
             ),
             (
@@ -1123,7 +1250,7 @@ def render_admin_daily_report_email(
     )
     preheader = (
         f"{_fmt_int(h.get('new_users_today'))} new · "
-        f"{_fmt_eur(rev.get('cash_today_eur'))} today · "
+        f"open {_fmt_pct((mkt_today or {}).get('open_rate'))} · "
         f"MRR {_fmt_eur(rev.get('recognized_mrr_eur'))}"
     )
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
