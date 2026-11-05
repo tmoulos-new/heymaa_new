@@ -1545,7 +1545,10 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
         x_cron_secret: Optional[str] = Header(None, alias="x-cron-secret"),
         authorization: Optional[str] = Header(None),
     ):
-        """Vercel cron (or manual) tick: enroll + send due steps."""
+        """Vercel cron (or manual) tick: enroll + send due steps + admin daily report.
+
+        Hobby allows one cron — the daily admin digest rides along after drips.
+        """
         expected = (os.getenv("CRON_SECRET") or os.getenv("VERCEL_CRON_SECRET") or "").strip()
         got = (x_cron_secret or "").strip()
         if not got and authorization and authorization.lower().startswith("bearer "):
@@ -1556,4 +1559,35 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
         m = _main()
         if not m.ensure_supabase():
             raise HTTPException(status_code=503, detail="Database not configured")
-        return run_drip_tick(m.sb)
+        drip = run_drip_tick(m.sb, source="cron")
+        report: dict = {"ok": False, "skipped": True, "reason": "not_attempted"}
+        try:
+            try:
+                from .admin_daily_report import send_admin_daily_report
+            except ImportError:
+                from admin_daily_report import send_admin_daily_report
+            report = send_admin_daily_report(m.sb, source="cron")
+        except Exception as e:
+            report = {"ok": False, "error": str(e)[:200]}
+        return {"ok": True, "drip": drip, "daily_report": report}
+
+    @app.get("/admin/daily-report/preview")
+    async def admin_daily_report_preview(x_token: Optional[str] = Header(None)):
+        _require_admin(x_token)
+        sb = _main().sb
+        try:
+            from .admin_daily_report import build_daily_report
+        except ImportError:
+            from admin_daily_report import build_daily_report
+        return build_daily_report(sb)
+
+    @app.post("/admin/daily-report/send")
+    async def admin_daily_report_send(x_token: Optional[str] = Header(None)):
+        """Force-send the daily digest now (ignores ADMIN_DAILY_REPORT=0)."""
+        _require_admin(x_token)
+        sb = _main().sb
+        try:
+            from .admin_daily_report import send_admin_daily_report
+        except ImportError:
+            from admin_daily_report import send_admin_daily_report
+        return send_admin_daily_report(sb, force=True, source="admin")

@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from .greek_text import greek_vocative
@@ -901,6 +901,231 @@ def render_llm_ops_alert_email(
             + _help_footer(lang)
         )
         preheader = f"Credits LLM {remaining_label}"
+    return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
+
+
+def _metric_row(label: str, value: str) -> str:
+    font = _font()
+    return (
+        f'<tr>'
+        f'<td style="font-family:{font};font-size:14px;color:{TEXT_SOFT};'
+        f'padding:8px 0;border-bottom:1px solid {BORDER};">{escape(label)}</td>'
+        f'<td align="right" style="font-family:{font};font-size:14px;font-weight:700;'
+        f'color:{TEXT};padding:8px 0;border-bottom:1px solid {BORDER};white-space:nowrap;">'
+        f'{escape(value)}</td>'
+        f'</tr>'
+    )
+
+
+def _metric_section(title: str, rows: list[tuple[str, str]]) -> str:
+    if not rows:
+        return ""
+    body = "".join(_metric_row(label, value) for label, value in rows)
+    font = _font()
+    return (
+        f'<div style="margin:0 0 22px;">'
+        f'<div style="font-family:{font};font-size:13px;font-weight:700;letter-spacing:0.4px;'
+        f'color:{NAVY};text-transform:uppercase;margin:0 0 8px;">{escape(title)}</div>'
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{body}</table>'
+        f'</div>'
+    )
+
+
+def _fmt_int(n: Any) -> str:
+    try:
+        return f"{int(n):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return "0"
+
+
+def _fmt_eur(n: Any) -> str:
+    try:
+        return f"€{float(n):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "€0,00"
+
+
+def _fmt_usd(n: Any) -> str:
+    try:
+        return f"${float(n):,.2f}"
+    except (TypeError, ValueError):
+        return "$0.00"
+
+
+def render_admin_daily_report_email(
+    *,
+    name: Optional[str],
+    report: dict,
+    admin_url: str,
+    lang: str = "el",
+) -> EmailMessage:
+    """Branded daily ops digest for administrators."""
+    lang = normalize_email_lang(lang)
+    date_label = str(report.get("report_date") or datetime.utcnow().date().isoformat())
+    h = report.get("headline") or {}
+    rev = report.get("revenue") or {}
+    funnel = report.get("funnel") or {}
+    msg = report.get("messaging") or {}
+    ops = report.get("ops") or {}
+    plans = report.get("plans") or []
+
+    if lang == "en":
+        subject = f"HeyMaa daily report · {date_label}"
+        intro = (
+            "Here is your HeyMaa snapshot — today’s movement, money, trial funnel, "
+            "conversion drips, and anything that needs attention."
+        )
+        btn = "Open Insights"
+        sections = [
+            (
+                "Growth & engagement",
+                [
+                    ("New signups today", _fmt_int(h.get("new_users_today"))),
+                    ("New signups yesterday", _fmt_int(h.get("new_users_yesterday"))),
+                    ("New signups (7d)", _fmt_int(h.get("new_users_7d"))),
+                    ("DAU today", _fmt_int(h.get("dau_today"))),
+                    ("Active last 7d", _fmt_int(h.get("active_last_7d"))),
+                    ("Total users", _fmt_int(h.get("total_users"))),
+                ],
+            ),
+            (
+                "Revenue & retention",
+                [
+                    ("Cash today", _fmt_eur(rev.get("cash_today_eur"))),
+                    ("Cash yesterday", _fmt_eur(rev.get("cash_yesterday_eur"))),
+                    ("Cash (7d)", _fmt_eur(rev.get("cash_7d_eur"))),
+                    ("Cash (30d)", _fmt_eur(rev.get("cash_30d_eur"))),
+                    ("Orders (30d)", _fmt_int(rev.get("orders_30d"))),
+                    ("Paying active", _fmt_int(rev.get("paying_active"))),
+                    ("Recognized MRR", _fmt_eur(rev.get("recognized_mrr_eur"))),
+                    ("Renewing MRR", _fmt_eur(rev.get("renewing_mrr_eur"))),
+                    ("Pending cancels", _fmt_int(rev.get("pending_cancels"))),
+                ],
+            ),
+            (
+                "Trial → paid funnel",
+                [
+                    ("Active trials", _fmt_int(funnel.get("trial_active"))),
+                    ("Trials ending ≤48h", _fmt_int(funnel.get("trials_ending_48h"))),
+                    ("Free-plan users", _fmt_int(funnel.get("free_plan_users"))),
+                    ("Users with chat", _fmt_int(funnel.get("users_with_chat"))),
+                    ("Total memories", _fmt_int(funnel.get("total_memories"))),
+                ],
+            ),
+            (
+                "Conversion drips & gifts",
+                [
+                    ("Active drip enrollments", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Newly enrolled today", _fmt_int(msg.get("drip_enrolled_today"))),
+                    ("Drip sends (24h)", _fmt_int(msg.get("drip_sends_24h"))),
+                    ("Drip emails OK (24h)", _fmt_int(msg.get("drip_email_ok_24h"))),
+                    ("Drip emails failed (24h)", _fmt_int(msg.get("drip_email_fail_24h"))),
+                    ("Drip push OK (24h)", _fmt_int(msg.get("drip_push_ok_24h"))),
+                    ("Gift claims today", _fmt_int(msg.get("gift_claims_today"))),
+                    ("Marketing consent (total)", _fmt_int(msg.get("marketing_consent_total"))),
+                ],
+            ),
+            (
+                "Ops & support",
+                [
+                    ("LLM cost today", _fmt_usd(ops.get("llm_cost_today_usd"))),
+                    ("LLM calls today", _fmt_int(ops.get("llm_calls_today"))),
+                    ("LLM cost MTD", _fmt_usd(ops.get("llm_cost_mtd_usd"))),
+                    ("Projected LLM (month)", _fmt_usd(ops.get("projected_llm_month_usd"))),
+                    ("Users near LLM limit", _fmt_int(ops.get("users_near_llm_limit"))),
+                    ("Support open", _fmt_int(ops.get("support_open"))),
+                    ("Support awaiting admin", _fmt_int(ops.get("support_pending_admin"))),
+                ],
+            ),
+        ]
+        plan_title = "Plan mix"
+    else:
+        subject = f"HeyMaa — ημερήσια αναφορά · {date_label}"
+        intro = (
+            "Στιγμιότυπο HeyMaa: σημερινή κίνηση, έσοδα, funnel δοκιμής, "
+            "conversion drips και ό,τι χρειάζεται προσοχή."
+        )
+        btn = "Άνοιξε Insights"
+        sections = [
+            (
+                "Ανάπτυξη & engagement",
+                [
+                    ("Νέες εγγραφές σήμερα", _fmt_int(h.get("new_users_today"))),
+                    ("Νέες εγγραφές χθες", _fmt_int(h.get("new_users_yesterday"))),
+                    ("Νέες εγγραφές (7ημ)", _fmt_int(h.get("new_users_7d"))),
+                    ("DAU σήμερα", _fmt_int(h.get("dau_today"))),
+                    ("Ενεργοί τελευταίες 7ημ", _fmt_int(h.get("active_last_7d"))),
+                    ("Σύνολο χρηστών", _fmt_int(h.get("total_users"))),
+                ],
+            ),
+            (
+                "Έσοδα & διατήρηση",
+                [
+                    ("Εισπράξεις σήμερα", _fmt_eur(rev.get("cash_today_eur"))),
+                    ("Εισπράξεις χθες", _fmt_eur(rev.get("cash_yesterday_eur"))),
+                    ("Εισπράξεις (7ημ)", _fmt_eur(rev.get("cash_7d_eur"))),
+                    ("Εισπράξεις (30ημ)", _fmt_eur(rev.get("cash_30d_eur"))),
+                    ("Παραγγελίες (30ημ)", _fmt_int(rev.get("orders_30d"))),
+                    ("Πληρώνοντες ενεργοί", _fmt_int(rev.get("paying_active"))),
+                    ("Recognized MRR", _fmt_eur(rev.get("recognized_mrr_eur"))),
+                    ("Renewing MRR", _fmt_eur(rev.get("renewing_mrr_eur"))),
+                    ("Εκκρεμείς ακυρώσεις", _fmt_int(rev.get("pending_cancels"))),
+                ],
+            ),
+            (
+                "Funnel δοκιμής → πληρωμή",
+                [
+                    ("Ενεργές δοκιμές", _fmt_int(funnel.get("trial_active"))),
+                    ("Δοκιμές που λήγουν ≤48ώ", _fmt_int(funnel.get("trials_ending_48h"))),
+                    ("Χρήστες free plan", _fmt_int(funnel.get("free_plan_users"))),
+                    ("Χρήστες με chat", _fmt_int(funnel.get("users_with_chat"))),
+                    ("Σύνολο αναμνήσεων", _fmt_int(funnel.get("total_memories"))),
+                ],
+            ),
+            (
+                "Conversion drips & δώρα",
+                [
+                    ("Ενεργά drip enrollments", _fmt_int(msg.get("drip_active_enrollments"))),
+                    ("Νέα enrollments σήμερα", _fmt_int(msg.get("drip_enrolled_today"))),
+                    ("Drip αποστολές (24ώ)", _fmt_int(msg.get("drip_sends_24h"))),
+                    ("Drip email OK (24ώ)", _fmt_int(msg.get("drip_email_ok_24h"))),
+                    ("Drip email αποτυχίες (24ώ)", _fmt_int(msg.get("drip_email_fail_24h"))),
+                    ("Drip push OK (24ώ)", _fmt_int(msg.get("drip_push_ok_24h"))),
+                    ("Gift claims σήμερα", _fmt_int(msg.get("gift_claims_today"))),
+                    ("Marketing consent (σύνολο)", _fmt_int(msg.get("marketing_consent_total"))),
+                ],
+            ),
+            (
+                "Ops & support",
+                [
+                    ("Κόστος LLM σήμερα", _fmt_usd(ops.get("llm_cost_today_usd"))),
+                    ("Κλήσεις LLM σήμερα", _fmt_int(ops.get("llm_calls_today"))),
+                    ("Κόστος LLM MTD", _fmt_usd(ops.get("llm_cost_mtd_usd"))),
+                    ("Προβολή LLM (μήνας)", _fmt_usd(ops.get("projected_llm_month_usd"))),
+                    ("Κοντά στο LLM limit", _fmt_int(ops.get("users_near_llm_limit"))),
+                    ("Support ανοιχτά", _fmt_int(ops.get("support_open"))),
+                    ("Support σε αναμονή admin", _fmt_int(ops.get("support_pending_admin"))),
+                ],
+            ),
+        ]
+        plan_title = "Μίγμα πλάνων"
+
+    plan_rows = [(str(p.get("name") or "?"), _fmt_int(p.get("users"))) for p in plans[:8]]
+    sections_html = "".join(_metric_section(title, rows) for title, rows in sections)
+    if plan_rows:
+        sections_html += _metric_section(plan_title, plan_rows)
+
+    body = (
+        _greeting(name, lang)
+        + _paragraph(intro)
+        + sections_html
+        + _button(admin_url, btn)
+    )
+    preheader = (
+        f"{_fmt_int(h.get('new_users_today'))} new · "
+        f"{_fmt_eur(rev.get('cash_today_eur'))} today · "
+        f"MRR {_fmt_eur(rev.get('recognized_mrr_eur'))}"
+    )
     return EmailMessage(subject=subject, html=_email_shell(body, preheader=preheader))
 
 
