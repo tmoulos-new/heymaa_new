@@ -4969,6 +4969,20 @@ def _run_access_expiry_reminder(user_id: str, access_ends_at: Optional[str]) -> 
         pass
 
 
+def _run_conversion_drip_tick() -> None:
+    """Best-effort drip engine — Hobby-safe backup when Vercel cron is missing/unreliable."""
+    if not sb:
+        return
+    try:
+        try:
+            from .conversion_drip_api import maybe_run_drip_tick
+        except ImportError:
+            from conversion_drip_api import maybe_run_drip_tick
+        maybe_run_drip_tick(sb, source="auth_status")
+    except Exception:
+        pass
+
+
 @app.get("/auth/status")
 async def auth_status(
     background_tasks: BackgroundTasks,
@@ -5055,6 +5069,9 @@ async def auth_status(
         and RESEND_API_KEY
     ):
         background_tasks.add_task(_run_access_expiry_reminder, user_id, payload.get("access_ends_at"))
+    # Conversion drips: throttled backup tick (cron remains primary when configured).
+    if auth.get("kind") == "user" and user_id and sb:
+        background_tasks.add_task(_run_conversion_drip_tick)
     return payload
 
 @app.get("/profile")

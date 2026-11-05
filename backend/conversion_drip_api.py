@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 from uuid import uuid4
@@ -22,6 +23,9 @@ _MISSING = (
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _BATCH_ENROLL = 80
 _BATCH_SEND = 40
+# Opportunistic ticks (auth/status) — keep cron as primary when available.
+_OPPORTUNISTIC_MIN_MINUTES = 45
+_LAST_LOCAL_TICK_AT = 0.0
 
 
 def _main():
@@ -741,10 +745,73 @@ def enroll_eligible_users(sb, *, limit: int = _BATCH_ENROLL) -> dict[str, Any]:
     return {"ok": True, **stats}
 
 
-def run_drip_tick(sb) -> dict[str, Any]:
+def _mark_engine_tick(sb, source: str) -> None:
+    """Bump active sequence updated_at so multi-instance auth/status can throttle."""
+    global _LAST_LOCAL_TICK_AT
+    _LAST_LOCAL_TICK_AT = time.time()
+    try:
+        sb.table("conversion_sequences").update({"updated_at": _now_iso()}).eq(
+            "status", "active"
+        ).execute()
+    except Exception:
+        pass
+    _ = source  # reserved for future runtime logging
+
+
+def _should_skip_opportunistic_tick(sb, min_interval_minutes: int) -> bool:
+    global _LAST_LOCAL_TICK_AT
+    if time.time() - _LAST_LOCAL_TICK_AT < min_interval_minutes * 60:
+        return True
+    try:
+        active = (
+            sb.table("conversion_sequences")
+            .select("id")
+            .eq("status", "active")
+            .limit(1)
+            .execute()
+        )
+        if not active.data:
+            return True
+        cutoff = (_now() - timedelta(minutes=min_interval_minutes)).isoformat()
+        recent = (
+            sb.table("conversion_sequences")
+            .select("id")
+            .eq("status", "active")
+            .gte("updated_at", cutoff)
+            .limit(1)
+            .execute()
+        )
+        # If any active sequence was touched recently (tick or admin save), wait.
+        return bool(recent.data)
+    except Exception:
+        return True
+
+
+def run_drip_tick(sb, *, source: str = "manual") -> dict[str, Any]:
+    _mark_engine_tick(sb, source)
     enroll = enroll_eligible_users(sb)
     send = process_due_enrollments(sb)
-    return {"ok": True, "enroll": enroll, "send": send}
+    return {"ok": True, "source": source, "enroll": enroll, "send": send}
+
+
+def maybe_run_drip_tick(
+    sb,
+    *,
+    source: str = "auth_status",
+    min_interval_minutes: int = _OPPORTUNISTIC_MIN_MINUTES,
+) -> Optional[dict[str, Any]]:
+    """Backup scheduler for Hobby/free: run on app traffic when due, throttled.
+
+    Cron remains the preferred daily trigger; this fills gaps when cron is unavailable.
+    """
+    if sb is None:
+        return None
+    if _should_skip_opportunistic_tick(sb, min_interval_minutes):
+        return None
+    try:
+        return run_drip_tick(sb, source=source)
+    except Exception:
+        return None
 
 
 # ─── Seed defaults ─────────────────────────────────────────────────────────────
@@ -1204,6 +1271,14 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
                 "min_hours_between_emails_default": 168,
                 "min_hours_between_push_default": 72,
                 "note": "Best practice: ≤1 marketing email / week / user; ≤1 drip push / 3 days.",
+            },
+            "triggers": {
+                "cron": "POST /cron/conversion-drips (daily; needs CRON_SECRET on Hobby/Pro)",
+                "auth_status": (
+                    f"Background tick on /auth/status ~every {_OPPORTUNISTIC_MIN_MINUTES}m "
+                    "when someone uses the app (Hobby-safe backup)"
+                ),
+                "admin": "Admin → Conversion drips → Run tick now",
             },
             "cron_hint": "POST /cron/conversion-drips with header x-cron-secret",
         }

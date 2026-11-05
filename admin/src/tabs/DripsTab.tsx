@@ -484,6 +484,8 @@ export function DripsTab() {
           Automated email + in-app/push sequences for never-paid trial users. Edit timing, copy,
           channels, and gift-code CTAs here — set status to <strong>active</strong> when ready.
           Caps default to ≤1 marketing email / week and ≤1 drip push / 3 days (editable per sequence).
+          Runs via daily cron when available, plus a throttled backup whenever someone opens the app
+          (<code>/auth/status</code>), and anytime you press <strong>Run tick now</strong>.
         </p>
         {statusNote ? <p className="meta">{statusNote}</p> : null}
         {setupError ? <div className="msg err">{setupError}</div> : null}
