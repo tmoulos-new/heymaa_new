@@ -5258,8 +5258,15 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const hasMilestoneTick = useMemo(() => {
     for (const byStage of Object.values(milestoneChecksMap || {})) {
-      for (const checks of Object.values((byStage as Record<string, Record<string, boolean>>) || {})) {
-        if (checks && Object.values(checks).some(Boolean)) return true;
+      if (!byStage || typeof byStage !== "object") continue;
+      for (const checks of Object.values(byStage as Record<string, unknown>)) {
+        if (Array.isArray(checks)) {
+          if (checks.some(Boolean)) return true;
+        } else if (checks && typeof checks === "object") {
+          if (Object.values(checks as Record<string, unknown>).some(Boolean)) return true;
+        } else if (checks) {
+          return true;
+        }
       }
     }
     return false;
