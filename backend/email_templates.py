@@ -91,14 +91,20 @@ def logo_attachment() -> Optional[dict]:
     return _logo_attachment_cache
 
 
-def _logo_src() -> str:
-    if logo_attachment():
-        return f"cid:{LOGO_CID}"
+def _hosted_logo_src() -> str:
+    """Public HTTPS logo URL — most reliable in Gmail/Outlook when images load."""
     explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
     if explicit:
         return explicit
     base = (os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
     return f"{base}/static/brand/{LOGO_FILENAME}"
+
+
+def _logo_src() -> str:
+    """Prefer inline CID when the PNG is bundled; else hosted URL."""
+    if logo_attachment():
+        return f"cid:{LOGO_CID}"
+    return _hosted_logo_src()
 
 
 def _brand_header() -> str:
@@ -941,6 +947,7 @@ def _report_shell(body_html: str, *, preheader: str = "") -> str:
             f"{escape(preheader)}</div>"
         )
     font = _font()
+    logo = escape(_hosted_logo_src(), quote=True)
     # Deep navy atmosphere — not flat cream, not purple-AI
     bg = "#151B2E"
     return f"""<!DOCTYPE html>
@@ -958,8 +965,12 @@ def _report_shell(body_html: str, *, preheader: str = "") -> str:
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;">
         <tr><td>{body_html}</td></tr>
         <tr>
-          <td style="padding:20px 8px 0;font-family:{font};font-size:11px;color:rgba(245,240,235,0.45);text-align:center;line-height:1.6;">
-            HeyMaa Pulse · Care Direct · {escape(SUPPORT_EMAIL)}
+          <td align="center" style="padding:22px 8px 0;">
+            <img src="{logo}" width="28" height="28" alt="HeyMaa"
+              style="display:inline-block;width:28px;height:28px;border-radius:50%;border:0;vertical-align:middle;margin-right:8px;" />
+            <span style="font-family:{font};font-size:11px;color:rgba(245,240,235,0.45);line-height:28px;vertical-align:middle;">
+              HeyMaa Pulse · Care Direct · {escape(SUPPORT_EMAIL)}
+            </span>
           </td>
         </tr>
       </table>
@@ -1143,7 +1154,9 @@ def render_admin_daily_report_email(
     camp_all = email.get("campaign_all") or {}
 
     font = _font()
-    logo = escape(_logo_src(), quote=True)
+    # Hosted URL + CID both work; hosted is primary so the mark always paints in inbox.
+    logo_hosted = escape(_hosted_logo_src(), quote=True)
+    logo_cid = escape(f"cid:{LOGO_CID}", quote=True) if logo_attachment() else logo_hosted
     who = escape(_display_name(name, lang))
 
     if lang == "en":
@@ -1213,39 +1226,39 @@ def render_admin_daily_report_email(
         if cancels:
             alerts.append(f"{cancels} εκκρεμείς ακυρώσεις")
 
-    # Hero
+    # Hero — brand logo is the first visual (hosted URL so Gmail always paints it)
     hero = f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
   style="background:linear-gradient(165deg,#1A2340 0%,#2B3A67 55%,#1F7A6C 140%);
   border-radius:22px 22px 0 0;overflow:hidden;">
   <tr>
-    <td style="padding:28px 28px 8px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-        <tr>
-          <td valign="middle">
-            <img src="{logo}" width="40" height="40" alt="HeyMaa"
-              style="display:block;width:40px;height:40px;border-radius:50%;border:0;" />
-          </td>
-          <td valign="middle" style="padding-left:12px;">
-            <div style="font-family:{font};font-size:20px;font-weight:700;color:#ffffff;line-height:1;">
-              Hey<span style="color:{PEACH};">Maa</span>
-              <span style="font-size:12px;font-weight:600;letter-spacing:1.2px;color:rgba(255,255,255,0.55);
-                text-transform:uppercase;padding-left:10px;">{escape(hero_kicker)}</span>
-            </div>
-          </td>
-          <td align="right" valign="middle"
-            style="font-family:{font};font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);">
-            {escape(date_label)}
-          </td>
-        </tr>
-      </table>
-      <div style="font-family:{font};font-size:26px;font-weight:700;color:#ffffff;
-        line-height:1.25;margin:22px 0 8px;">{hero_title}</div>
+    <td align="center" style="padding:32px 28px 10px;">
+      <img src="{logo_hosted}" width="72" height="72" alt="HeyMaa"
+        style="display:block;width:72px;height:72px;border-radius:50%;border:2px solid rgba(248,229,214,0.55);
+        box-shadow:0 8px 28px rgba(0,0,0,0.28);margin:0 auto 14px;outline:none;" />
+      <!--[if !mso]><!-->
+      <div style="display:none;max-height:0;overflow:hidden;">
+        <img src="{logo_cid}" width="1" height="1" alt="" />
+      </div>
+      <!--<![endif]-->
+      <div style="font-family:{font};font-size:28px;font-weight:700;color:#ffffff;line-height:1;margin:0 0 6px;">
+        Hey<span style="color:{PEACH};">Maa</span>
+      </div>
+      <div style="font-family:{font};font-size:11px;font-weight:700;letter-spacing:1.6px;
+        text-transform:uppercase;color:rgba(255,255,255,0.55);margin:0 0 4px;">
+        {escape(hero_kicker)}
+      </div>
+      <div style="font-family:{font};font-size:12px;font-weight:600;color:rgba(255,255,255,0.65);">
+        {escape(date_label)}
+      </div>
+      <div style="height:3px;width:48px;background:{PEACH};border-radius:999px;margin:18px auto 16px;"></div>
+      <div style="font-family:{font};font-size:24px;font-weight:700;color:#ffffff;
+        line-height:1.3;margin:0 0 8px;">{hero_title}</div>
       <div style="font-family:{font};font-size:14px;color:rgba(255,255,255,0.72);
-        line-height:1.55;max-width:420px;">{escape(hero_sub)}</div>
-      <div style="height:3px;width:56px;background:{PEACH};border-radius:999px;margin:18px 0 8px;"></div>
+        line-height:1.55;max-width:420px;margin:0 auto;">{escape(hero_sub)}</div>
     </td>
   </tr>
+  <tr><td style="height:18px;font-size:0;line-height:0;">&nbsp;</td></tr>
 </table>
 """
 
