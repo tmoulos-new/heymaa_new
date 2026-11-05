@@ -17,7 +17,7 @@ const STRINGS = {
     wantChild: 'Θέλω να αποκτήσω παιδί',
     pregnantOrMom: 'Είμαι έγκυος ή μαμά',
     newsletter:
-      'Επιθυμείς να λαμβάνεις ενημερώσεις ηλεκτρονικά, τηλεφωνικά, ταχυδρομικά και Newsletters από το HeyMaa και τις συνεργαζόμενες εταιρίες της Care Direct, με σκοπό τη διεξαγωγή ερευνών και την προώθηση προϊόντων και υπηρεσιών των συνεργαζόμενων με αυτήν εταιρειών;',
+      'Θέλω tips, υπενθυμίσεις δοκιμής και δώρα ημερών στο email (μπορώ να το απενεργοποιήσω οποιαδήποτε στιγμή).';
     pushAlerts:
       'Θέλω ειδοποιήσεις στο κινητό για σημαντικά μηνύματα (μπορώ να τις ενεργοποιήσω αργότερα — δεν ζητάμε άδεια τώρα).',
     privacy: 'Έχω διαβάσει και αποδέχομαι την',
@@ -64,7 +64,8 @@ const STRINGS = {
     invitePh: 'e.g. HEYMAA-ABC123',
     wantChild: 'I want to have a child',
     pregnantOrMom: 'I am pregnant or a mom',
-    newsletter: 'I want to receive updates and newsletters with useful motherhood tips.',
+    newsletter:
+      'Email me tips, trial reminders, and gift-day offers (I can unsubscribe anytime).',
     pushAlerts:
       'I want phone alerts for important messages (I can turn them on later — we will not ask for browser permission yet).',
     privacy: 'I have read and accept the',
@@ -112,7 +113,7 @@ const STRINGS = {
     wantChild: 'Vreau să am un copil',
     pregnantOrMom: 'Sunt gravidă sau mamă',
     newsletter:
-      'Doresc să primesc actualizări și newslettere cu sfaturi utile despre maternitate.',
+      'Vreau tips, reamintiri pentru perioada de probă și zile cadou pe email (mă pot dezabona oricând).',
     pushAlerts:
       'Vreau alerte pe telefon pentru mesaje importante (le pot activa mai târziu — nu cerem permisiunea acum).',
     privacy: 'Am citit și accept',

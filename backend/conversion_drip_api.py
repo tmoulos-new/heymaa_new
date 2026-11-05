@@ -575,19 +575,21 @@ def process_due_enrollments(sb, *, limit: int = _BATCH_SEND) -> dict[str, Any]:
             channel = (step.get("channel") or "both").lower()
             profiles = _profile_map(sb, [uid])
             prof = profiles.get(uid) or {}
+            # require_marketing_consent = email only; notifications always eligible.
             consent_ok = bool(prof.get("consent_marketing")) if seq.get("require_marketing_consent", True) else True
             want_email = channel in ("email", "both")
             want_notif = channel in ("notification", "both")
-            email_capped = want_email and consent_ok and _recent_channel_send(
+            email_allowed = want_email and consent_ok
+            email_capped = email_allowed and _recent_channel_send(
                 sb, uid, "email", int(seq.get("min_hours_between_emails") or 168)
             )
             notif_capped = want_notif and _recent_channel_send(
                 sb, uid, "notification", int(seq.get("min_hours_between_push") or 72)
             )
             # If every channel we can send is rate-capped, defer instead of skipping the step.
-            can_email = want_email and consent_ok and not email_capped
+            can_email = email_allowed and not email_capped
             can_notif = want_notif and not notif_capped
-            if (want_email or want_notif) and not can_email and not can_notif and (email_capped or notif_capped):
+            if (email_allowed or want_notif) and not can_email and not can_notif and (email_capped or notif_capped):
                 defer_h = 12
                 if email_capped:
                     defer_h = max(defer_h, min(24, int(seq.get("min_hours_between_emails") or 168) // 7 or 24))
@@ -625,7 +627,7 @@ def process_due_enrollments(sb, *, limit: int = _BATCH_SEND) -> dict[str, Any]:
                         }
                     ).execute()
             elif want_email and not consent_ok:
-                stats["skipped"] += 1
+                stats["skipped"] += 1  # email skipped — notif may still send
 
             if can_notif:
                 st, err = _send_drip_notification(
@@ -715,11 +717,8 @@ def enroll_eligible_users(sb, *, limit: int = _BATCH_ENROLL) -> dict[str, Any]:
             lang = str(prof.get("lang") or "el").lower().split("-")[0]
             if lang not in langs:
                 continue
-            if seq.get("require_marketing_consent") and not prof.get("consent_marketing"):
-                # Still allow enrollment for notification-only sequences later;
-                # for now require consent so we don't enroll people we can't email.
-                stats["skipped"] += 1
-                continue
+            # Marketing consent gates email only (at send time), not enrollment.
+            # Users without consent still get in-app / push drip steps.
             first = steps[0]
             due = _step_due_at(
                 {"enrolled_at": _now_iso()},
