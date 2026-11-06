@@ -101,6 +101,9 @@ export function acquisitionChannel(a?: AcquisitionPayload | null): string {
   if (a.fbclid || (a.utm_source || '').toLowerCase().includes('meta') || (a.utm_source || '').toLowerCase().includes('facebook')) {
     return 'meta'
   }
+  if ((a.utm_source || '').toLowerCase() === 'sms' || (a.utm_medium || '').toLowerCase() === 'sms') {
+    return 'sms'
+  }
   if ((a.utm_source || '').toLowerCase().includes('moosend') || (a.utm_medium || '').toLowerCase() === 'email') {
     return 'email'
   }
