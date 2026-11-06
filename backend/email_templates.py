@@ -1092,6 +1092,243 @@ def _pair_rows(rows: list[tuple[str, str]]) -> str:
     return f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{"".join(out)}</table>'
 
 
+def _mini_heading(text: str, *, color: str = NAVY) -> str:
+    font = _font()
+    return (
+        f'<div style="font-family:{font};font-size:13px;font-weight:700;color:{color};'
+        f'margin:16px 0 8px;padding-top:4px;">{escape(text)}</div>'
+    )
+
+
+def _action_steps(lines: list[str], *, lang: str) -> str:
+    """Numbered do-this list — first thing the reader should see."""
+    if not lines:
+        return ""
+    font = _font()
+    title = "Do this today" if lang == "en" else "Κάνε αυτά σήμερα"
+    items = ""
+    for i, line in enumerate(lines[:8], start=1):
+        items += (
+            f'<tr><td valign="top" style="font-family:{font};font-size:14px;font-weight:700;'
+            f'color:{TEAL};padding:0 10px 12px 0;width:28px;">{i}.</td>'
+            f'<td style="font-family:{font};font-size:14px;color:{TEXT};line-height:1.5;'
+            f'padding:0 0 12px;">{escape(line)}</td></tr>'
+        )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="margin:0 0 16px;background:#F0FAF7;border-radius:18px;border:1px solid #C5E8DE;">'
+        f'<tr><td style="padding:18px 18px 8px;">'
+        f'<div style="font-family:{font};font-size:12px;font-weight:700;letter-spacing:1px;'
+        f'text-transform:uppercase;color:{TEAL};margin:0 0 12px;">{escape(title)}</div>'
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{items}</table>'
+        f'</td></tr></table>'
+    )
+
+
+def _campaign_block(title: str, rows: list[tuple[str, str]], *, note: str = "") -> str:
+    font = _font()
+    note_html = (
+        f'<div style="font-family:{font};font-size:12px;color:{TEXT_SOFT};line-height:1.45;'
+        f'margin:8px 0 0;">{escape(note)}</div>'
+        if note
+        else ""
+    )
+    return (
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        f'style="margin:0 0 12px;background:#FAFBFD;border-radius:14px;border:1px solid {BORDER};">'
+        f'<tr><td style="padding:14px 14px 10px;">'
+        f'<div style="font-family:{font};font-size:14px;font-weight:700;color:{NAVY};margin:0 0 8px;">'
+        f'{escape(title)}</div>'
+        f'{_pair_rows(rows)}{note_html}</td></tr></table>'
+    )
+
+
+def _render_acquisition_pulse(acq: dict, *, lang: str) -> str:
+    """Clear Acquisition section: verdict → campaigns → GA → DB channels."""
+    font = _font()
+    window = str(acq.get("window_start") or "2026-10-15")
+    signups = _fmt_int(acq.get("signups_in_window"))
+    unknown = _fmt_pct(acq.get("unknown_share_pct"))
+    attributed = _fmt_pct(acq.get("attributed_share_pct"))
+
+    if lang == "en":
+        verdict = (
+            f"Since {window}: <b>{escape(signups)}</b> signups · "
+            f"<b>{escape(attributed)}</b> attributed · "
+            f"<b>{escape(unknown)}</b> unknown source"
+        )
+        sec_title = "Acquisition"
+        ga_title = "Website traffic (GA4)"
+        db_title = "Signups by source (app)"
+        more_title = "More notes"
+    else:
+        verdict = (
+            f"Από {window}: <b>{escape(signups)}</b> εγγραφές · "
+            f"<b>{escape(attributed)}</b> με attribution · "
+            f"<b>{escape(unknown)}</b> άγνωστη πηγή"
+        )
+        sec_title = "Acquisition"
+        ga_title = "Κινήσεις site (GA4)"
+        db_title = "Εγγραφές ανά πηγή (app)"
+        more_title = "Άλλες σημειώσεις"
+
+    # Split insights: Action/Do → do-this; rest → notes
+    actions: list[str] = []
+    notes: list[str] = []
+    for line in acq.get("insights") or []:
+        s = str(line).strip()
+        if not s:
+            continue
+        low = s.lower()
+        if low.startswith("action") or low.startswith("retarget") or "bit.ly" in low:
+            # Strip "Action:" / "Action (X):" prefix for cleaner numbered list
+            clean = s
+            for prefix in (
+                "Action (Moosend): ",
+                "Action (SMS): ",
+                "Action (Meta): ",
+                "Action (GA): ",
+                "Action: ",
+            ):
+                if clean.startswith(prefix):
+                    clean = clean[len(prefix) :]
+                    break
+            actions.append(clean)
+        else:
+            notes.append(s)
+
+    blocks = _action_steps(actions, lang=lang)
+    blocks += (
+        f'<div style="font-family:{font};font-size:14px;color:{TEXT};line-height:1.55;'
+        f'margin:0 0 16px;padding:12px 14px;background:#ffffff;border-radius:12px;'
+        f'border:1px solid {BORDER};">{verdict}</div>'
+    )
+
+    for camp in acq.get("campaigns") or []:
+        provider = str(camp.get("provider") or "").lower()
+        f = camp.get("funnel") or {}
+        if provider == "moosend":
+            click_signup = (
+                _fmt_pct(f.get("signup_from_click_pct"))
+                if f.get("signup_from_click_pct") is not None
+                else ("n/a yet" if lang == "en" else "δεν υπάρχει ακόμα")
+            )
+            blocks += _campaign_block(
+                "Email · Moosend Natal",
+                [
+                    ("Recipients", _fmt_int(f.get("recipients"))),
+                    ("Open / click rate", f"{_fmt_pct(f.get('open_rate'))} / {_fmt_pct(f.get('click_rate'))}"),
+                    ("Unique clicks", _fmt_int(f.get("unique_clicks"))),
+                    ("Clicks → signup", click_signup),
+                    ("Unsubscribes", f"{_fmt_int(f.get('unsubscribes'))} ({_fmt_pct(f.get('unsubscribe_rate'))})"),
+                    ("Short link", str(camp.get("short_link") or "https://bit.ly/4dBUtvl")),
+                ],
+                note=(
+                    "Keep bit.ly; retarget destination to www.heymaa.ai with Email/Email/Natal UTMs."
+                    if lang == "en"
+                    else "Κράτα bit.ly· άλλαξε destination σε www.heymaa.ai με UTMs Email/Email/Natal."
+                ),
+            )
+        elif provider == "sms":
+            short = str(camp.get("short_link") or "https://bit.ly/4hXfQbL")
+            if f.get("incomplete"):
+                kpi_row = (
+                    "Sends / clicks",
+                    "missing — paste when ready" if lang == "en" else "λείπουν — βάλε όταν έχεις",
+                )
+            else:
+                kpi_row = (
+                    "Sends / clicks",
+                    f"{_fmt_int(f.get('sends'))} / {_fmt_int(f.get('clicks'))}",
+                )
+            blocks += _campaign_block(
+                "SMS · Natal",
+                [
+                    ("Short link", short),
+                    ("UTMs", "SMS / SMS / Natal"),
+                    kpi_row,
+                    ("Attributed signups", _fmt_int(camp.get("matched_signups"))),
+                ],
+                note=(
+                    "Keep bit.ly for SMS length; retarget to www.heymaa.ai with SMS/SMS/Natal UTMs."
+                    if lang == "en"
+                    else "Κράτα bit.ly για μήκος SMS· destination www.heymaa.ai με SMS/SMS/Natal."
+                ),
+            )
+        elif provider == "meta":
+            if f.get("incomplete"):
+                blocks += _campaign_block(
+                    "Meta Ads",
+                    [
+                        (
+                            "Status",
+                            "KPIs missing" if lang == "en" else "Λείπουν KPIs",
+                        )
+                    ],
+                    note=(
+                        "Paste impressions / clicks / spend from Ads Manager."
+                        if lang == "en"
+                        else "Βάλε impressions / clicks / spend από Ads Manager."
+                    ),
+                )
+            else:
+                blocks += _campaign_block(
+                    "Meta Ads",
+                    [
+                        (
+                            "Impressions / clicks",
+                            f"{_fmt_int(f.get('impressions'))} / {_fmt_int(f.get('clicks'))}",
+                        ),
+                        ("Spend", _fmt_eur(f.get("spend_eur"))),
+                        ("Attributed signups", _fmt_int(camp.get("matched_signups"))),
+                    ],
+                )
+
+    ga4 = acq.get("ga4") or {}
+    traffic = ga4.get("traffic") or {}
+    if traffic.get("sessions"):
+        ga_rows = [
+            (
+                "Period",
+                f"{ga4.get('window_start') or '?'} → {ga4.get('window_end') or '?'}",
+            ),
+            (
+                "Sessions / engaged",
+                f"{_fmt_int(traffic.get('sessions'))} / {_fmt_pct(traffic.get('engagement_rate'))}",
+            ),
+            ("Key events (signups in GA)", _fmt_int(traffic.get("key_events"))),
+        ]
+        for gch in (traffic.get("by_channel") or [])[:4]:
+            ga_rows.append(
+                (
+                    str(gch.get("channel") or "?"),
+                    f"{_fmt_int(gch.get('sessions'))} ({_fmt_pct(gch.get('share_pct'))})",
+                )
+            )
+        blocks += _campaign_block(ga_title, ga_rows)
+
+    db_rows: list[tuple[str, str]] = []
+    for ch in (acq.get("by_channel") or [])[:6]:
+        db_rows.append(
+            (
+                str(ch.get("channel") or "?"),
+                f"{_fmt_int(ch.get('signups'))} ({_fmt_pct(ch.get('share_pct'))})",
+            )
+        )
+    if db_rows:
+        blocks += _campaign_block(db_title, db_rows)
+
+    if notes:
+        blocks += _mini_heading(more_title, color=MUTED)
+        for line in notes[:6]:
+            blocks += (
+                f'<div style="font-family:{font};font-size:13px;color:{TEXT_SOFT};'
+                f'line-height:1.5;margin:0 0 8px;">· {escape(line)}</div>'
+            )
+
+    return _section_panel(sec_title, blocks, accent="#7C5CBF", eyebrow="Growth" if lang == "en" else "Ανάπτυξη")
+
+
 def _alert_ribbon(items: list[str], *, lang: str) -> str:
     if not items:
         return ""
@@ -1164,15 +1401,14 @@ def render_admin_daily_report_email(
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Daily Pulse"
         hero_title = f"Good morning, {who}"
-        hero_sub = "Growth, money, campaigns (Moosend/Meta), and what needs you today."
+        hero_sub = "Today’s numbers, then what to fix on campaigns."
         btn = "Open live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Signups today", "DAU", "Cash today", "MRR"
         lbl_spark_users, lbl_spark_dau = "New users · 7 days", "Active users · 7 days"
         lbl_spark_cash, lbl_spark_llm = "Cash · 7 days", "LLM spend · 7 days"
-        sec_cum = "Cumulative picture"
-        sec_mkt = "Marketing engine"
+        sec_cum = "All-time snapshot"
+        sec_mkt = "Email performance"
         sec_list = "List health"
-        sec_acq = "Acquisition · what works"
         sec_drip = "Conversion drips"
         sec_ops = "Ops & support"
         sec_plans = "Plan mix"
@@ -1183,15 +1419,14 @@ def render_admin_daily_report_email(
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Ημερήσιος παλμός"
         hero_title = f"Καλημέρα, {who}"
-        hero_sub = "Ανάπτυξη, έσοδα, campaigns (Moosend/Meta) και ό,τι σε χρειάζεται σήμερα."
+        hero_sub = "Οι αριθμοί της ημέρας, μετά τι να διορθώσεις στα campaigns."
         btn = "Άνοιξε live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Εγγραφές σήμερα", "DAU", "Εισπράξεις σήμερα", "MRR"
         lbl_spark_users, lbl_spark_dau = "Νέοι χρήστες · 7ημ", "Ενεργοί · 7ημ"
         lbl_spark_cash, lbl_spark_llm = "Εισπράξεις · 7ημ", "Κόστος LLM · 7ημ"
-        sec_cum = "Αθροιστική εικόνα"
-        sec_mkt = "Marketing engine"
+        sec_cum = "Συνολική εικόνα"
+        sec_mkt = "Απόδοση email"
         sec_list = "Υγεία λίστας"
-        sec_acq = "Acquisition · τι δουλεύει"
         sec_drip = "Conversion drips"
         sec_ops = "Ops & support"
         sec_plans = "Μίγμα πλάνων"
@@ -1409,130 +1644,9 @@ def render_admin_daily_report_email(
         ]
     )
 
-    # Acquisition / external campaigns (Moosend + Meta)
-    acq_rows: list[tuple[str, str]] = [
-        (
-            "Window start" if lang == "en" else "Από",
-            str(acq.get("window_start") or "2026-10-15"),
-        ),
-        (
-            "Signups in window" if lang == "en" else "Εγγραφές στο παράθυρο",
-            _fmt_int(acq.get("signups_in_window")),
-        ),
-        (
-            "Attributed share" if lang == "en" else "Με attribution",
-            _fmt_pct(acq.get("attributed_share_pct")),
-        ),
-        (
-            "Unknown source share" if lang == "en" else "Άγνωστη πηγή",
-            _fmt_pct(acq.get("unknown_share_pct")),
-        ),
-    ]
-    for ch in (acq.get("by_channel") or [])[:6]:
-        acq_rows.append(
-            (
-                f"Channel · {ch.get('channel')}",
-                f"{_fmt_int(ch.get('signups'))} ({_fmt_pct(ch.get('share_pct'))})",
-            )
-        )
-    ga4 = acq.get("ga4") or {}
-    ga_traffic = ga4.get("traffic") or {}
-    if ga_traffic.get("sessions"):
-        acq_rows.append(
-            (
-                "GA4 · sessions / engaged",
-                f"{_fmt_int(ga_traffic.get('sessions'))} / {_fmt_pct(ga_traffic.get('engagement_rate'))}",
-            )
-        )
-        for gch in (ga_traffic.get("by_channel") or [])[:4]:
-            acq_rows.append(
-                (
-                    f"GA4 · {gch.get('channel')}",
-                    f"{_fmt_int(gch.get('sessions'))} ({_fmt_pct(gch.get('share_pct'))})",
-                )
-            )
-    for camp in acq.get("campaigns") or []:
-        provider = str(camp.get("provider") or camp.get("channel") or "?")
-        f = camp.get("funnel") or {}
-        if provider == "moosend":
-            acq_rows.extend(
-                [
-                    (f"Moosend · recipients", _fmt_int(f.get("recipients"))),
-                    (
-                        "Moosend · open / click",
-                        f"{_fmt_pct(f.get('open_rate'))} / {_fmt_pct(f.get('click_rate'))}",
-                    ),
-                    (
-                        "Moosend · clicks → signup",
-                        _fmt_pct(f.get("signup_from_click_pct"))
-                        if f.get("signup_from_click_pct") is not None
-                        else ("n/a until UTMs" if lang == "en" else "n/a μέχρι UTMs"),
-                    ),
-                    ("Moosend · unsub", f"{_fmt_int(f.get('unsubscribes'))} ({_fmt_pct(f.get('unsubscribe_rate'))})"),
-                ]
-            )
-        elif provider == "sms":
-            short = str(camp.get("short_link") or f.get("short_link") or "bit.ly/4hXfQbL")
-            if f.get("incomplete"):
-                acq_rows.extend(
-                    [
-                        ("SMS Natal · link", short),
-                        (
-                            "SMS Natal · UTMs",
-                            "SMS / SMS / Natal",
-                        ),
-                        (
-                            "SMS · sends/clicks",
-                            "missing — paste KPIs" if lang == "en" else "λείπουν — βάλε KPIs",
-                        ),
-                        ("SMS · attributed signups", _fmt_int(camp.get("matched_signups"))),
-                    ]
-                )
-            else:
-                acq_rows.extend(
-                    [
-                        ("SMS Natal · link", short),
-                        (
-                            "SMS · sends / clicks",
-                            f"{_fmt_int(f.get('sends'))} / {_fmt_int(f.get('clicks'))}",
-                        ),
-                        ("SMS · attributed signups", _fmt_int(camp.get("matched_signups"))),
-                    ]
-                )
-        elif provider == "meta":
-            if f.get("incomplete"):
-                acq_rows.append(
-                    (
-                        "Meta Ads",
-                        "KPIs missing — fill Ads Manager" if lang == "en" else "Λείπουν KPIs — συμπλήρωσε Ads Manager",
-                    )
-                )
-            else:
-                acq_rows.extend(
-                    [
-                        ("Meta · impressions / clicks", f"{_fmt_int(f.get('impressions'))} / {_fmt_int(f.get('clicks'))}"),
-                        ("Meta · spend", _fmt_eur(f.get("spend_eur"))),
-                        ("Meta · attributed signups", _fmt_int(camp.get("matched_signups"))),
-                    ]
-                )
-    insight_lines = list(acq.get("insights") or [])[:12]
-    insight_html = ""
-    if insight_lines:
-        advice_label = "Advice · what to do next" if lang == "en" else "Συμβουλές · επόμενα βήματα"
-        insight_html = (
-            f'<div style="font-family:{font};font-size:11px;font-weight:700;letter-spacing:1.2px;'
-            f'text-transform:uppercase;color:{TEAL};margin:16px 0 10px;">{escape(advice_label)}</div>'
-        )
-        for line in insight_lines:
-            insight_html += (
-                f'<div style="font-family:{font};font-size:13px;color:{TEXT_SOFT};'
-                f'line-height:1.55;margin:0 0 8px;padding-left:10px;border-left:3px solid {TEAL};">'
-                f'{escape(str(line))}</div>'
-            )
-    acq_body = _pair_rows(acq_rows) + insight_html
-
     plan_rows = [(str(p.get("name") or "?"), _fmt_int(p.get("users"))) for p in plans[:8]]
     plans_html = _section_panel(sec_plans, _pair_rows(plan_rows), accent="#E8A87C") if plan_rows else ""
+    acq_panel = _render_acquisition_pulse(acq, lang=lang)
 
     cta = (
         f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 0;">'
@@ -1549,14 +1663,15 @@ def render_admin_daily_report_email(
     )
     cream_wrap_close = "</td></tr></table>"
 
+    # Order: numbers → do-this/campaigns → trends → ops (less noise up top)
     body = (
         hero
         + scoreboard
         + cream_wrap_open
         + _alert_ribbon(alerts, lang=lang)
+        + acq_panel
         + sparks_panel
         + _section_panel(sec_cum, cum_body, accent=NAVY, eyebrow="Snapshot")
-        + _section_panel(sec_acq, acq_body, accent="#7C5CBF", eyebrow="Growth")
         + _section_panel(sec_list, list_body, accent=TEAL, eyebrow="Audience")
         + _section_panel(sec_mkt, mkt_body, accent="#5B7CFA", eyebrow="Automation")
         + _section_panel(sec_drip, drip_body, accent="#C97B84", eyebrow="Funnel")

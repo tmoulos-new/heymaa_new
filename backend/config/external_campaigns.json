@@ -3,7 +3,9 @@
   "notes": [
     "Moosend runs outside HeyMaa (Care Direct). Update KPIs from the shared Moosend report.",
     "Meta Ads: fill impressions/clicks/spend/leads when available from Ads Manager.",
-    "Natal SMS/email bit.ly links expand to heymaa.ai (apex) with UTMs — prefer https://www.heymaa.ai to avoid apex quirks; never use heimaa.ai.",
+    "Keep bit.ly short links. Retarget destinations to www.heymaa.ai with same UTMs (SMS/SMS/Natal and Email/Email/Natal). Never use heimaa.ai.",
+    "Recommended SMS destination: https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal",
+    "Recommended Email destination: https://www.heymaa.ai/?utm_source=Email&utm_medium=Email&utm_campaign=Natal",
     "GA4 property Heymaa (553089506 / G-JDCYL7LLHS) via digital.caredirect@gmail.com — refresh ga4.traffic periodically."
   ],
   "ga4": {

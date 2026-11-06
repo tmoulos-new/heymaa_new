@@ -301,20 +301,20 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
 
     sms = next((c for c in campaign_blocks if c.get("provider") == "sms"), None)
 
-    # 1) Immediate fixes
+    # 1) Immediate fixes (shown as numbered "Do this today")
     insights.append(
-        "Action: point bit.ly Natal links at https://www.heymaa.ai (keep UTMs) — "
-        "today they expand to apex heymaa.ai; never use heimaa.ai (500)."
+        "Action: Retarget https://bit.ly/4hXfQbL → "
+        "https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal"
+    )
+    insights.append(
+        "Action: Retarget https://bit.ly/4dBUtvl → "
+        "https://www.heymaa.ai/?utm_source=Email&utm_medium=Email&utm_campaign=Natal"
     )
     if moosend and moosend.get("funnel"):
         f = moosend["funnel"]
         insights.append(
-            f"Moosend: {f['open_rate']}% open is strong; click {f['click_rate']}% "
+            f"Moosend open {f['open_rate']}% is strong; click {f['click_rate']}% "
             f"({f['unique_clicks']} people) is the bottleneck — tighten CTA + landing."
-        )
-        insights.append(
-            "Email Natal link https://bit.ly/4dBUtvl → "
-            "utm_source=Email&utm_medium=Email&utm_campaign=Natal (already tagged)."
         )
         if f.get("signup_from_click_pct") is None:
             insights.append(
