@@ -1471,6 +1471,34 @@ def render_admin_daily_report_email(
                     ("Moosend · unsub", f"{_fmt_int(f.get('unsubscribes'))} ({_fmt_pct(f.get('unsubscribe_rate'))})"),
                 ]
             )
+        elif provider == "sms":
+            short = str(camp.get("short_link") or f.get("short_link") or "bit.ly/4hXfQbL")
+            if f.get("incomplete"):
+                acq_rows.extend(
+                    [
+                        ("SMS Natal · link", short),
+                        (
+                            "SMS Natal · UTMs",
+                            "SMS / SMS / Natal",
+                        ),
+                        (
+                            "SMS · sends/clicks",
+                            "missing — paste KPIs" if lang == "en" else "λείπουν — βάλε KPIs",
+                        ),
+                        ("SMS · attributed signups", _fmt_int(camp.get("matched_signups"))),
+                    ]
+                )
+            else:
+                acq_rows.extend(
+                    [
+                        ("SMS Natal · link", short),
+                        (
+                            "SMS · sends / clicks",
+                            f"{_fmt_int(f.get('sends'))} / {_fmt_int(f.get('clicks'))}",
+                        ),
+                        ("SMS · attributed signups", _fmt_int(camp.get("matched_signups"))),
+                    ]
+                )
         elif provider == "meta":
             if f.get("incomplete"):
                 acq_rows.append(

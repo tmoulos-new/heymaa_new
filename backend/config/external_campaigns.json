@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-11-06T10:30:00+00:00",
+  "updated_at": "2026-11-06T10:20:00+00:00",
   "notes": [
     "Moosend runs outside HeyMaa (Care Direct). Update KPIs from the shared Moosend report.",
     "Meta Ads: fill impressions/clicks/spend/leads when available from Ads Manager.",
-    "Campaign SMS/email copy used heimaa.ai in one variant — that host returns 500; prefer https://www.heymaa.ai with UTMs.",
+    "Natal SMS/email bit.ly links expand to heymaa.ai (apex) with UTMs — prefer https://www.heymaa.ai to avoid apex quirks; never use heimaa.ai.",
     "GA4 property Heymaa (553089506 / G-JDCYL7LLHS) via digital.caredirect@gmail.com — refresh ga4.traffic periodically."
   ],
   "ga4": {
@@ -37,7 +37,7 @@
           "engagement_rate": 100.0
         }
       ],
-      "missing_channels": ["Email", "Paid Social", "Organic Search", "Referral", "Paid Search"]
+      "missing_channels": ["Email", "Paid Social", "Organic Search", "Referral", "Paid Search", "SMS"]
     }
   },
   "campaigns": [
@@ -45,18 +45,19 @@
       "id": "moosend_mama_data_gr_heymaa",
       "channel": "email",
       "provider": "moosend",
-      "name": "Mama Data GR HeyMaa_Emails",
+      "name": "Mama Data GR HeyMaa_Emails (Natal)",
       "subject": "Αποκλειστική Πρόσκληση: Δωρεάν Πρόσβαση Μόνο για 100 Μαμάδες!",
       "sender": "heymaa@caredirect.com",
       "started_at": "2026-10-15",
       "landing_urls": [
-        "https://www.heymaa.ai/",
-        "https://heymaa.ai/",
-        "https://bit.ly/4dbutvl"
+        "https://bit.ly/4dBUtvl",
+        "https://heymaa.ai/?utm_source=Email&utm_medium=Email&utm_campaign=Natal",
+        "https://www.heymaa.ai/?utm_source=Email&utm_medium=Email&utm_campaign=Natal"
       ],
-      "utm_source": "moosend",
-      "utm_medium": "email",
-      "utm_campaign": "mama_data_gr_first100",
+      "short_link": "https://bit.ly/4dBUtvl",
+      "utm_source": "Email",
+      "utm_medium": "Email",
+      "utm_campaign": "Natal",
       "report_url": "https://caredirectsm.moosend.com/shared-report/campaign/8e7c75b6-4445-4afc-899f-3dec9a4c0495/overview/a4593b64-29c3-57d7-93fa-fef249cf11b0/e2b13b34-61d5-4663-9ad9-fd1b123e82fe/ac4f3ed6-b7b2-4f25-8caa-cdcf558ecb13/f7d6f1fd-35dc-4e68-a550-9840e5aed46c/d5480e3a-bfd1-40f1-8f8f-ab33af83f438",
       "kpis": {
         "recipients": 1898,
@@ -70,6 +71,28 @@
         "unsubscribe_rate": 0.69,
         "bounce_rate": 0.42,
         "as_of": "2026-11-06"
+      }
+    },
+    {
+      "id": "sms_natal_heymaa",
+      "channel": "sms",
+      "provider": "sms",
+      "name": "Natal SMS → HeyMaa",
+      "started_at": "2026-10-15",
+      "landing_urls": [
+        "https://bit.ly/4hXfQbL",
+        "https://heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal",
+        "https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal"
+      ],
+      "short_link": "https://bit.ly/4hXfQbL",
+      "utm_source": "SMS",
+      "utm_medium": "SMS",
+      "utm_campaign": "Natal",
+      "kpis": {
+        "sends": null,
+        "clicks": null,
+        "as_of": null,
+        "note": "Paste SMS sends/clicks when available. Short link expands with utm_source=SMS&utm_medium=SMS&utm_campaign=Natal."
       }
     },
     {

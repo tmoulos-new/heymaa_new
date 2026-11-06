@@ -99,9 +99,17 @@ def _channel_from_acquisition(acq: Any, invite_code: Any) -> str:
         acq = {}
     source = str(acq.get("utm_source") or "").lower()
     medium = str(acq.get("utm_medium") or "").lower()
+    campaign = str(acq.get("utm_campaign") or "").lower()
     if acq.get("fbclid") or "meta" in source or "facebook" in source or "instagram" in source:
         return "meta"
-    if "moosend" in source or medium == "email" or source in ("email", "newsletter"):
+    if medium == "sms" or source == "sms" or "sms" in medium:
+        return "sms"
+    if (
+        "moosend" in source
+        or medium == "email"
+        or source in ("email", "newsletter")
+        or (campaign == "natal" and source == "email")
+    ):
         return "email_moosend"
     if acq.get("gclid") or "cpc" in medium or source == "google":
         return "google_ads"
@@ -199,17 +207,29 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         kpis = camp.get("kpis") or {}
         provider = (camp.get("provider") or "").lower()
         utm_source = (camp.get("utm_source") or "").lower()
+        utm_medium = (camp.get("utm_medium") or "").lower()
+        utm_campaign = (camp.get("utm_campaign") or "").lower()
         matched = 0
         for u in users:
             if str(u.get("role") or "").lower() == "admin":
                 continue
             acq = u.get("acquisition") if isinstance(u.get("acquisition"), dict) else {}
             ch = _channel_from_acquisition(acq, u.get("invite_code"))
+            acq_source = str(acq.get("utm_source") or "").lower()
+            acq_medium = str(acq.get("utm_medium") or "").lower()
+            acq_campaign = str(acq.get("utm_campaign") or "").lower()
             if provider == "moosend" and ch == "email_moosend":
+                matched += 1
+            elif provider == "sms" and ch == "sms":
                 matched += 1
             elif provider == "meta" and ch == "meta":
                 matched += 1
-            elif utm_source and str(acq.get("utm_source") or "").lower() == utm_source:
+            elif (
+                utm_source
+                and acq_source == utm_source
+                and (not utm_medium or acq_medium == utm_medium)
+                and (not utm_campaign or acq_campaign == utm_campaign)
+            ):
                 matched += 1
 
         block = {
@@ -219,6 +239,10 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
             "provider": provider,
             "started_at": camp.get("started_at"),
             "subject": camp.get("subject"),
+            "short_link": camp.get("short_link"),
+            "utm_source": camp.get("utm_source"),
+            "utm_medium": camp.get("utm_medium"),
+            "utm_campaign": camp.get("utm_campaign"),
             "kpis": kpis,
             "matched_signups": matched,
             "report_url": camp.get("report_url"),
@@ -238,6 +262,17 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
                 "signup_from_recipient_pct": _pct(matched, recipients) if matched else None,
                 "unsubscribes": int(kpis.get("unsubscribes") or 0),
                 "unsubscribe_rate": float(kpis.get("unsubscribe_rate") or 0),
+            }
+        elif provider == "sms":
+            sends = kpis.get("sends")
+            clicks = kpis.get("clicks")
+            block["funnel"] = {
+                "sends": sends,
+                "clicks": clicks,
+                "short_link": camp.get("short_link"),
+                "expanded": "https://heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal",
+                "signup_from_click_pct": _pct(matched, clicks) if clicks and matched else None,
+                "incomplete": sends is None and clicks is None,
             }
         elif provider == "meta":
             impressions = kpis.get("impressions")
@@ -264,10 +299,12 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
     meta = next((c for c in campaign_blocks if c.get("provider") == "meta"), None)
     traffic = (ga4.get("traffic") or {}) if ga4 else {}
 
+    sms = next((c for c in campaign_blocks if c.get("provider") == "sms"), None)
+
     # 1) Immediate fixes
     insights.append(
-        "Action: use only https://www.heymaa.ai with UTMs in Moosend/Meta/SMS — "
-        "heimaa.ai returns 500 and strips attribution."
+        "Action: point bit.ly Natal links at https://www.heymaa.ai (keep UTMs) — "
+        "today they expand to apex heymaa.ai; never use heimaa.ai (500)."
     )
     if moosend and moosend.get("funnel"):
         f = moosend["funnel"]
@@ -276,8 +313,8 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
             f"({f['unique_clicks']} people) is the bottleneck — tighten CTA + landing."
         )
         insights.append(
-            "Action (Moosend): replace bit.ly / bare links with "
-            "www.heymaa.ai/?utm_source=moosend&utm_medium=email&utm_campaign=mama_data_gr_first100"
+            "Email Natal link https://bit.ly/4dBUtvl → "
+            "utm_source=Email&utm_medium=Email&utm_campaign=Natal (already tagged)."
         )
         if f.get("signup_from_click_pct") is None:
             insights.append(
@@ -312,8 +349,13 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         if "Email" in missing and moosend:
             clicks = int((moosend.get("funnel") or {}).get("unique_clicks") or 0)
             insights.append(
-                f"GA: 0 Email vs Moosend {clicks} clicks — email traffic is collapsing into Direct "
-                "(untagged links). Fix UTMs above."
+                f"GA: 0 Email vs Moosend {clicks} clicks — UTMs exist on bit.ly/4dBUtvl but may not "
+                "survive apex redirect/session; retarget bit.ly to www.heymaa.ai with same UTMs."
+            )
+        if "SMS" in missing and sms:
+            insights.append(
+                "SMS Natal https://bit.ly/4hXfQbL → utm_source=SMS&utm_medium=SMS&utm_campaign=Natal. "
+                "GA has no SMS channel yet — paste SMS sends/clicks into config when available."
             )
         if "Paid Social" in missing:
             insights.append(
@@ -331,6 +373,16 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
                 f"Rough session→signup: {total}/{sessions} = {_pct(total, sessions)}% "
                 "(will refine once UTMs stick)."
             )
+
+    if sms:
+        sms_matched = int(sms.get("matched_signups") or 0)
+        if (sms.get("funnel") or {}).get("incomplete"):
+            insights.append(
+                "Action (SMS): paste sends/clicks for Natal SMS into external_campaigns.json; "
+                f"DB attributed SMS signups so far: {sms_matched}."
+            )
+        elif sms_matched:
+            insights.append(f"SMS-attributed signups in window: {sms_matched}.")
 
     if meta and (meta.get("funnel") or {}).get("incomplete"):
         insights.append(
