@@ -71,13 +71,13 @@ export function sanitizeAttributionSearch(search: string): string {
   try {
     const params = new URLSearchParams(raw.startsWith('?') ? raw.slice(1) : raw)
     const kept = new URLSearchParams()
-    for (const [key, value] of params.entries()) {
+    params.forEach((value, key) => {
       const k = key.toLowerCase()
-      if (!ATTRIBUTION_QUERY_KEYS.has(k)) continue
+      if (!ATTRIBUTION_QUERY_KEYS.has(k)) return
       const v = String(value || '').trim().slice(0, 200)
-      if (!v) continue
+      if (!v) return
       kept.set(k, v)
-    }
+    })
     const qs = kept.toString()
     return qs ? `?${qs}` : ''
   } catch {
