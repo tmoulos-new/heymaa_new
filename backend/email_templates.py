@@ -1224,9 +1224,9 @@ def _render_acquisition_pulse(acq: dict, *, lang: str) -> str:
                     ("Short link", str(camp.get("short_link") or "https://bit.ly/4dBUtvl")),
                 ],
                 note=(
-                    "Keep bit.ly; retarget destination to www.heymaa.ai with Email/Email/Natal UTMs."
+                    "bit.ly OK (UTMs present; apex→www keeps them). GA attribution fixed in app deploy."
                     if lang == "en"
-                    else "Κράτα bit.ly· άλλαξε destination σε www.heymaa.ai με UTMs Email/Email/Natal."
+                    else "bit.ly OK (έχει UTMs· apex→www τα κρατά). GA attribution διορθώθηκε στο deploy."
                 ),
             )
         elif provider == "sms":
@@ -1250,9 +1250,9 @@ def _render_acquisition_pulse(acq: dict, *, lang: str) -> str:
                     ("Attributed signups", _fmt_int(camp.get("matched_signups"))),
                 ],
                 note=(
-                    "Keep bit.ly for SMS length; retarget to www.heymaa.ai with SMS/SMS/Natal UTMs."
+                    "bit.ly OK for SMS. GA will attribute SMS after page_location UTM fix is live."
                     if lang == "en"
-                    else "Κράτα bit.ly για μήκος SMS· destination www.heymaa.ai με SMS/SMS/Natal."
+                    else "bit.ly OK για SMS. Το GA θα δει SMS μετά το UTM fix στο deploy."
                 ),
             )
         elif provider == "meta":

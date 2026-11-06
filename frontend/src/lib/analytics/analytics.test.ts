@@ -64,11 +64,26 @@ describe('analytics host gating', () => {
 })
 
 describe('URL sanitization', () => {
-  it('strips query and hash', () => {
+  it('strips query and hash by default', () => {
     expect(sanitizePathname('/checkout/success?t=SECRET&gift=ABC#x')).toBe('/checkout/success')
     expect(sanitizeAbsoluteUrl('https://www.heymaa.ai/app?reset=tok')).toBe(
       'https://www.heymaa.ai/app',
     )
+  })
+
+  it('keeps utm_* / click ids when asked', () => {
+    expect(
+      sanitizeAbsoluteUrl(
+        'https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal&gift=SECRET',
+        undefined,
+        { keepAttribution: true },
+      ),
+    ).toBe('https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal')
+    expect(
+      sanitizeAbsoluteUrl('https://www.heymaa.ai/app', undefined, {
+        search: '?utm_source=Email&utm_medium=Email&utm_campaign=Natal&t=TXSECRET',
+      }),
+    ).toBe('https://www.heymaa.ai/app?utm_source=Email&utm_medium=Email&utm_campaign=Natal')
   })
 
   it('templates uuid-like segments', () => {
@@ -222,9 +237,17 @@ describe('consent and event dispatch', () => {
     expect(localStorage.getItem(COOKIE_CONSENT_KEY)).toContain('"analytics":false')
   })
 
-  it('builds page context without raw queries', () => {
-    const ctx = buildSafePageContext('/app', '?gift=SECRET')
-    expect(ctx.page_path).toBe('/app')
-    expect(ctx.page_location).not.toContain('gift')
+  it('builds page context without raw secrets but with UTMs', () => {
+    const secret = buildSafePageContext('/app', '?gift=SECRET')
+    expect(secret.page_path).toBe('/app')
+    expect(secret.page_location).not.toContain('gift')
+
+    const utm = buildSafePageContext(
+      '/',
+      '?utm_source=Email&utm_medium=Email&utm_campaign=Natal&gift=SECRET',
+    )
+    expect(utm.page_location).toContain('utm_source=Email')
+    expect(utm.page_location).toContain('utm_campaign=Natal')
+    expect(utm.page_location).not.toContain('gift')
   })
 })

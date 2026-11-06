@@ -28,9 +28,12 @@ export function captureInitialReferrer(): string {
 }
 
 export function buildSafePageContext(pathname: string, search = ''): SafePageContext {
-  void search // queries never included
   const page_path = sanitizePathname(pathname)
-  const page_location = sanitizeAbsoluteUrl(`${origin()}${page_path}`, origin())
+  // Keep utm_* / click ids on page_location so GA attributes Email/SMS/Meta;
+  // still strip secrets (tokens, gift codes, etc.).
+  const page_location = sanitizeAbsoluteUrl(`${origin()}${page_path}`, origin(), {
+    search,
+  })
   const page_title = pageTitleForPath(page_path)
 
   let page_referrer = ''

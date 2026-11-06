@@ -23,6 +23,7 @@ export { revokeAnalyticsAndReload } from './revoke'
 export {
   sanitizePathname,
   sanitizeAbsoluteUrl,
+  sanitizeAttributionSearch,
   sanitizeReferrer,
   pageTitleForPath,
   shouldSkipPageViewPath,

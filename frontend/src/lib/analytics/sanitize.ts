@@ -48,11 +48,53 @@ export function pageTitleForPath(pathname: string): string {
   return PATH_TITLES[path] || 'HeyMaa'
 }
 
+/** Attribution params GA needs; everything else (tokens, gift, PII) is dropped. */
+const ATTRIBUTION_QUERY_KEYS = new Set([
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'utm_id',
+  'gclid',
+  'gbraid',
+  'wbraid',
+  'fbclid',
+  'msclkid',
+  'ttclid',
+])
+
+/** Keep only campaign/click-id query params; drop secrets and unrelated keys. */
+export function sanitizeAttributionSearch(search: string): string {
+  const raw = (search || '').trim()
+  if (!raw) return ''
+  try {
+    const params = new URLSearchParams(raw.startsWith('?') ? raw.slice(1) : raw)
+    const kept = new URLSearchParams()
+    for (const [key, value] of params.entries()) {
+      const k = key.toLowerCase()
+      if (!ATTRIBUTION_QUERY_KEYS.has(k)) continue
+      const v = String(value || '').trim().slice(0, 200)
+      if (!v) continue
+      kept.set(k, v)
+    }
+    const qs = kept.toString()
+    return qs ? `?${qs}` : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
- * Absolute URL with query/hash removed and path templated.
- * Host is taken from the URL when present, else current origin.
+ * Absolute URL with path templated.
+ * By default strips all query/hash. Pass `keepAttribution` / `search` to retain
+ * utm_* and click ids so GA can attribute Email/SMS/Meta sessions.
  */
-export function sanitizeAbsoluteUrl(raw: string, fallbackOrigin?: string): string {
+export function sanitizeAbsoluteUrl(
+  raw: string,
+  fallbackOrigin?: string,
+  opts?: { keepAttribution?: boolean; search?: string },
+): string {
   const origin =
     fallbackOrigin ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://www.heymaa.ai')
@@ -60,7 +102,10 @@ export function sanitizeAbsoluteUrl(raw: string, fallbackOrigin?: string): strin
     const base = raw && /^https?:\/\//i.test(raw) ? raw : `${origin}${raw || '/'}`
     const u = new URL(base)
     const path = sanitizePathname(u.pathname)
-    return `${u.origin}${path}`
+    const fromUrl = opts?.keepAttribution ? sanitizeAttributionSearch(u.search) : ''
+    const fromArg = opts?.search != null ? sanitizeAttributionSearch(opts.search) : ''
+    const qs = fromArg || fromUrl
+    return `${u.origin}${path}${qs}`
   } catch {
     return `${origin}${sanitizePathname(raw || '/')}`
   }

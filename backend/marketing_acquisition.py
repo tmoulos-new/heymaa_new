@@ -303,18 +303,17 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
 
     # 1) Immediate fixes (shown as numbered "Do this today")
     insights.append(
-        "Action: Retarget https://bit.ly/4hXfQbL → "
-        "https://www.heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal"
-    )
-    insights.append(
-        "Action: Retarget https://bit.ly/4dBUtvl → "
-        "https://www.heymaa.ai/?utm_source=Email&utm_medium=Email&utm_campaign=Natal"
+        "Action: Deployed fix — GA page_view now keeps utm_* on page_location "
+        "(was stripping them → Email/SMS looked like Direct). New traffic will attribute."
     )
     if moosend and moosend.get("funnel"):
         f = moosend["funnel"]
         insights.append(
             f"Moosend open {f['open_rate']}% is strong; click {f['click_rate']}% "
             f"({f['unique_clicks']} people) is the bottleneck — tighten CTA + landing."
+        )
+        insights.append(
+            "Natal links OK: bit.ly already expands with Email/SMS UTMs and apex→www keeps them."
         )
         if f.get("signup_from_click_pct") is None:
             insights.append(
@@ -349,13 +348,13 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         if "Email" in missing and moosend:
             clicks = int((moosend.get("funnel") or {}).get("unique_clicks") or 0)
             insights.append(
-                f"GA: 0 Email vs Moosend {clicks} clicks — UTMs exist on bit.ly/4dBUtvl but may not "
-                "survive apex redirect/session; retarget bit.ly to www.heymaa.ai with same UTMs."
+                f"GA: 0 Email vs Moosend {clicks} clicks historically — expected until the "
+                "page_location UTM fix is live; re-check Traffic acquisition in a few days."
             )
         if "SMS" in missing and sms:
             insights.append(
-                "SMS Natal https://bit.ly/4hXfQbL → utm_source=SMS&utm_medium=SMS&utm_campaign=Natal. "
-                "GA has no SMS channel yet — paste SMS sends/clicks into config when available."
+                "SMS Natal UTMs are on the bit.ly destination. Paste SMS sends/clicks into "
+                "external_campaigns.json when available; GA SMS channel should appear after deploy."
             )
         if "Paid Social" in missing:
             insights.append(
