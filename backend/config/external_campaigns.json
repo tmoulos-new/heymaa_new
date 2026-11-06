@@ -1,0 +1,62 @@
+{
+  "updated_at": "2026-11-06T10:00:00+00:00",
+  "notes": [
+    "Moosend runs outside HeyMaa (Care Direct). Update KPIs from the shared Moosend report.",
+    "Meta Ads: fill impressions/clicks/spend/leads when available from Ads Manager.",
+    "Campaign SMS/email copy used heimaa.ai in one variant — that host returns 500; prefer https://www.heymaa.ai with UTMs."
+  ],
+  "campaigns": [
+    {
+      "id": "moosend_mama_data_gr_heymaa",
+      "channel": "email",
+      "provider": "moosend",
+      "name": "Mama Data GR HeyMaa_Emails",
+      "subject": "Αποκλειστική Πρόσκληση: Δωρεάν Πρόσβαση Μόνο για 100 Μαμάδες!",
+      "sender": "heymaa@caredirect.com",
+      "started_at": "2026-10-15",
+      "landing_urls": [
+        "https://www.heymaa.ai/",
+        "https://heymaa.ai/",
+        "https://bit.ly/4dbutvl"
+      ],
+      "utm_source": "moosend",
+      "utm_medium": "email",
+      "utm_campaign": "mama_data_gr_first100",
+      "report_url": "https://caredirectsm.moosend.com/shared-report/campaign/8e7c75b6-4445-4afc-899f-3dec9a4c0495/overview/a4593b64-29c3-57d7-93fa-fef249cf11b0/e2b13b34-61d5-4663-9ad9-fd1b123e82fe/ac4f3ed6-b7b2-4f25-8caa-cdcf558ecb13/f7d6f1fd-35dc-4e68-a550-9840e5aed46c/d5480e3a-bfd1-40f1-8f8f-ab33af83f438",
+      "kpis": {
+        "recipients": 1898,
+        "unique_opens": 1015,
+        "total_opens": 2104,
+        "open_rate": 53.7,
+        "unique_clicks": 75,
+        "total_clicks": 88,
+        "click_rate": 3.97,
+        "unsubscribes": 13,
+        "unsubscribe_rate": 0.69,
+        "bounce_rate": 0.42,
+        "as_of": "2026-11-06"
+      }
+    },
+    {
+      "id": "meta_heymaa_oct2026",
+      "channel": "paid_social",
+      "provider": "meta",
+      "name": "HeyMaa Meta Ads (Oct 2026+)",
+      "started_at": "2026-10-15",
+      "landing_urls": ["https://www.heymaa.ai/"],
+      "utm_source": "meta",
+      "utm_medium": "paid_social",
+      "utm_campaign": "heymaa_meta_oct2026",
+      "kpis": {
+        "impressions": null,
+        "reach": null,
+        "clicks": null,
+        "ctr": null,
+        "spend_eur": null,
+        "leads": null,
+        "as_of": null,
+        "note": "Paste Ads Manager totals into this file (or META_IMPRESSIONS / META_CLICKS / META_SPEND_EUR env)."
+      }
+    }
+  ]
+}

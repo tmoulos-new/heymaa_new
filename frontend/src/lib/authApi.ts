@@ -107,6 +107,8 @@ export type RegisterPayload = {
   consent_privacy: boolean
   consent_terms: boolean
   lang?: string
+  /** First-touch UTMs / referrer for Pulse acquisition analysis */
+  acquisition?: Record<string, string | undefined>
 }
 
 export async function registerUser(payload: RegisterPayload) {

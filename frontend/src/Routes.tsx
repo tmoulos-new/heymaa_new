@@ -135,12 +135,23 @@ function AnalyticsConsentGate() {
   return <CookieConsentBanner onConsentChange={onConsentChange} />;
 }
 
+function AcquisitionCapture() {
+  const location = useLocation();
+  useEffect(() => {
+    void import("./lib/acquisition").then(({ captureAcquisitionFromUrl }) => {
+      captureAcquisitionFromUrl(location.search);
+    });
+  }, [location.search]);
+  return null;
+}
+
 export default function AppRoutes() {
   return (
     <BrowserRouter>
       <BrandFavicon />
       <SeoHead />
       <ScrollToTop />
+      <AcquisitionCapture />
       <AnalyticsConsentGate />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />

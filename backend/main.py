@@ -4108,6 +4108,8 @@ class RegisterRequest(BaseModel):
     consent_privacy: bool = False
     consent_terms: bool = False
     lang: Optional[str] = "el"
+    # First-touch UTMs / referrer (frontend acquisition.ts)
+    acquisition: Optional[dict] = None
 
 class LoginRequest(BaseModel):
     email: str
@@ -4608,7 +4610,7 @@ def register_user(req: RegisterRequest):
         from datetime import datetime, timezone
         trial_ends = _trial_ends_at_iso(datetime.now(timezone.utc))
         now = datetime.now(timezone.utc).isoformat()
-        sb.table('users').insert({
+        user_row = {
             'id': user_id,
             'email': email,
             'name': req.name,
@@ -4620,7 +4622,47 @@ def register_user(req: RegisterRequest):
             'role': None,
             'level_id': 1,
             'last_login': now,
-        }).execute()
+        }
+        clean_acq: dict = {}
+        acq = req.acquisition if isinstance(req.acquisition, dict) else None
+        if acq:
+            # Keep payload small / PII-safe (no emails in acquisition)
+            for key in (
+                'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+                'gclid', 'fbclid', 'landing_path', 'referrer', 'captured_at',
+            ):
+                val = acq.get(key)
+                if val is None:
+                    continue
+                s = str(val).strip()[:200]
+                if s:
+                    clean_acq[key] = s
+            if clean_acq:
+                user_row['acquisition'] = clean_acq
+        try:
+            sb.table('users').insert(user_row).execute()
+        except Exception as insert_err:
+            # Soft-fail if acquisition column not migrated yet
+            if 'acquisition' in user_row and (
+                'acquisition' in str(insert_err).lower() or '42703' in str(insert_err)
+            ):
+                user_row.pop('acquisition', None)
+                sb.table('users').insert(user_row).execute()
+                if clean_acq:
+                    try:
+                        sb.table('user_data').upsert(
+                            {
+                                'user_id': user_id,
+                                'key': 'acquisition',
+                                'value': clean_acq,
+                                'updated_at': now,
+                            },
+                            on_conflict='user_id,key',
+                        ).execute()
+                    except Exception:
+                        pass
+            else:
+                raise
         auth = {'kind': 'user', 'user_id': user_id, 'token': None}
         profile_fields = {
             'pregnancy_active': bool(req.pregnancy_or_mom),

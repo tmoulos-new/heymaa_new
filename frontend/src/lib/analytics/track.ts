@@ -73,9 +73,14 @@ export function trackPageView(pathname: string, search = ''): boolean {
   return ok
 }
 
-export function trackSignUp(method: 'email' = 'email'): boolean {
+export function trackSignUp(
+  method: 'email' = 'email',
+  extra?: { channel?: string },
+): boolean {
   if (method !== 'email') return false
-  return pushEvent('sign_up', { method: 'email' })
+  const params: Record<string, string> = { method: 'email' }
+  if (extra?.channel) params.channel = String(extra.channel).slice(0, 40)
+  return pushEvent('sign_up', params)
 }
 
 export function trackLogin(method: 'email' = 'email'): boolean {

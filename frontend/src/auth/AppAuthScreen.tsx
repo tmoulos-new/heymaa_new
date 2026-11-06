@@ -113,11 +113,14 @@ export function AppAuthScreen({
         setMode('login')
         return
       }
+      const { readAcquisition, acquisitionChannel } = await import('../lib/acquisition')
+      const acquisition = readAcquisition()
       const res = await registerUser({
         email: trimmedEmail,
         password,
         name: trimmedName,
         invite_code: inviteCode.trim() || undefined,
+        acquisition,
         want_child: false,
         pregnancy_or_mom: false,
         consent_marketing: newsletter,
@@ -137,7 +140,7 @@ export function AppAuthScreen({
       applyAuthUserName(res.data.token, trimmedName || res.data.name)
       try {
         const { trackSignUp } = await import('../lib/analytics')
-        trackSignUp('email')
+        trackSignUp('email', { channel: acquisitionChannel(acquisition) })
       } catch {
         /* ignore analytics failures */
       }

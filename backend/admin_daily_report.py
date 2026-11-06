@@ -10,10 +10,12 @@ try:
     from .admin_insights import build_insights, period_still_active
     from .email_templates import render_admin_daily_report_email, send_email
     from .llm_usage import list_admin_recipients
+    from .marketing_acquisition import analyze_acquisition
 except ImportError:
     from admin_insights import build_insights, period_still_active
     from email_templates import render_admin_daily_report_email, send_email
     from llm_usage import list_admin_recipients
+    from marketing_acquisition import analyze_acquisition
 
 # Automated / marketing-ish email kinds for open/click rollups
 _MARKETING_KINDS = frozenset(
@@ -685,6 +687,7 @@ def build_daily_report(sb, *, now: Optional[datetime] = None) -> dict[str, Any]:
                 for r in (series.get("llm_cost_usd") or [])[-7:]
             ],
         },
+        "acquisition": analyze_acquisition(sb, window_start="2026-10-15") if sb else {},
         "notes": notes,
     }
 

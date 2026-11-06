@@ -1145,6 +1145,7 @@ def render_admin_daily_report_email(
     ops = report.get("ops") or {}
     plans = report.get("plans") or []
     sparks = report.get("sparks") or {}
+    acq = report.get("acquisition") or {}
 
     mkt_today = email.get("marketing_today") or {}
     mkt_all = email.get("marketing_all") or {}
@@ -1163,7 +1164,7 @@ def render_admin_daily_report_email(
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Daily Pulse"
         hero_title = f"Good morning, {who}"
-        hero_sub = "Growth, money, automated marketing, and what needs you today."
+        hero_sub = "Growth, money, campaigns (Moosend/Meta), and what needs you today."
         btn = "Open live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Signups today", "DAU", "Cash today", "MRR"
         lbl_spark_users, lbl_spark_dau = "New users · 7 days", "Active users · 7 days"
@@ -1171,6 +1172,7 @@ def render_admin_daily_report_email(
         sec_cum = "Cumulative picture"
         sec_mkt = "Marketing engine"
         sec_list = "List health"
+        sec_acq = "Acquisition · what works"
         sec_drip = "Conversion drips"
         sec_ops = "Ops & support"
         sec_plans = "Plan mix"
@@ -1181,7 +1183,7 @@ def render_admin_daily_report_email(
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Ημερήσιος παλμός"
         hero_title = f"Καλημέρα, {who}"
-        hero_sub = "Ανάπτυξη, έσοδα, αυτοματοποιημένο marketing και ό,τι σε χρειάζεται σήμερα."
+        hero_sub = "Ανάπτυξη, έσοδα, campaigns (Moosend/Meta) και ό,τι σε χρειάζεται σήμερα."
         btn = "Άνοιξε live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Εγγραφές σήμερα", "DAU", "Εισπράξεις σήμερα", "MRR"
         lbl_spark_users, lbl_spark_dau = "Νέοι χρήστες · 7ημ", "Ενεργοί · 7ημ"
@@ -1189,6 +1191,7 @@ def render_admin_daily_report_email(
         sec_cum = "Αθροιστική εικόνα"
         sec_mkt = "Marketing engine"
         sec_list = "Υγεία λίστας"
+        sec_acq = "Acquisition · τι δουλεύει"
         sec_drip = "Conversion drips"
         sec_ops = "Ops & support"
         sec_plans = "Μίγμα πλάνων"
@@ -1406,6 +1409,79 @@ def render_admin_daily_report_email(
         ]
     )
 
+    # Acquisition / external campaigns (Moosend + Meta)
+    acq_rows: list[tuple[str, str]] = [
+        (
+            "Window start" if lang == "en" else "Από",
+            str(acq.get("window_start") or "2026-10-15"),
+        ),
+        (
+            "Signups in window" if lang == "en" else "Εγγραφές στο παράθυρο",
+            _fmt_int(acq.get("signups_in_window")),
+        ),
+        (
+            "Attributed share" if lang == "en" else "Με attribution",
+            _fmt_pct(acq.get("attributed_share_pct")),
+        ),
+        (
+            "Unknown source share" if lang == "en" else "Άγνωστη πηγή",
+            _fmt_pct(acq.get("unknown_share_pct")),
+        ),
+    ]
+    for ch in (acq.get("by_channel") or [])[:6]:
+        acq_rows.append(
+            (
+                f"Channel · {ch.get('channel')}",
+                f"{_fmt_int(ch.get('signups'))} ({_fmt_pct(ch.get('share_pct'))})",
+            )
+        )
+    for camp in acq.get("campaigns") or []:
+        provider = str(camp.get("provider") or camp.get("channel") or "?")
+        f = camp.get("funnel") or {}
+        if provider == "moosend":
+            acq_rows.extend(
+                [
+                    (f"Moosend · recipients", _fmt_int(f.get("recipients"))),
+                    (
+                        "Moosend · open / click",
+                        f"{_fmt_pct(f.get('open_rate'))} / {_fmt_pct(f.get('click_rate'))}",
+                    ),
+                    (
+                        "Moosend · clicks → signup",
+                        _fmt_pct(f.get("signup_from_click_pct"))
+                        if f.get("signup_from_click_pct") is not None
+                        else ("n/a until UTMs" if lang == "en" else "n/a μέχρι UTMs"),
+                    ),
+                    ("Moosend · unsub", f"{_fmt_int(f.get('unsubscribes'))} ({_fmt_pct(f.get('unsubscribe_rate'))})"),
+                ]
+            )
+        elif provider == "meta":
+            if f.get("incomplete"):
+                acq_rows.append(
+                    (
+                        "Meta Ads",
+                        "KPIs missing — fill Ads Manager" if lang == "en" else "Λείπουν KPIs — συμπλήρωσε Ads Manager",
+                    )
+                )
+            else:
+                acq_rows.extend(
+                    [
+                        ("Meta · impressions / clicks", f"{_fmt_int(f.get('impressions'))} / {_fmt_int(f.get('clicks'))}"),
+                        ("Meta · spend", _fmt_eur(f.get("spend_eur"))),
+                        ("Meta · attributed signups", _fmt_int(camp.get("matched_signups"))),
+                    ]
+                )
+    insight_html = ""
+    for line in (acq.get("insights") or [])[:6]:
+        insight_html += (
+            f'<div style="font-family:{font};font-size:13px;color:{TEXT_SOFT};'
+            f'line-height:1.55;margin:0 0 8px;padding-left:10px;border-left:3px solid {TEAL};">'
+            f'{escape(str(line))}</div>'
+        )
+    acq_body = _pair_rows(acq_rows) + (
+        f'<div style="margin-top:14px;">{insight_html}</div>' if insight_html else ""
+    )
+
     plan_rows = [(str(p.get("name") or "?"), _fmt_int(p.get("users"))) for p in plans[:8]]
     plans_html = _section_panel(sec_plans, _pair_rows(plan_rows), accent="#E8A87C") if plan_rows else ""
 
@@ -1431,6 +1507,7 @@ def render_admin_daily_report_email(
         + _alert_ribbon(alerts, lang=lang)
         + sparks_panel
         + _section_panel(sec_cum, cum_body, accent=NAVY, eyebrow="Snapshot")
+        + _section_panel(sec_acq, acq_body, accent="#7C5CBF", eyebrow="Growth")
         + _section_panel(sec_list, list_body, accent=TEAL, eyebrow="Audience")
         + _section_panel(sec_mkt, mkt_body, accent="#5B7CFA", eyebrow="Automation")
         + _section_panel(sec_drip, drip_body, accent="#C97B84", eyebrow="Funnel")
