@@ -82,33 +82,59 @@ def logo_attachment() -> Optional[dict]:
         _logo_attachment_cache = None
         return None
 
+    # Resend: content_id → inline cid:… image (shows without “download images”).
+    # Prefer byte list per SDK; content_type helps clients that ignore filename.
     _logo_attachment_cache = {
         "filename": LOGO_FILENAME,
-        "content": base64.b64encode(raw).decode("ascii"),
-        "content_id": LOGO_CID,
+        "content": list(raw),
         "content_type": "image/png",
+        "content_id": LOGO_CID,
     }
     return _logo_attachment_cache
 
 
 def _hosted_logo_src() -> str:
-    """Public HTTPS logo URL — most reliable in Gmail/Outlook when images load."""
+    """Public HTTPS logo URL (always www — many clients refuse image redirects from apex)."""
     explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
     if explicit:
         return explicit
-    base = (os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
-    return f"{base}/static/brand/{LOGO_FILENAME}"
+    # Never use apex heymaa.ai here: 308 → www breaks in Gmail/Outlook image proxies.
+    return f"{DEFAULT_APP_URL}/static/brand/{LOGO_FILENAME}"
 
 
 def _logo_src() -> str:
-    """Prefer inline CID when the PNG is bundled; else hosted URL."""
+    """Prefer inline CID when the PNG is bundled; else hosted www URL."""
     if logo_attachment():
         return f"cid:{LOGO_CID}"
     return _hosted_logo_src()
 
 
+def _logo_img_tag(*, width: int, height: int, extra_style: str = "") -> str:
+    """Visible logo: CID first (shows without 'download images'), hosted www as fallback."""
+    hosted = escape(_hosted_logo_src(), quote=True)
+    style = (
+        f"display:block;width:{width}px;height:{height}px;border-radius:50%;border:0;outline:none;"
+        + (extra_style or "")
+    )
+    if logo_attachment():
+        cid = escape(f"cid:{LOGO_CID}", quote=True)
+        # Primary = embedded; remote www as secondary for clients that strip CID.
+        return (
+            f'<img src="{cid}" width="{width}" height="{height}" alt="HeyMaa" '
+            f'style="{style}" />'
+            f'<!--[if !mso]><!-->'
+            f'<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
+            f'<img src="{hosted}" width="1" height="1" alt="" />'
+            f"</div>"
+            f"<!--<![endif]-->"
+        )
+    return (
+        f'<img src="{hosted}" width="{width}" height="{height}" alt="HeyMaa" '
+        f'style="{style}" />'
+    )
+
+
 def _brand_header() -> str:
-    logo = escape(_logo_src(), quote=True)
     font = _font()
     return f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:{NAVY};border-radius:16px 16px 0 0;">
@@ -117,8 +143,7 @@ def _brand_header() -> str:
       <table role="presentation" cellspacing="0" cellpadding="0">
         <tr>
           <td valign="middle" style="padding-right:10px;">
-            <img src="{logo}" width="36" height="36" alt="HeyMaa"
-              style="display:block;width:36px;height:36px;border-radius:50%;border:0;outline:none;" />
+            {_logo_img_tag(width=36, height=36)}
           </td>
           <td valign="middle" style="font-family:{font};font-size:22px;font-weight:600;color:#ffffff;line-height:1;">
             Hey<span style="color:{PEACH};">Maa</span>
@@ -947,7 +972,6 @@ def _report_shell(body_html: str, *, preheader: str = "") -> str:
             f"{escape(preheader)}</div>"
         )
     font = _font()
-    logo = escape(_hosted_logo_src(), quote=True)
     # Deep navy atmosphere — not flat cream, not purple-AI
     bg = "#151B2E"
     return f"""<!DOCTYPE html>
@@ -966,8 +990,9 @@ def _report_shell(body_html: str, *, preheader: str = "") -> str:
         <tr><td>{body_html}</td></tr>
         <tr>
           <td align="center" style="padding:22px 8px 0;">
-            <img src="{logo}" width="28" height="28" alt="HeyMaa"
-              style="display:inline-block;width:28px;height:28px;border-radius:50%;border:0;vertical-align:middle;margin-right:8px;" />
+            <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
+              {_logo_img_tag(width=28, height=28, extra_style="display:inline-block;vertical-align:middle;")}
+            </span>
             <span style="font-family:{font};font-size:11px;color:rgba(245,240,235,0.45);line-height:28px;vertical-align:middle;">
               HeyMaa Pulse · Care Direct · {escape(SUPPORT_EMAIL)}
             </span>
@@ -1392,10 +1417,12 @@ def render_admin_daily_report_email(
     camp_all = email.get("campaign_all") or {}
 
     font = _font()
-    # Hosted URL + CID both work; hosted is primary so the mark always paints in inbox.
-    logo_hosted = escape(_hosted_logo_src(), quote=True)
-    logo_cid = escape(f"cid:{LOGO_CID}", quote=True) if logo_attachment() else logo_hosted
     who = escape(_display_name(name, lang))
+    logo_html = _logo_img_tag(
+        width=72,
+        height=72,
+        extra_style="border:2px solid rgba(248,229,214,0.55);box-shadow:0 8px 28px rgba(0,0,0,0.28);margin:0 auto 14px;",
+    )
 
     if lang == "en":
         subject = f"HeyMaa Pulse · {date_label}"
@@ -1464,21 +1491,14 @@ def render_admin_daily_report_email(
         if cancels:
             alerts.append(f"{cancels} εκκρεμείς ακυρώσεις")
 
-    # Hero — brand logo is the first visual (hosted URL so Gmail always paints it)
+    # Hero — embed logo via CID so it shows without remote "download images"
     hero = f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
   style="background:linear-gradient(165deg,#1A2340 0%,#2B3A67 55%,#1F7A6C 140%);
   border-radius:22px 22px 0 0;overflow:hidden;">
   <tr>
     <td align="center" style="padding:32px 28px 10px;">
-      <img src="{logo_hosted}" width="72" height="72" alt="HeyMaa"
-        style="display:block;width:72px;height:72px;border-radius:50%;border:2px solid rgba(248,229,214,0.55);
-        box-shadow:0 8px 28px rgba(0,0,0,0.28);margin:0 auto 14px;outline:none;" />
-      <!--[if !mso]><!-->
-      <div style="display:none;max-height:0;overflow:hidden;">
-        <img src="{logo_cid}" width="1" height="1" alt="" />
-      </div>
-      <!--<![endif]-->
+      {logo_html}
       <div style="font-family:{font};font-size:28px;font-weight:700;color:#ffffff;line-height:1;margin:0 0 6px;">
         Hey<span style="color:{PEACH};">Maa</span>
       </div>
@@ -2178,11 +2198,7 @@ def send_email(
 
 
 def _logo_url_for_batch() -> str:
-    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
-    if explicit:
-        return explicit
-    base = (os.getenv("APP_URL") or DEFAULT_APP_URL).rstrip("/")
-    return f"{base}/static/brand/{LOGO_FILENAME}"
+    return _hosted_logo_src()
 
 
 def _tag_pairs_for_send(
