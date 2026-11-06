@@ -118,6 +118,7 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
     """Break down signups since campaign window by stored acquisition + invite."""
     external = load_external_campaigns()
     start = _parse_dt(window_start) or datetime(2026, 10, 15, tzinfo=timezone.utc)
+    ga4 = external.get("ga4") if isinstance(external.get("ga4"), dict) else {}
     out: dict[str, Any] = {
         "window_start": start.date().isoformat(),
         "signups_in_window": 0,
@@ -125,6 +126,7 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         "attributed_share_pct": 0.0,
         "unknown_share_pct": 0.0,
         "campaigns": [],
+        "ga4": ga4,
         "insights": [],
         "notes": list(external.get("notes") or []),
     }
@@ -256,22 +258,30 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         campaign_blocks.append(block)
     out["campaigns"] = campaign_blocks
 
-    # Narrative insights (what works)
+    # Narrative insights — prioritize actionable advice (Pulse shows up to 12)
     insights: list[str] = []
     moosend = next((c for c in campaign_blocks if c.get("provider") == "moosend"), None)
+    meta = next((c for c in campaign_blocks if c.get("provider") == "meta"), None)
+    traffic = (ga4.get("traffic") or {}) if ga4 else {}
+
+    # 1) Immediate fixes
+    insights.append(
+        "Action: use only https://www.heymaa.ai with UTMs in Moosend/Meta/SMS — "
+        "heimaa.ai returns 500 and strips attribution."
+    )
     if moosend and moosend.get("funnel"):
         f = moosend["funnel"]
         insights.append(
-            f"Moosend: {f['open_rate']}% open is strong for cold/warm list; "
-            f"click {f['click_rate']}% ({f['unique_clicks']} people) is the real funnel bottleneck."
+            f"Moosend: {f['open_rate']}% open is strong; click {f['click_rate']}% "
+            f"({f['unique_clicks']} people) is the bottleneck — tighten CTA + landing."
         )
         insights.append(
-            f"Moosend click-to-open {f['click_to_open_pct']}% — improve CTA/landing clarity "
-            f"(use www.heymaa.ai/?utm_source=moosend&utm_medium=email&utm_campaign=mama_data_gr_first100)."
+            "Action (Moosend): replace bit.ly / bare links with "
+            "www.heymaa.ai/?utm_source=moosend&utm_medium=email&utm_campaign=mama_data_gr_first100"
         )
         if f.get("signup_from_click_pct") is None:
             insights.append(
-                "Cannot yet attribute Moosend → registrations in DB (UTM capture just added). "
+                f"Moosend→signup not attributable in DB yet (UTMs just added). "
                 f"Window signups since {out['window_start']}: {total}."
             )
         else:
@@ -281,14 +291,51 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
             )
         if f.get("unsubscribe_rate", 0) > 0.5:
             insights.append(
-                f"Unsubscribe {f['unsubscribe_rate']}% ({f['unsubscribes']}) — watch list fatigue."
+                f"Watch list fatigue: unsubscribe {f['unsubscribe_rate']}% ({f['unsubscribes']})."
             )
 
-    meta = next((c for c in campaign_blocks if c.get("provider") == "meta"), None)
+    if traffic.get("sessions"):
+        sessions = int(traffic["sessions"])
+        eng = traffic.get("engagement_rate")
+        key_ev = traffic.get("key_events")
+        by_ch = traffic.get("by_channel") or []
+        ch_bits = ", ".join(
+            f"{c.get('channel')} {c.get('sessions')} ({c.get('share_pct')}%)" for c in by_ch[:4]
+        )
+        insights.append(
+            f"GA4 ({ga4.get('window_start')}→{ga4.get('window_end')}): "
+            f"{sessions} sessions, {eng}% engaged"
+            + (f"; {ch_bits}" if ch_bits else "")
+            + "."
+        )
+        missing = traffic.get("missing_channels") or []
+        if "Email" in missing and moosend:
+            clicks = int((moosend.get("funnel") or {}).get("unique_clicks") or 0)
+            insights.append(
+                f"GA: 0 Email vs Moosend {clicks} clicks — email traffic is collapsing into Direct "
+                "(untagged links). Fix UTMs above."
+            )
+        if "Paid Social" in missing:
+            insights.append(
+                "GA: 0 Paid Social — Meta either off or untagged "
+                "(Organic Social 27 sessions look like unpaid shares). Tag Meta landings with "
+                "utm_source=meta&utm_medium=paid_social."
+            )
+        if key_ev == 0:
+            insights.append(
+                "Action (GA): mark sign_up as a key event (Admin → Events) or fire it from GTM "
+                "so channel → registration shows in Analytics."
+            )
+        if total and sessions:
+            insights.append(
+                f"Rough session→signup: {total}/{sessions} = {_pct(total, sessions)}% "
+                "(will refine once UTMs stick)."
+            )
+
     if meta and (meta.get("funnel") or {}).get("incomplete"):
         insights.append(
-            "Meta Ads KPIs missing — paste from Ads Manager into "
-            "backend/config/external_campaigns.json or META_IMPRESSIONS/META_CLICKS/META_SPEND_EUR."
+            "Action (Meta): paste Ads Manager impressions/clicks/spend into "
+            "backend/config/external_campaigns.json (or META_* env vars) for Pulse ROI."
         )
     elif meta and meta.get("matched_signups"):
         insights.append(
@@ -297,20 +344,16 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
 
     if total and out["unknown_share_pct"] > 70:
         insights.append(
-            f"{out['unknown_share_pct']}% of signups since {out['window_start']} have no UTM/referrer yet — "
-            "attribution improves for new signups after this deploy."
+            f"{out['unknown_share_pct']}% of signups since {out['window_start']} have no UTM yet — "
+            "new signups after UTM deploy will attribute."
         )
 
-    # Ranking channels by signup volume
     if out["by_channel"]:
         top = out["by_channel"][0]
         insights.append(
-            f"Top recorded channel in window: {top['channel']} "
+            f"Top recorded DB channel: {top['channel']} "
             f"({top['signups']} signups, {top['share_pct']}%)."
         )
 
-    insights.append(
-        "Fix: avoid heimaa.ai in SMS/email — that host errors; always use https://www.heymaa.ai with UTMs."
-    )
     out["insights"] = insights
     return out

@@ -1435,6 +1435,22 @@ def render_admin_daily_report_email(
                 f"{_fmt_int(ch.get('signups'))} ({_fmt_pct(ch.get('share_pct'))})",
             )
         )
+    ga4 = acq.get("ga4") or {}
+    ga_traffic = ga4.get("traffic") or {}
+    if ga_traffic.get("sessions"):
+        acq_rows.append(
+            (
+                "GA4 · sessions / engaged",
+                f"{_fmt_int(ga_traffic.get('sessions'))} / {_fmt_pct(ga_traffic.get('engagement_rate'))}",
+            )
+        )
+        for gch in (ga_traffic.get("by_channel") or [])[:4]:
+            acq_rows.append(
+                (
+                    f"GA4 · {gch.get('channel')}",
+                    f"{_fmt_int(gch.get('sessions'))} ({_fmt_pct(gch.get('share_pct'))})",
+                )
+            )
     for camp in acq.get("campaigns") or []:
         provider = str(camp.get("provider") or camp.get("channel") or "?")
         f = camp.get("funnel") or {}
@@ -1471,16 +1487,21 @@ def render_admin_daily_report_email(
                         ("Meta · attributed signups", _fmt_int(camp.get("matched_signups"))),
                     ]
                 )
+    insight_lines = list(acq.get("insights") or [])[:12]
     insight_html = ""
-    for line in (acq.get("insights") or [])[:6]:
-        insight_html += (
-            f'<div style="font-family:{font};font-size:13px;color:{TEXT_SOFT};'
-            f'line-height:1.55;margin:0 0 8px;padding-left:10px;border-left:3px solid {TEAL};">'
-            f'{escape(str(line))}</div>'
+    if insight_lines:
+        advice_label = "Advice · what to do next" if lang == "en" else "Συμβουλές · επόμενα βήματα"
+        insight_html = (
+            f'<div style="font-family:{font};font-size:11px;font-weight:700;letter-spacing:1.2px;'
+            f'text-transform:uppercase;color:{TEAL};margin:16px 0 10px;">{escape(advice_label)}</div>'
         )
-    acq_body = _pair_rows(acq_rows) + (
-        f'<div style="margin-top:14px;">{insight_html}</div>' if insight_html else ""
-    )
+        for line in insight_lines:
+            insight_html += (
+                f'<div style="font-family:{font};font-size:13px;color:{TEXT_SOFT};'
+                f'line-height:1.55;margin:0 0 8px;padding-left:10px;border-left:3px solid {TEAL};">'
+                f'{escape(str(line))}</div>'
+            )
+    acq_body = _pair_rows(acq_rows) + insight_html
 
     plan_rows = [(str(p.get("name") or "?"), _fmt_int(p.get("users"))) for p in plans[:8]]
     plans_html = _section_panel(sec_plans, _pair_rows(plan_rows), accent="#E8A87C") if plan_rows else ""

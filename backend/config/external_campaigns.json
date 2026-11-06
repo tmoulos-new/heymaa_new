@@ -1,10 +1,45 @@
 {
-  "updated_at": "2026-11-06T10:00:00+00:00",
+  "updated_at": "2026-11-06T10:30:00+00:00",
   "notes": [
     "Moosend runs outside HeyMaa (Care Direct). Update KPIs from the shared Moosend report.",
     "Meta Ads: fill impressions/clicks/spend/leads when available from Ads Manager.",
-    "Campaign SMS/email copy used heimaa.ai in one variant — that host returns 500; prefer https://www.heymaa.ai with UTMs."
+    "Campaign SMS/email copy used heimaa.ai in one variant — that host returns 500; prefer https://www.heymaa.ai with UTMs.",
+    "GA4 property Heymaa (553089506 / G-JDCYL7LLHS) via digital.caredirect@gmail.com — refresh ga4.traffic periodically."
   ],
+  "ga4": {
+    "property_id": "553089506",
+    "account_id": "407690621",
+    "measurement_id": "G-JDCYL7LLHS",
+    "gtm_container": "GTM-N39D5NBV",
+    "window_start": "2026-10-15",
+    "window_end": "2026-11-05",
+    "as_of": "2026-11-06",
+    "traffic": {
+      "sessions": 120,
+      "engaged_sessions": 111,
+      "engagement_rate": 92.5,
+      "avg_engagement_sec": 51,
+      "event_count": 1021,
+      "key_events": 0,
+      "by_channel": [
+        {
+          "channel": "Direct",
+          "sessions": 93,
+          "share_pct": 77.5,
+          "engaged_sessions": 84,
+          "engagement_rate": 90.32
+        },
+        {
+          "channel": "Organic Social",
+          "sessions": 27,
+          "share_pct": 22.5,
+          "engaged_sessions": 27,
+          "engagement_rate": 100.0
+        }
+      ],
+      "missing_channels": ["Email", "Paid Social", "Organic Search", "Referral", "Paid Search"]
+    }
+  },
   "campaigns": [
     {
       "id": "moosend_mama_data_gr_heymaa",
