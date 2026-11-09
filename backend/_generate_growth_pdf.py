@@ -172,6 +172,44 @@ def _section_title(c, x, y, text):
     c.line(x, y - 2 * mm, x + 18 * mm, y - 2 * mm)
 
 
+def _wrap(c, text: str, font: str, size: float, max_w: float) -> list[str]:
+    words = str(text or "").split()
+    lines: list[str] = []
+    cur = ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if c.stringWidth(trial, font, size) <= max_w:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines or [""]
+
+
+def _bullet_block(c, x, y, width, lines: list[str], *, max_w=None) -> float:
+    """Draw wrapped bullets; return new y."""
+    mw = max_w or (width - 40 * mm)
+    for raw in lines:
+        wrapped = _wrap(c, raw, "Helvetica", 9, mw - 6 * mm)
+        need = 5 * mm + len(wrapped) * 4 * mm
+        if y - need < 22 * mm:
+            break
+        _rounded_rect(c, x, y - need, width - 36 * mm, need, r=5, fill=CREAM)
+        c.setFillColor(TEAL)
+        c.circle(x + 5 * mm, y - 5 * mm, 1.4 * mm, fill=1, stroke=0)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica", 9)
+        ty = y - 5.5 * mm
+        for ln in wrapped:
+            c.drawString(x + 9 * mm, ty, ln)
+            ty -= 4 * mm
+        y -= need + 2.5 * mm
+    return y
+
+
 def build_pdf(out_path: Path) -> Path:
     _load_env()
     from main import ensure_supabase, sb
@@ -198,18 +236,23 @@ def build_pdf(out_path: Path) -> Path:
     acq_insights = [str(x) for x in (acq.get("insights") or []) if str(x).strip()][:8]
 
     width, height = A4
-    pages = 4
+    pages = 6
     generated = now.strftime("%d %b %Y %H:%M UTC")
     title_date = now.strftime("%d %B %Y")
+    email_camp = next((c for c in campaigns if (c.get("provider") or "").lower() == "moosend"), None)
+    sms_camp = next((c for c in campaigns if (c.get("provider") or "").lower() == "sms"), None)
     meta_camp = next((c for c in campaigns if (c.get("provider") or "").lower() == "meta"), None)
     meta_ads = []
+    ga4 = {}
     try:
         from marketing_acquisition import load_external_campaigns
 
+        ext = load_external_campaigns()
+        ga4 = ext.get("ga4") or {}
         raw_meta = next(
             (
                 c
-                for c in (load_external_campaigns().get("campaigns") or [])
+                for c in (ext.get("campaigns") or [])
                 if (c.get("provider") or "").lower() == "meta"
             ),
             None,
@@ -311,22 +354,23 @@ def build_pdf(out_path: Path) -> Path:
     _draw_footer(c, width, 1, pages, generated)
     c.showPage()
 
-    # ── Page 2: Engagement & acquisition ─────────────────────────────
-    _draw_header(c, width, height, "Engagement & acquisition", title_date)
+    # ── Page 2: Funnel + channels ─────────────────────────────────────
+    _draw_header(c, width, height, "Funnel & attribution", title_date)
     y = height - 52 * mm
     _section_title(c, 18 * mm, y, "Product funnel")
     y -= 8 * mm
     funnel_rows = [
         ("Total users", h.get("total_users")),
-        ("Users with chat", funnel.get("users_with_chat")),
-        ("Active trials", funnel.get("trial_active")),
-        ("Memories saved", funnel.get("total_memories")),
-        ("Drip enrollments", msg.get("drip_enrolled_total")),
-        ("Drip emails sent", msg.get("drip_email_total")),
-        ("Marketing opt-ins", msg.get("marketing_consent_on")),
-        ("Gift claims", msg.get("gift_claims_total")),
+        ("Users with chat", funnel.get("users_with_chat") or cum.get("users_with_chat")),
+        ("Active trials", funnel.get("trial_active") or cum.get("trial_active")),
+        ("Paying active", cum.get("paying_active")),
+        ("Memories saved", funnel.get("total_memories") or cum.get("total_memories")),
+        ("Drip enrollments", msg.get("drip_enrolled_total") or cum.get("drip_enrolled_total")),
+        ("Drip emails sent", msg.get("drip_email_total") or cum.get("drip_email_total")),
+        ("Marketing opt-ins", msg.get("marketing_consent_on") or cum.get("marketing_consent_on")),
+        ("Gift claims", msg.get("gift_claims_total") or cum.get("gift_claims_total")),
     ]
-    row_h = 8 * mm
+    row_h = 7.5 * mm
     table_top = y
     for i, (lab, val) in enumerate(funnel_rows):
         yy = table_top - (i + 1) * row_h
@@ -335,275 +379,295 @@ def build_pdf(out_path: Path) -> Path:
         c.rect(18 * mm, yy, width - 36 * mm, row_h, fill=1, stroke=0)
         c.setFillColor(NAVY)
         c.setFont("Helvetica", 9)
-        c.drawString(22 * mm, yy + 2.6 * mm, lab)
+        c.drawString(22 * mm, yy + 2.4 * mm, lab)
         c.setFont("Helvetica-Bold", 9)
-        c.drawRightString(width - 22 * mm, yy + 2.6 * mm, _fmt_int(val))
+        c.drawRightString(width - 22 * mm, yy + 2.4 * mm, _fmt_int(val))
     y = table_top - len(funnel_rows) * row_h - 12 * mm
 
-    _section_title(c, 18 * mm, y, "Signup channels · since Oct 15")
+    _section_title(c, 18 * mm, y, "Signup channels · since 15 Oct 2026")
     y -= 8 * mm
     if channels:
         max_share = max(float(ch.get("share_pct") or 0) for ch in channels) or 1
-        for ch in channels[:6]:
+        for ch in channels[:8]:
             lab = _channel_label(str(ch.get("channel") or ""))
             share = float(ch.get("share_pct") or 0)
             signups = int(ch.get("signups") or 0)
-            bar_max = width - 70 * mm
+            bar_max = width - 78 * mm
             bw = bar_max * (share / max_share)
             c.setFillColor(NAVY)
-            c.setFont("Helvetica", 9)
-            c.drawString(18 * mm, y, lab)
+            c.setFont("Helvetica", 8.5)
+            c.drawString(18 * mm, y, lab[:34])
             c.setFillColor(SOFT)
-            c.roundRect(55 * mm, y - 1 * mm, bar_max, 5 * mm, 2, fill=1, stroke=0)
+            c.roundRect(62 * mm, y - 1 * mm, bar_max, 5 * mm, 2, fill=1, stroke=0)
             c.setFillColor(TEAL)
-            c.roundRect(55 * mm, y - 1 * mm, max(bw, 1), 5 * mm, 2, fill=1, stroke=0)
+            c.roundRect(62 * mm, y - 1 * mm, max(bw, 1), 5 * mm, 2, fill=1, stroke=0)
             c.setFillColor(MUTED)
             c.setFont("Helvetica", 8)
             c.drawRightString(width - 18 * mm, y, f"{signups} · {_fmt_pct(share)}")
-            y -= 9 * mm
-    else:
-        c.setFillColor(MUTED)
-        c.setFont("Helvetica", 9)
-        c.drawString(18 * mm, y, "No channel attribution yet.")
-        y -= 10 * mm
-
+            y -= 8.5 * mm
+    y -= 4 * mm
+    _section_title(c, 18 * mm, y, "How to read “Unattributed”")
     y -= 6 * mm
-    _section_title(c, 18 * mm, y, "Plan mix")
-    y -= 8 * mm
-    if plans:
-        for p in plans:
-            name = str(p.get("name") or "?")
-            users = int(p.get("users") or 0)
-            c.setFillColor(NAVY)
-            c.setFont("Helvetica", 9)
-            c.drawString(18 * mm, y, name)
-            c.setFont("Helvetica-Bold", 9)
-            c.drawRightString(width - 18 * mm, y, _fmt_int(users))
-            y -= 7 * mm
-    else:
-        c.setFillColor(MUTED)
-        c.setFont("Helvetica", 9)
-        c.drawString(18 * mm, y, "No plan breakdown available.")
-        y -= 8 * mm
-
-    y -= 8 * mm
-    _section_title(c, 18 * mm, y, "External campaigns")
-    y -= 8 * mm
-    for camp in campaigns[:3]:
-        name = str(camp.get("name") or "Campaign")
-        provider = str(camp.get("provider") or "").title()
-        kpis = camp.get("kpis") or {}
-        _rounded_rect(c, 18 * mm, y - 28 * mm, width - 36 * mm, 26 * mm, r=7, fill=SOFT)
-        c.setFillColor(NAVY)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(24 * mm, y - 8 * mm, name[:70])
-        c.setFillColor(TEAL)
-        c.setFont("Helvetica", 8)
-        c.drawString(24 * mm, y - 13 * mm, provider)
-        bits = []
-        if kpis.get("recipients") is not None:
-            bits.append(f"Recipients {_fmt_int(kpis.get('recipients'))}")
-        if kpis.get("open_rate") is not None:
-            bits.append(f"Open {_fmt_pct(kpis.get('open_rate'))}")
-        if kpis.get("click_rate") is not None:
-            bits.append(f"Click {_fmt_pct(kpis.get('click_rate'))}")
-        if kpis.get("unique_clicks") is not None:
-            bits.append(f"Clicks {_fmt_int(kpis.get('unique_clicks'))}")
-        if kpis.get("note"):
-            bits.append(str(kpis.get("note"))[:90])
-        c.setFillColor(MUTED)
-        c.setFont("Helvetica", 8)
-        c.drawString(24 * mm, y - 20 * mm, " · ".join(bits)[:110] or "KPIs pending")
-        y -= 32 * mm
-
+    y = _bullet_block(
+        c,
+        18 * mm,
+        y,
+        width,
+        [
+            "Most signups still show as Unattributed — empty acquisition {}, not proven Direct typed-URL traffic.",
+            "GA historically stripped UTMs from page_location (fixed). Email/SMS/Meta will attribute better on new traffic.",
+            "Mama Data Bitly was removed 8 Nov 19:53; direct Email UTMs should appear in GA going forward.",
+            "Daily Pulse now goes only to: sotiropoulos.y / kapranou.n / boikos.y / gad.g @caredirect.com.",
+        ],
+    )
     _draw_footer(c, width, 2, pages, generated)
     c.showPage()
 
-    # ── Page 3: Meta Ads + pixel verification ────────────────────────
-    _draw_header(c, width, height, "Meta Ads & Pixel", title_date)
+    # ── Page 3: Email Moosend ─────────────────────────────────────────
+    _draw_header(c, width, height, "Email · Mama Data (Moosend)", title_date)
     y = height - 52 * mm
-    _section_title(c, 18 * mm, y, "Kickoff OA · Ads Manager snapshot")
+    ef = (email_camp or {}).get("funnel") or {}
+    _section_title(c, 18 * mm, y, "Natal invite email · live Moosend KPIs")
     y -= 8 * mm
-    mk = (meta_camp or {}).get("kpis") or {}
     cards = [
-        ("Spend", _fmt_eur(mk.get("spend_eur") or 100.21), "FB + IG"),
-        ("Impressions", _fmt_int(mk.get("impressions") or 24778), "delivery"),
-        ("Reach", _fmt_int(mk.get("reach") or 10004), "unique people"),
-        ("Ads Mgr results", _fmt_int(mk.get("leads") or 0), "Complete Reg / Subscribe"),
+        ("Recipients", _fmt_int(ef.get("recipients")), "delivered list"),
+        ("Open rate", _fmt_pct(ef.get("open_rate")), f"{_fmt_int(ef.get('unique_opens'))} unique"),
+        ("Click rate", _fmt_pct(ef.get("click_rate")), f"{_fmt_int(ef.get('unique_clicks'))} unique"),
+        ("DB signups", _fmt_int((email_camp or {}).get("matched_signups")), "Email UTMs stored"),
     ]
-    card_w, card_h, gap = 42 * mm, 24 * mm, 4 * mm
     for i, (lab, val, hint) in enumerate(cards):
         _kpi_card(c, 18 * mm + i * (card_w + gap), y - card_h, card_w, card_h, lab, val, hint)
     y -= card_h + 12 * mm
 
-    _section_title(c, 18 * mm, y, "By ad")
+    _section_title(c, 18 * mm, y, "Funnel math")
     y -= 8 * mm
-    ad_rows = meta_ads or [
-        {
-            "name": "Heymaa_Kickoff_OA_FB",
-            "placement": "facebook",
-            "optimization_event": "Complete Registration",
-            "spend_eur": 11.43,
-            "impressions": 3154,
-            "reach": 1670,
-            "results": 0,
-            "budget_daily_eur": 2.0,
-        },
-        {
-            "name": "Heymaa_Kickoff_OA_IG",
-            "placement": "instagram",
-            "optimization_event": "Website Subscribe",
-            "spend_eur": 88.78,
-            "impressions": 21624,
-            "reach": 8334,
-            "results": 0,
-            "budget_daily_eur": 4.0,
-        },
+    email_rows = [
+        ("Click-to-open", f"{_fmt_pct(ef.get('click_to_open_pct'))}"),
+        ("Signup from click", f"{_fmt_pct(ef.get('signup_from_click_pct'))}"),
+        ("Signup from recipient", f"{_fmt_pct(ef.get('signup_from_recipient_pct'))}"),
+        ("Unsubscribe rate", f"{_fmt_pct(ef.get('unsubscribe_rate'))} ({_fmt_int(ef.get('unsubscribes'))})"),
+        ("Subject", str((email_camp or {}).get("name") or "Mama Data GR HeyMaa_Emails")),
+        ("UTMs", "utm_source=Email · utm_medium=Email · utm_campaign=Natal"),
     ]
-    for ad in ad_rows:
-        _rounded_rect(c, 18 * mm, y - 32 * mm, width - 36 * mm, 30 * mm, r=7, fill=SOFT)
-        c.setFillColor(NAVY)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(24 * mm, y - 9 * mm, str(ad.get("name") or "Ad")[:60])
-        c.setFillColor(TEAL)
-        c.setFont("Helvetica", 8)
-        c.drawString(
-            24 * mm,
-            y - 14 * mm,
-            f"{str(ad.get('placement') or '').title()} · optimizes for {ad.get('optimization_event')}",
-        )
-        c.setFillColor(MUTED)
-        c.setFont("Helvetica", 8)
-        c.drawString(
-            24 * mm,
-            y - 20 * mm,
-            f"Spend {_fmt_eur(ad.get('spend_eur'))}  ·  "
-            f"Impr {_fmt_int(ad.get('impressions'))}  ·  "
-            f"Reach {_fmt_int(ad.get('reach'))}  ·  "
-            f"Budget {_fmt_eur(ad.get('budget_daily_eur'))}/day",
-        )
-        c.setFillColor(NAVY)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(
-            24 * mm,
-            y - 26 * mm,
-            f"Ads Manager results: {_fmt_int(ad.get('results'))}  "
-            f"(Cost/result: —)",
-        )
-        y -= 36 * mm
-
-    y -= 2 * mm
-    _section_title(c, 18 * mm, y, "Pixel verification")
-    y -= 8 * mm
-    first_party = int(mk.get("first_party_meta_signups") or 3)
-    verify_lines = [
-        f"Ads Manager reports 0 Complete Registration (FB) and 0 Website Subscribe (IG).",
-        f"HeyMaa DB shows {first_party} Meta-attributed signups with fbclid after 6 Nov "
-        f"(2× utm_source=fb, 1× utm_source=ig).",
-        "Conclusion: people did register from Meta ads — the Pixel did not report the "
-        "conversion event Meta optimizes on.",
-        "App fires dataLayer sign_up (GTM/GA). It did not call fbq CompleteRegistration "
-        "until the fix shipped with this report refresh.",
-        "IG ad optimizes for Website Subscribe (newsletter-style) while signup is better "
-        "mapped to Complete Registration — align ad set optimization with Pixel events.",
-    ]
-    for line in verify_lines:
-        words = line.split()
-        wrapped = []
-        cur = ""
-        max_w = width - 40 * mm
-        for w in words:
-            trial = (cur + " " + w).strip()
-            if c.stringWidth(trial, "Helvetica", 9) <= max_w:
-                cur = trial
-            else:
-                wrapped.append(cur)
-                cur = w
-        if cur:
-            wrapped.append(cur)
-        need = 6 * mm + len(wrapped) * 4 * mm
-        if y - need < 22 * mm:
-            break
-        _rounded_rect(c, 18 * mm, y - need, width - 36 * mm, need, r=6, fill=CREAM)
+    for i, (lab, val) in enumerate(email_rows):
+        yy = y - (i + 1) * 7.5 * mm
+        c.setFillColor(SOFT if i % 2 == 0 else white)
+        c.rect(18 * mm, yy, width - 36 * mm, 7.5 * mm, fill=1, stroke=0)
         c.setFillColor(NAVY)
         c.setFont("Helvetica", 9)
-        ty = y - 5.5 * mm
-        for ln in wrapped:
-            c.drawString(24 * mm, ty, ln)
-            ty -= 4 * mm
-        y -= need + 3 * mm
+        c.drawString(22 * mm, yy + 2.4 * mm, lab)
+        c.setFont("Helvetica-Bold", 8.5)
+        c.drawRightString(width - 22 * mm, yy + 2.4 * mm, str(val)[:55])
+    y -= len(email_rows) * 7.5 * mm + 10 * mm
 
+    _section_title(c, 18 * mm, y, "Manager takeaways · Email")
+    y -= 6 * mm
+    y = _bullet_block(
+        c,
+        18 * mm,
+        y,
+        width,
+        [
+            "Opens are excellent (~54%) — the list responds to the invite story.",
+            "Clicks (~3.9%) and attributed signups (1) are the bottleneck — CTA + landing need work.",
+            "Moosend Top Links were still Bitly-heavy historically (78 vs 6 direct). Direct UTMs are live after 8 Nov.",
+            "Expect GA Email channel and more attributed signups only after new clicks on non-Bitly links.",
+        ],
+    )
     _draw_footer(c, width, 3, pages, generated)
     c.showPage()
 
-    # ── Page 4: Recommendations ──────────────────────────────────────
-    _draw_header(c, width, height, "Priorities", title_date)
+    # ── Page 4: SMS ───────────────────────────────────────────────────
+    _draw_header(c, width, height, "SMS · HEYMAA", title_date)
     y = height - 52 * mm
-    _section_title(c, 18 * mm, y, "What to do next")
-    y -= 10 * mm
-
-    defaults = [
-        "Map GTM sign_up → Meta Pixel CompleteRegistration (and align IG ad set away from Website Subscribe).",
-        "Keep UTMs on every Meta / SMS / email landing so unattributed stops dominating.",
-        "Tighten Natal email CTA — opens are strong; clicks and attributed signups are the bottleneck.",
-        "Move trials → paid with a clear mid-trial nudge (drip is already enrolling users).",
-        "Mark sign_up as a GA4 key event so channel → registration is visible in Analytics.",
+    sf = (sms_camp or {}).get("funnel") or {}
+    _section_title(c, 18 * mm, y, "Campaign window 16 Oct – 7 Nov 2026")
+    y -= 8 * mm
+    cards = [
+        ("SMS sends", _fmt_int(sf.get("sends") or 136), "SMS HEYMAA"),
+        ("Clicks", "TBD" if sf.get("clicks") is None else _fmt_int(sf.get("clicks")), "short-link"),
+        ("DB signups", _fmt_int((sms_camp or {}).get("matched_signups") or 0), "utm_source=SMS"),
+        ("Landing UTMs", "Natal", "SMS / SMS / Natal"),
     ]
-    items = acq_insights[:6] if acq_insights else defaults
-    for i, raw in enumerate(items, 1):
-        text = raw.strip()
-        if text.lower().startswith("action:"):
-            text = text.split(":", 1)[1].strip()
-        box_h = 18 * mm
-        # estimate wrap height lightly
-        words = text.split()
-        lines = []
-        line = ""
-        max_w = width - 55 * mm
-        for w in words:
-            trial = (line + " " + w).strip()
-            if c.stringWidth(trial, "Helvetica", 9) <= max_w:
-                line = trial
-            else:
-                lines.append(line)
-                line = w
-        if line:
-            lines.append(line)
-        box_h = max(16 * mm, 8 * mm + len(lines) * 4.2 * mm)
-        if y - box_h < 24 * mm:
-            break
-        _rounded_rect(c, 18 * mm, y - box_h, width - 36 * mm, box_h, r=7, fill=CREAM)
-        c.setFillColor(TEAL)
-        c.circle(26 * mm, y - box_h / 2, 4.2 * mm, fill=1, stroke=0)
-        c.setFillColor(white)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(26 * mm, y - box_h / 2 - 1.2 * mm, str(i))
+    for i, (lab, val, hint) in enumerate(cards):
+        _kpi_card(c, 18 * mm + i * (card_w + gap), y - card_h, card_w, card_h, lab, val, hint)
+    y -= card_h + 12 * mm
+
+    _section_title(c, 18 * mm, y, "Setup")
+    y -= 8 * mm
+    sms_rows = [
+        ("Name", str((sms_camp or {}).get("name") or "SMS HEYMAA")),
+        ("Short link", str(sf.get("short_link") or "https://bit.ly/4hXfQbL")),
+        ("Expands to", str(sf.get("expanded") or "heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal")),
+        ("Window", "16/10/2026 → 07/11/2026"),
+        ("As of", "07/11/2026"),
+    ]
+    for i, (lab, val) in enumerate(sms_rows):
+        yy = y - (i + 1) * 8 * mm
+        c.setFillColor(SOFT if i % 2 == 0 else white)
+        c.rect(18 * mm, yy, width - 36 * mm, 8 * mm, fill=1, stroke=0)
         c.setFillColor(NAVY)
         c.setFont("Helvetica", 9)
-        ty = y - 7 * mm
-        for ln in lines[:5]:
-            c.drawString(34 * mm, ty, ln)
-            ty -= 4.2 * mm
-        y -= box_h + 4 * mm
+        c.drawString(22 * mm, yy + 2.6 * mm, lab)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawRightString(width - 22 * mm, yy + 2.6 * mm, str(val)[:58])
+    y -= len(sms_rows) * 8 * mm + 10 * mm
 
-    y -= 4 * mm
-    if y > 40 * mm:
-        _section_title(c, 18 * mm, y, "Revenue posture")
-        y -= 10 * mm
+    _section_title(c, 18 * mm, y, "Manager takeaways · SMS")
+    y -= 6 * mm
+    y = _bullet_block(
+        c,
+        18 * mm,
+        y,
+        width,
+        [
+            "136 SMS sent in the Natal window — volume is modest vs email (2.1k recipients).",
+            "Zero SMS-attributed signups in DB so far — likely UTMs lost via short-link / GA strip (now fixed) or no click-through.",
+            "Next: capture Bitly click count for the SMS link, and confirm landing always keeps utm_source=SMS.",
+            "Reuse best-performing email CTA language in SMS for a second wave if list allows.",
+        ],
+    )
+    _draw_footer(c, width, 4, pages, generated)
+    c.showPage()
+
+    # ── Page 5: Meta Ads + Pixel ──────────────────────────────────────
+    _draw_header(c, width, height, "Meta Ads & Pixel", title_date)
+    y = height - 52 * mm
+    _section_title(c, 18 * mm, y, "Kickoff OA · Ads Manager")
+    y -= 8 * mm
+    mk = (meta_camp or {}).get("funnel") or (meta_camp or {}).get("kpis") or {}
+    # funnel from analyze_acquisition uses spend etc; also fall back
+    if not mk.get("spend_eur"):
+        mk = (meta_camp or {}).get("kpis") or mk
+    cards = [
+        ("Spend", _fmt_eur(mk.get("spend_eur") or 100.21), "FB + IG"),
+        ("Impressions", _fmt_int(mk.get("impressions") or 24778), "delivery"),
+        ("Reach", _fmt_int(mk.get("reach") or 10004), "people"),
+        ("Ads Mgr results", _fmt_int(mk.get("leads") or 0), "optim. events"),
+    ]
+    for i, (lab, val, hint) in enumerate(cards):
+        _kpi_card(c, 18 * mm + i * (card_w + gap), y - card_h, card_w, card_h, lab, val, hint)
+    y -= card_h + 10 * mm
+
+    _section_title(c, 18 * mm, y, "By ad")
+    y -= 7 * mm
+    ad_rows = meta_ads or []
+    for ad in ad_rows:
         _rounded_rect(c, 18 * mm, y - 28 * mm, width - 36 * mm, 26 * mm, r=7, fill=SOFT)
         c.setFillColor(NAVY)
-        c.setFont("Helvetica", 9)
-        rev = report.get("revenue") or {}
-        c.drawString(24 * mm, y - 10 * mm, f"Recognized MRR: {_fmt_eur(rev.get('recognized_mrr_eur'))}")
-        c.drawString(24 * mm, y - 16 * mm, f"Cash · 30 days: {_fmt_eur(rev.get('cash_30d_eur'))}  ·  Lifetime: {_fmt_eur(rev.get('cash_lifetime_eur'))}")
-        c.setFillColor(MUTED)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(24 * mm, y - 8 * mm, str(ad.get("name") or "Ad")[:58])
+        c.setFillColor(TEAL)
+        c.setFont("Helvetica", 8)
         c.drawString(
             24 * mm,
-            y - 22 * mm,
-            "Growth is user- and engagement-led; monetization is the next chapter.",
+            y - 13 * mm,
+            f"{str(ad.get('placement') or '').title()} · {ad.get('optimization_event')}",
         )
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 8)
+        c.drawString(
+            24 * mm,
+            y - 19 * mm,
+            f"Spend {_fmt_eur(ad.get('spend_eur'))} · Impr {_fmt_int(ad.get('impressions'))} · "
+            f"Reach {_fmt_int(ad.get('reach'))} · {_fmt_eur(ad.get('budget_daily_eur'))}/day",
+        )
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(24 * mm, y - 24 * mm, f"Ads Manager results: {_fmt_int(ad.get('results'))}")
+        y -= 31 * mm
 
-    _draw_footer(c, width, 4, pages, generated)
+    _section_title(c, 18 * mm, y, "Pixel reality check")
+    y -= 6 * mm
+    first_party = int(((meta_camp or {}).get("kpis") or {}).get("first_party_meta_signups") or (meta_camp or {}).get("matched_signups") or 3)
+    y = _bullet_block(
+        c,
+        18 * mm,
+        y,
+        width,
+        [
+            f"Ads Manager: 0 Complete Registration / Website Subscribe. First-party DB: {first_party} Meta signups (fbclid).",
+            "Root cause was missing Pixel CompleteRegistration on signup — fix shipped; also fire Subscribe for IG.",
+            "Events Manager flagged heymaa.ai as Health & wellness — category review requested 9 Nov (EU data risk).",
+            "heymaa.ai added to Pixel allow list; Automatic Advanced Matching turned On (EMQ was ~6/10).",
+            f"Rough Meta CPA on first-party signups: {_fmt_eur(mk.get('cost_per_signup_eur') or (100.21 / max(first_party, 1)))} "
+            f"(spend ÷ DB Meta signups) — not Ads Manager CPA.",
+        ],
+    )
+    _draw_footer(c, width, 5, pages, generated)
+    c.showPage()
+
+    # ── Page 6: GA + priorities ───────────────────────────────────────
+    _draw_header(c, width, height, "Analytics & next moves", title_date)
+    y = height - 52 * mm
+    _section_title(c, 18 * mm, y, "GA4 snapshot (last saved)")
+    y -= 8 * mm
+    gt = (ga4.get("traffic") or {})
+    cards = [
+        ("Sessions", _fmt_int(gt.get("sessions") or 120), f"{ga4.get('window_start')}→{ga4.get('window_end')}"),
+        ("Engaged", _fmt_pct(gt.get("engagement_rate") or 92.5), f"{_fmt_int(gt.get('engaged_sessions'))} sessions"),
+        ("Direct share", "77.5%", "UTMs were stripped"),
+        ("Key events", _fmt_int(gt.get("key_events") or 0), "sign_up not marked"),
+    ]
+    for i, (lab, val, hint) in enumerate(cards):
+        _kpi_card(c, 18 * mm + i * (card_w + gap), y - card_h, card_w, card_h, lab, val, hint)
+    y -= card_h + 10 * mm
+
+    missing = ", ".join((gt.get("missing_channels") or ["Email", "SMS", "Paid Social"])[:6])
+    c.setFillColor(MUTED)
+    c.setFont("Helvetica", 8)
+    c.drawString(18 * mm, y, f"Channels still missing in GA window: {missing}")
+    y -= 10 * mm
+
+    _section_title(c, 18 * mm, y, "Priorities for the next 2 weeks")
+    y -= 8 * mm
+    defaults = [
+        "Wait for Meta health-category review; keep CompleteRegistration + Subscribe firing on signup.",
+        "Confirm Mama Data CTAs are direct www.heymaa.ai with Email UTMs (no Bitly) — re-check GA Email channel.",
+        "Pull Bitly/SMS click count for the 136 sends; retarget non-clickers if possible.",
+        "Mark GA4 sign_up as a key event so channel → registration is visible.",
+        "Tighten email CTA — opens are strong; clicks/signups are the conversion hole.",
+        "Align IG ad optimization to Complete Registration (not Website Subscribe).",
+        "Push trial→paid: drips are enrolling — watch mid-trial conversion copy.",
+    ]
+    items = defaults
+    for i, text in enumerate(items, 1):
+        lines = _wrap(c, text, "Helvetica", 9, width - 55 * mm)
+        box_h = max(14 * mm, 7 * mm + len(lines) * 4 * mm)
+        if y - box_h < 28 * mm:
+            break
+        _rounded_rect(c, 18 * mm, y - box_h, width - 36 * mm, box_h, r=6, fill=CREAM)
+        c.setFillColor(TEAL)
+        c.circle(26 * mm, y - box_h / 2, 3.8 * mm, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(26 * mm, y - box_h / 2 - 1.1 * mm, str(i))
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica", 9)
+        ty = y - 6 * mm
+        for ln in lines:
+            c.drawString(34 * mm, ty, ln)
+            ty -= 4 * mm
+        y -= box_h + 3 * mm
+
+    if y > 36 * mm:
+        _section_title(c, 18 * mm, y, "Revenue posture")
+        y -= 8 * mm
+        rev = report.get("revenue") or {}
+        _rounded_rect(c, 18 * mm, y - 22 * mm, width - 36 * mm, 20 * mm, r=7, fill=SOFT)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica", 9)
+        c.drawString(24 * mm, y - 8 * mm, f"Recognized MRR: {_fmt_eur(rev.get('recognized_mrr_eur') or cum.get('recognized_mrr_eur'))}")
+        c.drawString(
+            24 * mm,
+            y - 14 * mm,
+            f"Cash · 30d: {_fmt_eur(rev.get('cash_30d_eur'))}  ·  Lifetime: {_fmt_eur(rev.get('cash_lifetime_eur') or cum.get('cash_lifetime_eur'))}",
+        )
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 8)
+        c.drawString(24 * mm, y - 19 * mm, "Growth is acquisition- and engagement-led; paid conversion is the next chapter.")
+
+    _draw_footer(c, width, 6, pages, generated)
     c.save()
     return out_path
 
@@ -613,7 +677,7 @@ def main() -> None:
     out_dir = root / "docs" / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    out = out_dir / f"Heymaa_Growth_Report_{stamp}_v2.pdf"
+    out = out_dir / f"Heymaa_Growth_Report_{stamp}_manager.pdf"
     path = build_pdf(out)
     print(str(path))
 
