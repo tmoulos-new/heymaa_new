@@ -1278,7 +1278,7 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
                 "note": "Best practice: ≤1 marketing email / week / user; ≤1 drip push / 3 days.",
             },
             "triggers": {
-                "cron": "POST /cron/conversion-drips (daily; needs CRON_SECRET on Hobby/Pro)",
+                "cron": "GET|POST /cron/conversion-drips (daily; needs CRON_SECRET on Hobby/Pro)",
                 "auth_status": (
                     f"Background tick on /auth/status ~every {_OPPORTUNISTIC_MIN_MINUTES}m "
                     "when someone uses the app (Hobby-safe backup)"
@@ -1539,7 +1539,7 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
                 raise HTTPException(status_code=503, detail=_MISSING) from e
             raise HTTPException(status_code=500, detail=str(e)[:200]) from e
 
-    @app.post("/cron/conversion-drips")
+    @app.api_route("/cron/conversion-drips", methods=["GET", "POST"])
     async def cron_conversion_drips(
         request: Request,
         x_cron_secret: Optional[str] = Header(None, alias="x-cron-secret"),
@@ -1547,6 +1547,7 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
     ):
         """Vercel cron (or manual) tick: enroll + send due steps + admin daily report.
 
+        Vercel Cron issues GET to this path; keep POST for manual/ops triggers.
         Hobby allows one cron — the daily admin digest rides along after drips.
         """
         expected = (os.getenv("CRON_SECRET") or os.getenv("VERCEL_CRON_SECRET") or "").strip()
