@@ -1285,7 +1285,7 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
                 ),
                 "admin": "Admin → Conversion drips → Run tick now",
             },
-            "cron_hint": "POST /cron/conversion-drips with header x-cron-secret",
+            "cron_hint": "GET|POST /cron/conversion-drips with Authorization: Bearer CRON_SECRET",
         }
 
     @app.get("/admin/drips")
