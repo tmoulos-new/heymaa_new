@@ -1429,7 +1429,6 @@ def render_admin_daily_report_email(
     camp_all = email.get("campaign_all") or {}
 
     font = _font()
-    who = escape(_display_name(name, lang))
     logo_html = _logo_img_tag(
         width=72,
         height=72,
@@ -1439,7 +1438,7 @@ def render_admin_daily_report_email(
     if lang == "en":
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Daily Pulse"
-        hero_title = f"Good morning, {who}"
+        hero_title = f"HeyMaa report · {date_label}"
         hero_sub = "Today’s numbers, then what to fix on campaigns."
         btn = "Open live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Signups today", "DAU", "Cash today", "MRR"
@@ -1457,7 +1456,7 @@ def render_admin_daily_report_email(
     else:
         subject = f"HeyMaa Pulse · {date_label}"
         hero_kicker = "Ημερήσιος παλμός"
-        hero_title = f"Καλημέρα, {who}"
+        hero_title = f"Αναφορά HeyMaa · {date_label}"
         hero_sub = "Οι αριθμοί της ημέρας, μετά τι να διορθώσεις στα campaigns."
         btn = "Άνοιξε live Insights"
         lbl_signups, lbl_dau, lbl_cash, lbl_mrr = "Εγγραφές σήμερα", "DAU", "Εισπράξεις σήμερα", "MRR"
