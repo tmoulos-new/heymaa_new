@@ -95,12 +95,21 @@ def load_external_campaigns() -> dict[str, Any]:
 
 
 def _channel_from_acquisition(acq: Any, invite_code: Any) -> str:
+    """Map stored first-touch payload → channel.
+
+    Important: empty acquisition is **unattributed** (we never captured source),
+    not proven “typed the URL” Direct traffic.
+    """
     if not isinstance(acq, dict):
         acq = {}
     source = str(acq.get("utm_source") or "").lower()
     medium = str(acq.get("utm_medium") or "").lower()
     campaign = str(acq.get("utm_campaign") or "").lower()
-    if acq.get("fbclid") or "meta" in source or "facebook" in source or "instagram" in source:
+    referrer = str(acq.get("referrer") or "").lower()
+    if acq.get("fbclid") or "meta" in source or "facebook" in source or "instagram" in source or source in (
+        "fb",
+        "ig",
+    ):
         return "meta"
     if medium == "sms" or source == "sms" or "sms" in medium:
         return "sms"
@@ -117,9 +126,13 @@ def _channel_from_acquisition(acq: Any, invite_code: Any) -> str:
         return source[:40]
     if invite_code:
         return "invite"
-    if acq.get("referrer"):
+    # bit.ly / short links without UTMs kept on landing — not a true “referral site”
+    if "bit.ly" in referrer or "bitly" in referrer:
+        return "shortlink_unknown"
+    if referrer:
         return "referral"
-    return "direct_unknown"
+    # No UTMs, no click ids, no referrer, no invite → we simply don't know.
+    return "unattributed"
 
 
 def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, Any]:
@@ -179,7 +192,7 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         acq = u.get("acquisition") if isinstance(u.get("acquisition"), dict) else {}
         ch = _channel_from_acquisition(acq, u.get("invite_code"))
         counts[ch] += 1
-        if ch not in ("direct_unknown",):
+        if ch not in ("unattributed", "shortlink_unknown", "direct_unknown"):
             attributed += 1
         status = (u.get("subscription_status") or "").lower()
         plan = (u.get("plan_id") or u.get("plan") or "").lower()
@@ -199,7 +212,12 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         for ch, n in counts.most_common()
     ]
     out["attributed_share_pct"] = _pct(attributed, total)
-    out["unknown_share_pct"] = _pct(counts.get("direct_unknown", 0), total)
+    unknown_n = (
+        int(counts.get("unattributed") or 0)
+        + int(counts.get("shortlink_unknown") or 0)
+        + int(counts.get("direct_unknown") or 0)
+    )
+    out["unknown_share_pct"] = _pct(unknown_n, total)
 
     # Enrich each external campaign with funnel math vs window signups
     campaign_blocks = []
@@ -395,14 +413,18 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
 
     if total and out["unknown_share_pct"] > 70:
         insights.append(
-            f"{out['unknown_share_pct']}% of signups since {out['window_start']} have no UTM yet — "
-            "new signups after UTM deploy will attribute."
+            f"{out['unknown_share_pct']}% of signups since {out['window_start']} are "
+            "unattributed (empty acquisition {}) — not proven Direct typed-URL traffic. "
+            "First-party UTM capture shipped 2026-11-06; older rows cannot be recovered."
         )
 
     if out["by_channel"]:
         top = out["by_channel"][0]
+        label = top["channel"]
+        if label in ("unattributed", "direct_unknown"):
+            label = "unattributed (no stored source)"
         insights.append(
-            f"Top recorded DB channel: {top['channel']} "
+            f"Top recorded DB channel: {label} "
             f"({top['signups']} signups, {top['share_pct']}%)."
         )
 
