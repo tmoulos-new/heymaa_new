@@ -1,7 +1,9 @@
 """Daily administrator + marketing email digest."""
 from __future__ import annotations
 
+import json
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -692,15 +694,94 @@ def build_daily_report(sb, *, now: Optional[datetime] = None) -> dict[str, Any]:
     }
 
 
+PULSE_RECIPIENTS_KEY = "pulse_report_recipients"
+_PULSE_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_pulse_recipients(raw: Any) -> list[dict[str, str]]:
+    """Accept list of emails or {email,name} dicts; de-dupe case-insensitively."""
+    items: list[Any]
+    if isinstance(raw, dict):
+        items = raw.get("emails") if isinstance(raw.get("emails"), list) else []
+    elif isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, str):
+        items = [p.strip() for p in raw.replace(";", ",").split(",")]
+    else:
+        items = []
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        email = ""
+        name = ""
+        if isinstance(item, str):
+            email = item.strip().lower()
+        elif isinstance(item, dict):
+            email = str(item.get("email") or "").strip().lower()
+            name = str(item.get("name") or "").strip()
+        if not email or not _PULSE_EMAIL_RE.match(email) or email in seen:
+            continue
+        seen.add(email)
+        out.append({"email": email, "name": name})
+    return out
+
+
+def load_pulse_recipients(sb) -> tuple[list[dict[str, str]], bool]:
+    """Return (recipients, configured). configured=True when a DB list was saved."""
+    if not sb:
+        return [], False
+    try:
+        res = (
+            sb.table("chat_prompt_settings")
+            .select("content")
+            .eq("key", PULSE_RECIPIENTS_KEY)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return [], False
+        content = (rows[0].get("content") or "").strip()
+        if not content:
+            return [], True
+        try:
+            parsed = json.loads(content)
+        except Exception:
+            parsed = content
+        return _normalize_pulse_recipients(parsed), True
+    except Exception:
+        return [], False
+
+
+def save_pulse_recipients(
+    sb,
+    emails: Any,
+    *,
+    updated_by: Optional[str] = None,
+) -> list[dict[str, str]]:
+    """Persist Pulse recipient list. Empty list is allowed (sends to nobody)."""
+    if not sb:
+        raise RuntimeError("Database not configured")
+    cleaned = _normalize_pulse_recipients(emails)
+    payload = {
+        "key": PULSE_RECIPIENTS_KEY,
+        "content": json.dumps({"emails": cleaned}, ensure_ascii=False),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if updated_by:
+        payload["updated_by"] = updated_by
+    sb.table("chat_prompt_settings").upsert(payload).execute()
+    return cleaned
+
+
 def resolve_report_recipients(sb) -> list[dict[str, str]]:
-    """ADMIN_REPORT_EMAILS (comma-separated) overrides role=admin users."""
+    """Prefer admin-panel list, then ADMIN_REPORT_EMAILS env, then role=admin users."""
+    db_list, configured = load_pulse_recipients(sb)
+    if configured:
+        return db_list
     raw = (os.getenv("ADMIN_REPORT_EMAILS") or "").strip()
     if raw:
-        out = []
-        for part in raw.split(","):
-            email = part.strip().lower()
-            if email and "@" in email:
-                out.append({"email": email, "name": ""})
+        out = _normalize_pulse_recipients(raw)
         if out:
             return out
     return list_admin_recipients(sb)
@@ -769,7 +850,11 @@ def send_admin_daily_report(
         }
     recipients = resolve_report_recipients(sb)
     if not recipients:
-        return {"ok": False, "error": "No admin recipients", "report_date": report["report_date"]}
+        return {
+            "ok": False,
+            "error": "No Pulse recipients — set them under Admin → Emails → Daily Pulse recipients",
+            "report_date": report["report_date"],
+        }
 
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
     from_address = _resolved_resend_from()

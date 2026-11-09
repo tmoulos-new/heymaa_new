@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { BarChart3, Download, Eye, ImagePlus, Link2, Mail, RefreshCw, Send, Trash2 } from 'lucide-react'
+import {
+  BarChart3,
+  Download,
+  Eye,
+  ImagePlus,
+  Link2,
+  Mail,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+} from 'lucide-react'
 import { FieldLabel, useFlashMessage } from '../components/ui'
 import { ComposerPreview } from '../components/ComposerPreview'
 import { CampaignReportModal } from '../components/CampaignReportModal'
@@ -33,6 +44,15 @@ type MailStatus = {
   max_per_send?: number
   webhook_secret_set?: boolean
   webhook_url?: string
+}
+
+type PulseRecipient = { email: string; name?: string }
+
+type PulseRecipientsState = {
+  configured?: boolean
+  emails?: PulseRecipient[]
+  source?: string
+  hint?: string
 }
 
 type PreviewState = {
@@ -90,6 +110,13 @@ function deliverySummary(item: Campaign) {
   return parts.join(' · ')
 }
 
+function normalizePulseDraft(raw: string): string[] {
+  return raw
+    .split(/[\n,;]+/)
+    .map((p) => p.trim().toLowerCase())
+    .filter((p) => p.includes('@'))
+}
+
 export function EmailsTab() {
   const { adminFetch, uploadImage } = useAdmin()
   const { show, Message } = useFlashMessage()
@@ -98,6 +125,12 @@ export function EmailsTab() {
   const [includeButton, setIncludeButton] = useState(false)
   const [url, setUrl] = useState('/app')
   const [buttonLabel, setButtonLabel] = useState('Open HeyMaa')
+  const [pulseEmails, setPulseEmails] = useState<string[]>([])
+  const [pulseDraft, setPulseDraft] = useState('')
+  const [pulseHint, setPulseHint] = useState('')
+  const [pulseConfigured, setPulseConfigured] = useState(false)
+  const [pulseSaving, setPulseSaving] = useState(false)
+  const [pulseSending, setPulseSending] = useState(false)
   const [images, setImages] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [audience, setAudience] = useState<'selected' | 'all' | 'plan'>('selected')
@@ -244,6 +277,20 @@ export function EmailsTab() {
     }
   }
 
+  const loadPulse = async () => {
+    try {
+      const d = (await adminFetch('/admin/pulse-recipients')) as PulseRecipientsState
+      const emails = ((d.emails as PulseRecipient[]) || [])
+        .map((r) => String(r.email || '').trim().toLowerCase())
+        .filter(Boolean)
+      setPulseEmails(emails)
+      setPulseConfigured(Boolean(d.configured))
+      setPulseHint(String(d.hint || ''))
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Could not load Pulse recipients', 'err')
+    }
+  }
+
   const load = async () => {
     setLoading(true)
     try {
@@ -272,6 +319,7 @@ export function EmailsTab() {
   }, [fromDate, toDate])
 
   useEffect(() => {
+    void loadPulse()
     void adminFetch('/admin/emails/reports/kinds')
       .then((d) => {
         const kinds = (d.kinds as Array<{ id: string; label: string }>) || []
@@ -291,6 +339,63 @@ export function EmailsTab() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const addPulseEmails = () => {
+    const next = normalizePulseDraft(pulseDraft)
+    if (!next.length) {
+      show('Add at least one valid email', 'err')
+      return
+    }
+    setPulseEmails((prev) => Array.from(new Set([...prev, ...next])))
+    setPulseDraft('')
+  }
+
+  const savePulse = async () => {
+    setPulseSaving(true)
+    try {
+      const d = (await adminFetch('/admin/pulse-recipients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: pulseEmails }),
+      })) as PulseRecipientsState
+      const emails = ((d.emails as PulseRecipient[]) || [])
+        .map((r) => String(r.email || '').trim().toLowerCase())
+        .filter(Boolean)
+      setPulseEmails(emails)
+      setPulseConfigured(true)
+      setPulseHint('Pulse goes only to this list.')
+      show(
+        emails.length
+          ? `Pulse will go to ${emails.length} ${emails.length === 1 ? 'address' : 'addresses'}`
+          : 'Saved empty list — Pulse will not email anyone until you add addresses',
+        'ok',
+      )
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Could not save Pulse recipients', 'err')
+    } finally {
+      setPulseSaving(false)
+    }
+  }
+
+  const sendPulseNow = async () => {
+    if (!window.confirm('Send today’s Pulse now to the saved recipient list?')) return
+    setPulseSending(true)
+    try {
+      const d = await adminFetch('/admin/pulse-recipients/send-now', { method: 'POST' })
+      const sent = (d.sent as string[]) || []
+      if (d.skipped) {
+        show(String(d.reason || 'Skipped'), 'ok')
+      } else if (sent.length) {
+        show(`Pulse sent to ${sent.join(', ')}`, 'ok')
+      } else {
+        show(String(d.error || (d.errors || []).join('; ') || 'Nothing sent'), 'err')
+      }
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'Pulse send failed', 'err')
+    } finally {
+      setPulseSending(false)
+    }
+  }
 
   useEffect(() => {
     if (!includeButton || ctaSources.length > 0 || ctaSourcesLoading) return
@@ -497,6 +602,80 @@ export function EmailsTab() {
               ? ' · opens/clicks webhook set'
               : ''}
         </p>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <BarChart3 size={18} />
+            Daily Pulse recipients
+          </h2>
+        </div>
+        <p className="card-desc">
+          Who gets the daily growth Pulse email. Once you save a list here, Pulse goes only to these
+          addresses — not to every admin account.
+        </p>
+        {pulseHint ? (
+          <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+            {pulseConfigured ? 'Custom list · ' : 'Not saved yet · '}
+            {pulseHint}
+          </p>
+        ) : null}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {pulseEmails.length === 0 ? (
+            <span className="muted" style={{ fontSize: 13 }}>
+              No addresses yet
+            </span>
+          ) : (
+            pulseEmails.map((email) => (
+              <span
+                key={email}
+                className="badge badge-muted"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {email}
+                <button
+                  type="button"
+                  className="ghost sm"
+                  aria-label={`Remove ${email}`}
+                  onClick={() => setPulseEmails((prev) => prev.filter((e) => e !== email))}
+                  style={{ padding: 0, minWidth: 0, lineHeight: 1 }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+
+        <FieldLabel>Add emails</FieldLabel>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <textarea
+            value={pulseDraft}
+            onChange={(e) => setPulseDraft(e.target.value)}
+            placeholder="one@example.com, two@example.com"
+            rows={2}
+            style={{ flex: '1 1 240px', minWidth: 200 }}
+          />
+          <button type="button" className="sec" onClick={addPulseEmails}>
+            <Plus size={14} /> Add
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          <button type="button" className="pri" disabled={pulseSaving} onClick={() => void savePulse()}>
+            {pulseSaving ? 'Saving…' : 'Save Pulse list'}
+          </button>
+          <button
+            type="button"
+            className="sec"
+            disabled={pulseSending || !pulseConfigured || pulseEmails.length === 0}
+            onClick={() => void sendPulseNow()}
+          >
+            {pulseSending ? 'Sending…' : 'Send Pulse now'}
+          </button>
+        </div>
       </div>
 
       {setupError ? (

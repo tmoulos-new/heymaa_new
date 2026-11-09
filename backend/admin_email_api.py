@@ -650,6 +650,75 @@ def register_email_routes(app: FastAPI) -> None:
             from .email_analytics import transactional_kind_options
         return {"kinds": transactional_kind_options()}
 
+    @app.get("/admin/pulse-recipients")
+    async def admin_get_pulse_recipients(x_token: Optional[str] = Header(None)):
+        """Who receives the daily Pulse digest (editable list)."""
+        _require_admin(x_token)
+        try:
+            from admin_daily_report import load_pulse_recipients, resolve_report_recipients
+        except ImportError:
+            from .admin_daily_report import load_pulse_recipients, resolve_report_recipients
+        sb = _main().sb
+        saved, configured = load_pulse_recipients(sb)
+        effective = resolve_report_recipients(sb)
+        return {
+            "configured": configured,
+            "emails": saved if configured else effective,
+            "effective": effective,
+            "source": "custom" if configured else "admins_fallback",
+            "hint": (
+                "Pulse goes only to this list."
+                if configured
+                else "Not saved yet — Pulse currently goes to admin users (or ADMIN_REPORT_EMAILS)."
+            ),
+        }
+
+    class PulseRecipientsBody(BaseModel):
+        emails: list[Any] = Field(default_factory=list)
+
+    @app.put("/admin/pulse-recipients")
+    async def admin_put_pulse_recipients(
+        body: PulseRecipientsBody,
+        x_token: Optional[str] = Header(None),
+    ):
+        admin_id = _require_admin(x_token)
+        try:
+            from admin_daily_report import save_pulse_recipients
+        except ImportError:
+            from .admin_daily_report import save_pulse_recipients
+        m = _main()
+        cleaned = save_pulse_recipients(m.sb, body.emails, updated_by=admin_id)
+        try:
+            m._log_activity(
+                admin_id,
+                "update",
+                "pulse_recipients",
+                "pulse_report_recipients",
+                value_after={"count": len(cleaned), "emails": [r["email"] for r in cleaned]},
+            )
+        except Exception:
+            pass
+        return {
+            "ok": True,
+            "configured": True,
+            "emails": cleaned,
+            "effective": cleaned,
+            "source": "custom",
+        }
+
+    @app.post("/admin/pulse-recipients/send-now")
+    async def admin_send_pulse_now(x_token: Optional[str] = Header(None)):
+        """Force-send today's Pulse to the configured recipient list."""
+        _require_admin(x_token)
+        try:
+            from admin_daily_report import send_admin_daily_report
+        except ImportError:
+            from .admin_daily_report import send_admin_daily_report
+        result = send_admin_daily_report(_main().sb, force=True, source="admin_panel")
+        if not result.get("ok") and not result.get("skipped"):
+            raise HTTPException(status_code=400, detail=result.get("error") or result.get("errors") or "Send failed")
+        return result
+
     @app.get("/admin/emails/{campaign_id}/report")
     async def admin_email_campaign_report(campaign_id: str, x_token: Optional[str] = Header(None)):
         _require_admin(x_token)

@@ -47,7 +47,7 @@ export const TAB_SUBTITLES: Record<string, string> = {
   cancellations: 'Approve period-end cancels or end access immediately',
   support: 'In-app contact messages from moms — read and reply',
   notifications: 'Custom messages for specific people, in the app and as phone alerts',
-  emails: 'Custom emails to specific people, a plan, or a small group',
+  emails: 'Custom emails, plus who receives the daily Pulse digest',
   drips: 'Automated trial→paid sequences (email + push) — editable timing, copy, offers',
   userdata: 'Read-only look at family, chat, and memory JSON per user',
   useractivity: 'In-app clicks and screen views (not admin edits)',
