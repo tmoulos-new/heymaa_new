@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-06T10:20:00+00:00",
+  "updated_at": "2026-11-09T13:25:00+00:00",
   "notes": [
     "Moosend runs outside HeyMaa (Care Direct). Update KPIs from the shared Moosend report.",
     "Meta Ads: fill impressions/clicks/spend/leads when available from Ads Manager.",
@@ -78,8 +78,9 @@
       "id": "sms_natal_heymaa",
       "channel": "sms",
       "provider": "sms",
-      "name": "Natal SMS → HeyMaa",
-      "started_at": "2026-10-15",
+      "name": "SMS HEYMAA",
+      "started_at": "2026-10-16",
+      "ended_at": "2026-11-07",
       "landing_urls": [
         "https://bit.ly/4hXfQbL",
         "https://heymaa.ai/?utm_source=SMS&utm_medium=SMS&utm_campaign=Natal",
@@ -90,10 +91,12 @@
       "utm_medium": "SMS",
       "utm_campaign": "Natal",
       "kpis": {
-        "sends": null,
+        "sends": 136,
         "clicks": null,
-        "as_of": null,
-        "note": "Paste SMS sends/clicks when available. Short link expands with utm_source=SMS&utm_medium=SMS&utm_campaign=Natal."
+        "window_start": "2026-10-16",
+        "window_end": "2026-11-07",
+        "as_of": "2026-11-07",
+        "note": "SMS HEYMAA: 136 sends (16/10/2026–7/11/2026). Clicks still TBD."
       }
     },
     {
