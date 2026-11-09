@@ -1332,11 +1332,23 @@ def _render_acquisition_pulse(acq: dict, *, lang: str) -> str:
             )
         blocks += _campaign_block(ga_title, ga_rows)
 
+    _ch_labels = {
+        "unattributed": "Unattributed (no source stored)",
+        "direct_unknown": "Unattributed (no source stored)",
+        "shortlink_unknown": "Short link · UTMs lost",
+        "email_moosend": "Email · Moosend",
+        "meta": "Meta",
+        "sms": "SMS",
+        "referral": "Referral",
+        "invite": "Invite",
+        "google_ads": "Google Ads",
+    }
     db_rows: list[tuple[str, str]] = []
     for ch in (acq.get("by_channel") or [])[:6]:
+        raw = str(ch.get("channel") or "?")
         db_rows.append(
             (
-                str(ch.get("channel") or "?"),
+                _ch_labels.get(raw, raw),
                 f"{_fmt_int(ch.get('signups'))} ({_fmt_pct(ch.get('share_pct'))})",
             )
         )

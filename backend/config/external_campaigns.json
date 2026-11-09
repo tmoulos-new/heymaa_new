@@ -100,21 +100,50 @@
       "id": "meta_heymaa_oct2026",
       "channel": "paid_social",
       "provider": "meta",
-      "name": "HeyMaa Meta Ads (Oct 2026+)",
-      "started_at": "2026-10-15",
+      "name": "HeyMaa Meta Ads — Kickoff OA (FB + IG)",
+      "started_at": "2026-10-09",
       "landing_urls": ["https://www.heymaa.ai/"],
       "utm_source": "meta",
       "utm_medium": "paid_social",
-      "utm_campaign": "heymaa_meta_oct2026",
+      "utm_campaign": "heymaa_kickoff_oa",
+      "ads": [
+        {
+          "name": "Heymaa_Kickoff_OA_FB",
+          "placement": "facebook",
+          "optimization_event": "Complete Registration",
+          "budget_daily_eur": 2.0,
+          "spend_eur": 11.43,
+          "impressions": 3154,
+          "reach": 1670,
+          "results": 0,
+          "cost_per_result": null,
+          "ends": "ongoing"
+        },
+        {
+          "name": "Heymaa_Kickoff_OA_IG",
+          "placement": "instagram",
+          "optimization_event": "Website Subscribe",
+          "budget_daily_eur": 4.0,
+          "spend_eur": 88.78,
+          "impressions": 21624,
+          "reach": 8334,
+          "results": 0,
+          "cost_per_result": null,
+          "ends": "2026-11-30"
+        }
+      ],
       "kpis": {
-        "impressions": null,
-        "reach": null,
+        "impressions": 24778,
+        "reach": 10004,
         "clicks": null,
         "ctr": null,
-        "spend_eur": null,
-        "leads": null,
-        "as_of": null,
-        "note": "Paste Ads Manager totals into this file (or META_IMPRESSIONS / META_CLICKS / META_SPEND_EUR env)."
+        "spend_eur": 100.21,
+        "leads": 0,
+        "complete_registration_ads_manager": 0,
+        "website_subscribe_ads_manager": 0,
+        "first_party_meta_signups": 3,
+        "as_of": "2026-11-09",
+        "note": "Ads Manager shows 0 Complete Registration / Website Subscribe. First-party DB has 3 Meta signups with fbclid (pixel event gap, not zero Meta users)."
       }
     }
   ]

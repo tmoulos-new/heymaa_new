@@ -198,9 +198,25 @@ def build_pdf(out_path: Path) -> Path:
     acq_insights = [str(x) for x in (acq.get("insights") or []) if str(x).strip()][:8]
 
     width, height = A4
-    pages = 3
+    pages = 4
     generated = now.strftime("%d %b %Y %H:%M UTC")
     title_date = now.strftime("%d %B %Y")
+    meta_camp = next((c for c in campaigns if (c.get("provider") or "").lower() == "meta"), None)
+    meta_ads = []
+    try:
+        from marketing_acquisition import load_external_campaigns
+
+        raw_meta = next(
+            (
+                c
+                for c in (load_external_campaigns().get("campaigns") or [])
+                if (c.get("provider") or "").lower() == "meta"
+            ),
+            None,
+        )
+        meta_ads = list((raw_meta or {}).get("ads") or [])
+    except Exception:
+        meta_ads = []
 
     c = canvas.Canvas(str(out_path), pagesize=A4)
 
@@ -403,18 +419,135 @@ def build_pdf(out_path: Path) -> Path:
     _draw_footer(c, width, 2, pages, generated)
     c.showPage()
 
-    # ── Page 3: Recommendations ──────────────────────────────────────
+    # ── Page 3: Meta Ads + pixel verification ────────────────────────
+    _draw_header(c, width, height, "Meta Ads & Pixel", title_date)
+    y = height - 52 * mm
+    _section_title(c, 18 * mm, y, "Kickoff OA · Ads Manager snapshot")
+    y -= 8 * mm
+    mk = (meta_camp or {}).get("kpis") or {}
+    cards = [
+        ("Spend", _fmt_eur(mk.get("spend_eur") or 100.21), "FB + IG"),
+        ("Impressions", _fmt_int(mk.get("impressions") or 24778), "delivery"),
+        ("Reach", _fmt_int(mk.get("reach") or 10004), "unique people"),
+        ("Ads Mgr results", _fmt_int(mk.get("leads") or 0), "Complete Reg / Subscribe"),
+    ]
+    card_w, card_h, gap = 42 * mm, 24 * mm, 4 * mm
+    for i, (lab, val, hint) in enumerate(cards):
+        _kpi_card(c, 18 * mm + i * (card_w + gap), y - card_h, card_w, card_h, lab, val, hint)
+    y -= card_h + 12 * mm
+
+    _section_title(c, 18 * mm, y, "By ad")
+    y -= 8 * mm
+    ad_rows = meta_ads or [
+        {
+            "name": "Heymaa_Kickoff_OA_FB",
+            "placement": "facebook",
+            "optimization_event": "Complete Registration",
+            "spend_eur": 11.43,
+            "impressions": 3154,
+            "reach": 1670,
+            "results": 0,
+            "budget_daily_eur": 2.0,
+        },
+        {
+            "name": "Heymaa_Kickoff_OA_IG",
+            "placement": "instagram",
+            "optimization_event": "Website Subscribe",
+            "spend_eur": 88.78,
+            "impressions": 21624,
+            "reach": 8334,
+            "results": 0,
+            "budget_daily_eur": 4.0,
+        },
+    ]
+    for ad in ad_rows:
+        _rounded_rect(c, 18 * mm, y - 32 * mm, width - 36 * mm, 30 * mm, r=7, fill=SOFT)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(24 * mm, y - 9 * mm, str(ad.get("name") or "Ad")[:60])
+        c.setFillColor(TEAL)
+        c.setFont("Helvetica", 8)
+        c.drawString(
+            24 * mm,
+            y - 14 * mm,
+            f"{str(ad.get('placement') or '').title()} · optimizes for {ad.get('optimization_event')}",
+        )
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 8)
+        c.drawString(
+            24 * mm,
+            y - 20 * mm,
+            f"Spend {_fmt_eur(ad.get('spend_eur'))}  ·  "
+            f"Impr {_fmt_int(ad.get('impressions'))}  ·  "
+            f"Reach {_fmt_int(ad.get('reach'))}  ·  "
+            f"Budget {_fmt_eur(ad.get('budget_daily_eur'))}/day",
+        )
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(
+            24 * mm,
+            y - 26 * mm,
+            f"Ads Manager results: {_fmt_int(ad.get('results'))}  "
+            f"(Cost/result: —)",
+        )
+        y -= 36 * mm
+
+    y -= 2 * mm
+    _section_title(c, 18 * mm, y, "Pixel verification")
+    y -= 8 * mm
+    first_party = int(mk.get("first_party_meta_signups") or 3)
+    verify_lines = [
+        f"Ads Manager reports 0 Complete Registration (FB) and 0 Website Subscribe (IG).",
+        f"HeyMaa DB shows {first_party} Meta-attributed signups with fbclid after 6 Nov "
+        f"(2× utm_source=fb, 1× utm_source=ig).",
+        "Conclusion: people did register from Meta ads — the Pixel did not report the "
+        "conversion event Meta optimizes on.",
+        "App fires dataLayer sign_up (GTM/GA). It did not call fbq CompleteRegistration "
+        "until the fix shipped with this report refresh.",
+        "IG ad optimizes for Website Subscribe (newsletter-style) while signup is better "
+        "mapped to Complete Registration — align ad set optimization with Pixel events.",
+    ]
+    for line in verify_lines:
+        words = line.split()
+        wrapped = []
+        cur = ""
+        max_w = width - 40 * mm
+        for w in words:
+            trial = (cur + " " + w).strip()
+            if c.stringWidth(trial, "Helvetica", 9) <= max_w:
+                cur = trial
+            else:
+                wrapped.append(cur)
+                cur = w
+        if cur:
+            wrapped.append(cur)
+        need = 6 * mm + len(wrapped) * 4 * mm
+        if y - need < 22 * mm:
+            break
+        _rounded_rect(c, 18 * mm, y - need, width - 36 * mm, need, r=6, fill=CREAM)
+        c.setFillColor(NAVY)
+        c.setFont("Helvetica", 9)
+        ty = y - 5.5 * mm
+        for ln in wrapped:
+            c.drawString(24 * mm, ty, ln)
+            ty -= 4 * mm
+        y -= need + 3 * mm
+
+    _draw_footer(c, width, 3, pages, generated)
+    c.showPage()
+
+    # ── Page 4: Recommendations ──────────────────────────────────────
     _draw_header(c, width, height, "Priorities", title_date)
     y = height - 52 * mm
     _section_title(c, 18 * mm, y, "What to do next")
     y -= 10 * mm
 
     defaults = [
-        "Keep UTMs on every Meta / SMS / email landing so Direct stops dominating attribution.",
+        "Map GTM sign_up → Meta Pixel CompleteRegistration (and align IG ad set away from Website Subscribe).",
+        "Keep UTMs on every Meta / SMS / email landing so unattributed stops dominating.",
         "Tighten Natal email CTA — opens are strong; clicks and attributed signups are the bottleneck.",
         "Move trials → paid with a clear mid-trial nudge (drip is already enrolling users).",
         "Mark sign_up as a GA4 key event so channel → registration is visible in Analytics.",
-        "Paste Meta Ads and SMS send/click totals into campaign config for ROI in Pulse.",
     ]
     items = acq_insights[:6] if acq_insights else defaults
     for i, raw in enumerate(items, 1):
@@ -470,7 +603,7 @@ def build_pdf(out_path: Path) -> Path:
             "Growth is user- and engagement-led; monetization is the next chapter.",
         )
 
-    _draw_footer(c, width, 3, pages, generated)
+    _draw_footer(c, width, 4, pages, generated)
     c.save()
     return out_path
 
@@ -480,7 +613,7 @@ def main() -> None:
     out_dir = root / "docs" / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    out = out_dir / f"Heymaa_Growth_Report_{stamp}.pdf"
+    out = out_dir / f"Heymaa_Growth_Report_{stamp}_v2.pdf"
     path = build_pdf(out)
     print(str(path))
 

@@ -167,6 +167,43 @@ describe('consent and event dispatch', () => {
     expect(window.dataLayer.filter((x) => x && (x as { event?: string }).event === 'sign_up')).toHaveLength(0)
   })
 
+  it('fires Meta Pixel CompleteRegistration + Subscribe on sign_up when fbq exists', () => {
+    writeCookieConsent(true)
+    initGoogleTagManager('/')
+    setDispatchEnabled(true)
+    const fbq = jest.fn()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).fbq = fbq
+
+    expect(trackSignUp('email', { channel: 'meta' })).toBe(true)
+
+    const dlEvents = window.dataLayer.filter(
+      (x) => x && typeof x === 'object' && (x as { event?: string }).event,
+    ) as { event?: string; channel?: string }[]
+    expect(dlEvents.some((e) => e.event === 'sign_up')).toBe(true)
+    expect(dlEvents.some((e) => e.event === 'complete_registration' && e.channel === 'meta')).toBe(
+      true,
+    )
+
+    expect(fbq).toHaveBeenCalledWith(
+      'track',
+      'CompleteRegistration',
+      expect.objectContaining({ content_name: 'heymaa_signup', status: true, channel: 'meta' }),
+      expect.objectContaining({ eventID: expect.any(String) }),
+    )
+    expect(fbq).toHaveBeenCalledWith(
+      'track',
+      'Subscribe',
+      expect.objectContaining({ content_name: 'heymaa_signup' }),
+      expect.objectContaining({ eventID: expect.any(String) }),
+    )
+
+    // session dedupe — second signup in same tab must not re-fire Pixel
+    fbq.mockClear()
+    expect(trackSignUp('email', { channel: 'meta' })).toBe(true)
+    expect(fbq).not.toHaveBeenCalled()
+  })
+
   it('emits page_view with sanitized context after grant', () => {
     writeCookieConsent(true)
     initGoogleTagManager('/checkout/success')

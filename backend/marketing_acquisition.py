@@ -401,15 +401,24 @@ def analyze_acquisition(sb, *, window_start: str = "2026-10-15") -> dict[str, An
         elif sms_matched:
             insights.append(f"SMS-attributed signups in window: {sms_matched}.")
 
-    if meta and (meta.get("funnel") or {}).get("incomplete"):
-        insights.append(
-            "Action (Meta): paste Ads Manager impressions/clicks/spend into "
-            "backend/config/external_campaigns.json (or META_* env vars) for Pulse ROI."
-        )
-    elif meta and meta.get("matched_signups"):
-        insights.append(
-            f"Meta-attributed signups in window: {meta['matched_signups']}."
-        )
+    if meta:
+        mk = meta.get("kpis") or {}
+        spend = mk.get("spend_eur")
+        fp = int(meta.get("matched_signups") or 0)
+        am_leads = mk.get("leads")
+        if spend is not None and am_leads == 0 and fp:
+            insights.append(
+                f"Meta Ads Manager: €{float(spend):.2f} spent, 0 Complete Registration / "
+                f"Website Subscribe — but first-party DB has {fp} Meta signups with fbclid "
+                "(Pixel event gap; not zero Meta users)."
+            )
+        elif meta.get("matched_signups"):
+            insights.append(f"Meta-attributed signups in window: {meta['matched_signups']}.")
+        elif (meta.get("funnel") or {}).get("incomplete"):
+            insights.append(
+                "Action (Meta): paste Ads Manager impressions/clicks/spend into "
+                "backend/config/external_campaigns.json (or META_* env vars) for Pulse ROI."
+            )
 
     if total and out["unknown_share_pct"] > 70:
         insights.append(
