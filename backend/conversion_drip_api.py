@@ -261,8 +261,8 @@ def _send_drip_email(sb, *, user: dict, step: dict, sequence_id: str, step_id: s
         return "skipped", "email content empty"
     m = _main()
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
-    from_addr = (os.getenv("RESEND_FROM") or "").strip()
-    if not api_key or not from_addr:
+    from_addr = (os.getenv("RESEND_FROM") or "").strip() or "HeyMaa <hello@vdarpp.com>"
+    if not api_key:
         return "failed", "Resend not configured"
     link, button = _resolve_cta(step)
     images = []
@@ -1554,9 +1554,15 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
         got = (x_cron_secret or "").strip()
         if not got and authorization and authorization.lower().startswith("bearer "):
             got = authorization.split(" ", 1)[1].strip()
-        # Also accept Vercel cron automatic auth when CRON_SECRET unset in preview
-        if expected and got != expected:
-            raise HTTPException(status_code=401, detail="Invalid cron secret")
+        ua = (request.headers.get("user-agent") or "").lower()
+        is_vercel_cron = "vercel-cron" in ua
+        # Prefer CRON_SECRET (Vercel sends Authorization: Bearer <CRON_SECRET>).
+        # If unset, only allow Vercel Cron UA or non-GET ops probes.
+        if expected:
+            if got != expected:
+                raise HTTPException(status_code=401, detail="Invalid cron secret")
+        elif request.method == "GET" and not is_vercel_cron:
+            raise HTTPException(status_code=401, detail="Cron secret or Vercel Cron required")
         m = _main()
         if not m.ensure_supabase():
             raise HTTPException(status_code=503, detail="Database not configured")

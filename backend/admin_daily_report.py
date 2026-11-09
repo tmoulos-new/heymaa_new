@@ -706,6 +706,39 @@ def resolve_report_recipients(sb) -> list[dict[str, str]]:
     return list_admin_recipients(sb)
 
 
+def _resolved_resend_from() -> str:
+    """Prefer env; never fall back to unverified heymaa.ai (Resend rejects it)."""
+    explicit = (os.getenv("RESEND_FROM") or "").strip()
+    if explicit:
+        return explicit
+    return "HeyMaa <hello@vdarpp.com>"
+
+
+def _pulse_already_sent_for_date(sb, report_date: str) -> bool:
+    """True if at least one successful Pulse send exists for this report_date (UTC day)."""
+    if not sb or not report_date:
+        return False
+    day = str(report_date).strip()[:10]
+    if len(day) < 10:
+        return False
+    start = f"{day}T00:00:00+00:00"
+    end = f"{day}T23:59:59.999999+00:00"
+    try:
+        rows = (
+            sb.table("email_sends")
+            .select("id,status")
+            .eq("kind", "admin_daily_report")
+            .eq("status", "sent")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .limit(1)
+            .execute()
+        )
+        return bool(rows.data)
+    except Exception:
+        return False
+
+
 def send_admin_daily_report(
     sb,
     *,
@@ -725,12 +758,20 @@ def send_admin_daily_report(
 
     now = now or datetime.now(timezone.utc)
     report = build_daily_report(sb, now=now)
+    if not force and _pulse_already_sent_for_date(sb, report["report_date"]):
+        return {
+            "ok": True,
+            "skipped": True,
+            "reason": "already_sent_today",
+            "source": source,
+            "report_date": report["report_date"],
+        }
     recipients = resolve_report_recipients(sb)
     if not recipients:
         return {"ok": False, "error": "No admin recipients", "report_date": report["report_date"]}
 
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
-    from_address = (os.getenv("RESEND_FROM") or "HeyMaa <hello@heymaa.ai>").strip()
+    from_address = _resolved_resend_from()
     admin_url = (os.getenv("APP_URL") or "https://www.heymaa.ai").rstrip("/") + "/admin/insights"
 
     sent: list[str] = []
