@@ -724,11 +724,12 @@ def _pulse_already_sent_for_date(sb, report_date: str) -> bool:
     start = f"{day}T00:00:00+00:00"
     end = f"{day}T23:59:59.999999+00:00"
     try:
+        # Webhooks often rewrite status from sent → delivered/opened.
         rows = (
             sb.table("email_sends")
             .select("id,status")
             .eq("kind", "admin_daily_report")
-            .eq("status", "sent")
+            .in_("status", ["sent", "delivered", "opened", "clicked"])
             .gte("created_at", start)
             .lte("created_at", end)
             .limit(1)
