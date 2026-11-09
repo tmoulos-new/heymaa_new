@@ -382,13 +382,14 @@ export function EmailsTab() {
     setPulseSending(true)
     try {
       const d = await adminFetch('/admin/pulse-recipients/send-now', { method: 'POST' })
-      const sent = (d.sent as string[]) || []
+      const sent = Array.isArray(d.sent) ? (d.sent as string[]) : []
+      const errors = Array.isArray(d.errors) ? (d.errors as string[]) : []
       if (d.skipped) {
         show(String(d.reason || 'Skipped'), 'ok')
       } else if (sent.length) {
         show(`Pulse sent to ${sent.join(', ')}`, 'ok')
       } else {
-        show(String(d.error || (d.errors || []).join('; ') || 'Nothing sent'), 'err')
+        show(String(d.error || errors.join('; ') || 'Nothing sent'), 'err')
       }
     } catch (e) {
       show(e instanceof Error ? e.message : 'Pulse send failed', 'err')
