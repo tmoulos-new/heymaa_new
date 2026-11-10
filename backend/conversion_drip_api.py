@@ -796,7 +796,23 @@ def run_drip_tick(sb, *, source: str = "manual") -> dict[str, Any]:
     _mark_engine_tick(sb, source)
     enroll = enroll_eligible_users(sb)
     send = process_due_enrollments(sb)
-    return {"ok": True, "source": source, "enroll": enroll, "send": send}
+    # Pulse rides with every drip tick (cron + opportunistic). once/day dedupe inside.
+    report: dict[str, Any] = {"ok": True, "skipped": True, "reason": "not_attempted"}
+    try:
+        try:
+            from .admin_daily_report import send_admin_daily_report
+        except ImportError:
+            from admin_daily_report import send_admin_daily_report
+        report = send_admin_daily_report(sb, source=source)
+    except Exception as e:
+        report = {"ok": False, "error": str(e)[:200]}
+    return {
+        "ok": True,
+        "source": source,
+        "enroll": enroll,
+        "send": send,
+        "daily_report": report,
+    }
 
 
 def maybe_run_drip_tick(
@@ -1567,15 +1583,11 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
         if not m.ensure_supabase():
             raise HTTPException(status_code=503, detail="Database not configured")
         drip = run_drip_tick(m.sb, source="cron")
-        report: dict = {"ok": False, "skipped": True, "reason": "not_attempted"}
-        try:
-            try:
-                from .admin_daily_report import send_admin_daily_report
-            except ImportError:
-                from admin_daily_report import send_admin_daily_report
-            report = send_admin_daily_report(m.sb, source="cron")
-        except Exception as e:
-            report = {"ok": False, "error": str(e)[:200]}
+        report = (drip or {}).get("daily_report") or {
+            "ok": False,
+            "skipped": True,
+            "reason": "not_attempted",
+        }
         return {"ok": True, "drip": drip, "daily_report": report}
 
     @app.get("/admin/daily-report/preview")
