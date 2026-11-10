@@ -788,11 +788,11 @@ def resolve_report_recipients(sb) -> list[dict[str, str]]:
 
 
 def _resolved_resend_from() -> str:
-    """Prefer env; never fall back to unverified heymaa.ai (Resend rejects it)."""
+    """Prefer env; heymaa.ai is verified on the caredirect Resend account."""
     explicit = (os.getenv("RESEND_FROM") or "").strip()
     if explicit:
         return explicit
-    return "HeyMaa <hello@vdarpp.com>"
+    return "HeyMaa <info@heymaa.ai>"
 
 
 def _pulse_already_sent_for_date(sb, report_date: str) -> bool:

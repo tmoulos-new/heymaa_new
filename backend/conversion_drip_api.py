@@ -261,7 +261,7 @@ def _send_drip_email(sb, *, user: dict, step: dict, sequence_id: str, step_id: s
         return "skipped", "email content empty"
     m = _main()
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
-    from_addr = (os.getenv("RESEND_FROM") or "").strip() or "HeyMaa <hello@vdarpp.com>"
+    from_addr = (os.getenv("RESEND_FROM") or "").strip() or "HeyMaa <info@heymaa.ai>"
     if not api_key:
         return "failed", "Resend not configured"
     link, button = _resolve_cta(step)
