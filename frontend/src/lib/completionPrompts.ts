@@ -3,6 +3,7 @@
  * One at a time, snoozeable, auto-cleared when the action is done.
  */
 import { normalizeAppLang, type AppLangCode } from './appLang'
+import { clearSnooze, isSnoozeActive, writeSnoozeUntil } from './promptSnooze'
 import { stableSk } from './userDataRecovery'
 
 export type CompletionKind = 'memory' | 'document' | 'milestone' | 'partner'
@@ -113,26 +114,36 @@ export function isCompletionDone(token: string, kind: CompletionKind): boolean {
 export function markCompletionDone(token: string, kind: CompletionKind): void {
   try {
     localStorage.setItem(doneKey(token, kind), '1')
+    clearSnooze(snoozeKey(token, kind))
     sessionStorage.removeItem(snoozeKey(token, kind))
   } catch {
     /* ignore */
   }
 }
 
+/** "Later" / CTA open — hide for 7 days (survives new logins). */
 export function snoozeCompletion(token: string, kind: CompletionKind): void {
+  writeSnoozeUntil(snoozeKey(token, kind))
   try {
-    sessionStorage.setItem(snoozeKey(token, kind), '1')
+    sessionStorage.removeItem(snoozeKey(token, kind))
   } catch {
     /* ignore */
   }
 }
 
 export function isCompletionSnoozed(token: string, kind: CompletionKind): boolean {
+  if (isSnoozeActive(snoozeKey(token, kind))) return true
   try {
-    return sessionStorage.getItem(snoozeKey(token, kind)) === '1'
+    // Migrate legacy session-only snooze into a durable window once.
+    if (sessionStorage.getItem(snoozeKey(token, kind)) === '1') {
+      writeSnoozeUntil(snoozeKey(token, kind))
+      sessionStorage.removeItem(snoozeKey(token, kind))
+      return true
+    }
   } catch {
-    return false
+    /* ignore */
   }
+  return false
 }
 
 export type CompletionState = {

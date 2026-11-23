@@ -5228,7 +5228,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
     setShowNotifications(false);
   }, [tourOpen]);
 
-  // Resume first-child / first-chat prompts on later visits if the user snoozed with "Later".
+  // Resume first-child / first-chat prompts after durable "Later" snooze expires.
   useEffect(() => {
     if (!token || tourOpen || showPushPrompt) return;
     if (!hasCompletedAppTour(token)) return;
@@ -5364,7 +5364,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   }, [finishAppTour]);
 
   const dismissStartFirstChatPrompt = useCallback(() => {
-    // "Later" = snooze this session only; do not permanently complete the guide.
+    // "Later" = snooze ~7 days; do not permanently complete the guide.
     snoozeFirstChatGuide(token);
     markFirstChatGuidePending(token);
     setShowStartFirstChatPrompt(false);
@@ -5407,6 +5407,8 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
 
   const openCompletionFromPrompt = useCallback(() => {
     const kind = completionPromptKind;
+    // Snooze while they act — otherwise the effect reopens the same dialog ~1.6s later.
+    if (kind) snoozeCompletion(token, kind);
     setCompletionPromptKind(null);
     if (!kind) return;
     showTabBar();
@@ -5432,7 +5434,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
       setShowAddMember(true);
       scrollToFamilySection();
     }
-  }, [completionPromptKind, showTabBar]);
+  }, [completionPromptKind, showTabBar, token]);
 
   useEffect(() => {
     showTabBar();

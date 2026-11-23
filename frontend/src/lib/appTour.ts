@@ -1,5 +1,6 @@
 import type { AppNavTabId } from '../components/AppNavIcons'
 import { normalizeAppLang, type AppLangCode } from './appLang'
+import { clearSnooze, isSnoozeActive, writeSnoozeUntil } from './promptSnooze'
 import { stableSk } from './userDataRecovery'
 
 const TOUR_SUFFIX = 'app_tour_v1'
@@ -298,6 +299,8 @@ export function markFirstChatGuideCompleted(token: string): void {
   try {
     localStorage.setItem(firstChatGuideStorageKey(token), '1')
     localStorage.removeItem(stableSk(token, 'first_chat_guide_pending_v1'))
+    clearSnooze(stableSk(token, 'first_chat_guide_snooze_v1'))
+    clearSnooze(stableSk(token, 'first_child_prompt_snooze_v1'))
     sessionStorage.removeItem(stableSk(token, 'first_chat_guide_snooze_v1'))
     sessionStorage.removeItem(stableSk(token, 'first_child_prompt_snooze_v1'))
   } catch {
@@ -322,38 +325,56 @@ export function isFirstChatGuidePending(token: string): boolean {
   }
 }
 
-/** "Later" on first-chat — snooze this browser session only (do not mark completed). */
+/** "Later" on first-chat — snooze 7 days (do not mark completed). */
 export function snoozeFirstChatGuide(token: string): void {
+  const key = stableSk(token, 'first_chat_guide_snooze_v1')
+  writeSnoozeUntil(key)
   try {
-    sessionStorage.setItem(stableSk(token, 'first_chat_guide_snooze_v1'), '1')
+    sessionStorage.removeItem(key)
   } catch {
     /* ignore */
   }
 }
 
 export function isFirstChatGuideSnoozed(token: string): boolean {
+  const key = stableSk(token, 'first_chat_guide_snooze_v1')
+  if (isSnoozeActive(key)) return true
   try {
-    return sessionStorage.getItem(stableSk(token, 'first_chat_guide_snooze_v1')) === '1'
+    if (sessionStorage.getItem(key) === '1') {
+      writeSnoozeUntil(key)
+      sessionStorage.removeItem(key)
+      return true
+    }
   } catch {
-    return false
+    /* ignore */
   }
+  return false
 }
 
-/** "Later" on first-child — snooze this session; keep pending so chat prompt can still fire. */
+/** "Later" on first-child — snooze 7 days; keep pending so chat can still be offered. */
 export function snoozeFirstChildPrompt(token: string): void {
+  const key = stableSk(token, 'first_child_prompt_snooze_v1')
+  writeSnoozeUntil(key)
   try {
-    sessionStorage.setItem(stableSk(token, 'first_child_prompt_snooze_v1'), '1')
+    sessionStorage.removeItem(key)
   } catch {
     /* ignore */
   }
 }
 
 export function isFirstChildPromptSnoozed(token: string): boolean {
+  const key = stableSk(token, 'first_child_prompt_snooze_v1')
+  if (isSnoozeActive(key)) return true
   try {
-    return sessionStorage.getItem(stableSk(token, 'first_child_prompt_snooze_v1')) === '1'
+    if (sessionStorage.getItem(key) === '1') {
+      writeSnoozeUntil(key)
+      sessionStorage.removeItem(key)
+      return true
+    }
   } catch {
-    return false
+    /* ignore */
   }
+  return false
 }
 
 export function tourText(

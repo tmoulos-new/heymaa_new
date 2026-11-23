@@ -252,10 +252,16 @@ const REWARD_CLAIMED_PREFIX = 'hm_reward_claimed_'
 
 function readStoredLevelIds(key: string): Set<number> {
   try {
-    const raw = sessionStorage.getItem(key)
+    // Prefer durable localStorage; migrate any leftover sessionStorage once.
+    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key)
     if (!raw) return new Set()
     const parsed = JSON.parse(raw)
-    return new Set(Array.isArray(parsed) ? parsed.map(Number).filter((n) => n > 1) : [])
+    const ids = new Set(Array.isArray(parsed) ? parsed.map(Number).filter((n) => n > 1) : [])
+    if (ids.size && !localStorage.getItem(key)) {
+      localStorage.setItem(key, JSON.stringify(Array.from(ids)))
+      sessionStorage.removeItem(key)
+    }
+    return ids
   } catch {
     return new Set()
   }
@@ -263,7 +269,8 @@ function readStoredLevelIds(key: string): Set<number> {
 
 function writeStoredLevelIds(key: string, ids: Set<number>): void {
   try {
-    sessionStorage.setItem(key, JSON.stringify(Array.from(ids)))
+    localStorage.setItem(key, JSON.stringify(Array.from(ids)))
+    sessionStorage.removeItem(key)
   } catch {
     /* ignore */
   }

@@ -117,16 +117,26 @@ export function expiryPopupDismissKey(accessEndsAt: string): string {
 }
 
 export function readExpiryPopupDismissed(accessEndsAt: string): boolean {
+  const key = expiryPopupDismissKey(accessEndsAt)
   try {
-    return sessionStorage.getItem(expiryPopupDismissKey(accessEndsAt)) === '1'
+    if (localStorage.getItem(key) === '1') return true
+    // Migrate legacy session dismiss so it stops repeating after refresh.
+    if (sessionStorage.getItem(key) === '1') {
+      localStorage.setItem(key, '1')
+      sessionStorage.removeItem(key)
+      return true
+    }
   } catch {
-    return false
+    /* ignore */
   }
+  return false
 }
 
 export function dismissExpiryPopup(accessEndsAt: string): void {
+  const key = expiryPopupDismissKey(accessEndsAt)
   try {
-    sessionStorage.setItem(expiryPopupDismissKey(accessEndsAt), '1')
+    localStorage.setItem(key, '1')
+    sessionStorage.removeItem(key)
   } catch {
     /* ignore */
   }
