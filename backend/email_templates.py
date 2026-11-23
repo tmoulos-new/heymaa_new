@@ -1197,33 +1197,26 @@ def _render_acquisition_pulse(acq: dict, *, lang: str) -> str:
         db_title = "Εγγραφές ανά πηγή (app)"
         more_title = "Άλλες σημειώσεις"
 
-    # Split insights: Action/Do → do-this; rest → notes
-    actions: list[str] = []
+    # Insights as plain notes only (no "Κάνε αυτά σήμερα" action box).
     notes: list[str] = []
     for line in acq.get("insights") or []:
         s = str(line).strip()
         if not s:
             continue
-        low = s.lower()
-        if low.startswith("action") or low.startswith("retarget") or "bit.ly" in low:
-            # Strip "Action:" / "Action (X):" prefix for cleaner numbered list
-            clean = s
-            for prefix in (
-                "Action (Moosend): ",
-                "Action (SMS): ",
-                "Action (Meta): ",
-                "Action (GA): ",
-                "Action: ",
-            ):
-                if clean.startswith(prefix):
-                    clean = clean[len(prefix) :]
-                    break
-            actions.append(clean)
-        else:
-            notes.append(s)
+        clean = s
+        for prefix in (
+            "Action (Moosend): ",
+            "Action (SMS): ",
+            "Action (Meta): ",
+            "Action (GA): ",
+            "Action: ",
+        ):
+            if clean.startswith(prefix):
+                clean = clean[len(prefix) :]
+                break
+        notes.append(clean)
 
-    blocks = _action_steps(actions, lang=lang)
-    blocks += (
+    blocks = (
         f'<div style="font-family:{font};font-size:14px;color:{TEXT};line-height:1.55;'
         f'margin:0 0 16px;padding:12px 14px;background:#ffffff;border-radius:12px;'
         f'border:1px solid {BORDER};">{verdict}</div>'
