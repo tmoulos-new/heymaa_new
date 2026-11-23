@@ -1125,31 +1125,6 @@ def _mini_heading(text: str, *, color: str = NAVY) -> str:
     )
 
 
-def _action_steps(lines: list[str], *, lang: str) -> str:
-    """Numbered do-this list — first thing the reader should see."""
-    if not lines:
-        return ""
-    font = _font()
-    title = "Do this today" if lang == "en" else "Κάνε αυτά σήμερα"
-    items = ""
-    for i, line in enumerate(lines[:8], start=1):
-        items += (
-            f'<tr><td valign="top" style="font-family:{font};font-size:14px;font-weight:700;'
-            f'color:{TEAL};padding:0 10px 12px 0;width:28px;">{i}.</td>'
-            f'<td style="font-family:{font};font-size:14px;color:{TEXT};line-height:1.5;'
-            f'padding:0 0 12px;">{escape(line)}</td></tr>'
-        )
-    return (
-        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
-        f'style="margin:0 0 16px;background:#F0FAF7;border-radius:18px;border:1px solid #C5E8DE;">'
-        f'<tr><td style="padding:18px 18px 8px;">'
-        f'<div style="font-family:{font};font-size:12px;font-weight:700;letter-spacing:1px;'
-        f'text-transform:uppercase;color:{TEAL};margin:0 0 12px;">{escape(title)}</div>'
-        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{items}</table>'
-        f'</td></tr></table>'
-    )
-
-
 def _campaign_block(title: str, rows: list[tuple[str, str]], *, note: str = "") -> str:
     font = _font()
     note_html = (
