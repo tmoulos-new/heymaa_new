@@ -8,12 +8,12 @@
     "expired": {
       "badge": "Probă încheiată",
       "title": "Perioada ta de probă s-a <em>încheiat</em>",
-      "subtitle": "Ca să continui să folosești HeyMaa, alege un plan de abonament."
+      "subtitle": "Ca să continui, cumpără Starter de la €13.99/lună — păstrezi conversațiile și spațiul familiei fără întrerupere."
     },
     "trial": {
       "badge": "Perioadă de probă",
       "title": "Fă upgrade la <em>plan</em>",
-      "subtitle": "Ai încă acces gratuit. Alege un plan când ești gata."
+      "subtitle": "Ai încă acces gratuit. Starter continuă de la €13.99/lună înainte să expire proba."
     },
     "default": {
       "badge": "Abonamente",

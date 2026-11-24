@@ -123,6 +123,8 @@ import {
 import { normalizeAppLang, pickTranslated, writeStoredAppLang } from "./lib/appLang";
 import { uiDateLocale } from "./lib/uiLocale";
 import { displaySelectedPlanSlot } from "./lib/subscriptionPlans";
+import { goToVivaCheckout } from "./lib/vivaCheckout";
+import { chatFollowUpPrompts, chatStarterPrompts } from "./lib/chatStarterPrompts";
 import { voiceListenQuotaForSnapshot } from "./lib/voiceQuota";
 import { chatContextDepth, chatMediaLibraryLimit, memoryContextCount, milestoneContextCount } from "./lib/planEntitlements";
 import {
@@ -6142,7 +6144,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           if (accessExpiryInfo) dismissExpiryPopup(accessExpiryInfo.accessEndsAt);
           setShowAccessExpiryModal(false);
         }}
-        onRenew={openSubscriptionUpgrade}
+        onRenew={() => {
+          if (accessExpiryInfo) dismissExpiryPopup(accessExpiryInfo.accessEndsAt);
+          setShowAccessExpiryModal(false);
+          goToVivaCheckout("starter");
+        }}
       />
 
       <AppDialog
@@ -7320,9 +7326,32 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
             </p>
 
             {messages.length===0&&(
-              <div className="hm-tab-card" style={{textAlign:"center",padding:"20px 16px"}}>
-                <div style={{margin:"0 auto 12px",width:52,height:52}}><HeyMaaAvatar size={52} /></div>
-                <div className="hm-chat-greeting" style={{color:navy}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
+              <div className="hm-chat-empty">
+                <div className="hm-chat-empty__hero">
+                  <div className="hm-chat-empty__avatar"><HeyMaaAvatar size={52} /></div>
+                  <div className="hm-chat-greeting" style={{color:navy}}>{t("chatgreet",lang)} {displayName}! {t("chatgreet2",lang)}</div>
+                  <p className="hm-chat-empty__hint">
+                    {lang === "el"
+                      ? "Διάλεξε μια απορία για να ξεκινήσεις — ή γράψε τη δική σου."
+                      : lang === "ro"
+                        ? "Alege o întrebare ca să începi — sau scrie-o pe a ta."
+                        : "Pick a question to start — or type your own."}
+                  </p>
+                </div>
+                <div className="hm-chat-chips" role="list" aria-label={lang === "el" ? "Προτεινόμενες ερωτήσεις" : "Suggested questions"}>
+                  {chatStarterPrompts(lang).map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      role="listitem"
+                      className="hm-chat-chip"
+                      disabled={loading}
+                      onClick={() => void sendMessage(chip.send)}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -7485,6 +7514,25 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
               </div>)}
               </div>
             ))}
+            {!loading &&
+              messages.length >= 2 &&
+              messages.length <= 3 &&
+              messages[messages.length - 1]?.role === "assistant" &&
+              messages.filter((m) => m.role === "user").length === 1 && (
+              <div className="hm-chat-chips hm-chat-chips--followup" role="list" aria-label={lang === "el" ? "Συνέχεια συζήτησης" : "Continue the chat"}>
+                {chatFollowUpPrompts(lang).map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    role="listitem"
+                    className="hm-chat-chip"
+                    onClick={() => void sendMessage(chip.send)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {loading&&<div className="hm-chat-message-row" aria-live="polite" aria-busy="true" aria-label={t("thinking", lang)}>
               <HeyMaaAvatar size={32} />
               <div className="hm-chat-bubble hm-chat-bubble--assistant hm-chat-bubble--typing" style={{background:chatAssistantBg}}>

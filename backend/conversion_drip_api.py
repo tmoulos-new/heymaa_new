@@ -895,11 +895,11 @@ def _default_steps_el() -> list[dict]:
                 "αναμνήσεις και οικογενειακά αρχεία.\n\n"
                 "Επίλεξε πλάνο πριν λήξει η πρόσβαση."
             ),
-            "email_url": "/subscription",
-            "email_button_label": "Επίλεξε πλάνο",
+            "email_url": "/checkout?plan=starter",
+            "email_button_label": "Αγόρασε Starter — €13.99/μήνα",
             "notif_title": "Η δοκιμή τελειώνει σύντομα",
-            "notif_body": "Κράτα την HeyMaa δίπλα σου — δες τα πλάνα συνδρομής.",
-            "notif_url": "/subscription",
+            "notif_body": "Κράτα την HeyMaa — Starter €13.99/μήνα.",
+            "notif_url": "/checkout?plan=starter",
             "enabled": True,
         },
         {
@@ -996,11 +996,11 @@ def _default_steps_ro() -> list[dict]:
                 "amintiri și documente de familie.\n\n"
                 "Alege un plan înainte să expire accesul."
             ),
-            "email_url": "/subscription",
-            "email_button_label": "Alege un plan",
+            "email_url": "/checkout?plan=starter",
+            "email_button_label": "Cumpără Starter — €13.99/lună",
             "notif_title": "Proba se termină curând",
-            "notif_body": "Păstrează HeyMaa alături — vezi planurile de abonament.",
-            "notif_url": "/subscription",
+            "notif_body": "Păstrează HeyMaa — Starter €13.99/lună.",
+            "notif_url": "/checkout?plan=starter",
             "enabled": True,
         },
         {

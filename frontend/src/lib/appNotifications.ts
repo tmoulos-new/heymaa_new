@@ -2,7 +2,7 @@ import type { SubscriptionSnapshot } from './authApi'
 import { storageScope } from './memoriesSync'
 import { formatTrialEnd } from './subscriptionPlans'
 
-export type AppNotificationAction = 'subscription' | 'subscription_sheet'
+export type AppNotificationAction = 'subscription' | 'subscription_sheet' | 'checkout_starter'
 
 export type AppNotification = {
   id: string
@@ -127,10 +127,10 @@ export function buildAppNotifications(
       id: 'trial_expired',
       title: isEl ? 'Η δωρεάν δοκιμή έληξε' : 'Free trial ended',
       body: isEl
-        ? 'Η δοκιμή σου έχει λήξει. Ανανέωσε τη συνδρομή σου για να συνεχίσεις.'
-        : 'Your trial has ended. Renew your subscription to continue.',
-      actionLabel: isEl ? 'Επιλογή πλάνου' : 'Select plan',
-      action: 'subscription',
+        ? 'Η δοκιμή σου έχει λήξει. Συνέχισε με Starter (€13.99/μήνα).'
+        : 'Your trial has ended. Continue with Starter (€13.99/mo).',
+      actionLabel: isEl ? 'Αγόρασε Starter — €13.99' : 'Buy Starter — €13.99',
+      action: 'checkout_starter',
       urgent: true,
     })
   } else if (sub && !sub.subscription_active && !sub.is_trial && status !== 'trial') {
@@ -138,10 +138,10 @@ export function buildAppNotifications(
       id: 'subscription_inactive',
       title: isEl ? 'Η συνδρομή δεν είναι ενεργή' : 'Subscription inactive',
       body: isEl
-        ? 'Η συνδρομή σου δεν είναι ενεργή. Επίλεξε πλάνο για πλήρη πρόσβαση.'
-        : 'Your subscription is not active. Choose a plan for full access.',
-      actionLabel: isEl ? 'Ανανέωση' : 'Renew',
-      action: 'subscription',
+        ? 'Η συνδρομή σου δεν είναι ενεργή. Συνέχισε με Starter (€13.99/μήνα).'
+        : 'Your subscription is not active. Continue with Starter (€13.99/mo).',
+      actionLabel: isEl ? 'Αγόρασε Starter — €13.99' : 'Buy Starter — €13.99',
+      action: 'checkout_starter',
       urgent: true,
     })
   }

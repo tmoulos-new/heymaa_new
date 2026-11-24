@@ -353,8 +353,12 @@ function NotificationRow({
         <div className="hm-notif-item-title">{item.title}</div>
         <p className="hm-notif-item-text">{item.body}</p>
         {item.actionLabel ? (
-          item.action === 'subscription' ? (
-            <Link to="/subscription" className="hm-notif-action" onClick={(e) => { e.stopPropagation(); onAction() }}>
+          item.action === 'subscription' || item.action === 'checkout_starter' ? (
+            <Link
+              to={item.action === 'checkout_starter' ? '/checkout?plan=starter' : '/subscription'}
+              className="hm-notif-action"
+              onClick={(e) => { e.stopPropagation(); onAction() }}
+            >
               {item.actionLabel}
             </Link>
           ) : (

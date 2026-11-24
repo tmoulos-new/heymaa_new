@@ -18,9 +18,9 @@ function copy(lang: string, reason: SubscriptionRequiredReason) {
       badge: el ? 'Δοκιμή έληξε' : 'Trial ended',
       title: el ? 'Η δωρεάν δοκιμή σου έληξε' : 'Your free trial has ended',
       body: el
-        ? 'Για να συνεχίσεις να χρησιμοποιείς την HeyMaa, επίλεξε ένα ενεργό πλάνο συνδρομής.'
-        : 'To keep using HeyMaa, choose an active subscription plan.',
-      cta: el ? 'Επίλεξε πλάνο' : 'Choose a plan',
+        ? 'Για να συνεχίσεις να χρησιμοποιείς την HeyMaa, αγόρασε Starter (€13.99/μήνα) και ξανανοίγεις αμέσως.'
+        : 'To keep using HeyMaa, buy Starter (€13.99/mo) and reopen access right away.',
+      cta: el ? 'Αγόρασε Starter — €13.99/μήνα' : 'Buy Starter — €13.99/mo',
       logout: el ? 'Αποσύνδεση' : 'Log out',
       logoutTitle: el ? 'Αποσύνδεση' : 'Log out',
       logoutMessage: el
@@ -33,9 +33,9 @@ function copy(lang: string, reason: SubscriptionRequiredReason) {
     badge: el ? 'Χωρίς ενεργή συνδρομή' : 'No active subscription',
     title: el ? 'Η συνδρομή δεν είναι ενεργή' : 'Your subscription is not active',
     body: el
-      ? 'Η πρόσβαση στην εφαρμογή απαιτεί ενεργή συνδρομή. Ανανέωσε ή επίλεξε πλάνο για να συνεχίσεις.'
-      : 'App access requires an active subscription. Renew or choose a plan to continue.',
-    cta: el ? 'Ανανέωση / Επίλεξε πλάνο' : 'Renew / Choose a plan',
+      ? 'Η πρόσβαση στην εφαρμογή απαιτεί ενεργή συνδρομή. Συνέχισε με Starter (€13.99/μήνα).'
+      : 'App access requires an active subscription. Continue with Starter (€13.99/mo).',
+    cta: el ? 'Αγόρασε Starter — €13.99/μήνα' : 'Buy Starter — €13.99/mo',
     logout: el ? 'Αποσύνδεση' : 'Log out',
     logoutTitle: el ? 'Αποσύνδεση' : 'Log out',
     logoutMessage: el
@@ -65,7 +65,7 @@ export function SubscriptionRequiredScreen({ lang, reason, onLogout }: Props) {
         <button
           type="button"
           className="hm-btn hm-btn--primary hm-btn--block hm-btn--lg"
-          onClick={() => navigate('/subscription')}
+          onClick={() => navigate('/checkout?plan=starter')}
         >
           {t.cta}
         </button>

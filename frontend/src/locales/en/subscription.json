@@ -8,12 +8,12 @@
     "expired": {
       "badge": "Trial ended",
       "title": "Your free trial has <em>ended</em>",
-      "subtitle": "To keep using HeyMaa, choose a subscription plan."
+      "subtitle": "To continue, buy Starter from €13.99/mo — keep chats and your family space without interruption."
     },
     "trial": {
       "badge": "Trial period",
       "title": "Upgrade your <em>plan</em>",
-      "subtitle": "You still have free access. Choose a plan when you're ready."
+      "subtitle": "You still have free access. Starter continues from €13.99/mo before the trial ends."
     },
     "default": {
       "badge": "Subscriptions",
