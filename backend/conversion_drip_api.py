@@ -113,7 +113,7 @@ class SequenceCreate(BaseModel):
     langs: list[str] = Field(default_factory=lambda: ["el"])
     # False for conversion: trial→paid emails are product lifecycle, not newsletters.
     require_marketing_consent: bool = False
-    min_hours_between_emails: int = 168
+    min_hours_between_emails: int = 48
     min_hours_between_push: int = 72
     exit_on_paid: bool = True
     exit_on_gift_claim: bool = True
@@ -586,21 +586,24 @@ def process_due_enrollments(sb, *, limit: int = _BATCH_SEND) -> dict[str, Any]:
             want_email = channel in ("email", "both")
             want_notif = channel in ("notification", "both")
             email_allowed = want_email and consent_ok
-            email_capped = email_allowed and _recent_channel_send(
-                sb, uid, "email", int(seq.get("min_hours_between_emails") or 168)
-            )
-            notif_capped = want_notif and _recent_channel_send(
-                sb, uid, "notification", int(seq.get("min_hours_between_push") or 72)
-            )
-            # If every channel we can send is rate-capped, defer instead of skipping the step.
+            email_gap_h = int(seq.get("min_hours_between_emails") or 48)
+            push_gap_h = int(seq.get("min_hours_between_push") or 72)
+            email_capped = email_allowed and _recent_channel_send(sb, uid, "email", email_gap_h)
+            notif_capped = want_notif and _recent_channel_send(sb, uid, "notification", push_gap_h)
             can_email = email_allowed and not email_capped
             can_notif = want_notif and not notif_capped
-            if (email_allowed or want_notif) and not can_email and not can_notif and (email_capped or notif_capped):
-                defer_h = 12
-                if email_capped:
-                    defer_h = max(defer_h, min(24, int(seq.get("min_hours_between_emails") or 168) // 7 or 24))
-                if notif_capped:
-                    defer_h = max(defer_h, min(24, int(seq.get("min_hours_between_push") or 72) // 3 or 12))
+            # Never silently drop a planned email: if email is allowed but rate-capped,
+            # defer the whole step (do not send notif-only and advance).
+            if email_allowed and email_capped:
+                defer_h = max(12, min(48, email_gap_h // 3 or 12))
+                sb.table("conversion_enrollments").update(
+                    {"next_run_at": (_now() + timedelta(hours=defer_h)).isoformat()}
+                ).eq("id", enrollment["id"]).execute()
+                stats["skipped"] += 1
+                continue
+            # If every remaining channel is rate-capped, defer instead of skipping the step.
+            if want_notif and not can_notif and notif_capped and not can_email:
+                defer_h = max(12, min(24, push_gap_h // 3 or 12))
                 sb.table("conversion_enrollments").update(
                     {"next_run_at": (_now() + timedelta(hours=defer_h)).isoformat()}
                 ).eq("id", enrollment["id"]).execute()
@@ -1130,10 +1133,10 @@ def seed_default_sequences(sb, *, admin_id: str = "system", activate: bool = Tru
         if existing.data:
             seq_id = existing.data[0]["id"]
             attached = _attach_gift_to_offer_steps(sb, seq_id, gift_code)
+            patch = {"min_hours_between_emails": 48, "updated_at": _now_iso()}
             if activate:
-                sb.table("conversion_sequences").update(
-                    {"status": "active", "updated_at": _now_iso()}
-                ).eq("id", seq_id).execute()
+                patch["status"] = "active"
+            sb.table("conversion_sequences").update(patch).eq("id", seq_id).execute()
             created.append(
                 {
                     "name": name,
@@ -1159,7 +1162,7 @@ def seed_default_sequences(sb, *, admin_id: str = "system", activate: bool = Tru
                     "trigger_type": "never_paid_trial",
                     "langs": langs,
                     "require_marketing_consent": False,
-                    "min_hours_between_emails": 168,
+                    "min_hours_between_emails": 48,
                     "min_hours_between_push": 72,
                     "exit_on_paid": True,
                     "exit_on_gift_claim": True,
@@ -1289,9 +1292,12 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
             "ok": ready,
             "error": error,
             "caps": {
-                "min_hours_between_emails_default": 168,
+                "min_hours_between_emails_default": 48,
                 "min_hours_between_push_default": 72,
-                "note": "Best practice: ≤1 marketing email / week / user; ≤1 drip push / 3 days.",
+                "note": (
+                    "Conversion drip default: ≥48h between emails so mid-trial / "
+                    "expiry steps are not silently dropped; ≤1 drip push / 3 days."
+                ),
             },
             "triggers": {
                 "cron": "GET|POST /cron/conversion-drips (daily; needs CRON_SECRET on Hobby/Pro)",
@@ -1377,7 +1383,7 @@ def register_conversion_drip_routes(app: FastAPI) -> None:
             "trigger_type": req.trigger_type if req.trigger_type in ("never_paid_trial", "manual") else "never_paid_trial",
             "langs": langs,
             "require_marketing_consent": bool(req.require_marketing_consent),
-            "min_hours_between_emails": max(24, min(int(req.min_hours_between_emails or 168), 720)),
+            "min_hours_between_emails": max(24, min(int(req.min_hours_between_emails or 48), 720)),
             "min_hours_between_push": max(12, min(int(req.min_hours_between_push or 72), 336)),
             "exit_on_paid": bool(req.exit_on_paid),
             "exit_on_gift_claim": bool(req.exit_on_gift_claim),
