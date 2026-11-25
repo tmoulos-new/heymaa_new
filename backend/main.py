@@ -5412,7 +5412,7 @@ async def _run_chat_core(
             def _search():
                 return search_places_text(
                     q,
-                    language_code=lang_code if lang_code in ("el", "en") else "el",
+                    language_code=lang_code if lang_code in ("el", "en", "ro") else "el",
                     max_results=6,
                     latitude=req.latitude,
                     longitude=req.longitude,

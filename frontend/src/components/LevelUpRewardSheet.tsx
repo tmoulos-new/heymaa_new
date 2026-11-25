@@ -15,6 +15,7 @@ import {
 } from '../lib/levelRewards'
 import { claimLevelReward } from '../lib/levelRewardsApi'
 import type { SubscriptionSnapshot } from '../lib/authApi'
+import { pickL } from '../lib/appLang'
 
 export type LevelRewardClaimedPayload = {
   rewards?: RewardsSnapshot
@@ -42,7 +43,6 @@ export function LevelUpRewardSheet({
   onClose,
   onClaimed,
 }: Props) {
-  const isEl = lang === 'el'
   const titleId = useId()
   const busyRef = useRef(false)
   const closeTimerRef = useRef<number | null>(null)
@@ -124,7 +124,9 @@ export function LevelUpRewardSheet({
         grant: result.grant,
       })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : isEl ? 'Αποτυχία διεκδίκησης' : 'Claim failed'
+      const message = e instanceof Error
+        ? e.message
+        : pickL(lang, 'Αποτυχία διεκδίκησης', 'Claim failed', 'Revendicarea a eșuat')
       if (isAlreadyClaimedError(message)) {
         finishSuccess({
           grant: { plan_slot: reward.plan_slot, days: reward.days },
@@ -158,7 +160,12 @@ export function LevelUpRewardSheet({
             {done ? '🎁' : emoji}
           </div>
           <p className="hm-reward-sheet__kicker">
-            {displayUppercase(done ? (isEl ? 'Το δώρο ενεργοποιήθηκε' : 'Gift activated') : levelUpKicker(lang), lang)}
+            {displayUppercase(
+              done
+                ? pickL(lang, 'Το δώρο ενεργοποιήθηκε', 'Gift activated', 'Cadoul este activ')
+                : levelUpKicker(lang),
+              lang,
+            )}
           </p>
           <h2 id={titleId} className="hm-reward-sheet__title">
             {done ? successLine.replace(/ 🎁$/, '') : levelName}
@@ -182,20 +189,14 @@ export function LevelUpRewardSheet({
               }}
             >
               {claiming && !done
-                ? isEl
-                  ? 'Ενεργοποίηση…'
-                  : 'Activating…'
+                ? pickL(lang, 'Ενεργοποίηση…', 'Activating…', 'Se activează…')
                 : done
-                  ? isEl
-                    ? 'Τέλεια!'
-                    : 'Done!'
-                  : isEl
-                    ? 'Πάρε το δώρο σου! 🎁'
-                    : 'Claim your gift! 🎁'}
+                  ? pickL(lang, 'Τέλεια!', 'Done!', 'Gata!')
+                  : pickL(lang, 'Πάρε το δώρο σου! 🎁', 'Claim your gift! 🎁', 'Ia cadoul! 🎁')}
             </button>
             {done ? null : (
               <button type="button" className="hm-reward-sheet__later" onClick={handleClose} disabled={claiming}>
-                {isEl ? 'Αργότερα' : 'Later'}
+                {pickL(lang, 'Αργότερα', 'Later', 'Mai târziu')}
               </button>
             )}
           </div>

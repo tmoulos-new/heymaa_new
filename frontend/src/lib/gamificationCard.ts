@@ -1,5 +1,6 @@
 /** Defaults — live values from GET /gamification/rules (admin /admin/points). */
 import type { HomeFaqItem } from '../i18n/homeTypes'
+import { pickL } from './appLang'
 
 export const GAMIFICATION_POINT_RULES = [
   { el: 'Σημείωση', en: 'Note', points: 2, path: '/app/memories/add-note' },
@@ -130,11 +131,11 @@ export function getReferralBonusPoints(): number {
 }
 
 export const GAMIFICATION_LEVELS = [
-  { number: 1, min_points: 0, name_el: 'Νέα Μαμά', name_en: 'New Mom' },
-  { number: 2, min_points: 400, name_el: 'Ενεργή Μαμά', name_en: 'Active Mom' },
-  { number: 3, min_points: 1000, name_el: 'Αφοσιωμένη Μαμά', name_en: 'Dedicated Mom' },
-  { number: 4, min_points: 2000, name_el: 'Super Μαμά', name_en: 'Super Mom' },
-  { number: 5, min_points: 3500, name_el: 'HeyMaa Champion', name_en: 'HeyMaa Champion' },
+  { number: 1, min_points: 0, name_el: 'Νέα Μαμά', name_en: 'New Mom', name_ro: 'Mamă nouă' },
+  { number: 2, min_points: 400, name_el: 'Ενεργή Μαμά', name_en: 'Active Mom', name_ro: 'Mamă activă' },
+  { number: 3, min_points: 1000, name_el: 'Αφοσιωμένη Μαμά', name_en: 'Dedicated Mom', name_ro: 'Mamă dedicată' },
+  { number: 4, min_points: 2000, name_el: 'Super Μαμά', name_en: 'Super Mom', name_ro: 'Super mamă' },
+  { number: 5, min_points: 3500, name_el: 'HeyMaa Champion', name_en: 'HeyMaa Champion', name_ro: 'HeyMaa Champion' },
 ] as const;
 
 export type GamificationFaqItem = HomeFaqItem
@@ -146,20 +147,24 @@ export const LEVEL_EMOJI: Record<number, string> = {
   5: '🏆',
 };
 
-export const LEVEL_REWARDS: Record<number, { el: string; en: string }> = {
-  1: { el: 'Νέα Μαμά — ξεκινάς το ταξίδι σου', en: 'New Mom — starting your journey' },
-  2: { el: '3 μέρες δωρεάν Starter', en: '3 days free Starter' },
-  3: { el: '7 μέρες δωρεάν Starter', en: '7 days free Starter' },
-  4: { el: '3 μέρες δωρεάν Premium', en: '3 days free Premium' },
-  5: { el: '7 μέρες δωρεάν Premium', en: '7 days free Premium' },
+export const LEVEL_REWARDS: Record<number, { el: string; en: string; ro: string }> = {
+  1: {
+    el: 'Νέα Μαμά — ξεκινάς το ταξίδι σου',
+    en: 'New Mom — starting your journey',
+    ro: 'Mamă nouă — începi călătoria',
+  },
+  2: { el: '3 μέρες δωρεάν Starter', en: '3 days free Starter', ro: '3 zile Starter gratuit' },
+  3: { el: '7 μέρες δωρεάν Starter', en: '7 days free Starter', ro: '7 zile Starter gratuit' },
+  4: { el: '3 μέρες δωρεάν Premium', en: '3 days free Premium', ro: '3 zile Premium gratuit' },
+  5: { el: '7 μέρες δωρεάν Premium', en: '7 days free Premium', ro: '7 zile Premium gratuit' },
 };
 
-function giftCopy(slot: string, days: number): { el: string; en: string } {
+function giftCopy(slot: string, days: number): { el: string; en: string; ro: string } {
   const plan =
     slot === 'admin'
       ? 'Admin'
       : slot === 'annual'
-        ? { el: 'Ετήσιο', en: 'Annual' }
+        ? { el: 'Ετήσιο', en: 'Annual', ro: 'Anual' }
         : slot === 'premium'
           ? 'Premium'
           : slot === 'starter'
@@ -167,9 +172,11 @@ function giftCopy(slot: string, days: number): { el: string; en: string } {
             : slot.charAt(0).toUpperCase() + slot.slice(1)
   const planEl = typeof plan === 'string' ? plan : plan.el
   const planEn = typeof plan === 'string' ? plan : plan.en
+  const planRo = typeof plan === 'string' ? plan : plan.ro
   return {
     el: `${days} μέρες δωρεάν πλάνο ${planEl}`,
     en: `${days} days free ${planEn} plan`,
+    ro: `${days} zile plan ${planRo} gratuit`,
   }
 }
 
@@ -182,13 +189,13 @@ export function levelRewardsText(levelNumber: number, lang: string): string {
   const match = live.find((r) => r.level_id === levelNumber)
   if (match) {
     const copy = giftCopy(match.plan_slot, match.days)
-    return lang === 'el' ? copy.el : copy.en
+    return pickL(lang, copy.el, copy.en, copy.ro)
   }
   if (liveRules?.level_rewards) {
-    return lang === 'el' ? 'Χωρίς δώρο' : 'No gift'
+    return pickL(lang, 'Χωρίς δώρο', 'No gift', 'Fără cadou')
   }
   const row = LEVEL_REWARDS[levelNumber] ?? LEVEL_REWARDS[1];
-  return lang === 'el' ? row.el : row.en;
+  return pickL(lang, row.el, row.en, row.ro);
 }
 
 export function gamificationPointsForPath(path: string): number {
@@ -207,116 +214,173 @@ export function gamificationPointsForPath(path: string): number {
 
 export function pointsToastSuffix(path: string, lang: string): string {
   const normalized = path.trim();
-  if (normalized.includes('/milestones/')) return lang === 'el' ? 'Ορόσημο' : 'Milestone';
-  if (normalized.includes('/memories/')) return lang === 'el' ? 'Αναμνήση' : 'Memory';
-  if (normalized.includes('/chat/')) return lang === 'el' ? 'Chat' : 'Chat';
+  if (normalized.includes('/milestones/')) return pickL(lang, 'Ορόσημο', 'Milestone', 'Moment');
+  if (normalized.includes('/memories/')) return pickL(lang, 'Αναμνήση', 'Memory', 'Amintire');
+  if (normalized.includes('/chat/')) return 'Chat';
   return '';
 }
 
 /** FAQ entries generated from live rules — appended to home/help FAQ lists */
 export function buildGamificationFaqItems(lang: string): GamificationFaqItem[] {
-  const isEl = lang === 'el';
   const milestonePts = getPointActions().find((r) => r.path === '/app/milestones/check')?.points
     ?? GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/milestones/check')?.points ?? 15;
   const videoPts = getPointActions().find((r) => r.path === '/app/memories/add-video')?.points
     ?? GAMIFICATION_POINT_RULES.find((r) => r.path === '/app/memories/add-video')?.points ?? 8;
   const chatCap = getChatDailyPointsCap()
   const referralPts = getReferralBonusPoints()
+  const group = pickL(lang, 'Πόντοι & επίπεδα', 'Points & levels', 'Puncte & niveluri')
   return [
     {
-      question: isEl ? 'Πώς κερδίζω πόντους;' : 'How do I earn points?',
-      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
-      answer: isEl
-        ? 'Κερδίζεις πόντους αυτόματα όταν χρησιμοποιείς την εφαρμογή — χωρίς ξεχωριστή ενέργεια.'
-        : 'You earn points automatically when you use the app — no extra steps needed.',
+      question: pickL(lang, 'Πώς κερδίζω πόντους;', 'How do I earn points?', 'Cum câștig puncte?'),
+      group,
+      answer: pickL(
+        lang,
+        'Κερδίζεις πόντους αυτόματα όταν χρησιμοποιείς την εφαρμογή — χωρίς ξεχωριστή ενέργεια.',
+        'You earn points automatically when you use the app — no extra steps needed.',
+        'Câștigi puncte automat când folosești aplicația — fără pași în plus.',
+      ),
       sections: [
         {
-          title: isEl ? 'Πόντοι ανά ενέργεια' : 'Points per action',
+          title: pickL(lang, 'Πόντοι ανά ενέργεια', 'Points per action', 'Puncte pe acțiune'),
           bullets: getPointActions().map((a) =>
-            isEl ? `${a.el}: +${a.points} πόντοι` : `${a.en}: +${a.points} points`,
+            pickL(
+              lang,
+              `${a.el}: +${a.points} πόντοι`,
+              `${a.en}: +${a.points} points`,
+              `${a.en}: +${a.points} puncte`,
+            ),
           ),
         },
         {
-          title: isEl ? 'Όρια & εξαιρέσεις' : 'Limits & exceptions',
-          bullets: isEl
-            ? [
-                `Ορόσημο: +${milestonePts} μία φορά ανά ορόσημο· αν ξετικάρεις, αφαιρούνται`,
-                `Βίντεο (+${videoPts}): σε Αναμνήσεις ή Chat`,
-                `Chat: έως ${chatCap} πόντοι/ημέρα από μηνύματα`,
-                `Πρόσκληση φίλης: +${referralPts} όταν εγγραφεί με τον κωδικό σου (Προφίλ)`,
-              ]
-            : [
-                `Milestone: +${milestonePts} once per milestone; unticking removes points`,
-                `Video (+${videoPts}): in Memories or Chat`,
-                `Chat: up to ${chatCap} points/day from messages`,
-                `Friend referral: +${referralPts} when they sign up with your code (Profile)`,
-              ],
-        },
-      ],
-    },
-    {
-      question: isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?',
-      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
-      answer: isEl
-        ? 'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο — από «Νέα Μαμά» έως «HeyMaa Champion».'
-        : 'As you collect points, you level up — from New Mom to HeyMaa Champion.',
-      sections: [
-        {
-          title: isEl ? 'Επίπεδα & πόντοι' : 'Levels & points',
-          bullets: GAMIFICATION_LEVELS.map((lv) =>
-            isEl
-              ? `Επίπεδο ${lv.number} — ${lv.name_el}: από ${lv.min_points} πόντους`
-              : `Level ${lv.number} — ${lv.name_en}: from ${lv.min_points} points`,
-          ),
-        },
-        {
-          title: isEl ? 'Δώρα επιπέδου' : 'Level rewards',
+          title: pickL(lang, 'Όρια & εξαιρέσεις', 'Limits & exceptions', 'Limite & excepții'),
           bullets: [
-            ...GAMIFICATION_LEVELS.map((lv) => {
-              const gift = levelRewardsText(lv.number, isEl ? 'el' : 'en')
-              return isEl
-                ? `Επίπεδο ${lv.number} — ${lv.name_el}: ${gift}`
-                : `Level ${lv.number} — ${lv.name_en}: ${gift}`
-            }),
-            ...(isEl
-              ? [
-                  'Αν έχεις ήδη Premium/Ετήσιο, δώρο Starter γίνεται ίσες μέρες στο πλάνο σου — χωρίς υποβάθμιση',
-                  'Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασης (συνδρομή ή grant)',
-                  'Πάτα «Πάρε το δώρο σου!» για να τις ενεργοποιήσεις',
-                ]
-              : [
-                  'If you already have Premium/Annual, a Starter reward becomes the same days on your current plan — no downgrade',
-                  'Days are added after your current access ends (subscription or grant)',
-                  'Tap «Claim your gift!» to activate them',
-                ]),
+            pickL(
+              lang,
+              `Ορόσημο: +${milestonePts} μία φορά ανά ορόσημο· αν ξετικάρεις, αφαιρούνται`,
+              `Milestone: +${milestonePts} once per milestone; unticking removes points`,
+              `Moment: +${milestonePts} o dată per moment; dacă debifezi, se scad`,
+            ),
+            pickL(
+              lang,
+              `Βίντεο (+${videoPts}): σε Αναμνήσεις ή Chat`,
+              `Video (+${videoPts}): in Memories or Chat`,
+              `Video (+${videoPts}): în Amintiri sau Chat`,
+            ),
+            pickL(
+              lang,
+              `Chat: έως ${chatCap} πόντοι/ημέρα από μηνύματα`,
+              `Chat: up to ${chatCap} points/day from messages`,
+              `Chat: până la ${chatCap} puncte/zi din mesaje`,
+            ),
+            pickL(
+              lang,
+              `Πρόσκληση φίλης: +${referralPts} όταν εγγραφεί με τον κωδικό σου (Προφίλ)`,
+              `Friend referral: +${referralPts} when they sign up with your code (Profile)`,
+              `Invitație prietenă: +${referralPts} când se înscrie cu codul tău (Profil)`,
+            ),
           ],
         },
       ],
     },
     {
-      question: isEl ? 'Πού βλέπω τους πόντους μου;' : 'Where do I see my points?',
-      group: isEl ? 'Πόντοι & επίπεδα' : 'Points & levels',
-      answer: isEl
-        ? 'Όλα τα στοιχεία gamification βρίσκονται στην καρτέλα Προφίλ.'
-        : 'All gamification info is on the Profile tab.',
+      question: pickL(lang, 'Τι είναι τα επίπεδα;', 'What are levels?', 'Ce sunt nivelurile?'),
+      group,
+      answer: pickL(
+        lang,
+        'Όσο συγκεντρώνεις πόντους, ανεβαίνεις επίπεδο — από «Νέα Μαμά» έως «HeyMaa Champion».',
+        'As you collect points, you level up — from New Mom to HeyMaa Champion.',
+        'Pe măsură ce aduni puncte, urci în nivel — de la «Mamă nouă» la «HeyMaa Champion».',
+      ),
       sections: [
         {
-          title: isEl ? 'Τι εμφανίζεται' : 'What you see',
-          bullets: isEl
-            ? [
-                'Τρέχον επίπεδο και όνομα (π.χ. «Ενεργή Μαμά»)',
-                'Συνολικοί πόντοι και μπάρα προόδου προς το επόμενο επίπεδο',
-                'Λίστα ενεργειών που δίνουν πόντους',
-                'Κωδικός πρόσκλησης για φίλες',
-                'Εκκρεμές δώρο επιπέδου — αν έχεις ανεβεί επίπεδο',
-              ]
-            : [
-                'Current level and name (e.g. Active Mom)',
-                'Total points and progress bar to next level',
-                'List of actions that earn points',
-                'Invite code for friends',
-                'Pending level reward — if you recently leveled up',
-              ],
+          title: pickL(lang, 'Επίπεδα & πόντοι', 'Levels & points', 'Niveluri & puncte'),
+          bullets: GAMIFICATION_LEVELS.map((lv) =>
+            pickL(
+              lang,
+              `Επίπεδο ${lv.number} — ${lv.name_el}: από ${lv.min_points} πόντους`,
+              `Level ${lv.number} — ${lv.name_en}: from ${lv.min_points} points`,
+              `Nivel ${lv.number} — ${lv.name_ro}: de la ${lv.min_points} puncte`,
+            ),
+          ),
+        },
+        {
+          title: pickL(lang, 'Δώρα επιπέδου', 'Level rewards', 'Cadouri pe nivel'),
+          bullets: [
+            ...GAMIFICATION_LEVELS.map((lv) => {
+              const gift = levelRewardsText(lv.number, lang)
+              return pickL(
+                lang,
+                `Επίπεδο ${lv.number} — ${lv.name_el}: ${gift}`,
+                `Level ${lv.number} — ${lv.name_en}: ${gift}`,
+                `Nivel ${lv.number} — ${lv.name_ro}: ${gift}`,
+              )
+            }),
+            pickL(
+              lang,
+              'Αν έχεις ήδη Premium/Ετήσιο, δώρο Starter γίνεται ίσες μέρες στο πλάνο σου — χωρίς υποβάθμιση',
+              'If you already have Premium/Annual, a Starter reward becomes the same days on your current plan — no downgrade',
+              'Dacă ai deja Premium/Anual, un cadou Starter devine aceleași zile pe planul tău — fără downgrade',
+            ),
+            pickL(
+              lang,
+              'Οι μέρες προστίθενται μετά τη λήξη της τρέχουσας πρόσβασης (συνδρομή ή grant)',
+              'Days are added after your current access ends (subscription or grant)',
+              'Zilele se adaugă după ce expiră accesul curent (abonament sau grant)',
+            ),
+            pickL(
+              lang,
+              'Πάτα «Πάρε το δώρο σου!» για να τις ενεργοποιήσεις',
+              'Tap «Claim your gift!» to activate them',
+              'Apasă «Ia cadoul!» ca să le activezi',
+            ),
+          ],
+        },
+      ],
+    },
+    {
+      question: pickL(lang, 'Πού βλέπω τους πόντους μου;', 'Where do I see my points?', 'Unde îmi văd punctele?'),
+      group,
+      answer: pickL(
+        lang,
+        'Όλα τα στοιχεία gamification βρίσκονται στην καρτέλα Προφίλ.',
+        'All gamification info is on the Profile tab.',
+        'Toate informațiile de gamification sunt în tab-ul Profil.',
+      ),
+      sections: [
+        {
+          title: pickL(lang, 'Τι εμφανίζεται', 'What you see', 'Ce vezi'),
+          bullets: [
+            pickL(
+              lang,
+              'Τρέχον επίπεδο και όνομα (π.χ. «Ενεργή Μαμά»)',
+              'Current level and name (e.g. Active Mom)',
+              'Nivelul curent și numele (ex. «Mamă activă»)',
+            ),
+            pickL(
+              lang,
+              'Συνολικοί πόντοι και μπάρα προόδου προς το επόμενο επίπεδο',
+              'Total points and progress bar to next level',
+              'Puncte totale și bara de progres spre următorul nivel',
+            ),
+            pickL(
+              lang,
+              'Λίστα ενεργειών που δίνουν πόντους',
+              'List of actions that earn points',
+              'Lista acțiunilor care aduc puncte',
+            ),
+            pickL(
+              lang,
+              'Κωδικός πρόσκλησης για φίλες',
+              'Invite code for friends',
+              'Cod de invitație pentru prietene',
+            ),
+            pickL(
+              lang,
+              'Εκκρεμές δώρο επιπέδου — αν έχεις ανεβεί επίπεδο',
+              'Pending level reward — if you recently leveled up',
+              'Cadou de nivel în așteptare — dacă ai urcat recent',
+            ),
+          ],
         },
       ],
     },
@@ -328,7 +392,12 @@ export function mergeGamificationFaqItems<T extends GamificationFaqItem>(
   lang: string,
 ): T[] {
   const gamification = buildGamificationFaqItems(lang) as T[]
-  const accountGroup = lang === 'el' ? 'Λογαριασμός & ιδιωτικότητα' : 'Account & privacy'
+  const accountGroup = pickL(
+    lang,
+    'Λογαριασμός & ιδιωτικότητα',
+    'Account & privacy',
+    'Cont & confidențialitate',
+  )
   const insertAt = baseItems.findIndex((item) => item.group === accountGroup)
   if (insertAt < 0) return [...baseItems, ...gamification]
   return [...baseItems.slice(0, insertAt), ...gamification, ...baseItems.slice(insertAt)]

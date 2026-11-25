@@ -47,8 +47,29 @@ class EmailMessage:
 
 
 def normalize_email_lang(lang: Optional[str]) -> str:
-    code = (lang or "el").strip().lower()
-    return "en" if code == "en" else "el"
+    """Canonical email language: el | en | ro. Unknown codes fall back to el."""
+    code = (lang or "el").strip().lower().replace("_", "-").split("-")[0][:8]
+    if code in ("en", "eng"):
+        return "en"
+    if code in ("ro", "ron", "rum"):
+        return "ro"
+    return "el"
+
+
+def _email_pair(lang: str, *, el: str, en: str, ro: Optional[str] = None) -> str:
+    """Pick copy for el/en/ro; Romanian falls back to English when RO missing."""
+    if lang == "en":
+        return en
+    if lang == "ro":
+        return ro if ro is not None else en
+    return el
+
+
+
+def _el_en_body_lang(lang: str) -> str:
+    """For templates with only el/en bodies: map RO to EN (better than Greek)."""
+    code = normalize_email_lang(lang)
+    return "en" if code == "ro" else code
 
 
 def _font() -> str:
@@ -165,7 +186,7 @@ def _first_name(name: Optional[str]) -> str:
 def _display_name(name: Optional[str], lang: str) -> str:
     first = _first_name(name)
     if not first:
-        return "there" if lang == "en" else "εσένα"
+        return _email_pair(lang, el="εσένα", en="there", ro="tu")
     if lang == "el":
         return greek_vocative(first)
     return first
@@ -174,29 +195,29 @@ def _display_name(name: Optional[str], lang: str) -> str:
 def _plan_label(plan: str, lang: str) -> str:
     key = (plan or "").strip().lower()
     labels = {
-        "starter": ("Starter — €13.99/μήνα", "Starter — €13.99/month"),
-        "premium": ("Premium — €24.99/μήνα", "Premium — €24.99/month"),
-        "annual": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year"),
-        "annual_premium": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year"),
-        "trial": ("Δωρεάν δοκιμή", "Free trial"),
+        "starter": ("Starter — €13.99/μήνα", "Starter — €13.99/month", "Starter — €13.99/lună"),
+        "premium": ("Premium — €24.99/μήνα", "Premium — €24.99/month", "Premium — €24.99/lună"),
+        "annual": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year", "Premium anual — €119.99/an"),
+        "annual_premium": ("Ετήσιο Premium — €119.99/έτος", "Annual Premium — €119.99/year", "Premium anual — €119.99/an"),
+        "trial": ("Δωρεάν δοκιμή", "Free trial", "Perioadă de probă gratuită"),
     }
-    pair = labels.get(key)
-    if pair:
-        return pair[1 if lang == "en" else 0]
-    return plan or ("Συνδρομή" if lang == "el" else "Subscription")
+    triple = labels.get(key)
+    if triple:
+        return _email_pair(lang, el=triple[0], en=triple[1], ro=triple[2])
+    return plan or _email_pair(lang, el="Συνδρομή", en="Subscription", ro="Abonament")
 
 
 def _gift_plan_name(plan: str, lang: str) -> str:
     key = (plan or "").strip().lower()
     if key in ("annual", "annual_premium"):
-        return "Annual Premium" if lang == "en" else "Ετήσιο Premium"
+        return _email_pair(lang, el="Ετήσιο Premium", en="Annual Premium", ro="Premium anual")
     if key == "premium":
         return "Premium"
     if key == "starter":
         return "Starter"
     if key == "trial":
-        return "Free trial" if lang == "en" else "Δωρεάν δοκιμή"
-    return plan or ("plan" if lang == "en" else "πλάνο")
+        return _email_pair(lang, el="Δωρεάν δοκιμή", en="Free trial", ro="Perioadă de probă")
+    return plan or _email_pair(lang, el="πλάνο", en="plan", ro="plan")
 
 
 def _email_shell(body_html: str, *, preheader: str = "") -> str:
@@ -250,16 +271,11 @@ def _paragraph(text: str) -> str:
 
 def _greeting(name: Optional[str], lang: str) -> str:
     who = escape(_display_name(name, lang))
-    if lang == "en":
-        return (
-            f'<p style="font-family:{_font()};font-size:22px;font-weight:700;'
-            f'color:{TEXT};line-height:1.35;margin:0 0 16px;text-align:center;">'
-            f'Hi <strong>{who}</strong>! 👋</p>'
-        )
+    hi = _email_pair(lang, el="Γεια σου", en="Hi", ro="Bună")
     return (
         f'<p style="font-family:{_font()};font-size:22px;font-weight:700;'
         f'color:{TEXT};line-height:1.35;margin:0 0 16px;text-align:center;">'
-        f'Γεια σου <strong>{who}</strong>! 👋</p>'
+        f'{hi} <strong>{who}</strong>! 👋</p>'
     )
 
 
@@ -304,6 +320,12 @@ def _help_footer(lang: str) -> str:
             f'Need help? Reply to this email or write to '
             f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">'
             f'{SUPPORT_EMAIL}</a>. Thank you for trusting HeyMaa! 🌸'
+        )
+    if lang == "ro":
+        return _paragraph(
+            f'Ai nevoie de ajutor? Răspunde la acest email sau scrie la '
+            f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">'
+            f'{SUPPORT_EMAIL}</a>. Mulțumim că ai încredere în HeyMaa! 🌸'
         )
     return _paragraph(
         f'Αν χρειαστείς βοήθεια, απάντησε σε αυτό το email ή γράψε στο '
@@ -401,6 +423,27 @@ def render_password_reset_email(
         )
         subject = "Reset your HeyMaa password"
         preheader = "Password reset link for your HeyMaa account"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                "Am primit o cerere de resetare a parolei HeyMaa. "
+                f"Linkul de mai jos este valabil <strong style=\"color:{TEXT};\">{expires_hours} ore</strong>."
+            )
+            + _button(reset_url, "Resetează parola")
+            + _paragraph(
+                f'Dacă butonul nu funcționează, copiază acest link:<br>'
+                f'<a href="{escape(reset_url, quote=True)}" style="color:{TEAL};word-break:break-all;text-decoration:none;">'
+                f"{escape(reset_url)}</a>"
+            )
+            + _paragraph(
+                "Dacă nu ai cerut tu resetarea, poți ignora acest email — "
+                "parola ta rămâne neschimbată."
+            )
+            + _help_footer(lang)
+        )
+        subject = "Resetează parola HeyMaa"
+        preheader = "Link de resetare a parolei pentru contul tău HeyMaa"
     else:
         body = (
             _greeting(name, lang)
@@ -450,6 +493,22 @@ def render_welcome_trial_email(
         )
         subject = "Welcome to HeyMaa!"
         preheader = f"Your {trial_days}-day free trial has started"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Bine ai venit la <strong style=\"color:{TEXT};\">HeyMaa</strong>! Contul tău este gata cu "
+                f"<strong style=\"color:{TEXT};\">{trial_days} zile de probă gratuită</strong> ({plan})."
+            )
+            + _paragraph(
+                "Deschide aplicația ca să vorbești cu HeyMaa, să urmărești momentele importante, "
+                "să salvezi amintiri și să găsești sfaturi pentru sarcină și parenting."
+            )
+            + _button(app_url, "Deschide HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Bine ai venit la HeyMaa!"
+        preheader = f"Perioada ta de probă de {trial_days} zile a început"
     else:
         body = (
             _greeting(name, lang)
@@ -476,7 +535,7 @@ def render_subscription_activated_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     plan_label = _plan_label(plan, lang)
     if lang == "en":
         body = (
@@ -522,7 +581,7 @@ def render_subscription_welcome_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Post-checkout welcome for purchasers who still need to register (e.g. Lemon Squeezy)."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     plan_label = _plan_label(plan, lang)
     signup_url = f"{app_url.rstrip('/')}?invite={invite_code}"
     if lang == "en":
@@ -578,7 +637,7 @@ def render_password_changed_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     if lang == "en":
         body = (
             _greeting(name, lang)
@@ -619,7 +678,7 @@ def render_access_expiry_reminder_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     try:
         end_dt = datetime.fromisoformat(access_ends_at.replace("Z", "+00:00"))
         if lang == "en":
@@ -690,7 +749,7 @@ def render_level_gift_won_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     lines = []
     for gift in gifts:
@@ -766,7 +825,7 @@ def render_level_gift_activated_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     gift = _gift_line(int(days or 0), plan_slot, lang)
     start_label = _format_email_date(starts_at, lang)
@@ -847,7 +906,7 @@ def render_llm_ops_alert_email(
     key_source: str = "",
     lang: str = "el",
 ) -> EmailMessage:
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     remaining_label = "—" if remaining_usd is None else f"${remaining_usd:.2f}"
     spent_label = f"${spent_usd:.2f}"
     day_label = f"${day_cost_usd:.2f}"
@@ -1376,7 +1435,7 @@ def render_admin_daily_report_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Cinematic daily pulse email — scoreboard, sparklines, rate bars, attention strip."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     date_label = str(report.get("report_date") or datetime.utcnow().date().isoformat())
     h = report.get("headline") or {}
     cum = report.get("cumulative") or {}
@@ -1698,7 +1757,7 @@ def render_support_received_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Ack to the mom after she submits an in-app contact message."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     subj = escape((subject or "").strip() or "HeyMaa")
     cat = escape((category or "general").strip())
     if lang == "en":
@@ -1744,7 +1803,7 @@ def render_support_admin_reply_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Email the mom when an admin replies from the Support Inbox."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     subj = escape((subject or "").strip() or "HeyMaa")
     reply = escape((reply_body or "").strip()).replace("\n", "<br>")
     if lang == "en":
@@ -1905,7 +1964,7 @@ def render_gift_code_offer_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Announcement for a redeemable marketing gift code."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     bits = _gift_code_reward_bits(
         gift_type=gift_type,
         plan_slot=plan_slot,
@@ -1964,7 +2023,7 @@ def render_gift_code_claimed_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Confirmation after a marketing gift code is successfully claimed."""
-    lang = normalize_email_lang(lang)
+    lang = _el_en_body_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     bits = _gift_code_reward_bits(
         gift_type=gift_type,

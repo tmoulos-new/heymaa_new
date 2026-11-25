@@ -176,7 +176,9 @@ export function rewardDescription(reward: PendingLevelReward, lang: string): str
 export function rewardTitle(levelId: number, lang: string): string {
   const level = GAMIFICATION_LEVELS.find((row) => row.number === levelId)
   if (!level) return lang === 'el' ? 'Νέο επίπεδο!' : lang === 'ro' ? 'Nivel nou!' : 'New level!'
-  return lang === 'el' ? level.name_el : level.name_en
+  if (lang === 'el') return level.name_el
+  if (lang === 'ro') return level.name_ro
+  return level.name_en
 }
 
 export function levelUpKicker(lang: string): string {

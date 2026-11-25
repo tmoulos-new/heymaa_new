@@ -2103,7 +2103,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
   const helpFaqItems = useMemo(() => {
     const raw = tHome("faq.items", { returnObjects: true, lng: homeLng });
     const base = Array.isArray(raw) ? (raw as HomeFaqItem[]) : [];
-    return mergeGamificationFaqItems(base, homeLng === "el" ? "el" : "en");
+    return mergeGamificationFaqItems(base, homeLng);
   }, [tHome, homeLng, pointRulesVersion]);
   const helpEmail = String(tHome("footer.email", { lng: homeLng }) || "info@heymaa.ai");
   const showGreekContact = homeLng === "el" || lang === "el";
@@ -5637,7 +5637,11 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           </div>
           <div className="hm-faq-dialog__foot">
             <p className="hm-faq-dialog__foot-hint">
-              {lang === "el" ? "Δεν βρήκες αυτό που ψάχνεις;" : "Still need help?"}
+              {lang === "el"
+                ? "Δεν βρήκες αυτό που ψάχνεις;"
+                : lang === "ro"
+                  ? "Nu ai găsit ce căutai?"
+                  : "Still need help?"}
             </p>
             <button
               type="button"

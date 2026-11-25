@@ -7,6 +7,7 @@ import {
   levelEmoji,
   levelRewardsText,
 } from '../lib/gamificationCard'
+import { pickL } from '../lib/appLang'
 
 import type { PendingLevelReward } from '../lib/levelRewards'
 import {
@@ -47,7 +48,6 @@ export function ProfileGamificationCard({
   onToggleHeaderChip,
   onOpenFaq,
 }: Props) {
-  const isEl = lang === 'el'
   const { level, points, progress_percent, points_to_next, next_level } = gamification
   const emoji = levelEmoji(level.number)
   const pending = pendingRewards?.[0]
@@ -68,7 +68,7 @@ export function ProfileGamificationCard({
       )
     }
     const fallback = levelRewardsText(next_level.number, lang)
-    if (/Χωρίς δώρο|No gift/i.test(fallback)) return null
+    if (/Χωρίς δώρο|No gift|Fără cadou/i.test(fallback)) return null
     return fallback
   })()
 
@@ -81,8 +81,8 @@ export function ProfileGamificationCard({
     if (!referralCode) return
     const ok = await copyText(referralCode)
     flashReferral(ok
-      ? (isEl ? 'Ο κωδικός αντιγράφηκε' : 'Code copied')
-      : (isEl ? 'Δεν έγινε αντιγραφή' : 'Could not copy'))
+      ? pickL(lang, 'Ο κωδικός αντιγράφηκε', 'Code copied', 'Cod copiat')
+      : pickL(lang, 'Δεν έγινε αντιγραφή', 'Could not copy', 'Nu s-a putut copia'))
   }
 
   const handleSendInvite = async () => {
@@ -90,12 +90,17 @@ export function ProfileGamificationCard({
     const result = await sendReferralInvite(referralCode, lang)
     if (result === 'cancelled') return
     if (result === 'shared') {
-      flashReferral(isEl ? 'Η πρόσκληση άνοιξε' : 'Invite opened')
+      flashReferral(pickL(lang, 'Η πρόσκληση άνοιξε', 'Invite opened', 'Invitația s-a deschis'))
       return
     }
     flashReferral(result === 'copied'
-      ? (isEl ? 'Ο σύνδεσμος αντιγράφηκε — στείλε τον στη φίλη σου' : 'Link copied — send it to your friend')
-      : (isEl ? 'Δεν στάλθηκε η πρόσκληση' : 'Could not send invite'))
+      ? pickL(
+          lang,
+          'Ο σύνδεσμος αντιγράφηκε — στείλε τον στη φίλη σου',
+          'Link copied — send it to your friend',
+          'Link copiat — trimite-l prietenei tale',
+        )
+      : pickL(lang, 'Δεν στάλθηκε η πρόσκληση', 'Could not send invite', 'Invitația nu a fost trimisă'))
   }
 
   return (
@@ -122,14 +127,14 @@ export function ProfileGamificationCard({
 
           <div className="hm-profile-gamification-card__hero-copy">
             <p className="hm-profile-gamification-card__kicker">
-              {isEl ? `Επίπεδο ${level.number}` : `Level ${level.number}`}
+              {pickL(lang, `Επίπεδο ${level.number}`, `Level ${level.number}`, `Nivel ${level.number}`)}
             </p>
             <h3 className="hm-profile-gamification-card__level-name">
               {levelName(level, lang)}
             </h3>
             <p className="hm-profile-gamification-card__points">
               <strong>{points}</strong>
-              <span>{isEl ? 'πόντοι' : 'points'}</span>
+              <span>{pickL(lang, 'πόντοι', 'points', 'puncte')}</span>
             </p>
           </div>
         </div>
@@ -138,15 +143,18 @@ export function ProfileGamificationCard({
           <div className="hm-profile-gamification-card__progress-copy">
             <span>
               {level.is_max
-                ? (isEl ? 'Μέγιστο επίπεδο' : 'Max level')
-                : (isEl
-                  ? `Επόμενο: ${nextName ?? 'επόμενο επίπεδο'}`
-                  : `Next: ${nextName ?? 'next level'}`)}
+                ? pickL(lang, 'Μέγιστο επίπεδο', 'Max level', 'Nivel maxim')
+                : pickL(
+                    lang,
+                    `Επόμενο: ${nextName ?? 'επόμενο επίπεδο'}`,
+                    `Next: ${nextName ?? 'next level'}`,
+                    `Următorul: ${nextName ?? 'următorul nivel'}`,
+                  )}
             </span>
             <span>
               {level.is_max
-                ? (isEl ? 'Τα κατάφερες' : 'You made it')
-                : (isEl ? `${points_to_next} ακόμα` : `${points_to_next} to go`)}
+                ? pickL(lang, 'Τα κατάφερες', 'You made it', 'Ai reușit')
+                : pickL(lang, `${points_to_next} ακόμα`, `${points_to_next} to go`, `${points_to_next} rămase`)}
             </span>
           </div>
           <div
@@ -157,8 +165,13 @@ export function ProfileGamificationCard({
             aria-valuemax={100}
             aria-valuetext={
               level.is_max
-                ? (isEl ? 'Μέγιστο επίπεδο' : 'Max level')
-                : (isEl ? `${pct}% — ${points_to_next} πόντοι ακόμα` : `${pct}% — ${points_to_next} points to go`)
+                ? pickL(lang, 'Μέγιστο επίπεδο', 'Max level', 'Nivel maxim')
+                : pickL(
+                    lang,
+                    `${pct}% — ${points_to_next} πόντοι ακόμα`,
+                    `${pct}% — ${points_to_next} points to go`,
+                    `${pct}% — ${points_to_next} puncte rămase`,
+                  )
             }
           >
             <div
@@ -185,7 +198,7 @@ export function ProfileGamificationCard({
             <span className="hm-profile-gamification-card__gift-btn-icon" aria-hidden="true">🎁</span>
             <span className="hm-profile-gamification-card__gift-btn-copy">
               <span className="hm-profile-gamification-card__gift-btn-title">
-                {isEl ? 'Δώρο σε αναμονή' : 'Gift waiting'}
+                {pickL(lang, 'Δώρο σε αναμονή', 'Gift waiting', 'Cadou în așteptare')}
               </span>
               <span className="hm-profile-gamification-card__gift-btn-sub">
                 {rewardTitle(pending.level_id, lang)} · {effectiveRewardDescription(pending, lang, currentPlanSlot)}
@@ -199,12 +212,20 @@ export function ProfileGamificationCard({
             <span className="hm-profile-gamification-card__next-gift-icon" aria-hidden="true">✨</span>
             <span className="hm-profile-gamification-card__next-gift-copy">
               <span className="hm-profile-gamification-card__next-gift-title">
-                {isEl ? `Δώρο στο «${nextName}»` : `Gift at “${nextName}”`}
+                {pickL(
+                  lang,
+                  `Δώρο στο «${nextName}»`,
+                  `Gift at “${nextName}”`,
+                  `Cadou la „${nextName}”`,
+                )}
               </span>
               <span className="hm-profile-gamification-card__next-gift-sub">
-                {isEl
-                  ? `Φτάσε εκεί και κέρδισε ${nextGiftDescription}.`
-                  : `Reach it and earn ${nextGiftDescription}.`}
+                {pickL(
+                  lang,
+                  `Φτάσε εκεί και κέρδισε ${nextGiftDescription}.`,
+                  `Reach it and earn ${nextGiftDescription}.`,
+                  `Ajunge acolo și câștigă ${nextGiftDescription}.`,
+                )}
               </span>
             </span>
           </div>
@@ -223,14 +244,14 @@ export function ProfileGamificationCard({
               className="hm-profile-gamification-card__faq-link"
               onClick={() => onOpenFaq('points')}
             >
-              {isEl ? 'Πώς κερδίζεις πόντους;' : 'How do points work?'}
+              {pickL(lang, 'Πώς κερδίζεις πόντους;', 'How do points work?', 'Cum funcționează punctele?')}
             </button>
             <button
               type="button"
               className="hm-profile-gamification-card__faq-link"
               onClick={() => onOpenFaq('levels')}
             >
-              {isEl ? 'Τι είναι τα επίπεδα;' : 'What are levels?'}
+              {pickL(lang, 'Τι είναι τα επίπεδα;', 'What are levels?', 'Ce sunt nivelurile?')}
             </button>
           </div>
         ) : null}
@@ -242,11 +263,11 @@ export function ProfileGamificationCard({
               className="hm-profile-gamification-card__header-toggle"
               role="switch"
               aria-checked={!!showHeaderChip}
-              aria-label={isEl ? 'Εμφάνιση πόντων στο header' : 'Show points in header'}
+              aria-label={pickL(lang, 'Εμφάνιση πόντων στο header', 'Show points in header', 'Afișează punctele în header')}
               onClick={onToggleHeaderChip}
             >
               <span className="hm-profile-gamification-card__header-toggle-copy">
-                {isEl ? 'Πόντοι στο header' : 'Points in header'}
+                {pickL(lang, 'Πόντοι στο header', 'Points in header', 'Puncte în header')}
               </span>
               <span className={`hm-settings-switch${showHeaderChip ? ' is-on' : ''}`} aria-hidden="true">
                 <span className="hm-settings-switch__knob" />
@@ -259,19 +280,22 @@ export function ProfileGamificationCard({
           <div className="hm-profile-gamification-card__referral">
             <div className="hm-profile-gamification-card__referral-copy">
               <p className="hm-profile-gamification-card__referral-label">
-                {isEl ? 'Κωδικός πρόσκλησης' : 'Invite code'}
+                {pickL(lang, 'Κωδικός πρόσκλησης', 'Invite code', 'Cod de invitație')}
               </p>
               <p className="hm-profile-gamification-card__referral-bonus">
-                {isEl
-                  ? `+${getReferralBonusPoints()} πόντοι για κάθε φίλη που εγγράφεται`
-                  : `+${getReferralBonusPoints()} points for every friend who signs up`}
+                {pickL(
+                  lang,
+                  `+${getReferralBonusPoints()} πόντοι για κάθε φίλη που εγγράφεται`,
+                  `+${getReferralBonusPoints()} points for every friend who signs up`,
+                  `+${getReferralBonusPoints()} puncte pentru fiecare prietenă care se înscrie`,
+                )}
               </p>
             </div>
             <button
               type="button"
               className="hm-profile-gamification-card__referral-code-btn"
               onClick={() => void handleCopyCode()}
-              aria-label={isEl ? `Αντιγραφή κωδικού ${referralCode}` : `Copy code ${referralCode}`}
+              aria-label={pickL(lang, `Αντιγραφή κωδικού ${referralCode}`, `Copy code ${referralCode}`, `Copiază codul ${referralCode}`)}
             >
               <strong>{referralCode}</strong>
               <IconCopy size={15} />
@@ -282,7 +306,7 @@ export function ProfileGamificationCard({
               onClick={() => void handleSendInvite()}
             >
               <IconShare size={16} />
-              {isEl ? 'Προσκάλεσε φίλη' : 'Invite a friend'}
+              {pickL(lang, 'Προσκάλεσε φίλη', 'Invite a friend', 'Invită o prietenă')}
             </button>
             {referralFeedback ? (
               <p className="hm-profile-gamification-card__referral-feedback" role="status">

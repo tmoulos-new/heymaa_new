@@ -1,4 +1,5 @@
 import { GAMIFICATION_LEVELS } from "./gamificationCard";
+import { pickL } from "./appLang";
 import { APP_ROUTE } from "../publicRoutes";
 import { storageScope } from "./memoriesSync";
 import { stableSk } from "./userDataRecovery";
@@ -24,12 +25,21 @@ export function referralInviteUrl(code: string): string {
 
 export function referralInviteSharePayload(code: string, lang: string): ShareData {
   const url = referralInviteUrl(code);
-  const isEl = lang === "el";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://www.heymaa.ai";
+  const site = origin.replace(/\/$/, "");
   return {
-    title: "HeyMaa",
-    text: isEl
-      ? `Έλα στην HeyMaa με τον κωδικό μου ${code}.`
-      : `Join me on HeyMaa with my invite code ${code}.`,
+    title: pickL(
+      lang,
+      "Πρόσκληση HeyMaa",
+      "HeyMaa invite",
+      "Invitație HeyMaa",
+    ),
+    text: pickL(
+      lang,
+      `Έλα στην HeyMaa με τον κωδικό μου ${code}.\nΆνοιξε: ${url}\nΜάθε περισσότερα: ${site}`,
+      `Join me on HeyMaa with my invite code ${code}.\nOpen: ${url}\nLearn more: ${site}`,
+      `Vino pe HeyMaa cu codul meu ${code}.\nDeschide: ${url}\nAflă mai multe: ${site}`,
+    ),
     url,
   };
 }
@@ -66,7 +76,7 @@ export async function copyText(value: string): Promise<boolean> {
 
 export async function sendReferralInvite(code: string, lang: string): Promise<"shared" | "copied" | "cancelled" | "failed"> {
   const payload = referralInviteSharePayload(code, lang);
-  const packed = `${payload.text}\n${payload.url}`;
+  const packed = `${payload.text}`;
   try {
     if (typeof navigator.share === "function") {
       await navigator.share(payload);
@@ -74,6 +84,22 @@ export async function sendReferralInvite(code: string, lang: string): Promise<"s
     }
   } catch (err) {
     if ((err as DOMException)?.name === "AbortError") return "cancelled";
+  }
+  // mailto fallback with subject + body (incl. site link) when Web Share is unavailable
+  try {
+    if (typeof window !== "undefined") {
+      const subject = encodeURIComponent(String(payload.title || "HeyMaa"));
+      const body = encodeURIComponent(packed);
+      const a = document.createElement("a");
+      a.href = `mailto:?subject=${subject}&body=${body}`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return "shared";
+    }
+  } catch {
+    /* fall through to clipboard */
   }
   const ok = await copyText(packed);
   return ok ? "copied" : "failed";
@@ -101,6 +127,7 @@ export type GamificationLevel = {
   number: number;
   name_el: string;
   name_en: string;
+  name_ro?: string;
   min_points: number;
   is_max: boolean;
 };
@@ -115,8 +142,19 @@ export type GamificationStatus = {
   progress_percent: number;
 };
 
-export function levelName(level: Pick<GamificationLevel, "name_el" | "name_en">, lang: string): string {
-  return lang === "el" ? level.name_el : level.name_en;
+export function levelName(
+  level: Pick<GamificationLevel, "name_el" | "name_en" | "name_ro"> & { number?: number },
+  lang: string,
+): string {
+  const fallback = typeof level.number === "number"
+    ? GAMIFICATION_LEVELS.find((row) => row.number === level.number)
+    : undefined;
+  return pickL(
+    lang,
+    level.name_el || fallback?.name_el || "",
+    level.name_en || fallback?.name_en || "",
+    level.name_ro || fallback?.name_ro,
+  );
 }
 
 export function applyPointsDelta(status: GamificationStatus, delta: number): GamificationStatus {
@@ -141,6 +179,7 @@ export function applyPointsDelta(status: GamificationStatus, delta: number): Gam
     number: row.number,
     name_el: row.name_el,
     name_en: row.name_en,
+    name_ro: row.name_ro,
     min_points: row.min_points,
     is_max: max,
   });

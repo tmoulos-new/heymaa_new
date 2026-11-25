@@ -57,6 +57,14 @@ export function normalizeAppLang(code: string | null | undefined, fallback: AppL
   return fallback;
 }
 
+/** Pick el / en / ro UI string; Romanian falls back to English when RO missing. */
+export function pickL(lang: string | null | undefined, el: string, en: string, ro?: string): string {
+  const code = normalizeAppLang(lang, "en");
+  if (code === "el") return el;
+  if (code === "ro") return ro ?? en;
+  return en;
+}
+
 export function readStoredAppLang(fallback: AppLangCode = "en"): AppLangCode {
   try {
     return normalizeAppLang(localStorage.getItem(PRE_LANG_KEY), fallback);

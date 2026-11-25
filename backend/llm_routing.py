@@ -130,6 +130,43 @@ DEFAULT_LLM_ROUTING: dict[str, Any] = {
         "πρότεινέ μου γιατρό",
         "προτεινε μου γιατρο",
         "πρότεινέ μου παιδίατρο",
+        # Romanian nearby / places intent
+        "aproape de mine",
+        "in apropiere",
+        "în apropiere",
+        "langa mine",
+        "lângă mine",
+        "in zona mea",
+        "în zona mea",
+        "gaseste-mi",
+        "găsește-mi",
+        "gaseste un",
+        "găsește un",
+        "gaseste o",
+        "găsește o",
+        "pediatru",
+        "pediatri",
+        "farmacie",
+        "farmacii",
+        "cabinet medical",
+        "clinica",
+        "clinică",
+        "spital",
+        "parc de joaca",
+        "parc de joacă",
+        "loc de joaca",
+        "loc de joacă",
+        "parc aproape",
+        "pediatru aproape",
+        "farmacie aproape",
+        "unde gasesc pediatru",
+        "unde găsesc pediatru",
+        "unde gasesc farmacie",
+        "unde găsesc farmacie",
+        "recomanda un pediatru",
+        "recomandă un pediatru",
+        "lista de pediatri",
+        "listă de pediatri",
         # Natural Greek word-order variants («να μου βρεις … στη …»)
         "να μου βρεις",
         "μου βρεις",
@@ -297,11 +334,13 @@ _PLACES_TYPE_RE = re.compile(
     r"(παιδιατρ|γιατρ|φαρμακει|μαια|μαιευ|κλινικ|νοσοκομει|"
     r"παιδικη\s+χαρα|παρκο|παιδοτοπ|παρτυ|χωρ(?:οσ|οι|ουσ)?\s+για\s+παρτυ|"
     r"pediatrician|doctor|pharmacy|midwife|clinic|hospital|playground|park|"
+    r"pediatr|farmacie|cabinet|spital|parc(?:\s+de\s+joac[aă])?|loc\s+de\s+joac[aă]|"
     r"party\s+(?:venue|place|room)|birthday\s+party|kids?\s+party|indoor\s+playground)",
     re.I,
 )
 _PLACES_LOC_RE = re.compile(
-    r"(κοντα|στην|στη|στον|στο|σε\s+περιοχη|near|nearby|around|in\s+my\s+area|\bin\s+[a-zα-ω]{3,})",
+    r"(κοντα|στην|στη|στον|στο|σε\s+περιοχη|near|nearby|around|in\s+my\s+area|"
+    r"aproape|apropiere|l[aâ]ng[aă]|zona\s+mea|\bin\s+[a-zα-ωăâîșț]{3,})",
     re.I,
 )
 
