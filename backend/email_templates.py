@@ -535,7 +535,7 @@ def render_subscription_activated_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     plan_label = _plan_label(plan, lang)
     if lang == "en":
         body = (
@@ -553,6 +553,22 @@ def render_subscription_activated_email(
         )
         subject = "Your HeyMaa subscription is active"
         preheader = f"Subscription activated: {plan_label}"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Mulțumim! Abonamentul tău HeyMaa este acum activ: "
+                f"<strong style=\"color:{TEXT};\">{escape(plan_label)}</strong>."
+            )
+            + _paragraph(
+                "Poți continua să folosești toate funcțiile fără întrerupere. "
+                "Deschide aplicația ca să continui de unde ai rămas."
+            )
+            + _button(app_url, "Continuă pe HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Abonamentul tău HeyMaa este activ"
+        preheader = f"Abonament activ: {plan_label}"
     else:
         body = (
             _greeting(name, lang)
@@ -581,7 +597,7 @@ def render_subscription_welcome_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Post-checkout welcome for purchasers who still need to register (e.g. Lemon Squeezy)."""
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     plan_label = _plan_label(plan, lang)
     signup_url = f"{app_url.rstrip('/')}?invite={invite_code}"
     if lang == "en":
@@ -606,6 +622,28 @@ def render_subscription_welcome_email(
         )
         subject = "Welcome to HeyMaa — your subscription is ready"
         preheader = f"Invite code: {invite_code}"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Mulțumim pentru cumpărare! Planul <strong style=\"color:{TEXT};\">{escape(plan_label)}</strong> "
+                f"este gata — folosește codul de invitație de mai jos ca să îți creezi contul HeyMaa."
+            )
+            + _code_box("Cod de invitație", invite_code)
+            + _steps_panel(
+                "Primii pași",
+                [
+                    f'Deschide <a href="{escape(signup_url, quote=True)}" style="color:{TEAL};text-decoration:none;">HeyMaa</a> pe telefon',
+                    "Înregistrează-te cu același email folosit la plată",
+                    f"Introdu codul de invitație: <strong>{escape(invite_code)}</strong>",
+                    "Setează parola și completează profilul",
+                ],
+            )
+            + _button(signup_url, "Începe HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Bine ai venit la HeyMaa — abonamentul este gata"
+        preheader = f"Cod de invitație: {invite_code}"
     else:
         body = (
             _greeting(name, lang)
@@ -637,7 +675,7 @@ def render_password_changed_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     if lang == "en":
         body = (
             _greeting(name, lang)
@@ -653,6 +691,21 @@ def render_password_changed_email(
         )
         subject = "Your HeyMaa password was changed"
         preheader = "Password change confirmation"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                "Confirmăm că parola ta HeyMaa a fost schimbată cu succes."
+            )
+            + _paragraph(
+                "Dacă nu ai făcut tu această schimbare, contactează-ne imediat la "
+                f'<a href="mailto:{SUPPORT_EMAIL}" style="color:{TEAL};text-decoration:none;">{SUPPORT_EMAIL}</a>.'
+            )
+            + _button(app_url, "Deschide HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Parola ta HeyMaa a fost schimbată"
+        preheader = "Confirmare schimbare parolă"
     else:
         body = (
             _greeting(name, lang)
@@ -678,11 +731,13 @@ def render_access_expiry_reminder_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     try:
         end_dt = datetime.fromisoformat(access_ends_at.replace("Z", "+00:00"))
         if lang == "en":
             end_label = end_dt.strftime("%d %B %Y")
+        elif lang == "ro":
+            end_label = end_dt.strftime("%d.%m.%Y")
         else:
             end_label = end_dt.strftime("%d/%m/%Y")
     except Exception:
@@ -702,6 +757,21 @@ def render_access_expiry_reminder_email(
         )
         subject = "Your HeyMaa access ends in 2 days"
         preheader = f"Access ends {end_label}"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Accesul tău HeyMaa se termină curând — pe "
+                f"<strong style=\"color:{TEXT};\">{escape(end_label)}</strong>."
+            )
+            + _paragraph(
+                "Reînnoiește sau fă upgrade acum ca să nu pierzi chat-ul, amintirile și momentele importante."
+            )
+            + _button(f"{app_url.rstrip('/')}/app", "Reînnoiește / Upgrade")
+            + _help_footer(lang)
+        )
+        subject = "Accesul tău HeyMaa se termină în 2 zile"
+        preheader = f"Accesul se termină pe {end_label}"
     else:
         body = (
             _greeting(name, lang)
@@ -727,6 +797,8 @@ def _format_email_date(value: Optional[str], lang: str) -> str:
         end_dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         if lang == "en":
             return end_dt.strftime("%d %B %Y")
+        if lang == "ro":
+            return end_dt.strftime("%d.%m.%Y")
         return end_dt.strftime("%d/%m/%Y")
     except Exception:
         return str(value)[:10]
@@ -737,6 +809,9 @@ def _gift_line(days: int, plan_slot: str, lang: str) -> str:
     if lang == "en":
         unit = "day" if days == 1 else "days"
         return f"{days} {unit} free {plan}"
+    if lang == "ro":
+        unit = "zi" if days == 1 else "zile"
+        return f"{days} {unit} {plan} gratuit"
     unit = "μέρα" if days == 1 else "μέρες"
     return f"{days} {unit} δωρεάν {plan}"
 
@@ -749,7 +824,7 @@ def render_level_gift_won_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     lines = []
     for gift in gifts:
@@ -788,6 +863,28 @@ def render_level_gift_won_email(
         )
         subject = "You unlocked a HeyMaa gift"
         preheader = "A level reward is waiting in the app"
+    elif lang == "ro":
+        reached_bit = (
+            f' Ai ajuns la <strong style="color:{TEXT};">{reached}</strong>.'
+            if reached
+            else ""
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(f"Ai urcat de nivel!{reached_bit} Te așteaptă un cadou HeyMaa:")
+            + (
+                f'<ul style="font-family:{_font()};color:{TEXT};font-size:15px;'
+                f'line-height:1.65;margin:0 0 16px;padding-left:20px;">{gifts_html}</ul>'
+            )
+            + _paragraph(
+                'Deschide aplicația și apasă <strong style="color:{TEXT};">Ia cadoul!</strong> '
+                "ca să activezi zilele extra — nu se aplică singure."
+            )
+            + _button(app_href, "Ia cadoul")
+            + _help_footer(lang)
+        )
+        subject = "Ai deblocat un cadou HeyMaa"
+        preheader = "Un cadou de nivel te așteaptă în aplicație"
     else:
         reached_bit = (
             f' Έφτασες το επίπεδο <strong style="color:{TEXT};">{reached}</strong>.'
@@ -825,7 +922,7 @@ def render_level_gift_activated_email(
     app_url: str,
     lang: str = "el",
 ) -> EmailMessage:
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     gift = _gift_line(int(days or 0), plan_slot, lang)
     start_label = _format_email_date(starts_at, lang)
@@ -859,6 +956,34 @@ def render_level_gift_activated_email(
             + _help_footer(lang)
         )
         subject = "Your HeyMaa gift is active"
+        preheader = gift
+    elif lang == "ro":
+        timing = ""
+        if upgraded:
+            timing = (
+                "Aliniat la planul tău curent — fără downgrade. "
+                "Zilele extra încep după ce expiră accesul actual."
+            )
+        elif start_label and end_label:
+            timing = f"Încep pe {start_label} și țin până pe {end_label}."
+        elif end_label:
+            timing = f"Sunt active până pe {end_label}."
+        level_intro = (
+            f' Cadoul pentru <strong style="color:{TEXT};">{level_bit}</strong> este acum activ: '
+            if level_bit
+            else " Cadoul de nivel este acum activ: "
+        )
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f"Gata!{level_intro}"
+                f"<strong style=\"color:{TEXT};\">{escape(gift)}</strong>."
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Deschide HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Cadoul tău HeyMaa este activ"
         preheader = gift
     else:
         timing = ""
@@ -1757,7 +1882,7 @@ def render_support_received_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Ack to the mom after she submits an in-app contact message."""
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     subj = escape((subject or "").strip() or "HeyMaa")
     cat = escape((category or "general").strip())
     if lang == "en":
@@ -1776,6 +1901,23 @@ def render_support_received_email(
         return EmailMessage(
             subject="We received your HeyMaa message",
             html=_email_shell(body, preheader="Our team will get back to you"),
+        )
+    if lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Am primit mesajul tău despre <strong style="color:{TEXT};">{subj}</strong> '
+                f"({cat}). Echipa noastră va răspunde pe email și în ecranul Ajutor &amp; contact din aplicație."
+            )
+            + _paragraph(
+                "Acest canal este pentru cont, facturare și produs — nu pentru urgențe medicale. "
+                "Dacă tu sau copilul aveți nevoie de îngrijire urgentă, contactați un medic sau serviciile locale."
+            )
+            + _help_footer(lang)
+        )
+        return EmailMessage(
+            subject="Am primit mesajul tău pe HeyMaa",
+            html=_email_shell(body, preheader="Îți vom răspunde în curând"),
         )
     body = (
         _greeting(name, lang)
@@ -1803,7 +1945,7 @@ def render_support_admin_reply_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Email the mom when an admin replies from the Support Inbox."""
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     subj = escape((subject or "").strip() or "HeyMaa")
     reply = escape((reply_body or "").strip()).replace("\n", "<br>")
     if lang == "en":
@@ -1824,6 +1966,25 @@ def render_support_admin_reply_email(
         return EmailMessage(
             subject=f"Re: {subject.strip()[:80] or 'HeyMaa support'}",
             html=_email_shell(body, preheader="New reply from HeyMaa Support"),
+        )
+    if lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Răspuns de la HeyMaa Support despre <strong style="color:{TEXT};">{subj}</strong>:'
+            )
+            + (
+                f'<div style="font-family:{_font()};color:{TEXT};font-size:15px;line-height:1.65;'
+                f'background:#f6f4f1;border-radius:12px;padding:14px 16px;margin:0 0 16px;">{reply}</div>'
+            )
+            + _paragraph(
+                "Poți continua conversația în aplicație la Ajutor &amp; contact sau să răspunzi la acest email."
+            )
+            + _help_footer(lang)
+        )
+        return EmailMessage(
+            subject=f"Re: {(subject or '').strip()[:80] or 'HeyMaa support'}",
+            html=_email_shell(body, preheader="Răspuns nou de la HeyMaa Support"),
         )
     body = (
         _greeting(name, lang)
@@ -1947,7 +2108,9 @@ def _gift_code_reward_bits(
         bits.append(_gift_line(int(days or 0), str(plan_slot or "starter"), lang))
     if gtype in ("bonus_points", "combo") and int(points or 0) > 0:
         pts = int(points or 0)
-        bits.append(f"+{pts} πόντοι" if lang == "el" else f"+{pts} points")
+        bits.append(
+            _email_pair(lang, el=f"+{pts} πόντοι", en=f"+{pts} points", ro=f"+{pts} puncte")
+        )
     return bits
 
 
@@ -1964,7 +2127,7 @@ def render_gift_code_offer_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Announcement for a redeemable marketing gift code."""
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     bits = _gift_code_reward_bits(
         gift_type=gift_type,
         plan_slot=plan_slot,
@@ -1973,7 +2136,10 @@ def render_gift_code_offer_email(
         lang=lang,
     )
     reward = " · ".join(bits) if bits else (label or code)
-    title = escape((label or "").strip() or ("HeyMaa gift" if lang == "en" else "Δώρο HeyMaa"))
+    title = escape(
+        (label or "").strip()
+        or _email_pair(lang, el="Δώρο HeyMaa", en="HeyMaa gift", ro="Cadou HeyMaa")
+    )
     href = (claim_url or "").strip() or "#"
 
     if lang == "en":
@@ -1992,6 +2158,22 @@ def render_gift_code_offer_email(
         )
         subject = f"Your HeyMaa gift: {reward}"[:140]
         preheader = "Tap to claim your gift in the app"
+    elif lang == "ro":
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Te așteaptă un cadou: <strong style="color:{TEXT};">{title}</strong>.'
+            )
+            + _paragraph(f"<strong style=\"color:{TEXT};\">{escape(reward)}</strong>")
+            + _paragraph(
+                "Deschide HeyMaa și revendică-l dintr-o apăsare. Dacă ești deconectată, autentifică-te mai întâi — "
+                "cadoul rămâne legat de link."
+            )
+            + _button(href, "Ia cadoul")
+            + _help_footer(lang)
+        )
+        subject = f"Cadoul tău HeyMaa: {reward}"[:140]
+        preheader = "Apasă ca să-l activezi în aplicație"
     else:
         body = (
             _greeting(name, lang)
@@ -2023,7 +2205,7 @@ def render_gift_code_claimed_email(
     lang: str = "el",
 ) -> EmailMessage:
     """Confirmation after a marketing gift code is successfully claimed."""
-    lang = _el_en_body_lang(lang)
+    lang = normalize_email_lang(lang)
     app_href = f"{app_url.rstrip('/')}/app"
     bits = _gift_code_reward_bits(
         gift_type=gift_type,
@@ -2032,7 +2214,9 @@ def render_gift_code_claimed_email(
         points=points,
         lang=lang,
     )
-    reward = " · ".join(bits) if bits else ("your gift" if lang == "en" else "το δώρο σου")
+    reward = " · ".join(bits) if bits else _email_pair(
+        lang, el="το δώρο σου", en="your gift", ro="cadoul tău"
+    )
     end_label = _format_email_date((grant or {}).get("ends_at"), lang) if grant else ""
     start_label = _format_email_date((grant or {}).get("starts_at"), lang) if grant else ""
 
@@ -2055,6 +2239,25 @@ def render_gift_code_claimed_email(
         )
         subject = "Your HeyMaa gift is active"
         preheader = "Gift claimed successfully"
+    elif lang == "ro":
+        timing = ""
+        if grant and grant.get("upgraded"):
+            timing = "Aliniat la planul tău curent. Zilele extra încep după ce expiră accesul actual."
+        elif start_label and end_label:
+            timing = f"Zilele de plan rulează de pe {start_label} până pe {end_label}."
+        elif end_label:
+            timing = f"Zilele de plan sunt active până pe {end_label}."
+        body = (
+            _greeting(name, lang)
+            + _paragraph(
+                f'Gata! Cadoul tău este activ: <strong style="color:{TEXT};">{escape(reward)}</strong>.'
+            )
+            + (_paragraph(timing) if timing else "")
+            + _button(app_href, "Deschide HeyMaa")
+            + _help_footer(lang)
+        )
+        subject = "Cadoul tău HeyMaa este activ"
+        preheader = "Cadoul a fost revendicat cu succes"
     else:
         timing = ""
         if grant and grant.get("upgraded"):
