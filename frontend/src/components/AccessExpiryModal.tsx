@@ -34,7 +34,7 @@ export function AccessExpiryModal({ open, lang, info, onClose, onRenew }: Props)
             type="button"
             className="hm-expiry-modal__cta"
             onClick={() => {
-              onClose()
+              // Do not treat buy as dismiss — if checkout is abandoned, re-show urgency.
               onRenew()
             }}
           >

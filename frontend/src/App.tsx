@@ -6145,7 +6145,7 @@ function MainApp({ token, profile, onLogout, onExpired, onProfileUpdate, onToken
           setShowAccessExpiryModal(false);
         }}
         onRenew={() => {
-          if (accessExpiryInfo) dismissExpiryPopup(accessExpiryInfo.accessEndsAt);
+          // Close only — keep dismiss for "Later" so abandoned checkout can re-prompt.
           setShowAccessExpiryModal(false);
           goToVivaCheckout("starter");
         }}
